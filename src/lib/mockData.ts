@@ -251,94 +251,94 @@ export const mockBrokers: BrokerInfo[] = [
 ];
 
 // Mock Vehicles Data (Enhanced)
-export const mockVehicles: Vehicle[] = [
-  {
-    id: "V001",
-    vehicleNumber: "GJ-05-AB-1234",
-    vehicleType: "Truck - 20ft",
-    capacity: "15 tons",
-    status: "OCCUPIED",
-    isVerified: true,
-    isOwned: true,
-    assignedBookingId: "1",
-    documents: [
-      { id: "D1", type: "RC", fileName: "RC_GJ05AB1234.pdf", uploadedDate: "2024-01-15", isVerified: true },
-      { id: "D2", type: "DL", fileName: "DL_Driver1.pdf", uploadedDate: "2024-01-15", isVerified: true }
-    ],
-    addedDate: "2024-01-15"
-  },
-  {
-    id: "V002",
-    vehicleNumber: "MH-12-CD-5678",
-    vehicleType: "Container - 40ft",
-    capacity: "25 tons",
-    status: "OCCUPIED",
-    isVerified: true,
-    isOwned: true,
-    assignedBookingId: "3",
-    documents: [
-      { id: "D3", type: "RC", fileName: "RC_MH12CD5678.pdf", uploadedDate: "2024-01-20", isVerified: true },
-      { id: "D4", type: "DL", fileName: "DL_Driver2.pdf", uploadedDate: "2024-01-20", isVerified: true }
-    ],
-    addedDate: "2024-01-20"
-  },
-  {
-    id: "V003",
-    vehicleNumber: "GJ-01-EF-9012",
-    vehicleType: "Truck - 16ft",
-    capacity: "12 tons",
-    status: "AVAILABLE",
-    isVerified: true,
-    isOwned: true,
-    documents: [
-      { id: "D5", type: "RC", fileName: "RC_GJ01EF9012.pdf", uploadedDate: "2024-01-25", isVerified: true },
-      { id: "D6", type: "DL", fileName: "DL_Driver3.pdf", uploadedDate: "2024-01-25", isVerified: true }
-    ],
-    addedDate: "2024-01-25"
-  },
-  {
-    id: "V004",
-    vehicleNumber: "GJ-06-GH-3456",
-    vehicleType: "Truck - 20ft",
-    capacity: "15 tons",
-    status: "AVAILABLE",
-    isVerified: true,
-    isOwned: true,
-    documents: [
-      { id: "D7", type: "RC", fileName: "RC_GJ06GH3456.pdf", uploadedDate: "2024-02-01", isVerified: true },
-      { id: "D8", type: "DL", fileName: "DL_Driver4.pdf", uploadedDate: "2024-02-01", isVerified: true }
-    ],
-    addedDate: "2024-02-01"
-  },
-  {
-    id: "V005", 
-    vehicleNumber: "MH-14-IJ-7890",
-    vehicleType: "Container - 40ft",
-    capacity: "25 tons",
-    status: "AVAILABLE",
-    isVerified: false,
-    isOwned: false,
-    broker: mockBrokers[0],
-    documents: [
-      { id: "D9", type: "RC", fileName: "RC_MH14IJ7890.pdf", uploadedDate: "2024-02-05", isVerified: false }
-    ],
-    addedDate: "2024-02-05"
-  },
-  {
-    id: "V006",
-    vehicleNumber: "KA-03-KL-2345",
-    vehicleType: "Truck - 16ft", 
-    capacity: "12 tons",
-    status: "MAINTENANCE",
-    isVerified: true,
-    isOwned: true,
-    documents: [
-      { id: "D10", type: "RC", fileName: "RC_KA03KL2345.pdf", uploadedDate: "2024-02-10", isVerified: true },
-      { id: "D11", type: "DL", fileName: "DL_Driver6.pdf", uploadedDate: "2024-02-10", isVerified: true }
-    ],
-    addedDate: "2024-02-10"
-  }
-];
+// export const mockVehicles: Vehicle[] = [
+//   {
+//     id: "V001",
+//     vehicleNumber: "GJ-05-AB-1234",
+//     vehicleType: "Truck - 20ft",
+//     capacity: "15 tons",
+//     status: "OCCUPIED",
+//     isVerified: true,
+//     isOwned: true,
+//     assignedBookingId: "1",
+//     documents: [
+//       { id: "D1", type: "RC", fileName: "RC_GJ05AB1234.pdf", uploadedDate: "2024-01-15", isVerified: true },
+//       { id: "D2", type: "DL", fileName: "DL_Driver1.pdf", uploadedDate: "2024-01-15", isVerified: true }
+//     ],
+//     addedDate: "2024-01-15"
+//   },
+//   {
+//     id: "V002",
+//     vehicleNumber: "MH-12-CD-5678",
+//     vehicleType: "Container - 40ft",
+//     capacity: "25 tons",
+//     status: "OCCUPIED",
+//     isVerified: true,
+//     isOwned: true,
+//     assignedBookingId: "3",
+//     documents: [
+//       { id: "D3", type: "RC", fileName: "RC_MH12CD5678.pdf", uploadedDate: "2024-01-20", isVerified: true },
+//       { id: "D4", type: "DL", fileName: "DL_Driver2.pdf", uploadedDate: "2024-01-20", isVerified: true }
+//     ],
+//     addedDate: "2024-01-20"
+//   },
+//   {
+//     id: "V003",
+//     vehicleNumber: "GJ-01-EF-9012",
+//     vehicleType: "Truck - 16ft",
+//     capacity: "12 tons",
+//     status: "AVAILABLE",
+//     isVerified: true,
+//     isOwned: true,
+//     documents: [
+//       { id: "D5", type: "RC", fileName: "RC_GJ01EF9012.pdf", uploadedDate: "2024-01-25", isVerified: true },
+//       { id: "D6", type: "DL", fileName: "DL_Driver3.pdf", uploadedDate: "2024-01-25", isVerified: true }
+//     ],
+//     addedDate: "2024-01-25"
+//   },
+//   {
+//     id: "V004",
+//     vehicleNumber: "GJ-06-GH-3456",
+//     vehicleType: "Truck - 20ft",
+//     capacity: "15 tons",
+//     status: "AVAILABLE",
+//     isVerified: true,
+//     isOwned: true,
+//     documents: [
+//       { id: "D7", type: "RC", fileName: "RC_GJ06GH3456.pdf", uploadedDate: "2024-02-01", isVerified: true },
+//       { id: "D8", type: "DL", fileName: "DL_Driver4.pdf", uploadedDate: "2024-02-01", isVerified: true }
+//     ],
+//     addedDate: "2024-02-01"
+//   },
+//   {
+//     id: "V005", 
+//     vehicleNumber: "MH-14-IJ-7890",
+//     vehicleType: "Container - 40ft",
+//     capacity: "25 tons",
+//     status: "AVAILABLE",
+//     isVerified: false,
+//     isOwned: false,
+//     broker: mockBrokers[0],
+//     documents: [
+//       { id: "D9", type: "RC", fileName: "RC_MH14IJ7890.pdf", uploadedDate: "2024-02-05", isVerified: false }
+//     ],
+//     addedDate: "2024-02-05"
+//   },
+//   {
+//     id: "V006",
+//     vehicleNumber: "KA-03-KL-2315",
+//     vehicleType: "Truck - 16ft", 
+//     capacity: "12 tons",
+//     status: "MAINTENANCE",
+//     isVerified: true,
+//     isOwned: true,
+//     documents: [
+//       { id: "D10", type: "RC", fileName: "RC_KA03KL2345.pdf", uploadedDate: "2024-02-10", isVerified: true },
+//       { id: "D11", type: "DL", fileName: "DL_Driver6.pdf", uploadedDate: "2024-02-10", isVerified: true }
+//     ],
+//     addedDate: "2024-02-10"
+//   }
+// ];
 
 export const mockDrivers: DriverOption[] = [
   {

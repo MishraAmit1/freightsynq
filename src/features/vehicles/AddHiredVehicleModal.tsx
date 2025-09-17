@@ -4,52 +4,44 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Save, X, Upload } from "lucide-react";
-import { mockBrokers } from "@/lib/mockData";
+import { Truck, Save, X, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface VehicleFormData {
   vehicleNumber: string;
   vehicleType: string;
   capacity: string;
-}
-
-interface BrokerFormData {
-  id?: string;
-  name: string;
-  contactPerson: string;
-  phone: string;
-  email: string;
+  // ❌ REMOVED: brokerId from interface
+  ratePerTrip?: string;
 }
 
 interface AddHiredVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (vehicleData: VehicleFormData, brokerData: BrokerFormData) => void;
+  onSave: (vehicleData: VehicleFormData & { brokerId: string }) => void; // brokerId will be added automatically
+  selectedBrokerId: string; // 🔥 NEW: Pass selected broker from main modal
+  selectedBrokerName?: string; // 🔥 NEW: Optional broker name for display
 }
 
-export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicleModalProps) => {
+export const AddHiredVehicleModal = ({
+  isOpen,
+  onClose,
+  onSave,
+  selectedBrokerId,
+  selectedBrokerName
+}: AddHiredVehicleModalProps) => {
   const { toast } = useToast();
   const [vehicleData, setVehicleData] = useState<VehicleFormData>({
     vehicleNumber: "",
     vehicleType: "",
-    capacity: ""
+    capacity: "",
+    // ❌ REMOVED: brokerId: "",
+    ratePerTrip: ""
   });
-  
-  const [brokerData, setBrokerData] = useState<BrokerFormData>({
-    name: "",
-    contactPerson: "",
-    phone: "",
-    email: ""
-  });
-
-  const [selectedBrokerId, setSelectedBrokerId] = useState("");
-  const [brokerTab, setBrokerTab] = useState("existing");
 
   const vehicleTypes = [
     "Truck - 16ft",
-    "Truck - 20ft", 
+    "Truck - 20ft",
     "Truck - 24ft",
     "Container - 20ft",
     "Container - 40ft",
@@ -61,7 +53,7 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
 
   const capacities = [
     "1 ton",
-    "2 tons", 
+    "2 tons",
     "5 tons",
     "8 tons",
     "12 tons",
@@ -72,6 +64,7 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
   ];
 
   const handleSubmit = () => {
+    // Validation - ONLY vehicle details
     if (!vehicleData.vehicleNumber.trim() || !vehicleData.vehicleType || !vehicleData.capacity) {
       toast({
         title: "Validation Error",
@@ -81,58 +74,47 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
       return;
     }
 
-    let finalBrokerData: BrokerFormData;
+    // ❌ REMOVED: Broker validation (since it's passed from parent)
 
-    if (brokerTab === "existing") {
-      const selectedBroker = mockBrokers.find(b => b.id === selectedBrokerId);
-      if (!selectedBroker) {
-        toast({
-          title: "Validation Error",
-          description: "Please select a broker",
-          variant: "destructive"
-        });
-        return;
-      }
-      finalBrokerData = selectedBroker;
-    } else {
-      if (!brokerData.name.trim() || !brokerData.contactPerson.trim() || !brokerData.phone.trim()) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in all broker details",
-          variant: "destructive"
-        });
-        return;
-      }
-      finalBrokerData = { ...brokerData, id: `B${Date.now()}` };
-    }
+    // Pass vehicle data + selectedBrokerId from parent
+    onSave({
+      ...vehicleData,
+      brokerId: selectedBrokerId // 🔥 Use broker from main modal
+    });
 
-    onSave(vehicleData, finalBrokerData);
-    
     // Reset form
     setVehicleData({
       vehicleNumber: "",
       vehicleType: "",
-      capacity: ""
+      capacity: "",
+      ratePerTrip: ""
     });
-    setBrokerData({
-      name: "",
-      contactPerson: "",
-      phone: "",
-      email: ""
+
+    onClose();
+  };
+
+  const handleClose = () => {
+    setVehicleData({
+      vehicleNumber: "",
+      vehicleType: "",
+      capacity: "",
+      ratePerTrip: ""
     });
-    setSelectedBrokerId("");
-    setBrokerTab("existing");
-    
     onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" />
+            <Truck className="w-5 h-5 text-primary" />
             Add Hired Vehicle
+            {selectedBrokerName && (
+              <span className="text-sm text-muted-foreground">
+                • {selectedBrokerName}
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -140,7 +122,7 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
           {/* Vehicle Details */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Vehicle Details</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="vehicleNumber">Vehicle Number *</Label>
                 <Input
@@ -150,10 +132,11 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
                   placeholder="GJ-01-AB-1234"
                 />
               </div>
+
               <div>
                 <Label htmlFor="vehicleType">Vehicle Type *</Label>
-                <Select 
-                  value={vehicleData.vehicleType} 
+                <Select
+                  value={vehicleData.vehicleType}
                   onValueChange={(value) => setVehicleData({ ...vehicleData, vehicleType: value })}
                 >
                   <SelectTrigger>
@@ -166,10 +149,11 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
                   </SelectContent>
                 </Select>
               </div>
+
               <div>
                 <Label htmlFor="capacity">Capacity *</Label>
-                <Select 
-                  value={vehicleData.capacity} 
+                <Select
+                  value={vehicleData.capacity}
                   onValueChange={(value) => setVehicleData({ ...vehicleData, capacity: value })}
                 >
                   <SelectTrigger>
@@ -182,99 +166,35 @@ export const AddHiredVehicleModal = ({ isOpen, onClose, onSave }: AddHiredVehicl
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <Label htmlFor="ratePerTrip">Rate per Trip (Optional)</Label>
+                <Input
+                  id="ratePerTrip"
+                  type="number"
+                  value={vehicleData.ratePerTrip}
+                  onChange={(e) => setVehicleData({ ...vehicleData, ratePerTrip: e.target.value })}
+                  placeholder="25000"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Broker Details */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Broker Details</h3>
-            <Tabs value={brokerTab} onValueChange={setBrokerTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="existing">Existing Broker</TabsTrigger>
-                <TabsTrigger value="new">New Broker</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="existing">
-                <div>
-                  <Label htmlFor="broker">Select Broker *</Label>
-                  <Select value={selectedBrokerId} onValueChange={setSelectedBrokerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a broker" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockBrokers.map((broker) => (
-                        <SelectItem key={broker.id} value={broker.id}>
-                          <div className="flex flex-col text-left">
-                            <span className="font-medium">{broker.name}</span>
-                            <span className="text-sm text-muted-foreground">
-                              {broker.contactPerson} • {broker.phone}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="new">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="brokerName">Broker Name *</Label>
-                    <Input
-                      id="brokerName"
-                      value={brokerData.name}
-                      onChange={(e) => setBrokerData({ ...brokerData, name: e.target.value })}
-                      placeholder="Enter broker company name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="contactPerson">Contact Person *</Label>
-                    <Input
-                      id="contactPerson"
-                      value={brokerData.contactPerson}
-                      onChange={(e) => setBrokerData({ ...brokerData, contactPerson: e.target.value })}
-                      placeholder="Contact person name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number *</Label>
-                    <Input
-                      id="phone"
-                      value={brokerData.phone}
-                      onChange={(e) => setBrokerData({ ...brokerData, phone: e.target.value })}
-                      placeholder="+91-9876543210"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={brokerData.email}
-                      onChange={(e) => setBrokerData({ ...brokerData, email: e.target.value })}
-                      placeholder="broker@company.com"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
+          {/* ❌ COMPLETELY REMOVED: Broker Selection Section */}
 
-          {/* Document Upload */}
+          {/* Document Upload (Optional) */}
           <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
             <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground">
-              Upload Vehicle RC, Driver's License & Agreement
+              Upload Vehicle RC & Agreement (Optional)
             </p>
             <Button variant="outline" size="sm" className="mt-2">
               Choose Files
             </Button>
           </div>
         </div>
-
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={handleClose}>
             <X className="w-4 h-4 mr-2" />
             Cancel
           </Button>

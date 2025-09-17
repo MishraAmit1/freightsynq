@@ -1,66 +1,146 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import { supabase } from '@/lib/supabase'
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Truck, User, Upload, CheckCircle, AlertCircle } from "lucide-react";
-import { AssignedVehicle, mockVehicles, mockDrivers, mockBrokers, Vehicle } from "@/lib/mockData";
+import {
+  Truck,
+  User,
+  Loader2,
+  Building2,
+  Package,
+  Check,
+  ChevronsUpDown,
+  Plus,
+  UserPlus
+} from "lucide-react";
+import {
+  fetchAvailableOwnedVehicles,
+  fetchAvailableHiredVehicles,
+  fetchDrivers,
+  assignVehicleToBooking,
+  fetchBrokers,
+  createOwnedVehicle,
+  createHiredVehicle,
+  createBroker
+} from "@/api/vehicles";
+import { createDriver } from "@/api/drivers"; // You'll need to implement this
+import { AddVehicleModal } from "../vehicles/AddVehicleModal";
+import { AddHiredVehicleModal } from "../vehicles/AddHiredVehicleModal";
+import { AddBrokerModal } from "../vehicles/AddBrokerModal";
+import { AddDriverModal } from "./AddDriverModal"; // You'll need to create this component
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface EnhancedVehicleAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAssign: (vehicleAssignment: AssignedVehicle) => void;
+  onAssign: (vehicleAssignment: any) => void;
   bookingId: string;
 }
 
-export const EnhancedVehicleAssignmentModal = ({ 
-  isOpen, 
-  onClose, 
-  onAssign, 
-  bookingId 
+export const EnhancedVehicleAssignmentModal = ({
+  isOpen,
+  onClose,
+  onAssign,
+  bookingId
 }: EnhancedVehicleAssignmentModalProps) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("owned");
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
+  const [selectedBrokerId, setSelectedBrokerId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("owned");
-  
-  // Hired vehicle form data
-  const [hiredVehicleData, setHiredVehicleData] = useState({
-    vehicleNumber: "",
-    vehicleType: "",
-    capacity: "",
-    brokerId: "",
-    driverName: "",
-    driverPhone: ""
-  });
+  const [dataLoading, setDataLoading] = useState(true);
 
-  // Filter available verified vehicles
-  const availableVehicles = mockVehicles.filter(v => 
-    v.status === "AVAILABLE" && v.isVerified && v.isOwned
-  );
+  // Search states
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [brokerSearch, setBrokerSearch] = useState("");
+  const [driverSearch, setDriverSearch] = useState("");
 
-  const availableHiredVehicles = mockVehicles.filter(v => 
-    v.status === "AVAILABLE" && v.isVerified && !v.isOwned
-  );
+  // Popover open states
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+  const [brokerOpen, setBrokerOpen] = useState(false);
+  const [driverOpen, setDriverOpen] = useState(false);
 
-  const handleAssignOwned = async () => {
+  // 🔥 NEW: Sub-modal states
+  const [isAddOwnedVehicleModalOpen, setIsAddOwnedVehicleModalOpen] = useState(false);
+  const [isAddHiredVehicleModalOpen, setIsAddHiredVehicleModalOpen] = useState(false);
+  const [isAddBrokerModalOpen, setIsAddBrokerModalOpen] = useState(false);
+  const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
+
+  const [ownedVehicles, setOwnedVehicles] = useState<any[]>([]);
+  const [hiredVehicles, setHiredVehicles] = useState<any[]>([]);
+  const [brokers, setBrokers] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Reset vehicle selection when broker changes
+    setSelectedVehicleId("");
+  }, [selectedBrokerId]);
+
+  useEffect(() => {
+    // Reset selections when tab changes
+    setSelectedVehicleId("");
+    setSelectedBrokerId("");
+  }, [activeTab]);
+
+  const loadData = async () => {
+    try {
+      setDataLoading(true);
+      const [ownedData, hiredData, driversData, brokersData] = await Promise.all([
+        fetchAvailableOwnedVehicles(),
+        fetchAvailableHiredVehicles(),
+        fetchDrivers(),
+        fetchBrokers()
+      ]);
+
+      setOwnedVehicles(ownedData);
+      setHiredVehicles(hiredData);
+      setDrivers(driversData);
+      setBrokers(brokersData);
+    } catch (error) {
+      console.error('Error loading data in assignment modal:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load assignment data",
+        variant: "destructive"
+      });
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  const handleAssign = async () => {
     if (!selectedVehicleId || !selectedDriverId) {
       toast({
         title: "Selection Required",
@@ -70,287 +150,649 @@ export const EnhancedVehicleAssignmentModal = ({
       return;
     }
 
-    setIsLoading(true);
-    
-    const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId);
-    const selectedDriver = mockDrivers.find(d => d.id === selectedDriverId);
-
-    if (selectedVehicle && selectedDriver) {
-      const assignment: AssignedVehicle = {
-        id: selectedVehicle.id,
-        vehicleNumber: selectedVehicle.vehicleNumber,
-        vehicleType: selectedVehicle.vehicleType,
-        capacity: selectedVehicle.capacity,
-        driver: {
-          id: selectedDriver.id,
-          name: selectedDriver.name,
-          phone: selectedDriver.phone,
-        }
-      };
-
-      setTimeout(() => {
-        onAssign(assignment);
-        setIsLoading(false);
-        resetForm();
-        onClose();
-      }, 1000);
-    }
-  };
-
-  const handleAssignHired = async () => {
-    if (!hiredVehicleData.vehicleNumber || !hiredVehicleData.brokerId || 
-        !hiredVehicleData.driverName || !hiredVehicleData.driverPhone) {
+    if (activeTab === "hired" && !selectedBrokerId) {
       toast({
-        title: "Information Required",
-        description: "Please fill in all hired vehicle details",
+        title: "Broker Required",
+        description: "Please select a broker for hired vehicle",
         variant: "destructive"
       });
       return;
     }
 
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
 
-    const assignment: AssignedVehicle = {
-      id: `HIRED_${Date.now()}`,
-      vehicleNumber: hiredVehicleData.vehicleNumber,
-      vehicleType: hiredVehicleData.vehicleType,
-      capacity: hiredVehicleData.capacity,
-      driver: {
-        id: `HIRED_DRIVER_${Date.now()}`,
-        name: hiredVehicleData.driverName,
-        phone: hiredVehicleData.driverPhone,
+      await assignVehicleToBooking({
+        booking_id: bookingId,
+        vehicle_type: activeTab === 'owned' ? 'OWNED' : 'HIRED',
+        vehicle_id: selectedVehicleId,
+        driver_id: selectedDriverId,
+        broker_id: activeTab === "hired" ? selectedBrokerId : undefined,
+        status: 'ACTIVE',
+      });
+
+      if (activeTab === 'owned') {
+        await supabase.from('owned_vehicles').update({ status: 'OCCUPIED' }).eq('id', selectedVehicleId);
+      } else {
+        await supabase.from('hired_vehicles').update({ status: 'OCCUPIED' }).eq('id', selectedVehicleId);
       }
-    };
 
-    setTimeout(() => {
-      onAssign(assignment);
+      const allVehicles = [...ownedVehicles, ...hiredVehicles];
+      const selectedVehicle = allVehicles.find(v => v.id === selectedVehicleId);
+      const selectedDriver = drivers.find(d => d.id === selectedDriverId);
+      const selectedBroker = activeTab === "hired" ? brokers.find(b => b.id === selectedBrokerId) : null;
+
+      if (selectedVehicle && selectedDriver) {
+        const assignment = {
+          id: selectedVehicle.id,
+          vehicleNumber: selectedVehicle.vehicle_number,
+          vehicleType: selectedVehicle.vehicle_type,
+          capacity: selectedVehicle.capacity,
+          isOwned: activeTab === 'owned',
+          broker: selectedBroker,
+          driver: {
+            id: selectedDriver.id,
+            name: selectedDriver.name,
+            phone: selectedDriver.phone,
+          }
+        };
+
+        onAssign(assignment);
+
+        toast({
+          title: "Vehicle Assigned Successfully",
+          description: `Vehicle ${selectedVehicle.vehicle_number} has been assigned`,
+        });
+
+        // Reset form
+        setSelectedVehicleId("");
+        setSelectedDriverId("");
+        setSelectedBrokerId("");
+        setActiveTab("owned");
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error assigning vehicle:', error);
+      toast({
+        title: "Error",
+        description: "Failed to assign vehicle. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setIsLoading(false);
-      resetForm();
-      onClose();
-    }, 1000);
+    }
   };
 
-  const resetForm = () => {
-    setSelectedVehicleId("");
-    setSelectedDriverId("");
-    setHiredVehicleData({
-      vehicleNumber: "",
-      vehicleType: "",
-      capacity: "",
-      brokerId: "",
-      driverName: "",
-      driverPhone: ""
-    });
-    setActiveTab("owned");
+  // 🔥 NEW: Handle adding owned vehicle
+  const handleAddOwnedVehicle = async (vehicleData: any) => {
+    try {
+      const newVehicle = await createOwnedVehicle({
+        vehicle_number: vehicleData.vehicle_number,
+        vehicle_type: vehicleData.vehicle_type,
+        capacity: vehicleData.capacity,
+        registration_date: vehicleData.registration_date,
+        insurance_expiry: vehicleData.insurance_expiry,
+        fitness_expiry: vehicleData.fitness_expiry,
+        permit_expiry: vehicleData.permit_expiry,
+      });
+
+      // Refresh data
+      await loadData();
+
+      // Auto-select the newly created vehicle
+      setSelectedVehicleId(newVehicle.id);
+      setIsAddOwnedVehicleModalOpen(false);
+
+      toast({
+        title: "Vehicle Added Successfully",
+        description: `${vehicleData.vehicle_number} has been added and selected`,
+      });
+    } catch (error) {
+      console.error('Error adding owned vehicle:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add vehicle. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
+
+  // 🔥 NEW: Handle adding hired vehicle
+  const handleAddHiredVehicle = async (vehicleData: any) => {
+    try {
+      const newVehicle = await createHiredVehicle({
+        vehicle_number: vehicleData.vehicleNumber,
+        vehicle_type: vehicleData.vehicleType,
+        capacity: vehicleData.capacity,
+        broker_id: vehicleData.brokerId,
+        rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
+      });
+
+      // Refresh data
+      await loadData();
+
+      // Auto-select broker and vehicle
+      setSelectedBrokerId(vehicleData.brokerId);
+      setSelectedVehicleId(newVehicle.id);
+      setIsAddHiredVehicleModalOpen(false);
+
+      toast({
+        title: "Hired Vehicle Added Successfully",
+        description: `${vehicleData.vehicleNumber} has been added and selected`,
+      });
+    } catch (error) {
+      console.error('Error adding hired vehicle:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add hired vehicle. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 🔥 NEW: Handle adding broker
+  const handleAddBroker = async (brokerData: any) => {
+    try {
+      const newBroker = await createBroker({
+        name: brokerData.name,
+        contact_person: brokerData.contactPerson,
+        phone: brokerData.phone,
+        email: brokerData.email || undefined
+      });
+
+      // Refresh data
+      await loadData();
+
+      // Auto-select the newly created broker
+      setSelectedBrokerId(newBroker.id);
+      setIsAddBrokerModalOpen(false);
+
+      toast({
+        title: "Broker Added Successfully",
+        description: `${brokerData.name} has been added and selected`,
+      });
+    } catch (error) {
+      console.error('Error adding broker:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add broker. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // 🔥 NEW: Handle adding driver
+  // 🔥 NEW: Handle adding driver (UPDATED - removed address)
+  const handleAddDriver = async (driverData: any) => {
+    try {
+      const newDriver = await createDriver({
+        name: driverData.name,
+        phone: driverData.phone,
+        license_number: driverData.license_number,
+        experience: driverData.experience,
+        // ❌ REMOVED: address parameter
+      });
+
+      // Refresh data
+      await loadData();
+
+      // Auto-select the newly created driver
+      setSelectedDriverId(newDriver.id);
+      setIsAddDriverModalOpen(false);
+
+      toast({
+        title: "Driver Added Successfully",
+        description: `${driverData.name} has been added and selected`,
+      });
+    } catch (error) {
+      console.error('Error adding driver:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add driver. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (dataLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-2xl">
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <span className="ml-2">Loading...</span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Get selected items for display
+  const selectedVehicle = [...ownedVehicles, ...hiredVehicles].find(v => v.id === selectedVehicleId);
+  const selectedBroker = brokers.find(b => b.id === selectedBrokerId);
+  const selectedDriver = drivers.find(d => d.id === selectedDriverId);
+
+  // Filter vehicles based on search
+  const filteredOwnedVehicles = ownedVehicles.filter(v =>
+    vehicleSearch === "" ||
+    v.vehicle_number.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+    v.vehicle_type.toLowerCase().includes(vehicleSearch.toLowerCase())
+  );
+
+  const filteredHiredVehicles = hiredVehicles.filter(v =>
+    vehicleSearch === "" ||
+    v.vehicle_number.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+    v.vehicle_type.toLowerCase().includes(vehicleSearch.toLowerCase())
+  );
+
+  const filteredBrokers = brokers.filter(b =>
+    brokerSearch === "" ||
+    b.name.toLowerCase().includes(brokerSearch.toLowerCase()) ||
+    b.contact_person.toLowerCase().includes(brokerSearch.toLowerCase())
+  );
+
+  const filteredDrivers = drivers.filter(d =>
+    driverSearch === "" ||
+    d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+    d.phone.toLowerCase().includes(driverSearch.toLowerCase())
+  );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-primary" />
-            Assign Vehicle - {bookingId}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="owned" className="flex items-center gap-2">
-              <Truck className="w-4 h-4" />
-              Owned Vehicles ({availableVehicles.length})
-            </TabsTrigger>
-            <TabsTrigger value="hired" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Hire Vehicle
-            </TabsTrigger>
-          </TabsList>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5 text-primary" />
+              Assign Vehicle - {bookingId}
+            </DialogTitle>
+          </DialogHeader>
 
-          <TabsContent value="owned" className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="vehicle">Select Vehicle</Label>
-              <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose an available vehicle..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableVehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">{vehicle.vehicleNumber}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {vehicle.vehicleType} • {vehicle.capacity}
-                          </span>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="owned" className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Owned Vehicles ({ownedVehicles.length})
+              </TabsTrigger>
+              <TabsTrigger value="hired" className="flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                Hired Vehicles ({hiredVehicles.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="owned" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Select Vehicle</Label>
+                <Popover open={vehicleOpen} onOpenChange={setVehicleOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={vehicleOpen}
+                      className="w-full justify-between"
+                    >
+                      {selectedVehicle && activeTab === "owned" ? (
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-4 h-4" />
+                          <span>{selectedVehicle.vehicle_number}</span>
+                          <span className="text-muted-foreground">• {selectedVehicle.vehicle_type}</span>
                         </div>
-                        <Badge variant="default" className="bg-success text-success-foreground ml-2">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {availableVehicles.length === 0 && (
-                <p className="text-sm text-muted-foreground">No verified vehicles available</p>
+                      ) : (
+                        <span className="text-muted-foreground">Choose an owned vehicle...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search vehicles..."
+                        className="h-9"
+                        value={vehicleSearch}
+                        onValueChange={setVehicleSearch}
+                      />
+                      <CommandEmpty>
+                        <div className="py-6 text-center text-sm">
+                          <p className="text-muted-foreground mb-2">No vehicle found.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAddOwnedVehicleModalOpen(true)}
+                            className="gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Owned Vehicle
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {filteredOwnedVehicles.map((vehicle) => (
+                          <CommandItem
+                            key={vehicle.id}
+                            value={`${vehicle.vehicle_number} ${vehicle.vehicle_type}`}
+                            onSelect={() => {
+                              setSelectedVehicleId(vehicle.id);
+                              setVehicleOpen(false);
+                              setVehicleSearch("");
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedVehicleId === vehicle.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{vehicle.vehicle_number}</span>
+                                {vehicle.is_verified && (
+                                  <Badge variant="success" className="text-xs">
+                                    Verified
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {vehicle.vehicle_type} • {vehicle.capacity}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="hired" className="space-y-4 mt-4">
+              {/* Broker Selection */}
+              <div className="space-y-2">
+                <Label>Select Broker</Label>
+                <Popover open={brokerOpen} onOpenChange={setBrokerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={brokerOpen}
+                      className="w-full justify-between"
+                    >
+                      {selectedBroker ? (
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4" />
+                          <span>{selectedBroker.name}</span>
+                          <span className="text-muted-foreground">• {selectedBroker.contact_person}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Choose a broker...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Search brokers..."
+                        className="h-9"
+                        value={brokerSearch}
+                        onValueChange={setBrokerSearch}
+                      />
+                      <CommandEmpty>
+                        <div className="py-6 text-center text-sm">
+                          <p className="text-muted-foreground mb-2">No broker found.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsAddBrokerModalOpen(true)}
+                            className="gap-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Broker
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {filteredBrokers.map((broker) => (
+                          <CommandItem
+                            key={broker.id}
+                            value={`${broker.name} ${broker.contact_person} ${broker.phone}`}
+                            onSelect={() => {
+                              setSelectedBrokerId(broker.id);
+                              setBrokerOpen(false);
+                              setBrokerSearch("");
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedBrokerId === broker.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium">{broker.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {broker.contact_person} • {broker.phone}
+                              </div>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Vehicle Selection */}
+              {selectedBrokerId && (
+                <div className="space-y-2">
+                  <Label>Select Vehicle</Label>
+                  <Popover open={vehicleOpen} onOpenChange={setVehicleOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={vehicleOpen}
+                        className="w-full justify-between"
+                      >
+                        {selectedVehicle && activeTab === "hired" ? (
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-4 h-4" />
+                            <span>{selectedVehicle.vehicle_number}</span>
+                            <span className="text-muted-foreground">• {selectedVehicle.vehicle_type}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Choose a vehicle...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search vehicles..."
+                          className="h-9"
+                          value={vehicleSearch}
+                          onValueChange={setVehicleSearch}
+                        />
+                        <CommandEmpty>
+                          <div className="py-6 text-center text-sm">
+                            <p className="text-muted-foreground mb-2">No vehicle found.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsAddHiredVehicleModalOpen(true)}
+                              className="gap-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Add Hired Vehicle
+                            </Button>
+                          </div>
+                        </CommandEmpty>
+                        <CommandGroup className="max-h-64 overflow-auto">
+                          {filteredHiredVehicles.map((vehicle) => (
+                            <CommandItem
+                              key={vehicle.id}
+                              value={`${vehicle.vehicle_number} ${vehicle.vehicle_type}`}
+                              onSelect={() => {
+                                setSelectedVehicleId(vehicle.id);
+                                setVehicleOpen(false);
+                                setVehicleSearch("");
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedVehicleId === vehicle.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{vehicle.vehicle_number}</span>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {vehicle.vehicle_type} • {vehicle.capacity}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               )}
-            </div>
+            </TabsContent>
+          </Tabs>
 
-            <div className="space-y-2">
-              <Label htmlFor="driver">Select Driver</Label>
-              <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a driver..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mockDrivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
+          {/* Driver Selection (Common for both tabs) */}
+          {selectedVehicleId && (
+            <div className="space-y-2 mt-4">
+              <Label>Select Driver</Label>
+              <Popover open={driverOpen} onOpenChange={setDriverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={driverOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedDriver ? (
                       <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">{driver.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {driver.phone} • License: {driver.licenseNumber}
-                          </span>
-                        </div>
+                        <User className="w-4 h-4" />
+                        <span>{selectedDriver.name}</span>
+                        <span className="text-muted-foreground">• {selectedDriver.phone}</span>
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ) : (
+                      <span className="text-muted-foreground">Choose a driver...</span>
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search drivers..."
+                      className="h-9"
+                      value={driverSearch}
+                      onValueChange={setDriverSearch}
+                    />
+                    <CommandEmpty>
+                      <div className="py-6 text-center text-sm">
+                        <p className="text-muted-foreground mb-2">No driver found.</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsAddDriverModalOpen(true)}
+                          className="gap-2"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          Add Driver
+                        </Button>
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-auto">
+                      {filteredDrivers.map((driver) => (
+                        <CommandItem
+                          key={driver.id}
+                          value={`${driver.name} ${driver.phone} ${driver.license_number || ''}`}
+                          onSelect={() => {
+                            setSelectedDriverId(driver.id);
+                            setDriverOpen(false);
+                            setDriverSearch("");
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedDriverId === driver.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium">{driver.name}</span>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {driver.phone} • {driver.experience || 'Experience not specified'}
+                            </div>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="hired" className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="hiredVehicleNumber">Vehicle Number *</Label>
-                <Input
-                  id="hiredVehicleNumber"
-                  value={hiredVehicleData.vehicleNumber}
-                  onChange={(e) => setHiredVehicleData({
-                    ...hiredVehicleData, 
-                    vehicleNumber: e.target.value.toUpperCase()
-                  })}
-                  placeholder="GJ-01-AB-1234"
-                />
-              </div>
-              <div>
-                <Label htmlFor="hiredVehicleType">Vehicle Type</Label>
-                <Input
-                  id="hiredVehicleType"
-                  value={hiredVehicleData.vehicleType}
-                  onChange={(e) => setHiredVehicleData({
-                    ...hiredVehicleData, 
-                    vehicleType: e.target.value
-                  })}
-                  placeholder="Truck - 20ft"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="hiredCapacity">Capacity</Label>
-                <Input
-                  id="hiredCapacity"
-                  value={hiredVehicleData.capacity}
-                  onChange={(e) => setHiredVehicleData({
-                    ...hiredVehicleData, 
-                    capacity: e.target.value
-                  })}
-                  placeholder="15 tons"
-                />
-              </div>
-              <div>
-                <Label htmlFor="broker">Broker *</Label>
-                <Select 
-                  value={hiredVehicleData.brokerId} 
-                  onValueChange={(value) => setHiredVehicleData({
-                    ...hiredVehicleData, 
-                    brokerId: value
-                  })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select broker" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockBrokers.map((broker) => (
-                      <SelectItem key={broker.id} value={broker.id}>
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">{broker.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            {broker.contactPerson}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="hiredDriverName">Driver Name *</Label>
-                <Input
-                  id="hiredDriverName"
-                  value={hiredVehicleData.driverName}
-                  onChange={(e) => setHiredVehicleData({
-                    ...hiredVehicleData, 
-                    driverName: e.target.value
-                  })}
-                  placeholder="Driver full name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="hiredDriverPhone">Driver Phone *</Label>
-                <Input
-                  id="hiredDriverPhone"
-                  value={hiredVehicleData.driverPhone}
-                  onChange={(e) => setHiredVehicleData({
-                    ...hiredVehicleData, 
-                    driverPhone: e.target.value
-                  })}
-                  placeholder="+91-9876543210"
-                />
-              </div>
-            </div>
-
-            <div className="border-2 border-dashed border-border rounded-lg p-4 text-center">
-              <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Upload Agreement & Vehicle Documents
-              </p>
-              <Button variant="outline" size="sm" className="mt-2">
-                Choose Files
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          {activeTab === "owned" ? (
-            <Button 
-              onClick={handleAssignOwned}
+          <DialogFooter className="flex gap-2 mt-6">
+            <Button variant="outline" onClick={onClose} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssign}
               disabled={!selectedVehicleId || !selectedDriverId || isLoading}
             >
-              {isLoading ? "Assigning..." : "Assign Vehicle"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Assigning...
+                </>
+              ) : (
+                "Assign Vehicle"
+              )}
             </Button>
-          ) : (
-            <Button 
-              onClick={handleAssignHired}
-              disabled={isLoading}
-            >
-              {isLoading ? "Adding..." : "Hire & Assign"}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🔥 NEW: Sub-Modals for adding items */}
+      <AddVehicleModal
+        isOpen={isAddOwnedVehicleModalOpen}
+        onClose={() => setIsAddOwnedVehicleModalOpen(false)}
+        onSave={handleAddOwnedVehicle}
+        defaultType="owned"
+      />
+
+      // Update the AddHiredVehicleModal call to pass selectedBrokerId and broker name
+      <AddHiredVehicleModal
+        isOpen={isAddHiredVehicleModalOpen}
+        onClose={() => setIsAddHiredVehicleModalOpen(false)}
+        onSave={handleAddHiredVehicle}
+        selectedBrokerId={selectedBrokerId} // 🔥 NEW: Pass selected broker ID
+        selectedBrokerName={selectedBroker?.name} // 🔥 NEW: Pass broker name for display
+      />
+
+      <AddBrokerModal
+        isOpen={isAddBrokerModalOpen}
+        onClose={() => setIsAddBrokerModalOpen(false)}
+        onSave={handleAddBroker}
+      />
+
+      <AddDriverModal
+        isOpen={isAddDriverModalOpen}
+        onClose={() => setIsAddDriverModalOpen(false)}
+        onSave={handleAddDriver}
+      />
+    </>
   );
 };

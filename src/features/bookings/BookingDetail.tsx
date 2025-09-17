@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import {
   ArrowLeft,
   FileText,
   MapPin,
@@ -15,50 +15,231 @@ import {
   Phone,
   Mail,
   Upload,
-  Download
+  Download,
+  Loader2
 } from "lucide-react";
-import { mockBookings } from "@/lib/mockData";
+import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { AssignmentDrawer } from "./AssignmentDrawer";
-import { VehicleAssignmentDrawer } from "../vehicles/VehicleAssignmentDrawer";
+import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
 import { TrackingMap } from "@/components/TrackingMap";
-import { mockVehicles } from "../vehicles/mockVehicles";
+import { useToast } from "@/hooks/use-toast";
+import { JourneyView } from "@/components/JourneyView";
+
+// Interface for converted booking data
+interface BookingDetail {
+  id: string;
+  bookingId: string;
+  consignorName: string;
+  consigneeName: string;
+  fromLocation: string;
+  toLocation: string;
+  cargoUnits: number;
+  materialDescription: string;
+  serviceType: "FTL" | "PTL";
+  status: string;
+  pickupDate?: string;
+  lrNumber?: string;
+  lrDate?: string;
+  bookingDateTime: string;
+  assignedVehicle?: {
+    id: string;
+    regNumber: string;
+    type: string;
+    capacity: string;
+    driver?: {
+      name: string;
+      phone: string;
+      experience: string;
+    };
+    lastLocation?: {
+      lat: number;
+      lng: number;
+      lastUpdated: string;
+      source: string;
+    };
+  };
+}
 
 export const BookingDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [booking, setBooking] = useState<BookingDetail | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showAssignDrawer, setShowAssignDrawer] = useState(false);
   const [showVehicleAssignDrawer, setShowVehicleAssignDrawer] = useState(false);
-  const [assignedVehicle, setAssignedVehicle] = useState<any>(null);
-
-  // Find booking by id (in real app, this would be a query)
-  const booking = mockBookings.find(b => b.id === id);
-
-  // Initialize assigned vehicle state based on booking status
+  const [bookingTimeline, setBookingTimeline] = useState<any[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  // Load booking details from Supabase
   useEffect(() => {
-    if (booking && (booking.status === 'DISPATCHED' || booking.status === 'IN_TRANSIT' || booking.status === 'DELIVERED')) {
-      // Find a mock vehicle for this booking (in real app, this would come from API)
-      const mockAssignedVehicle = mockVehicles.find(v => v.status === 'ASSIGNED');
-      if (mockAssignedVehicle) {
-        setAssignedVehicle(mockAssignedVehicle);
-      }
+    if (id) {
+      loadBookingDetails(id);
+      loadBookingTimeline(id);
     }
-  }, [booking]);
+  }, [id]);
+  const loadBookingTimeline = async (bookingId: string) => {
+    try {
+      setTimelineLoading(true);
+      const { fetchBookingTimeline } = await import('@/api/bookings');
+      const data = await fetchBookingTimeline(bookingId);
+      setBookingTimeline(data);
+    } catch (error) {
+      console.error('Error loading timeline:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load booking timeline",
+        variant: "destructive",
+      });
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+  const getEventDescription = (event: any) => {
+    switch (event.action) {
+      case 'BOOKING_CREATED':
+        return 'Booking Created';
+      case 'VEHICLE_ASSIGNED':
+        return 'Vehicle Assigned';
+      case 'VEHICLE_UNASSIGNED':
+        return 'Vehicle Unassigned';
+      case 'ARRIVED_AT_WAREHOUSE':
+        return `Arrived at ${event.warehouse?.name} warehouse`;
+      case 'DEPARTED_FROM_WAREHOUSE':
+        return `Departed from ${event.warehouse?.name} warehouse`;
+      default:
+        return event.description || event.action;
+    }
+  };
+  const getEventColor = (action: string) => {
+    switch (action) {
+      case 'BOOKING_CREATED':
+        return 'bg-primary';
+      case 'VEHICLE_ASSIGNED':
+        return 'bg-success';
+      case 'VEHICLE_UNASSIGNED':
+        return 'bg-warning';
+      case 'ARRIVED_AT_WAREHOUSE':
+        return 'bg-info';
+      case 'DEPARTED_FROM_WAREHOUSE':
+        return 'bg-secondary';
+      default:
+        return 'bg-muted-foreground';
+    }
+  };
+
+  const loadBookingDetails = async (bookingId: string) => {
+    try {
+      setLoading(true);
+      const data = await fetchBookingById(bookingId);
+
+      if (data) {
+        // Convert Supabase data to component format
+        const convertedBooking: BookingDetail = {
+          id: data.id,
+          bookingId: data.booking_id,
+          consignorName: data.consignor_name,
+          consigneeName: data.consignee_name,
+          fromLocation: data.from_location,
+          toLocation: data.to_location,
+          cargoUnits: data.cargo_units,
+          materialDescription: data.material_description,
+          serviceType: data.service_type as "FTL" | "PTL",
+          status: data.status,
+          pickupDate: data.pickup_date,
+          lrNumber: data.lr_number,
+          lrDate: data.lr_date,
+          bookingDateTime: data.created_at,
+          assignedVehicle: data.vehicle_assignments && data.vehicle_assignments.length > 0 ? {
+            id: data.vehicle_assignments[0].vehicle.id,
+            regNumber: data.vehicle_assignments[0].vehicle.vehicle_number,
+            type: data.vehicle_assignments[0].vehicle.vehicle_type,
+            capacity: data.vehicle_assignments[0].vehicle.capacity,
+            driver: {
+              name: data.vehicle_assignments[0].driver.name,
+              phone: data.vehicle_assignments[0].driver.phone,
+              experience: data.vehicle_assignments[0].driver.experience || "N/A"
+            }
+          } : undefined
+        };
+
+        setBooking(convertedBooking);
+      }
+    } catch (error) {
+      console.error('Error loading booking details:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load booking details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleVehicleAssign = async (vehicleId: string, driverId: string) => {
-    // In real app, this would call the API
-    const assignedVehicleData = mockVehicles.find(v => v.id === vehicleId);
-    if (assignedVehicleData) {
-      setAssignedVehicle(assignedVehicleData);
-      // Update booking status to DISPATCHED
-      // In real app, this would be handled by the API response
+    try {
+      // Call Supabase API to assign vehicle
+      const { assignVehicleToBooking } = await import('@/api/vehicles');
+
+      await assignVehicleToBooking({
+        booking_id: booking!.id,
+        vehicle_id: vehicleId,
+        driver_id: driverId
+      });
+
+      // Reload booking details to get updated data
+      await loadBookingDetails(booking!.id);
+
+      toast({
+        title: "Vehicle Assigned Successfully",
+        description: "Vehicle has been assigned to this booking",
+      });
+
+      setShowVehicleAssignDrawer(false);
+    } catch (error) {
+      console.error('Error assigning vehicle:', error);
+      toast({
+        title: "Error",
+        description: "Failed to assign vehicle. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleVehicleUnassign = () => {
-    setAssignedVehicle(null);
-    // In real app, this would call the API to unassign and set status back to CONFIRMED
+  const handleVehicleUnassign = async () => {
+    try {
+      // Call Supabase API to unassign vehicle
+      const { unassignVehicle } = await import('@/api/vehicles');
+
+      await unassignVehicle(booking!.id);
+
+      // Reload booking details
+      await loadBookingDetails(booking!.id);
+
+      toast({
+        title: "Vehicle Unassigned",
+        description: "Vehicle has been unassigned from this booking",
+      });
+    } catch (error) {
+      console.error('Error unassigning vehicle:', error);
+      toast({
+        title: "Error",
+        description: "Failed to unassign vehicle. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading booking details...</span>
+      </div>
+    );
+  }
 
   if (!booking) {
     return (
@@ -88,13 +269,6 @@ export const BookingDetail = () => {
     return colors[status as keyof typeof colors] || colors.DRAFT;
   };
 
-  const mockTimeline = [
-    { event: "Booking Created", timestamp: "2025-09-06T09:00:00Z", user: "John Doe" },
-    { event: "Quote Generated", timestamp: "2025-09-06T10:30:00Z", user: "System" },
-    { event: "Booking Confirmed", timestamp: "2025-09-06T11:15:00Z", user: "John Doe" },
-    { event: "Transporter Assigned", timestamp: "2025-09-06T14:20:00Z", user: "Sarah Wilson" },
-  ];
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -115,7 +289,7 @@ export const BookingDetail = () => {
           <Badge className={getStatusColor(booking.status)}>
             {booking.status.replace('_', ' ')}
           </Badge>
-          {(booking.status === 'CONFIRMED' && !assignedVehicle) && (
+          {(booking.status === 'CONFIRMED' && !booking.assignedVehicle) && (
             <Button onClick={() => setShowVehicleAssignDrawer(true)}>
               <Truck className="w-4 h-4 mr-2" />
               Assign Vehicle
@@ -153,7 +327,6 @@ export const BookingDetail = () => {
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-border shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center space-x-3">
@@ -168,7 +341,6 @@ export const BookingDetail = () => {
           </CardContent>
         </Card>
       </div>
-
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
@@ -250,20 +422,20 @@ export const BookingDetail = () => {
                 <CardTitle>Vehicle Assignment</CardTitle>
               </CardHeader>
               <CardContent>
-                {assignedVehicle ? (
+                {booking.assignedVehicle ? (
                   <div className="space-y-6">
                     <div className="p-4 bg-success/10 rounded-lg border border-success/20">
                       <p className="text-success font-medium mb-4">Vehicle Assigned</p>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">Vehicle</p>
-                          <p className="font-medium">{assignedVehicle.regNumber}</p>
-                          <p className="text-xs text-muted-foreground">{assignedVehicle.type}</p>
+                          <p className="font-medium">{booking.assignedVehicle.regNumber}</p>
+                          <p className="text-xs text-muted-foreground">{booking.assignedVehicle.type}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Driver</p>
-                          <p className="font-medium">{assignedVehicle.driver?.name}</p>
-                          <p className="text-xs text-muted-foreground">{assignedVehicle.driver?.experience}</p>
+                          <p className="font-medium">{booking.assignedVehicle.driver?.name}</p>
+                          <p className="text-xs text-muted-foreground">{booking.assignedVehicle.driver?.experience}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Status</p>
@@ -271,24 +443,24 @@ export const BookingDetail = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-4 mt-4">
-                        {assignedVehicle.driver && (
+                        {booking.assignedVehicle.driver && (
                           <Button variant="outline" size="sm" asChild>
-                            <a href={`tel:${assignedVehicle.driver.phone}`}>
+                            <a href={`tel:${booking.assignedVehicle.driver.phone}`}>
                               <Phone className="w-4 h-4 mr-2" />
                               Call Driver
                             </a>
                           </Button>
                         )}
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => setShowVehicleAssignDrawer(true)}
                         >
                           <Truck className="w-4 h-4 mr-2" />
                           Replace Vehicle
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={handleVehicleUnassign}
                         >
@@ -316,15 +488,15 @@ export const BookingDetail = () => {
             </Card>
 
             {/* Live Tracking */}
-            {assignedVehicle && assignedVehicle.driver && assignedVehicle.lastLocation && (
-              <TrackingMap 
-                vehicleId={assignedVehicle.id}
+            {booking.assignedVehicle && booking.assignedVehicle.driver && booking.assignedVehicle.lastLocation && (
+              <TrackingMap
+                vehicleId={booking.assignedVehicle.id}
                 vehicleInfo={{
-                  regNumber: assignedVehicle.regNumber,
-                  driverName: assignedVehicle.driver.name,
-                  driverPhone: assignedVehicle.driver.phone
+                  regNumber: booking.assignedVehicle.regNumber,
+                  driverName: booking.assignedVehicle.driver.name,
+                  driverPhone: booking.assignedVehicle.driver.phone
                 }}
-                initialLocation={assignedVehicle.lastLocation}
+                initialLocation={booking.assignedVehicle.lastLocation}
               />
             )}
           </div>
@@ -340,18 +512,24 @@ export const BookingDetail = () => {
                 <div className="space-y-4">
                   <h4 className="font-medium text-foreground">Generated Documents</h4>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium">LR Copy</span>
+                    {booking.lrNumber ? (
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <FileText className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium">LR Copy - {booking.lrNumber}</span>
+                        </div>
+                        <Button variant="ghost" size="sm">
+                          <Download className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <Download className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="p-3 bg-muted/50 rounded-lg text-center">
+                        <p className="text-sm text-muted-foreground">No LR generated yet</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <h4 className="font-medium text-foreground">Upload Documents</h4>
                   <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
@@ -370,50 +548,76 @@ export const BookingDetail = () => {
         </TabsContent>
 
         <TabsContent value="timeline" className="mt-6">
-          <Card className="border-border shadow-sm">
-            <CardHeader>
-              <CardTitle>Booking Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockTimeline.map((event, index) => (
-                  <div key={index} className="flex items-start space-x-4">
-                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="font-medium text-foreground">{event.event}</p>
-                        <span className="text-sm text-muted-foreground">
-                          {formatDateTime(event.timestamp)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">by {event.user}</p>
-                    </div>
+          <div className="space-y-6">
+            {/* Booking Timeline Card */}
+            <Card className="border-border shadow-sm">
+              <CardHeader>
+                <CardTitle>Booking Timeline</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {timelineLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span className="ml-2">Loading timeline...</span>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {bookingTimeline.length > 0 ? (
+                      bookingTimeline.map((event, index) => (
+                        <div key={index} className="flex items-start space-x-4">
+                          <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${getEventColor(event.action)}`} />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-foreground">
+                                {getEventDescription(event)}
+                              </p>
+                              <span className="text-sm text-muted-foreground">
+                                {formatDateTime(event.created_at)}
+                              </span>
+                            </div>
+                            {event.warehouse && (
+                              <p className="text-sm text-muted-foreground">
+                                at {event.warehouse.name}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">
+                        No timeline events found
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Journey View Component */}
+            <JourneyView bookingId={booking.id} />
+          </div>
         </TabsContent>
       </Tabs>
 
       {/* Vehicle Assignment Drawer */}
-      <VehicleAssignmentDrawer 
-        open={showVehicleAssignDrawer} 
+      <EnhancedVehicleAssignmentModal
+        isOpen={showVehicleAssignDrawer}
         onClose={() => setShowVehicleAssignDrawer(false)}
-        bookingId={booking.id}
-        bookingInfo={{
-          bookingId: booking.bookingId,
-          fromLocation: booking.fromLocation,
-          toLocation: booking.toLocation,
-          consignorName: booking.consignorName,
-          consigneeName: booking.consigneeName
-        }}
-        onAssign={handleVehicleAssign}
-      />
+        onAssign={(vehicleAssignment) => {
+          // Reload booking details after assignment
+          loadBookingDetails(booking.id);
+          setShowVehicleAssignDrawer(false);
 
+          toast({
+            title: "Vehicle Assigned Successfully",
+            description: `Vehicle ${vehicleAssignment.vehicleNumber} has been assigned`,
+          });
+        }}
+        bookingId={booking.id} // Pass the UUID, not the booking_id string
+      />
       {/* Legacy Assignment Drawer */}
-      <AssignmentDrawer 
-        open={showAssignDrawer} 
+      <AssignmentDrawer
+        open={showAssignDrawer}
         onClose={() => setShowAssignDrawer(false)}
         bookingId={booking.id}
       />

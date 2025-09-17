@@ -1,3 +1,5 @@
+// Replace entire ConfirmActionModal.tsx with this:
+
 import {
   Dialog,
   DialogContent,
@@ -8,7 +10,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle, Truck } from "lucide-react";
-import { type Consignment } from "@/lib/warehouseData";
+
+interface Consignment {
+  id: string;
+  consignment_id: string;
+  booking_id: string;
+  status: string;
+  booking?: {
+    booking_id: string;
+    consignor_name: string;
+    consignee_name: string;
+    material_description: string;
+  };
+  // Legacy support
+  shipper?: string;
+  consignee?: string;
+  bookingId?: string;
+}
 
 interface ConfirmActionModalProps {
   isOpen: boolean;
@@ -18,12 +36,12 @@ interface ConfirmActionModalProps {
   actionType: "transit" | "delivered" | null;
 }
 
-export const ConfirmActionModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
+export const ConfirmActionModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
   consignment,
-  actionType 
+  actionType
 }: ConfirmActionModalProps) => {
   if (!consignment || !actionType) return null;
 
@@ -37,7 +55,7 @@ export const ConfirmActionModal = ({
       warning: "This action will remove the item from warehouse stock and update its tracking status."
     },
     delivered: {
-      title: "Mark as Delivered", 
+      title: "Mark as Delivered",
       description: "This will mark the consignment as delivered and archive it from active inventory.",
       icon: CheckCircle,
       iconColor: "text-success",
@@ -48,6 +66,12 @@ export const ConfirmActionModal = ({
 
   const config = actionConfig[actionType];
   const IconComponent = config.icon;
+
+  // Handle both new and legacy data formats
+  const consignmentId = consignment.consignment_id || consignment.id;
+  const bookingId = consignment.booking?.booking_id || consignment.bookingId || consignment.booking_id;
+  const shipper = consignment.booking?.consignor_name || consignment.shipper;
+  const consignee = consignment.booking?.consignee_name || consignment.consignee;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -61,7 +85,7 @@ export const ConfirmActionModal = ({
             {config.description}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* Consignment Details */}
           <div className="p-4 bg-muted/50 rounded-lg">
@@ -69,31 +93,35 @@ export const ConfirmActionModal = ({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Consignment ID:</span>
-                <span className="font-medium">{consignment.id}</span>
+                <span className="font-medium">{consignmentId}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Booking ID:</span>
-                <span className="font-medium">{consignment.bookingId}</span>
+                <span className="font-medium">{bookingId}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Shipper:</span>
-                <span>{consignment.shipper}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Consignee:</span>
-                <span>{consignment.consignee}</span>
-              </div>
+              {shipper && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Shipper:</span>
+                  <span>{shipper}</span>
+                </div>
+              )}
+              {consignee && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Consignee:</span>
+                  <span>{consignee}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current Status:</span>
-                <Badge variant="outline">{consignment.status}</Badge>
+                <Badge variant="outline">{consignment.status.replace('_', ' ')}</Badge>
               </div>
             </div>
           </div>
 
           {/* Warning */}
-          <div className="flex items-start gap-3 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+          <div className="flex items-start gap-3 p-3 bg-warning/10 border border-warning/20 rounded-lg text-black">
             <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-warning-foreground">
+            <p className="text-sm">
               {config.warning}
             </p>
           </div>

@@ -1,44 +1,53 @@
+// Replace entire VehicleDetailDrawer.tsx with this:
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Truck, 
-  User, 
-  Phone, 
-  Mail, 
-  Calendar, 
-  FileText, 
-  CheckCircle, 
+import {
+  Truck,
+  User,
+  Phone,
+  Mail,
+  Calendar,
+  FileText,
+  CheckCircle,
   AlertCircle,
   Download,
   Package
 } from "lucide-react";
-import { Vehicle } from "@/lib/mockData";
 import { format } from "date-fns";
 
 interface VehicleDetailDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  vehicle: Vehicle | null;
+  vehicle: any | null; // Using any for now since we have mixed data structure
 }
 
 export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailDrawerProps) => {
   if (!vehicle) return null;
 
-  const getStatusColor = (status: Vehicle["status"]) => {
+  const getStatusColor = (status: string) => {
     const colors = {
       AVAILABLE: "bg-success text-success-foreground",
-      OCCUPIED: "bg-info text-info-foreground", 
+      OCCUPIED: "bg-info text-info-foreground",
       MAINTENANCE: "bg-warning text-warning-foreground",
       INACTIVE: "bg-muted text-muted-foreground"
     };
-    return colors[status];
+    return colors[status as keyof typeof colors] || colors.AVAILABLE;
   };
 
-  const getDocumentTypeIcon = (type: string) => {
-    return <FileText className="w-4 h-4" />;
-  };
+  // Handle both old and new data formats
+  const vehicleNumber = vehicle.vehicle_number || vehicle.vehicleNumber;
+  const vehicleType = vehicle.vehicle_type || vehicle.vehicleType;
+  const capacity = vehicle.capacity;
+  const status = vehicle.status;
+  const isOwned = vehicle.is_owned !== undefined ? vehicle.is_owned : vehicle.isOwned;
+  const isVerified = vehicle.is_verified !== undefined ? vehicle.is_verified : vehicle.isVerified;
+  const addedDate = vehicle.added_date || vehicle.addedDate || vehicle.created_at;
+  const broker = vehicle.broker;
+  const vehicleAssignments = vehicle.vehicle_assignments || [];
+  const vehicleDocuments = vehicle.vehicle_documents || vehicle.documents || [];
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -46,7 +55,7 @@ export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailD
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Truck className="w-5 h-5 text-primary" />
-            Vehicle Details - {vehicle.vehicleNumber}
+            Vehicle Details - {vehicleNumber}
           </SheetTitle>
         </SheetHeader>
 
@@ -57,29 +66,29 @@ export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailD
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Vehicle Number</p>
-                <p className="font-medium">{vehicle.vehicleNumber}</p>
+                <p className="font-medium">{vehicleNumber}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Type</p>
-                <p className="font-medium">{vehicle.vehicleType}</p>
+                <p className="font-medium">{vehicleType}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Capacity</p>
-                <p className="font-medium">{vehicle.capacity}</p>
+                <p className="font-medium">{capacity}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Status</p>
-                <Badge className={getStatusColor(vehicle.status)}>
-                  {vehicle.status.replace('_', ' ')}
+                <Badge className={getStatusColor(status)}>
+                  {status.replace('_', ' ')}
                 </Badge>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Ownership</p>
-                <p className="font-medium">{vehicle.isOwned ? 'Owned' : 'Hired'}</p>
+                <p className="font-medium">{isOwned ? 'Owned' : 'Hired'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Verification</p>
-                {vehicle.isVerified ? (
+                {isVerified ? (
                   <Badge variant="default" className="bg-success text-success-foreground">
                     <CheckCircle className="w-3 h-3 mr-1" />
                     Verified
@@ -97,36 +106,40 @@ export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailD
           <Separator />
 
           {/* Broker Information (if hired) */}
-          {!vehicle.isOwned && vehicle.broker && (
+          {!isOwned && broker && (
             <>
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Broker Information</h3>
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Company Name</p>
-                    <p className="font-medium">{vehicle.broker.name}</p>
+                    <p className="font-medium">{broker.name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Contact Person</p>
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{vehicle.broker.contactPerson}</span>
+                      <span className="font-medium">
+                        {broker.contact_person || broker.contactPerson}
+                      </span>
                     </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Phone</p>
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{vehicle.broker.phone}</span>
+                      <span className="font-medium">{broker.phone}</span>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">{vehicle.broker.email}</span>
+                  {broker.email && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">{broker.email}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
               <Separator />
@@ -134,14 +147,16 @@ export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailD
           )}
 
           {/* Assignment Information */}
-          {vehicle.assignedBookingId && (
+          {vehicleAssignments && vehicleAssignments.length > 0 && (
             <>
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Current Assignment</h3>
                 <div className="p-4 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-primary" />
-                    <span className="font-medium">Booking ID: BKG-{vehicle.assignedBookingId}</span>
+                    <span className="font-medium">
+                      Booking ID: {vehicleAssignments[0].booking?.booking_id || `BKG-${vehicleAssignments[0].booking_id}`}
+                    </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
                     Vehicle is currently assigned to this booking
@@ -155,21 +170,23 @@ export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailD
           {/* Documents */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Documents</h3>
-            {vehicle.documents.length > 0 ? (
+            {vehicleDocuments && vehicleDocuments.length > 0 ? (
               <div className="space-y-2">
-                {vehicle.documents.map((doc) => (
+                {vehicleDocuments.map((doc: any) => (
                   <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
-                      {getDocumentTypeIcon(doc.type)}
+                      <FileText className="w-4 h-4" />
                       <div>
-                        <p className="font-medium">{doc.fileName}</p>
+                        <p className="font-medium">
+                          {doc.file_name || doc.fileName}
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          {doc.type} • Uploaded {format(new Date(doc.uploadedDate), 'MMM dd, yyyy')}
+                          {doc.document_type || doc.type} • Uploaded {format(new Date(doc.uploaded_date || doc.uploadedDate), 'MMM dd, yyyy')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {doc.isVerified ? (
+                      {(doc.is_verified !== undefined ? doc.is_verified : doc.isVerified) ? (
                         <Badge variant="default" className="bg-success text-success-foreground">
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Verified
@@ -206,11 +223,11 @@ export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailD
                 <div>
                   <p className="font-medium">Vehicle Added</p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(vehicle.addedDate), 'MMM dd, yyyy HH:mm')}
+                    {addedDate ? format(new Date(addedDate), 'MMM dd, yyyy HH:mm') : 'Date not available'}
                   </p>
                 </div>
               </div>
-              {vehicle.isVerified && (
+              {isVerified && (
                 <div className="flex items-center gap-3 p-3 border rounded-lg">
                   <CheckCircle className="w-4 h-4 text-success" />
                   <div>

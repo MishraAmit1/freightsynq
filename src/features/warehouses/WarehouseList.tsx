@@ -1,45 +1,93 @@
-import { useState } from "react";
+// Replace the entire WarehouseList.tsx with this:
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Search, 
-  Plus, 
-  MapPin, 
-  Package, 
+import {
+  Search,
+  Plus,
+  MapPin,
+  Package,
   AlertTriangle,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  mockWarehouses, 
-  getStockUtilization, 
-  getCapacityColor,
-  type Warehouse 
-} from "@/lib/warehouseData";
+import { fetchWarehouses } from "@/api/warehouses";
 import { AddWarehouseModal } from "./AddWarehouseModal";
+import { useToast } from "@/hooks/use-toast";
+
+interface Warehouse {
+  id: string;
+  name: string;
+  code: string;
+  city: string;
+  state: string;
+  address: string;
+  capacity: number;
+  current_stock: number;
+  manager_name: string;
+  manager_phone: string;
+  manager_email: string;
+  status: string;
+}
 
 export const WarehouseList = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterState, setFilterState] = useState("all");
   const [sortBy, setSortBy] = useState("name");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  useEffect(() => {
+    loadWarehouses();
+  }, []);
+
+  const loadWarehouses = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchWarehouses();
+      setWarehouses(data);
+    } catch (error) {
+      console.error('Error loading warehouses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load warehouses",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStockUtilization = (currentStock: number, capacity: number) => {
+    return (currentStock / capacity) * 100;
+  };
+
+  const getCapacityColor = (utilization: number) => {
+    if (utilization <= 60) return "text-success";
+    if (utilization <= 85) return "text-warning";
+    return "text-destructive";
+  };
+
   // Filter and sort warehouses
-  const filteredWarehouses = mockWarehouses
+  const filteredWarehouses = warehouses
     .filter(warehouse => {
       const matchesSearch = warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           warehouse.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           warehouse.state.toLowerCase().includes(searchTerm.toLowerCase());
+        warehouse.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        warehouse.state.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesState = filterState === "all" || warehouse.state === filterState;
       return matchesSearch && matchesState;
     })
@@ -50,19 +98,50 @@ export const WarehouseList = () => {
         case "capacity":
           return b.capacity - a.capacity;
         case "stock":
-          return b.currentStock - a.currentStock;
+          return b.current_stock - a.current_stock;
         case "utilization":
-          return getStockUtilization(b.currentStock, b.capacity) - getStockUtilization(a.currentStock, a.capacity);
+          return getStockUtilization(b.current_stock, b.capacity) - getStockUtilization(a.current_stock, a.capacity);
         default:
           return 0;
       }
     });
 
-  const uniqueStates = [...new Set(mockWarehouses.map(w => w.state))];
+  const uniqueStates = [...new Set(warehouses.map(w => w.state))];
 
   const handleWarehouseClick = (warehouseId: string) => {
     navigate(`/warehouses/${warehouseId}`);
   };
+
+  const handleAddWarehouse = async (warehouseData: any) => {
+    try {
+      const { createWarehouse } = await import('@/api/warehouses');
+      await createWarehouse(warehouseData);
+
+      // Reload warehouses
+      await loadWarehouses();
+
+      toast({
+        title: "Warehouse Added Successfully",
+        description: `${warehouseData.name} has been added to the system`,
+      });
+    } catch (error) {
+      console.error('Error adding warehouse:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add warehouse. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading warehouses...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -122,12 +201,12 @@ export const WarehouseList = () => {
       {/* Warehouse Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredWarehouses.map((warehouse) => {
-          const utilization = getStockUtilization(warehouse.currentStock, warehouse.capacity);
+          const utilization = getStockUtilization(warehouse.current_stock, warehouse.capacity);
           const isNearCapacity = utilization > 85;
-          
+
           return (
-            <Card 
-              key={warehouse.id} 
+            <Card
+              key={warehouse.id}
               className="hover:shadow-md transition-all duration-200 cursor-pointer"
               onClick={() => handleWarehouseClick(warehouse.id)}
             >
@@ -148,7 +227,7 @@ export const WarehouseList = () => {
                   )}
                 </div>
               </CardHeader>
-              
+
               <CardContent className="pt-0">
                 <div className="space-y-4">
                   {/* Capacity Bar */}
@@ -156,15 +235,14 @@ export const WarehouseList = () => {
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-muted-foreground">Stock Utilization</span>
                       <span className={getCapacityColor(utilization)}>
-                        {warehouse.currentStock}/{warehouse.capacity} ({utilization.toFixed(1)}%)
+                        {warehouse.current_stock}/{warehouse.capacity} ({utilization.toFixed(1)}%)
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          utilization <= 60 ? 'bg-success' : 
-                          utilization <= 85 ? 'bg-warning' : 'bg-destructive'
-                        }`}
+                      <div
+                        className={`h-2 rounded-full transition-all duration-300 ${utilization <= 60 ? 'bg-success' :
+                            utilization <= 85 ? 'bg-warning' : 'bg-destructive'
+                          }`}
                         style={{ width: `${Math.min(utilization, 100)}%` }}
                       />
                     </div>
@@ -175,21 +253,21 @@ export const WarehouseList = () => {
                     <div className="flex items-center gap-2">
                       <Package className="w-4 h-4 text-primary" />
                       <div>
-                        <p className="text-sm font-medium">{warehouse.currentStock}</p>
+                        <p className="text-sm font-medium">{warehouse.current_stock}</p>
                         <p className="text-xs text-muted-foreground">Units in Stock</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-primary" />
                       <div>
-                        <p className="text-sm font-medium">{warehouse.manager}</p>
+                        <p className="text-sm font-medium">{warehouse.manager_name}</p>
                         <p className="text-xs text-muted-foreground">Manager</p>
                       </div>
                     </div>
                   </div>
 
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -211,13 +289,13 @@ export const WarehouseList = () => {
             <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No warehouses found</h3>
             <p className="text-muted-foreground">
-              {searchTerm || filterState !== "all" 
-                ? "Try adjusting your search or filter criteria." 
+              {searchTerm || filterState !== "all"
+                ? "Try adjusting your search or filter criteria."
                 : "Get started by adding your first warehouse."}
             </p>
             {(!searchTerm && filterState === "all") && (
-              <Button 
-                onClick={() => setIsAddModalOpen(true)} 
+              <Button
+                onClick={() => setIsAddModalOpen(true)}
                 className="mt-4 gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -228,9 +306,10 @@ export const WarehouseList = () => {
         </Card>
       )}
 
-      <AddWarehouseModal 
+      <AddWarehouseModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
+        onSave={handleAddWarehouse}
       />
     </div>
   );
