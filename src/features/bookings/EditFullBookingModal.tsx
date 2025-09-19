@@ -20,12 +20,21 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Package, Loader2, Save, X } from "lucide-react";
+import { Plus, Trash2, Package, Loader2, Save, X, FileText } from "lucide-react";
 import { generateLRNumber } from "@/api/bookings";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { LRData } from "./BookingList"; // Re-import LRData
+
+// Update the LRData interface
+export interface LRData {
+    lrNumber?: string;
+    lrDate?: string;
+    biltiNumber?: string; // This will store comma-separated e-way bills
+    invoiceNumber?: string; // This will store comma-separated invoice numbers
+    cargoUnitsString: string;
+    materialDescription: string;
+}
 
 // Re-using validation functions from CreateLRModal/BookingFormModal
 const validatePickupDate = (dateString: string | undefined): string | null => {
@@ -62,6 +71,13 @@ const lrItemSchema = z.object({
     material_description: z.string().min(1, "Material description is required"),
 });
 
+const documentSchema = z.object({
+    ewayBill: z.string()
+        .regex(/^\d{12}$/, "E-way bill must be exactly 12 digits")
+        .or(z.literal("")), // Allow empty string
+    invoice: z.string(), // Invoice can be any string
+});
+
 const fullBookingSchema = z.object({
     // General Booking Fields
     bookingId: z.string().min(1, "Booking ID is required"), // Read-only but part of form data
@@ -85,8 +101,7 @@ const fullBookingSchema = z.object({
     }, {
         message: "Invalid LR date"
     }),
-    biltiNumber: z.string().optional(),
-    invoiceNumber: z.string().optional(),
+    documents: z.array(documentSchema),
     items: z.array(lrItemSchema).optional(), // Can be empty if no LR yet
 });
 
@@ -145,18 +160,56 @@ export const EditFullBookingModal = ({
         formState: { errors },
         reset,
         setValue,
-        watch
+        watch,
+        trigger
     } = useForm<FullBookingFormData>({
         resolver: zodResolver(fullBookingSchema),
         defaultValues: {
-            items: [{ quantity: 1, unit_type: "BOX", material_description: "" }] // Default item for LR
+            items: [{ quantity: 1, unit_type: "BOX", material_description: "" }],
+            documents: [{ ewayBill: "", invoice: "" }]
         }
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields: itemFields, append: appendItem, remove: removeItem } = useFieldArray({
         control,
         name: "items"
     });
+
+    const { fields: documentFields, append: appendDocument, remove: removeDocument } = useFieldArray({
+        control,
+        name: "documents"
+    });
+
+    const handleAddDocument = async () => {
+        // Validate all existing documents first
+        const isValid = await trigger("documents");
+
+        if (!isValid) {
+            toast({
+                title: "Validation Error",
+                description: "Please fix the errors in existing E-way Bills before adding new ones",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Check if the last document has valid e-way bill (12 digits)
+        const documents = watch("documents");
+        const lastDoc = documents[documents.length - 1];
+
+        if (lastDoc && lastDoc.ewayBill && lastDoc.ewayBill.length !== 12) {
+            toast({
+                title: "Invalid E-way Bill",
+                description: "Please enter a valid 12-digit E-way bill before adding a new row",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        if (documentFields.length < 10) {
+            appendDocument({ ewayBill: "", invoice: "" });
+        }
+    };
 
     // Handle setting form data when modal opens with an editingBooking
     useEffect(() => {
@@ -173,8 +226,23 @@ export const EditFullBookingModal = ({
             // LR details
             setValue("lrNumber", editingBooking.lrNumber || "");
             setValue("lrDate", editingBooking.lrDate || "");
-            setValue("biltiNumber", editingBooking.bilti_number || "");
-            setValue("invoiceNumber", editingBooking.invoice_number || "");
+
+            // Parse existing e-way bills and invoices if any
+            const ewayBills = editingBooking.bilti_number ? editingBooking.bilti_number.split(',').map(num => num.trim()) : [];
+            const invoices = editingBooking.invoice_number ? editingBooking.invoice_number.split(',').map(num => num.trim()) : [];
+
+            // Combine them into document pairs
+            const maxLength = Math.max(ewayBills.length, invoices.length, 1);
+            const documents = [];
+
+            for (let i = 0; i < maxLength; i++) {
+                documents.push({
+                    ewayBill: ewayBills[i] || "",
+                    invoice: invoices[i] || ""
+                });
+            }
+
+            setValue("documents", documents.length > 0 ? documents : [{ ewayBill: "", invoice: "" }]);
 
             // Parse existing cargoUnits and materialDescription for items
             if (editingBooking.cargoUnits && editingBooking.materialDescription) {
@@ -210,16 +278,14 @@ export const EditFullBookingModal = ({
                     setValue("items", [{ quantity: 1, unit_type: "BOX", material_description: "" }]);
                 }
             } else {
-                // Default to a single empty item if no existing LR item data
                 setValue("items", [{ quantity: 1, unit_type: "BOX", material_description: "" }]);
             }
             setPickupDateError(null);
             setLrDateError(null);
 
         } else if (isOpen) {
-            // Reset form for new creation (though this modal is for editing, good practice)
             reset({
-                bookingId: "", // This modal is for editing existing, so bookingId should always be present
+                bookingId: "",
                 consignorName: "",
                 consigneeName: "",
                 fromLocation: "",
@@ -228,11 +294,10 @@ export const EditFullBookingModal = ({
                 pickupDate: undefined,
                 lrNumber: "",
                 lrDate: "",
-                biltiNumber: "",
-                invoiceNumber: "",
+                documents: [{ ewayBill: "", invoice: "" }],
                 items: [{ quantity: 1, unit_type: "BOX", material_description: "" }]
             });
-            loadNewLRNumber(); // Only generate new LR if no LR exists for the booking.
+            loadNewLRNumber();
             setPickupDateError(null);
             setLrDateError(null);
         }
@@ -240,7 +305,6 @@ export const EditFullBookingModal = ({
 
     // Generate LR number if none exists for the booking
     const loadNewLRNumber = async () => {
-        // This is explicitly for when editing an existing booking that *doesn't* have an LR yet.
         if (!editingBooking?.lrNumber) {
             try {
                 const lrNumber = await generateLRNumber();
@@ -259,7 +323,7 @@ export const EditFullBookingModal = ({
     };
 
     const handleLRDateChange = (date: Date | null) => {
-        const isoString = date ? date.toISOString().split('T')[0] : undefined; // Use undefined for empty date
+        const isoString = date ? date.toISOString().split('T')[0] : undefined;
         const error = validateLRDate(isoString);
         setLrDateError(error);
         setValue("lrDate", isoString);
@@ -315,7 +379,6 @@ export const EditFullBookingModal = ({
             const isLRDataProvided = !!data.lrNumber?.trim();
 
             if (isLRDataProvided) {
-                // If LR data is provided, LR Date is required
                 const lrDateValidationError = validateLRDate(data.lrDate || '');
                 if (lrDateValidationError) {
                     toast({ title: "Validation Error", description: lrDateValidationError, variant: "destructive" });
@@ -344,19 +407,11 @@ export const EditFullBookingModal = ({
                     setIsSubmitting(false);
                     return;
                 }
-            } else {
-                // If LR data is NOT provided (lrNumber is empty), then clear associated LR fields
-                data.lrNumber = undefined;
-                data.lrDate = undefined;
-                data.biltiNumber = undefined;
-                data.invoiceNumber = undefined;
-                data.items = []; // Clear items
             }
-
 
             const generalData = {
                 consignor_name: data.consignorName,
-                consignee_name: data.consigneeName, // CORRECTED: This was mistakenly `from_location` earlier
+                consignee_name: data.consigneeName,
                 from_location: data.fromLocation,
                 to_location: data.toLocation,
                 service_type: data.serviceType,
@@ -365,11 +420,22 @@ export const EditFullBookingModal = ({
 
             const { units, materials } = generateCargoStrings(data.items);
 
+            // Convert arrays to comma-separated strings
+            const ewayBillsString = data.documents
+                .map(doc => doc.ewayBill)
+                .filter(eb => eb)
+                .join(',');
+
+            const invoicesString = data.documents
+                .map(doc => doc.invoice)
+                .filter(inv => inv)
+                .join(',');
+
             const lrData: LRData = {
-                lrNumber: data.lrNumber || undefined, // Send undefined if empty
-                lrDate: data.lrDate || undefined, // Send undefined if empty
-                biltiNumber: data.biltiNumber || undefined, // Send undefined if empty
-                invoiceNumber: data.invoiceNumber || undefined, // Send undefined if empty
+                lrNumber: data.lrNumber || undefined,
+                lrDate: data.lrDate || undefined,
+                biltiNumber: ewayBillsString || undefined,
+                invoiceNumber: invoicesString || undefined,
                 cargoUnitsString: units,
                 materialDescription: materials
             };
@@ -384,7 +450,7 @@ export const EditFullBookingModal = ({
     };
 
     const handleClose = () => {
-        reset(); // Reset form on close
+        reset();
         setPickupDateError(null);
         setLrDateError(null);
         onClose();
@@ -393,6 +459,7 @@ export const EditFullBookingModal = ({
     if (!editingBooking) return null;
 
     const watchedItems = watch("items") || [];
+    const watchedDocuments = watch("documents") || [];
     const watchedLrNumber = watch("lrNumber");
 
     return (
@@ -511,7 +578,6 @@ export const EditFullBookingModal = ({
                             <div>
                                 <Label htmlFor="lrNumber">LR Number</Label>
                                 <Input {...register("lrNumber")} placeholder="Optional / Generate" disabled={isSubmitting} />
-                                {/* Only generate if current lrNumber is empty and not submitting */}
                                 {!watchedLrNumber && !isSubmitting && (
                                     <Button
                                         type="button"
@@ -549,14 +615,66 @@ export const EditFullBookingModal = ({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="biltiNumber">Bilti Number</Label>
-                                <Input {...register("biltiNumber")} placeholder="Optional" disabled={isSubmitting} />
+                        {/* E-way Bills and Invoices */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <Label className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    E-way Bills & Invoice Numbers
+                                </Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAddDocument}
+                                    disabled={documentFields.length >= 10 || isSubmitting}
+                                >
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add Row
+                                </Button>
                             </div>
-                            <div>
-                                <Label htmlFor="invoiceNumber">Invoice Number</Label>
-                                <Input {...register("invoiceNumber")} placeholder="Optional" disabled={isSubmitting} />
+
+                            <div className="space-y-2">
+                                {documentFields.map((field, index) => (
+                                    <div key={field.id} className="flex gap-2">
+                                        <div className="flex-1">
+                                            <Input
+                                                {...register(`documents.${index}.ewayBill`)}
+                                                placeholder="12-digit E-way bill (optional)"
+                                                maxLength={12}
+                                                onChange={(e) => {
+                                                    // Only allow digits
+                                                    const value = e.target.value.replace(/\D/g, '');
+                                                    setValue(`documents.${index}.ewayBill`, value);
+                                                }}
+                                                disabled={isSubmitting}
+                                            />
+                                            {errors.documents?.[index]?.ewayBill && (
+                                                <p className="text-xs text-destructive mt-1">
+                                                    {errors.documents[index]?.ewayBill?.message}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex-1">
+                                            <Input
+                                                {...register(`documents.${index}.invoice`)}
+                                                placeholder="Invoice number (optional)"
+                                                disabled={isSubmitting}
+                                            />
+                                        </div>
+
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => removeDocument(index)}
+                                            disabled={documentFields.length === 1 || isSubmitting}
+                                        >
+                                            <Trash2 className="w-4 h-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -571,12 +689,12 @@ export const EditFullBookingModal = ({
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => fields.length < 5 && append({
+                                    onClick={() => itemFields.length < 5 && appendItem({
                                         quantity: 1,
                                         unit_type: "BOX",
                                         material_description: ""
                                     })}
-                                    disabled={fields.length >= 5 || isSubmitting}
+                                    disabled={itemFields.length >= 5 || isSubmitting}
                                 >
                                     <Plus className="w-3 h-3 mr-1" />
                                     Add Item
@@ -584,7 +702,7 @@ export const EditFullBookingModal = ({
                             </div>
 
                             <div className="space-y-2">
-                                {fields.map((field, index) => {
+                                {itemFields.map((field, index) => {
                                     const itemType = watch(`items.${index}.unit_type`);
 
                                     return (
@@ -629,8 +747,8 @@ export const EditFullBookingModal = ({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => fields.length > 1 && remove(index)}
-                                                    disabled={fields.length === 1 || isSubmitting}
+                                                    onClick={() => itemFields.length > 1 && removeItem(index)}
+                                                    disabled={itemFields.length === 1 || isSubmitting}
                                                 >
                                                     <Trash2 className="w-4 h-4 text-destructive" />
                                                 </Button>
@@ -658,6 +776,35 @@ export const EditFullBookingModal = ({
                                 <pre className="text-sm font-medium whitespace-pre-wrap">
                                     {generateDisplayFormat(watchedItems)}
                                 </pre>
+
+                                {/* Documents Preview */}
+                                {watchedDocuments.some(doc => doc.ewayBill || doc.invoice) && (
+                                    <div className="mt-3 space-y-2">
+                                        {watchedDocuments.some(doc => doc.ewayBill) && (
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">E-way Bills:</p>
+                                                <p className="text-sm">
+                                                    {watchedDocuments
+                                                        .map(doc => doc.ewayBill)
+                                                        .filter(eb => eb)
+                                                        .join(', ')}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {watchedDocuments.some(doc => doc.invoice) && (
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">Invoice Numbers:</p>
+                                                <p className="text-sm">
+                                                    {watchedDocuments
+                                                        .map(doc => doc.invoice)
+                                                        .filter(inv => inv)
+                                                        .join(', ')}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase'
 
-// Create new driver
 export const createDriver = async (driverData: {
   name: string
   phone: string

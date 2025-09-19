@@ -2,16 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  FileText, 
-  Truck, 
-  Clock, 
+import {
+  FileText,
+  Truck,
+  Clock,
   CheckCircle,
   Plus,
   TrendingUp
 } from "lucide-react";
 import { BookingFormModal } from "@/features/bookings/BookingFormModal";
 import { useToast } from "@/hooks/use-toast";
+import { TestRLS } from "@/components/TestRLS";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export const Dashboard = () => {
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, John. Here's your freight overview.</p>
         </div>
-        <Button 
+        <Button
           onClick={() => setIsBookingFormOpen(true)}
           className="bg-gradient-to-r from-primary to-primary-hover text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
         >
@@ -99,24 +100,24 @@ export const Dashboard = () => {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="flex items-center space-x-2"
             onClick={() => setIsBookingFormOpen(true)}
           >
             <Plus className="w-4 h-4" />
             <span>Create Booking</span>
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="flex items-center space-x-2"
             onClick={() => navigate('/bookings')}
           >
             <FileText className="w-4 h-4" />
             <span>View All Bookings</span>
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="flex items-center space-x-2"
             onClick={() => navigate('/vehicles')}
           >
@@ -125,7 +126,9 @@ export const Dashboard = () => {
           </Button>
         </CardContent>
       </Card>
-
+      {import.meta.env.VITE_DEV_MODE === 'true' && (
+        <TestRLS />
+      )}
       <BookingFormModal
         isOpen={isBookingFormOpen}
         onClose={() => setIsBookingFormOpen(false)}

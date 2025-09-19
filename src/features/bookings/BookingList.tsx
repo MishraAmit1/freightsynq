@@ -60,7 +60,6 @@ import { EditFullBookingModal } from "./EditFullBookingModal";
 import { WarehouseSelectionModal } from "../../components/WarehouseSelectionModal";
 import { generateLRPDF } from "@/lib/lrPdfGenerator";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
 
 // Convert Supabase data to your existing interface
 interface Booking {
@@ -654,11 +653,6 @@ export const BookingList = () => {
                                 <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => setDeletingBookingId(booking.id)}
-                                  disabled={
-                                    !!booking.assignedVehicle ||
-                                    !!booking.current_warehouse ||
-                                    ['DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].includes(booking.status) // Always disable delete for these
-                                  }
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Delete
@@ -702,32 +696,23 @@ export const BookingList = () => {
         onClose={() => {
           setIsBookingFormOpen(false);
         }}
-        onSave={async (bookingData) => {
+        onSave={async (bookingData: any) => {
           try {
             const { createBooking } = await import('@/api/bookings');
 
-            const newBooking = await createBooking({
-              consignor_name: bookingData.consignorName,
-              consignee_name: bookingData.consigneeName,
-              from_location: bookingData.fromLocation,
-              to_location: bookingData.toLocation,
-              service_type: bookingData.serviceType,
-              pickup_date: bookingData.pickupDate,
-              material_description: "", // Initialize as empty
-              cargo_units: "" // Initialize as empty
-            });
+            // Ab bookingData me consignor_id and consignee_id aayega
+            const newBooking = await createBooking(bookingData);
 
             await loadData();
             toast({
               title: "Booking Created Successfully",
-              description: `Booking ${newBooking.booking_id} has been created successfully`,
+              description: `Booking ${newBooking.booking_id} has been created`,
             });
-            setIsBookingFormOpen(false);
           } catch (error) {
             console.error('Error creating booking:', error);
             toast({
               title: "Error",
-              description: "Failed to create booking. Please try again.",
+              description: "Failed to create booking",
               variant: "destructive",
             });
           }

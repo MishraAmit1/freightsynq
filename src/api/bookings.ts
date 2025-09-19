@@ -46,6 +46,8 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
     .from('bookings')
     .select(`
       *,
+      consignor:parties!consignor_id(id, name, city, state),
+      consignee:parties!consignee_id(id, name, city, state),
       current_warehouse:warehouses(id, name, city),
       vehicle_assignments!left(
         id,
@@ -91,6 +93,8 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
     
     return {
       ...booking,
+      consignor_name: booking.consignor?.name || 'Unknown',
+    consignee_name: booking.consignee?.name || 'Unknown',
       current_warehouse: booking.current_warehouse ? {
         id: booking.current_warehouse.id,
         name: booking.current_warehouse.name,
@@ -113,8 +117,8 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
 };
 
 export const createBooking = async (bookingData: {
-  consignor_name: string
-  consignee_name: string
+  consignor_id: string
+  consignee_id: string
   from_location: string
   to_location: string
   service_type: 'FTL' | 'PTL'
@@ -122,6 +126,13 @@ export const createBooking = async (bookingData: {
   material_description: string;
   cargo_units: string;
 }) => {
+  // Get current user ID
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+
   const today = new Date()
   const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
   const timeStr = Date.now().toString().slice(-4)
@@ -132,7 +143,8 @@ export const createBooking = async (bookingData: {
     .insert([{
       ...bookingData,
       booking_id,
-      status: 'DRAFT'
+      status: 'DRAFT',
+      created_by: user.id // ADD THIS LINE
     }])
     .select()
     .single()
@@ -514,13 +526,13 @@ export const updateBookingLR = async (bookingId: string, lrData: {
   cargo_units?: string | null
 }) => {
   // Convert empty strings to null for DB to accept
-  const payload = {
-    lr_number: lrData.lrNumber === '' ? null : lrData.lrNumber,
-    lr_date: lrData.lrDate === '' ? null : lrData.lrDate,
-    bilti_number: lrData.biltiNumber === '' ? null : lrData.biltiNumber,
-    invoice_number: lrData.invoiceNumber === '' ? null : lrData.invoiceNumber,
-    material_description: lrData.materialDescription === '' ? null : lrData.materialDescription,
-    cargo_units: lrData.cargoUnits === '' ? null : lrData.cargoUnits,
+   const payload = {
+    lr_number: lrData.lrNumber ?? lrData.lr_number ?? null,
+    lr_date: lrData.lrDate ?? lrData.lr_date ?? null,
+    bilti_number: lrData.biltiNumber ?? lrData.bilti_number ?? null,
+    invoice_number: lrData.invoiceNumber ?? lrData.invoice_number ?? null,
+    material_description: lrData.materialDescription ?? lrData.material_description ?? null,
+    cargo_units: lrData.cargoUnitsString ?? lrData.cargo_units ?? null,
   };
 
   const { data, error } = await supabase
@@ -760,6 +772,98 @@ export const updateBooking = async (bookingId: string, bookingData: {
   return data
 }
 
+// export const deleteBooking = async (bookingId: string) => {
+//   const { data: assignments, error: assignmentsError } = await supabase
+//     .from('vehicle_assignments')
+//     .select('id')
+//     .eq('booking_id', bookingId)
+//     .eq('status', 'ACTIVE');
+
+//   if (assignmentsError) {
+//     console.error('Error checking active assignments:', assignmentsError);
+//     throw new Error('Failed to check active assignments.');
+//   }
+
+//   if (assignments && assignments.length > 0) {
+//     throw new Error('Cannot delete booking with active vehicle assignments');
+//   }
+
+//   const { data: booking, error: bookingError } = await supabase
+//     .from('bookings')
+//     .select('current_warehouse_id')
+//     .eq('id', bookingId)
+//     .single();
+
+//   if (bookingError) {
+//     console.error('Error checking booking warehouse:', bookingError);
+//     throw new Error('Failed to check booking warehouse status.');
+//   }
+
+//   if (booking?.current_warehouse_id) {
+//     throw new Error('Cannot delete booking currently in warehouse');
+//   }
+
+//   const { data: bookingStatus, error: statusError } = await supabase
+//     .from('bookings')
+//     .select('status')
+//     .eq('id', bookingId)
+//     .single();
+
+//   if (statusError) {
+//     console.error('Error fetching booking status:', statusError);
+//     throw new Error('Failed to fetch booking status.');
+//   }
+
+//   if (['DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].includes(bookingStatus?.status || '')) {
+//     throw new Error('Cannot delete a booking that has already been dispatched, is in transit, or delivered.');
+//   }
+
+//   // 🔥 Delete associated consignments first
+//   const { error: deleteConsignmentsError } = await supabase
+//     .from('consignments')
+//     .delete()
+//     .eq('booking_id', bookingId);
+
+//   if (deleteConsignmentsError) {
+//     console.error('Error deleting associated consignments:', deleteConsignmentsError);
+//     throw new Error('Failed to delete associated consignments.');
+//   }
+  
+//   // 🔥 Delete associated vehicle assignments (even if not active, might be completed)
+//   const { error: deleteVehicleAssignmentsError } = await supabase
+//     .from('vehicle_assignments')
+//     .delete()
+//     .eq('booking_id', bookingId);
+
+//   if (deleteVehicleAssignmentsError) {
+//     console.error('Error deleting associated vehicle assignments:', deleteVehicleAssignmentsError);
+//     throw new Error('Failed to delete associated vehicle assignments.');
+//   }
+
+//   // 🔥 Delete associated booking timeline entries
+//   const { error: deleteTimelineError } = await supabase
+//     .from('booking_timeline')
+//     .delete()
+//     .eq('booking_id', bookingId);
+
+//   if (deleteTimelineError) {
+//     console.error('Error deleting associated timeline entries:', deleteTimelineError);
+//     throw new Error('Failed to delete associated timeline entries.');
+//   }
+
+//   // Now, delete the booking
+//   const { error } = await supabase
+//     .from('bookings')
+//     .delete()
+//     .eq('id', bookingId)
+
+//   if (error) {
+//     console.error('Error deleting booking:', error)
+//     throw error
+//   }
+  
+//   return true
+// }
 export const deleteBooking = async (bookingId: string) => {
   const { data: assignments, error: assignmentsError } = await supabase
     .from('vehicle_assignments')
@@ -791,22 +895,33 @@ export const deleteBooking = async (bookingId: string) => {
     throw new Error('Cannot delete booking currently in warehouse');
   }
 
-  const { data: bookingStatus, error: statusError } = await supabase
-    .from('bookings')
-    .select('status')
-    .eq('id', bookingId)
-    .single();
+  // 🔥 First, get all consignments for this booking
+  const { data: consignments, error: getConsignmentsError } = await supabase
+    .from('consignments')
+    .select('id')
+    .eq('booking_id', bookingId);
 
-  if (statusError) {
-    console.error('Error fetching booking status:', statusError);
-    throw new Error('Failed to fetch booking status.');
+  if (getConsignmentsError) {
+    console.error('Error fetching consignments:', getConsignmentsError);
+    throw new Error('Failed to fetch consignments.');
   }
 
-  if (['DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].includes(bookingStatus?.status || '')) {
-    throw new Error('Cannot delete a booking that has already been dispatched, is in transit, or delivered.');
+  // 🔥 Delete warehouse logs for all consignments
+  if (consignments && consignments.length > 0) {
+    const consignmentIds = consignments.map(c => c.id);
+    
+    const { error: deleteWarehouseLogsError } = await supabase
+      .from('warehouse_logs')
+      .delete()
+      .in('consignment_id', consignmentIds);
+
+    if (deleteWarehouseLogsError) {
+      console.error('Error deleting warehouse logs:', deleteWarehouseLogsError);
+      throw new Error('Failed to delete warehouse logs.');
+    }
   }
 
-  // 🔥 Delete associated consignments first
+  // 🔥 Now delete consignments
   const { error: deleteConsignmentsError } = await supabase
     .from('consignments')
     .delete()
@@ -817,7 +932,7 @@ export const deleteBooking = async (bookingId: string) => {
     throw new Error('Failed to delete associated consignments.');
   }
   
-  // 🔥 Delete associated vehicle assignments (even if not active, might be completed)
+  // 🔥 Delete associated vehicle assignments
   const { error: deleteVehicleAssignmentsError } = await supabase
     .from('vehicle_assignments')
     .delete()
@@ -839,7 +954,7 @@ export const deleteBooking = async (bookingId: string) => {
     throw new Error('Failed to delete associated timeline entries.');
   }
 
-  // Now, delete the booking
+  // Finally, delete the booking
   const { error } = await supabase
     .from('bookings')
     .delete()
