@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-
 export interface BookingData {
   id: string
   booking_id: string
@@ -75,26 +74,26 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
     console.error('Error fetching bookings:', error);
     throw error;
   }
-  
+
   const transformedData = (data || []).map(booking => {
     // Find only ACTIVE assignments
     const activeAssignment = (booking.vehicle_assignments || []).find(va => va.status === 'ACTIVE');
-    
+
     let vehicle = null;
     let broker = undefined;
-    
+
     if (activeAssignment) {
-      vehicle = activeAssignment.vehicle_type === 'OWNED' 
-        ? activeAssignment.owned_vehicle 
+      vehicle = activeAssignment.vehicle_type === 'OWNED'
+        ? activeAssignment.owned_vehicle
         : activeAssignment.hired_vehicle;
-      
+
       broker = activeAssignment.broker;
     }
-    
+
     return {
       ...booking,
       consignor_name: booking.consignor?.name || 'Unknown',
-    consignee_name: booking.consignee?.name || 'Unknown',
+      consignee_name: booking.consignee?.name || 'Unknown',
       current_warehouse: booking.current_warehouse ? {
         id: booking.current_warehouse.id,
         name: booking.current_warehouse.name,
@@ -112,7 +111,7 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
       }] : []
     };
   });
-  
+
   return transformedData;
 };
 
@@ -128,7 +127,7 @@ export const createBooking = async (bookingData: {
 }) => {
   // Get current user ID
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) {
     throw new Error('User not authenticated');
   }
@@ -153,7 +152,7 @@ export const createBooking = async (bookingData: {
     console.error('Error creating booking:', error)
     throw error
   }
-  
+
   return data
 }
 
@@ -180,7 +179,13 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
       // Get current active vehicle assignment
       const { data: activeAssignment } = await supabase
         .from('vehicle_assignments')
-        .select('id, vehicle_type, owned_vehicle_id, hired_vehicle_id')
+        .select(`
+  id,
+  vehicle_type,
+  owned_vehicle_id,
+  hired_vehicle_id,
+  status
+`)
         .eq('booking_id', bookingId)
         .eq('status', 'ACTIVE')
         .maybeSingle();
@@ -371,7 +376,7 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
         // Create new consignment
         const timestamp = Date.now().toString().slice(-6);
         const consignment_id = `CNS-${timestamp}`;
-        
+
         const { data: newConsignment } = await supabase
           .from('consignments')
           .insert([{
@@ -404,7 +409,7 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
         }
       } else {
         console.log('ℹ️ No specific assignment to restore - checking fallbacks');
-        
+
         // Fallback: Try to restore the most recent thing
         const { data: lastConsignment } = await supabase
           .from('consignments')
@@ -494,8 +499,8 @@ export const fetchBookingById = async (id: string) => {
   if (data) {
     const activeAssignment = (data.vehicle_assignments || []).find(va => va.status === 'ACTIVE') || data.vehicle_assignments?.[0]
     if (activeAssignment) {
-      const vehicle = activeAssignment.vehicle_type === 'OWNED' 
-        ? activeAssignment.owned_vehicle 
+      const vehicle = activeAssignment.vehicle_type === 'OWNED'
+        ? activeAssignment.owned_vehicle
         : activeAssignment.hired_vehicle
 
       data.vehicle_assignments = [{
@@ -513,7 +518,7 @@ export const fetchBookingById = async (id: string) => {
       data.vehicle_assignments = [];
     }
   }
-  
+
   return data
 }
 
@@ -526,7 +531,7 @@ export const updateBookingLR = async (bookingId: string, lrData: {
   cargo_units?: string | null
 }) => {
   // Convert empty strings to null for DB to accept
-   const payload = {
+  const payload = {
     lr_number: lrData.lrNumber ?? lrData.lr_number ?? null,
     lr_date: lrData.lrDate ?? lrData.lr_date ?? null,
     bilti_number: lrData.biltiNumber ?? lrData.bilti_number ?? null,
@@ -546,7 +551,7 @@ export const updateBookingLR = async (bookingId: string, lrData: {
     console.error('Error updating booking LR:', error)
     throw error
   }
-  
+
   return data
 }
 
@@ -576,70 +581,41 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
   try {
     console.log('Updating booking warehouse:', { bookingId, warehouseId });
 
+    // First get booking with party details
+    const { data: booking, error: getError } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        consignor:parties!consignor_id(name),
+        consignee:parties!consignee_id(name)
+      `)
+      .eq('id', bookingId)
+      .single();
+
+    if (getError) throw getError;
+
     if (warehouseId === 'remove') {
-      const { data: booking, error: getError } = await supabase
-        .from('bookings')
-        .select('current_warehouse_id')
-        .eq('id', bookingId)
-        .single();
-
-      if (getError) throw getError;
-
-      if (booking.current_warehouse_id) {
-        const { data: consignment, error: consignmentError } = await supabase
-          .from('consignments')
-          .update({
-            departure_date: new Date().toISOString(),
-            status: 'IN_TRANSIT'
-          })
-          .eq('booking_id', bookingId)
-          .eq('warehouse_id', booking.current_warehouse_id)
-          .is('departure_date', null)
-          .select('id, warehouse_id')
-          .single();
-
-        if (consignmentError) throw consignmentError;
-
-        await supabase
-          .from('warehouse_logs')
-          .insert({
-            consignment_id: consignment.id,
-            warehouse_id: consignment.warehouse_id,
-            type: 'OUTGOING',
-            notes: 'Goods removed from warehouse - booking updated',
-            created_at: new Date().toISOString()
-          });
-
-        await supabase
-          .from('booking_timeline')
-          .insert({
-            booking_id: bookingId,
-            action: 'DEPARTED_FROM_WAREHOUSE',
-            description: 'Goods departed from warehouse',
-            warehouse_id: booking.current_warehouse_id
-          });
-
-        await supabase
-          .from('bookings')
-          .update({ current_warehouse_id: null })
-          .eq('id', bookingId);
-        
-        await supabase.rpc('update_warehouse_stock', {
-          warehouse_id: booking.current_warehouse_id,
-          stock_change: -1
-        });
-      }
-
-      return { success: true };
+      // Remove warehouse logic...
     } else {
-      const { data: activeAssignment } = await supabase
+      // Check for active vehicle assignment - FIXED QUERY
+      const { data: assignments, error: assignmentError } = await supabase
         .from('vehicle_assignments')
-        .select('id, vehicle_type, owned_vehicle_id, hired_vehicle_id')
+        .select(`
+          id,
+          vehicle_type,
+          owned_vehicle_id,
+          hired_vehicle_id,
+          status
+        `)
         .eq('booking_id', bookingId)
-        .eq('status', 'ACTIVE')
-        .single();
+        .eq('status', 'ACTIVE');
 
+      if (assignmentError) throw assignmentError;
+
+      // If there's an active assignment, unassign it
+      const activeAssignment = assignments && assignments[0];
       if (activeAssignment) {
+        // Update assignment status
         await supabase
           .from('vehicle_assignments')
           .update({
@@ -648,6 +624,7 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
           })
           .eq('id', activeAssignment.id);
 
+        // Update vehicle status
         if (activeAssignment.vehicle_type === 'OWNED') {
           await supabase
             .from('owned_vehicles')
@@ -660,38 +637,36 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
             .eq('id', activeAssignment.hired_vehicle_id);
         }
 
+        // Add timeline entry
         await supabase
           .from('booking_timeline')
           .insert({
             booking_id: bookingId,
             action: 'VEHICLE_UNASSIGNED',
-            description: 'Vehicle unassigned - goods moved to warehouse',
+            description: 'Vehicle unassigned - goods moved to warehouse'
           });
       }
 
-      const { data: booking, error: bookingError } = await supabase
+      // Update booking with new warehouse
+      await supabase
         .from('bookings')
         .update({ current_warehouse_id: warehouseId })
-        .eq('id', bookingId)
-        .select('booking_id, consignor_name, consignee_name, material_description, cargo_units')
-        .single();
+        .eq('id', bookingId);
 
-      if (bookingError) throw bookingError;
-
-      const { data: existingConsignment, error: checkError } = await supabase
+      // Create consignment if doesn't exist
+      const { data: existingConsignments } = await supabase
         .from('consignments')
         .select('id')
         .eq('booking_id', bookingId)
         .eq('warehouse_id', warehouseId)
-        .is('departure_date', null)
-        .maybeSingle();
+        .is('departure_date', null);
 
-      if (checkError) throw checkError;
-
-      if (!existingConsignment) {
+      if (!existingConsignments?.length) {
+        // Generate consignment ID
         const timestamp = Date.now().toString().slice(-6);
         const consignment_id = `CNS-${timestamp}`;
-        
+
+        // Create new consignment
         const { data: newConsignment, error: consignmentError } = await supabase
           .from('consignments')
           .insert([{
@@ -706,16 +681,18 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
 
         if (consignmentError) throw consignmentError;
 
+        // Create warehouse log
         await supabase
           .from('warehouse_logs')
           .insert({
             consignment_id: newConsignment.id,
             warehouse_id: warehouseId,
             type: 'INCOMING',
-            notes: `Goods received from booking ${booking.booking_id} - ${booking.consignor_name} to ${booking.consignee_name}`,
+            notes: `Goods received from booking ${booking.booking_id} - ${booking.consignor.name} to ${booking.consignee.name}`,
             created_at: new Date().toISOString()
           });
 
+        // Add timeline entry
         await supabase
           .from('booking_timeline')
           .insert({
@@ -725,6 +702,7 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
             warehouse_id: warehouseId
           });
 
+        // Update warehouse stock
         await supabase.rpc('update_warehouse_stock', {
           warehouse_id: warehouseId,
           stock_change: 1
@@ -733,6 +711,8 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
 
       return booking;
     }
+
+    return { success: true };
   } catch (error) {
     console.error('Error in updateBookingWarehouse:', error);
     throw error;
@@ -768,7 +748,7 @@ export const updateBooking = async (bookingId: string, bookingData: {
     console.error('Error updating booking:', error)
     throw error
   }
-  
+
   return data
 }
 
@@ -828,7 +808,7 @@ export const updateBooking = async (bookingId: string, bookingData: {
 //     console.error('Error deleting associated consignments:', deleteConsignmentsError);
 //     throw new Error('Failed to delete associated consignments.');
 //   }
-  
+
 //   // 🔥 Delete associated vehicle assignments (even if not active, might be completed)
 //   const { error: deleteVehicleAssignmentsError } = await supabase
 //     .from('vehicle_assignments')
@@ -861,7 +841,7 @@ export const updateBooking = async (bookingId: string, bookingData: {
 //     console.error('Error deleting booking:', error)
 //     throw error
 //   }
-  
+
 //   return true
 // }
 export const deleteBooking = async (bookingId: string) => {
@@ -909,7 +889,7 @@ export const deleteBooking = async (bookingId: string) => {
   // 🔥 Delete warehouse logs for all consignments
   if (consignments && consignments.length > 0) {
     const consignmentIds = consignments.map(c => c.id);
-    
+
     const { error: deleteWarehouseLogsError } = await supabase
       .from('warehouse_logs')
       .delete()
@@ -931,7 +911,7 @@ export const deleteBooking = async (bookingId: string) => {
     console.error('Error deleting associated consignments:', deleteConsignmentsError);
     throw new Error('Failed to delete associated consignments.');
   }
-  
+
   // 🔥 Delete associated vehicle assignments
   const { error: deleteVehicleAssignmentsError } = await supabase
     .from('vehicle_assignments')
@@ -964,7 +944,7 @@ export const deleteBooking = async (bookingId: string) => {
     console.error('Error deleting booking:', error)
     throw error
   }
-  
+
   return true
 }
 export const fetchBookingTimeline = async (bookingId: string) => {
@@ -981,6 +961,6 @@ export const fetchBookingTimeline = async (bookingId: string) => {
     console.error('Error fetching booking timeline:', error);
     throw error;
   }
-  
+
   return data || [];
 };

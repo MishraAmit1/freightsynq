@@ -69,15 +69,15 @@ interface Booking {
   consigneeName: string;
   fromLocation: string;
   toLocation: string;
-  cargoUnits?: string; // Storing comma-separated string from LR Modal
-  materialDescription: string; // Storing comma-separated string from LR Modal
+  cargoUnits?: string;
+  materialDescription: string;
   serviceType: "FTL" | "PTL";
   status: string;
   pickupDate?: string;
   lrNumber?: string;
   lrDate?: string;
-  bilti_number?: string; // Added for LR Modal pre-fill
-  invoice_number?: string; // Added for LR Modal pre-fill
+  bilti_number?: string;
+  invoice_number?: string;
   shipmentStatus: "AT_WAREHOUSE" | "IN_TRANSIT" | "DELIVERED";
   current_warehouse?: {
     id?: string;
@@ -127,10 +127,10 @@ export const BookingList = () => {
     bookingId: string;
     currentWarehouseId?: string;
   }>({ isOpen: false, bookingId: "" });
-  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false); // For New Booking
-  const [isEditFullBookingModalOpen, setIsEditFullBookingModalOpen] = useState(false); // NEW STATE for full edit
-  const [editingFullBooking, setEditingFullBooking] = useState<Booking | null>(null); // NEW STATE for full edit
-  const [nextLRNumber, setNextLRNumber] = useState(1001); // This might need to be fetched dynamically
+  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
+  const [isEditFullBookingModalOpen, setIsEditFullBookingModalOpen] = useState(false);
+  const [editingFullBooking, setEditingFullBooking] = useState<Booking | null>(null);
+  const [nextLRNumber, setNextLRNumber] = useState(1001);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -177,16 +177,16 @@ export const BookingList = () => {
         consigneeName: booking.consignee_name,
         fromLocation: booking.from_location,
         toLocation: booking.to_location,
-        cargoUnits: booking.cargo_units, // This will be string from DB now if LR modal handles it
-        materialDescription: booking.material_description, // This will be string from DB now if LR modal handles it
+        cargoUnits: booking.cargo_units,
+        materialDescription: booking.material_description,
         serviceType: booking.service_type as "FTL" | "PTL",
         status: booking.status,
         pickupDate: booking.pickup_date,
         lrNumber: booking.lr_number,
         lrDate: booking.lr_date,
-        bilti_number: booking.bilti_number, // Pass for LR Modal pre-fill
-        invoice_number: booking.invoice_number, // Pass for LR Modal pre-fill
-        shipmentStatus: "AT_WAREHOUSE", // Defaulting, adjust as needed based on actual logic
+        bilti_number: booking.bilti_number,
+        invoice_number: booking.invoice_number,
+        shipmentStatus: "AT_WAREHOUSE",
         current_warehouse: booking.current_warehouse,
         assignedVehicle: booking.vehicle_assignments && booking.vehicle_assignments.length > 0 ? {
           vehicleNumber: booking.vehicle_assignments[0].vehicle.vehicle_number,
@@ -247,16 +247,16 @@ export const BookingList = () => {
         await updateBookingWarehouse(bookingId, warehouseId);
         toast({
           title: "Warehouse Updated",
-          description: `Booking moved to ${warehouseName} and consignment created`,
+          description: `Booking moved to ${warehouseName}`,
         });
       }
 
       await loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating warehouse:', error);
       toast({
         title: "Error",
-        description: "Failed to update warehouse. Please try again.",
+        description: error.message || "Failed to update warehouse",
         variant: "destructive",
       });
     }
@@ -287,7 +287,6 @@ export const BookingList = () => {
     }
   };
 
-  // This handles saving LR details from either CreateLRModal or EditFullBookingModal
   const handleSaveLR = async (bookingId: string, lrData: LRData) => {
     try {
       await updateBookingLR(bookingId, {
@@ -296,7 +295,7 @@ export const BookingList = () => {
         bilti_number: lrData.biltiNumber,
         invoice_number: lrData.invoiceNumber,
         material_description: lrData.materialDescription,
-        cargo_units: lrData.cargoUnitsString // Storing comma-separated string
+        cargo_units: lrData.cargoUnitsString
       });
 
       await loadData();
@@ -315,7 +314,6 @@ export const BookingList = () => {
     }
   };
 
-  // This handles saving full booking details (general + LR) from EditFullBookingModal
   const handleSaveFullBooking = async (
     bookingId: string,
     generalData: {
@@ -329,10 +327,7 @@ export const BookingList = () => {
     lrData: LRData
   ) => {
     try {
-      // Update general booking details
       await updateBooking(bookingId, generalData);
-
-      // Update LR details
       await updateBookingLR(bookingId, lrData);
 
       await loadData();
@@ -340,7 +335,7 @@ export const BookingList = () => {
         title: "Booking Updated",
         description: `Booking ${bookingId} and LR details saved successfully.`,
       });
-      setIsEditFullBookingModalOpen(false); // Close modal on success
+      setIsEditFullBookingModalOpen(false);
       setEditingFullBooking(null);
     } catch (error) {
       console.error('Error saving full booking:', error);
@@ -349,7 +344,7 @@ export const BookingList = () => {
         description: "Failed to save full booking details. Please try again.",
         variant: "destructive",
       });
-      throw error; // Re-throw to allow modal to handle loading state
+      throw error;
     }
   };
 
@@ -366,6 +361,69 @@ export const BookingList = () => {
     toast({
       title: "PDF Downloaded",
       description: `LR ${booking.lrNumber} has been downloaded`,
+    });
+  };
+
+  // Updated Export to CSV with correct format
+  const handleExport = () => {
+    const headers = [
+      "Booking ID",
+      "consignor_name",
+      "consignee_name",
+      "from_location",
+      "to_location",
+      "cargo_units",
+      "material_description",
+      "service_type",
+      "pickup_date",
+      "invoice_number",
+      "lr_number",
+      "lr_date",
+      "bilti_number",
+      "current_warehouse",
+      "status"
+    ];
+
+    const rows = filteredBookings.map(booking => [
+      booking.bookingId,
+      booking.consignorName,
+      booking.consigneeName,
+      booking.fromLocation,
+      booking.toLocation,
+      booking.cargoUnits || "",
+      booking.materialDescription,
+      booking.serviceType,
+      booking.pickupDate || "",
+      booking.invoice_number || "",
+      booking.lrNumber || "",
+      booking.lrDate ? new Date(booking.lrDate).toISOString().split('T')[0] : "",
+      booking.bilti_number || "",
+      booking.current_warehouse?.name || "",
+      booking.status
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => {
+        // Escape quotes and wrap in quotes if contains comma or quotes
+        const cellStr = String(cell);
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bookings_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exported Successfully",
+      description: `${filteredBookings.length} bookings exported to CSV`,
     });
   };
 
@@ -386,13 +444,19 @@ export const BookingList = () => {
           <h1 className="text-3xl font-bold text-foreground">Bookings</h1>
           <p className="text-muted-foreground">Manage your freight bookings and shipments</p>
         </div>
-        <Button
-          onClick={() => { setIsBookingFormOpen(true); }} // Open BookingFormModal for new
-          className="bg-gradient-to-r from-primary to-primary-hover text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New Booking
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button
+            onClick={() => { setIsBookingFormOpen(true); }}
+            className="bg-gradient-to-r from-primary to-primary-hover text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Booking
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -496,8 +560,6 @@ export const BookingList = () => {
                           <Select
                             value={booking.status}
                             onValueChange={(value) => handleStatusChange(booking.id, value)}
-                          // Status Select is NOT disabled when delivered, as per the last request.
-                          // This allows changing status even after delivery, if needed (e.g., to CANCELLED)
                           >
                             <SelectTrigger className="w-[110px] h-8 text-xs">
                               <SelectValue />
@@ -525,7 +587,7 @@ export const BookingList = () => {
                               });
                             }}
                             className="w-full max-w-[130px] h-8 text-xs"
-                            disabled={isBookingDelivered} // Disable if delivered
+                            disabled={isBookingDelivered}
                           >
                             {booking.current_warehouse ? (
                               <div className="flex items-center gap-1 truncate">
@@ -574,7 +636,6 @@ export const BookingList = () => {
                             )
                           )}
                         </TableCell>
-                        {/* LR Status */}
                         <TableCell>
                           {booking.lrNumber ? (
                             <div className="flex items-center gap-2">
@@ -585,7 +646,7 @@ export const BookingList = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDownloadLR(booking)}
-                                disabled={false} // Download should always be possible if LR exists, regardless of booking status
+                                disabled={false}
                               >
                                 <Download className="w-4 h-4" />
                               </Button>
@@ -597,8 +658,6 @@ export const BookingList = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
-                              // Create LR is NOT disabled when delivered, as per the last request.
-                              // This allows creating LR even after delivery if it was missed.
                               >
                                 <FileText className="w-4 h-4 mr-1" />
                                 Create LR
@@ -606,16 +665,14 @@ export const BookingList = () => {
                             </div>
                           )}
                         </TableCell>
-                        {/* Actions */}
                         <TableCell>
                           <div className="flex space-x-1">
-                            {/* Conditional Assign button (only if no vehicle and no warehouse) */}
                             {!booking.assignedVehicle && !booking.current_warehouse && (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setAssignmentModal({ isOpen: true, bookingId: booking.id })}
-                                disabled={isBookingDelivered} // Disable if delivered
+                                disabled={isBookingDelivered}
                               >
                                 <Truck className="w-4 h-4 mr-1" />
                                 Assign
@@ -630,7 +687,6 @@ export const BookingList = () => {
                               View
                             </Button>
 
-                            {/* Dropdown for More actions */}
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
@@ -644,7 +700,7 @@ export const BookingList = () => {
                                     setEditingFullBooking(booking);
                                     setIsEditFullBookingModalOpen(true);
                                   }}
-                                  disabled={isBookingDelivered} // Disable edit if delivered
+                                  disabled={isBookingDelivered}
                                 >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit All Details
@@ -679,18 +735,16 @@ export const BookingList = () => {
         bookingId={assignmentModal.bookingId}
       />
 
-      {/* Create LR Modal (for initial LR creation only) */}
       <CreateLRModal
         isOpen={lrModal.isOpen}
         onClose={() => {
           setLrModal({ isOpen: false, bookingId: "" });
         }}
-        onSave={handleSaveLR} // Use general LR save handler
+        onSave={handleSaveLR}
         booking={filteredBookings.find(b => b.id === lrModal.bookingId) || null}
         nextLRNumber={nextLRNumber}
       />
 
-      {/* New Booking Form Modal (for creating new booking only) */}
       <BookingFormModal
         isOpen={isBookingFormOpen}
         onClose={() => {
@@ -700,7 +754,6 @@ export const BookingList = () => {
           try {
             const { createBooking } = await import('@/api/bookings');
 
-            // Ab bookingData me consignor_id and consignee_id aayega
             const newBooking = await createBooking(bookingData);
 
             await loadData();
@@ -719,19 +772,18 @@ export const BookingList = () => {
         }}
       />
 
-      {/* Edit Full Booking Modal (NEW - for editing all details of an existing booking) */}
       <EditFullBookingModal
         isOpen={isEditFullBookingModalOpen}
         onClose={() => {
           setIsEditFullBookingModalOpen(false);
-          setEditingFullBooking(null); // Clear editing booking on close
+          setEditingFullBooking(null);
         }}
         editingBooking={editingFullBooking}
-        onSave={handleSaveFullBooking} // Use the combined save handler
+        onSave={handleSaveFullBooking}
         nextLRNumber={nextLRNumber}
       />
 
-      <AlertDialog open={!!deletingBookingId} onOpenChange={setDeletingBookingId}>
+      <AlertDialog open={!!deletingBookingId} onOpenChange={() => setDeletingBookingId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -752,6 +804,7 @@ export const BookingList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       <WarehouseSelectionModal
         isOpen={warehouseModal.isOpen}
         onClose={() => setWarehouseModal({ isOpen: false, bookingId: "" })}

@@ -250,44 +250,14 @@ export const assignVehicleToBooking = async (assignmentData: {
   broker_id?: string
 }) => {
   try {
-    // First, get vehicle details for timeline
-    let vehicleNumber = '';
-    let driverName = '';
-    
-    if (assignmentData.vehicle_type === 'OWNED') {
-      const { data: vehicle } = await supabase
-        .from('owned_vehicles')
-        .select('vehicle_number')
-        .eq('id', assignmentData.vehicle_id)
-        .single();
-      
-      vehicleNumber = vehicle?.vehicle_number || '';
-    } else {
-      const { data: vehicle } = await supabase
-        .from('hired_vehicles')
-        .select('vehicle_number')
-        .eq('id', assignmentData.vehicle_id)
-        .single();
-      
-      vehicleNumber = vehicle?.vehicle_number || '';
-    }
-    
-    const { data: driver } = await supabase
-      .from('drivers')
-      .select('name')
-      .eq('id', assignmentData.driver_id)
-      .single();
-    
-    driverName = driver?.name || '';
-
-    // 🔥 NEW: Check if booking is currently at warehouse
+    // Check if booking is currently at warehouse
     const { data: booking } = await supabase
       .from('bookings')
       .select('current_warehouse_id')
       .eq('id', assignmentData.booking_id)
       .single();
 
-    // 🔥 NEW: If at warehouse, remove from warehouse first
+    // If at warehouse, remove from warehouse first
     if (booking?.current_warehouse_id) {
       // Get active consignment
       const { data: consignment } = await supabase
@@ -307,7 +277,7 @@ export const assignVehicleToBooking = async (assignmentData: {
             warehouse_id: booking.current_warehouse_id,
             type: 'OUTGOING',
             vehicle_id: assignmentData.vehicle_id,
-            notes: `Vehicle ${vehicleNumber} assigned for delivery - goods dispatched from warehouse`,
+            notes: `Vehicle assigned for delivery - goods dispatched from warehouse`,
             created_at: new Date().toISOString()
           });
 
@@ -338,7 +308,7 @@ export const assignVehicleToBooking = async (assignmentData: {
       }
     }
 
-    // Call the RPC function
+    // Call the RPC function (it creates timeline entry internally)
     const { data, error } = await supabase.rpc('assign_vehicle_to_booking_v2', {
       p_booking_id: assignmentData.booking_id,
       p_vehicle_type: assignmentData.vehicle_type,
@@ -349,14 +319,14 @@ export const assignVehicleToBooking = async (assignmentData: {
 
     if (error) throw error;
 
-    // Add timeline entry
-    await supabase
-      .from('booking_timeline')
-      .insert({
-        booking_id: assignmentData.booking_id,
-        action: 'VEHICLE_ASSIGNED',
-        description: `Vehicle ${vehicleNumber} assigned with driver ${driverName}`,
-      });
+    // ❌ REMOVE THIS - RPC already creates timeline entry
+    // await supabase
+    //   .from('booking_timeline')
+    //   .insert({
+    //     booking_id: assignmentData.booking_id,
+    //     action: 'VEHICLE_ASSIGNED',
+    //     description: `Vehicle ${vehicleNumber} assigned with driver ${driverName}`,
+    //   });
 
     return data;
   } catch (error) {
@@ -368,56 +338,21 @@ export const assignVehicleToBooking = async (assignmentData: {
 // Unassign vehicle from booking
 export const unassignVehicle = async (bookingId: string) => {
   try {
-    // Get current assignment details for timeline
-    const { data: assignment } = await supabase
-      .from('vehicle_assignments')
-      .select(`
-        vehicle_type,
-        owned_vehicle_id,
-        hired_vehicle_id,
-        driver:drivers(name)
-      `)
-      .eq('booking_id', bookingId)
-      .eq('status', 'ACTIVE')
-      .single();
-    
-    let vehicleNumber = '';
-    
-    if (assignment) {
-      if (assignment.vehicle_type === 'OWNED') {
-        const { data: vehicle } = await supabase
-          .from('owned_vehicles')
-          .select('vehicle_number')
-          .eq('id', assignment.owned_vehicle_id)
-          .single();
-        
-        vehicleNumber = vehicle?.vehicle_number || '';
-      } else {
-        const { data: vehicle } = await supabase
-          .from('hired_vehicles')
-          .select('vehicle_number')
-          .eq('id', assignment.hired_vehicle_id)
-          .single();
-        
-        vehicleNumber = vehicle?.vehicle_number || '';
-      }
-    }
-
-    // Call the RPC function
+    // Call the RPC function (it creates timeline entry internally)
     const { data, error } = await supabase.rpc('unassign_vehicle_from_booking_v2', {
       p_booking_id: bookingId
     });
 
     if (error) throw error;
 
-    // Add timeline entry
-    await supabase
-      .from('booking_timeline')
-      .insert({
-        booking_id: bookingId,
-        action: 'VEHICLE_UNASSIGNED',
-        description: `Vehicle ${vehicleNumber} unassigned from booking`,
-      });
+    // ❌ REMOVE THIS - RPC already creates timeline entry
+    // await supabase
+    //   .from('booking_timeline')
+    //   .insert({
+    //     booking_id: bookingId,
+    //     action: 'VEHICLE_UNASSIGNED',
+    //     description: `Vehicle ${vehicleNumber} unassigned from booking`,
+    //   });
 
     return data;
   } catch (error) {
@@ -425,6 +360,8 @@ export const unassignVehicle = async (bookingId: string) => {
     throw error;
   }
 };
+
+
 
 // Get all drivers
 export const fetchDrivers = async () => {

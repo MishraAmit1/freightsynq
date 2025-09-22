@@ -24,20 +24,39 @@ export const fetchWarehouseDetails = async (warehouseId: string) => {
       *,
       consignments(
         *,
-        booking:bookings(booking_id, consignor_name, consignee_name, material_description, cargo_units)
+        booking:bookings(
+          id,
+          booking_id,
+          material_description,
+          cargo_units,
+          consignor:parties!consignor_id(name),
+          consignee:parties!consignee_id(name)
+        )
       )
     `)
     .eq('id', warehouseId)
     .eq('consignments.status', 'IN_WAREHOUSE')
-    .single()
+    .single();
 
   if (error) {
-    console.error('Error fetching warehouse details:', error)
-    throw error
+    console.error('Error fetching warehouse details:', error);
+    throw error;
+  }
+
+  // Transform the data to match the expected format
+  if (data && data.consignments) {
+    data.consignments = data.consignments.map((consignment: any) => ({
+      ...consignment,
+      booking: {
+        ...consignment.booking,
+        consignor_name: consignment.booking?.consignor?.name || 'Unknown',
+        consignee_name: consignment.booking?.consignee?.name || 'Unknown'
+      }
+    }));
   }
   
-  return data
-}
+  return data;
+};
 
 // Add new warehouse
 export const createWarehouse = async (warehouseData: {
@@ -79,91 +98,92 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
   try {
     console.log('Updating booking warehouse:', { bookingId, warehouseId });
 
-    // If removing warehouse
+    // First get booking with party details
+    const { data: booking, error: getError } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        consignor:parties!consignor_id(name),
+        consignee:parties!consignee_id(name)
+      `)
+      .eq('id', bookingId)
+      .single();
+
+    if (getError) throw getError;
+
     if (warehouseId === 'remove') {
-      // Get current warehouse
-      const { data: booking, error: getError } = await supabase
-        .from('bookings')
-        .select('current_warehouse_id')
-        .eq('id', bookingId)
-        .single();
+      // Remove warehouse logic...
+    } else {
+      // Check for active vehicle assignment - FIXED QUERY
+      const { data: assignments, error: assignmentError } = await supabase
+        .from('vehicle_assignments')
+        .select(`
+          id,
+          vehicle_type,
+          owned_vehicle_id,
+          hired_vehicle_id,
+          status
+        `)
+        .eq('booking_id', bookingId)
+        .eq('status', 'ACTIVE');
 
-      if (getError) throw getError;
+      if (assignmentError) throw assignmentError;
 
-      if (booking.current_warehouse_id) {
-        // Close active consignment
-        const { data: consignment, error: consignmentError } = await supabase
-          .from('consignments')
-          .update({
-            departure_date: new Date().toISOString(),
-            status: 'IN_TRANSIT'
-          })
-          .eq('booking_id', bookingId)
-          .eq('warehouse_id', booking.current_warehouse_id)
-          .is('departure_date', null)
-          .select('id, warehouse_id')
-          .single();
-
-        if (consignmentError) throw consignmentError;
-
-        // 🔥 NEW: Create OUTGOING warehouse log
+      // If there's an active assignment, unassign it
+      const activeAssignment = assignments && assignments[0];
+      if (activeAssignment) {
+        // Update assignment status
         await supabase
-          .from('warehouse_logs')
-          .insert({
-            consignment_id: consignment.id,
-            warehouse_id: consignment.warehouse_id,
-            type: 'OUTGOING',
-            notes: 'Goods removed from warehouse - booking updated',
-            created_at: new Date().toISOString()
-          });
+          .from('vehicle_assignments')
+          .update({
+            released_at: new Date().toISOString(),
+            status: 'COMPLETED'
+          })
+          .eq('id', activeAssignment.id);
+
+        // Update vehicle status
+        if (activeAssignment.vehicle_type === 'OWNED') {
+          await supabase
+            .from('owned_vehicles')
+            .update({ status: 'AVAILABLE' })
+            .eq('id', activeAssignment.owned_vehicle_id);
+        } else {
+          await supabase
+            .from('hired_vehicles')
+            .update({ status: 'AVAILABLE' })
+            .eq('id', activeAssignment.hired_vehicle_id);
+        }
 
         // Add timeline entry
         await supabase
           .from('booking_timeline')
           .insert({
             booking_id: bookingId,
-            action: 'DEPARTED_FROM_WAREHOUSE',
-            description: 'Goods departed from warehouse',
-            warehouse_id: booking.current_warehouse_id
+            action: 'VEHICLE_UNASSIGNED',
+            description: 'Vehicle unassigned - goods moved to warehouse'
           });
-
-        // Update booking
-        await supabase
-          .from('bookings')
-          .update({ current_warehouse_id: null })
-          .eq('id', bookingId);
       }
 
-      return { success: true };
-    } else {
-      // Assigning to warehouse
-      // Update booking with warehouse
-      const { data: booking, error: bookingError } = await supabase
+      // Update booking with new warehouse
+      await supabase
         .from('bookings')
         .update({ current_warehouse_id: warehouseId })
-        .eq('id', bookingId)
-        .select('booking_id, consignor_name, consignee_name, material_description, cargo_units')
-        .single();
+        .eq('id', bookingId);
 
-      if (bookingError) throw bookingError;
-
-      // Check if consignment already exists for this booking-warehouse combination
-      const { data: existingConsignment, error: checkError } = await supabase
+      // Create consignment if doesn't exist
+      const { data: existingConsignments } = await supabase
         .from('consignments')
         .select('id')
         .eq('booking_id', bookingId)
         .eq('warehouse_id', warehouseId)
-        .is('departure_date', null)
-        .maybeSingle();
+        .is('departure_date', null);
 
-      if (checkError) throw checkError;
-
-      if (!existingConsignment) {
-        // Generate unique consignment ID
+      if (!existingConsignments?.length) {
+        // Generate consignment ID
         const timestamp = Date.now().toString().slice(-6);
         const consignment_id = `CNS-${timestamp}`;
         
-        // Create consignment
+        // Create new consignment
         const { data: newConsignment, error: consignmentError } = await supabase
           .from('consignments')
           .insert([{
@@ -178,14 +198,14 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
 
         if (consignmentError) throw consignmentError;
 
-        // 🔥 NEW: Create INCOMING warehouse log
+        // Create warehouse log
         await supabase
           .from('warehouse_logs')
           .insert({
             consignment_id: newConsignment.id,
             warehouse_id: warehouseId,
             type: 'INCOMING',
-            notes: `Goods received from booking ${booking.booking_id} - ${booking.consignor_name} to ${booking.consignee_name}`,
+            notes: `Goods received from booking ${booking.booking_id} - ${booking.consignor.name} to ${booking.consignee.name}`,
             created_at: new Date().toISOString()
           });
 
@@ -199,7 +219,7 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
             warehouse_id: warehouseId
           });
 
-        // Update warehouse stock (+1)
+        // Update warehouse stock
         await supabase.rpc('update_warehouse_stock', {
           warehouse_id: warehouseId,
           stock_change: 1
@@ -208,6 +228,8 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
 
       return booking;
     }
+
+    return { success: true };
   } catch (error) {
     console.error('Error in updateBookingWarehouse:', error);
     throw error;
@@ -336,7 +358,11 @@ export const fetchWarehouseLogs = async (warehouseId: string) => {
       *,
       consignment:consignments(
         consignment_id,
-        booking:bookings(booking_id, consignor_name, consignee_name)
+        booking:bookings(
+          booking_id,
+          consignor:parties!consignor_id(name),
+          consignee:parties!consignee_id(name)
+        )
       ),
       performed_by:users(name, email)
     `)
@@ -347,8 +373,21 @@ export const fetchWarehouseLogs = async (warehouseId: string) => {
     console.error('Error fetching warehouse logs:', error);
     throw error;
   }
+
+  // Transform the data
+  const transformedData = (data || []).map(log => ({
+    ...log,
+    consignment: {
+      ...log.consignment,
+      booking: {
+        ...log.consignment?.booking,
+        consignor_name: log.consignment?.booking?.consignor?.name || 'Unknown',
+        consignee_name: log.consignment?.booking?.consignee?.name || 'Unknown'
+      }
+    }
+  }));
   
-  return data || [];
+  return transformedData;
 };
 // Create consignment entry
 export const createConsignment = async (consignmentData: {

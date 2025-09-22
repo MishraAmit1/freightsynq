@@ -21,6 +21,7 @@ import Broker from "./pages/Broker";
 import { Customers } from "./pages/Customers";
 import { CompanySettings } from "./pages/CompanySettings";
 import { EmployeeSignup } from "./pages/EmployeeSignup";
+import { Profile } from "./components/Profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,6 +55,7 @@ const App = () => {
                   <MainLayout>
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
+                      <Route path="/profile" element={<Profile />} />
                       <Route path="/bookings" element={<BookingList />} />
                       <Route path="/bookings/:id" element={<BookingDetail />} />
                       <Route path="/vehicles" element={<VehicleManagement />} />

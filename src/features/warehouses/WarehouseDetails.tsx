@@ -55,7 +55,7 @@ interface Warehouse {
       consignor_name: string;
       consignee_name: string;
       material_description: string;
-      cargo_units: number;
+      cargo_units: string;
     };
   }>;
 }
@@ -101,12 +101,17 @@ export const WarehouseDetails = () => {
     try {
       setLoading(true);
       const data = await fetchWarehouseDetails(id!);
+
+      if (!data) {
+        throw new Error('Warehouse not found');
+      }
+
       setWarehouse(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading warehouse details:', error);
       toast({
         title: "Error",
-        description: "Failed to load warehouse details",
+        description: error.message || "Failed to load warehouse details",
         variant: "destructive",
       });
     } finally {
@@ -526,6 +531,8 @@ export const WarehouseDetails = () => {
         }}
         consignment={selectedConsignment}
         onAssignSuccess={handleVehicleAssignSuccess}
+        title="Assign Vehicle to Consignment" // Add this
+        description="Select a vehicle and driver to assign to this consignment" // Add this
       />
 
       <ConfirmActionModal
@@ -538,7 +545,10 @@ export const WarehouseDetails = () => {
         onConfirm={executeAction}
         consignment={selectedConsignment}
         actionType={actionType}
+        title={actionType === 'transit' ? 'Mark as In Transit' : 'Mark as Delivered'} // Add this
+        description="This action will update the consignment status" // Add this
       />
+
     </div>
   );
 };
