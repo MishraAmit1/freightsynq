@@ -2,120 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* FreightSynq Professional Color System */
+    /* Light Mode - Black Primary Theme */
     --background: 0 0% 100%;
-    --foreground: 225 15% 15%;
-
+    --foreground: 0 0% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 225 15% 15%;
-
+    --card-foreground: 0 0% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 225 15% 15%;
+    --popover-foreground: 0 0% 4%;
 
-    /* Professional navy-blue primary */
-    --primary: 219 88% 32%;
+    /* Primary BLACK */
+    --primary: 0 0% 4%;
     --primary-foreground: 0 0% 98%;
-    --primary-hover: 219 88% 28%;
-    --primary-glow: 219 100% 70%;
+    --primary-hover: 0 0% 15%;
+    --primary-glow: 0 0% 20%;
 
-    /* Clean secondary grays */
-    --secondary: 214 20% 97%;
-    --secondary-foreground: 225 15% 25%;
-    --secondary-hover: 214 20% 94%;
+    /* Secondary grays */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 4%;
+    --secondary-hover: 0 0% 90%;
 
-    --muted: 214 20% 97%;
-    --muted-foreground: 225 10% 45%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 214 20% 97%;
-    --accent-foreground: 225 15% 25%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 4%;
 
-    /* Status colors for booking states */
+    /* Status colors */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 98%;
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 98%;
+    --warning-foreground: 0 0% 4%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 98%;
 
     /* Borders and inputs */
-    --border: 214 20% 92%;
-    --input: 214 20% 92%;
-    --ring: 219 88% 32%;
+    --border: 0 0% 90%;
+    --input: 0 0% 96%;
+    --ring: 0 0% 4%;
 
-    /* Professional gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-hover)));
-    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--muted)));
-    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(219 100% 40%) 100%);
-    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(0 0% 4%), hsl(0 0% 15%));
+    --gradient-secondary: linear-gradient(135deg, hsl(0 0% 96%), hsl(0 0% 90%));
+
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(var(--primary) / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(var(--primary) / 0.08);
-    --shadow-lg: 0 10px 15px -3px hsl(var(--primary) / 0.1);
-    --shadow-glow: 0 0 20px hsl(var(--primary-glow) / 0.3);
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.15);
+    --shadow-glow: 0 0 20px hsl(0 0% 0% / 0.2);
 
     --radius: 0.75rem;
 
+    /* Sidebar */
     --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
+    --sidebar-foreground: 0 0% 4%;
+    --sidebar-primary: 0 0% 4%;
     --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 0 0% 4%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 0% 4%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark Mode - Yellow Primary Theme */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    /* Primary yellow accents */
+    --primary: 48 100% 68%;
+    --primary-foreground: 0 0% 4%;
+    --primary-hover: 48 100% 75%;
+    --primary-glow: 48 100% 75%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    /* Secondary grays */
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 80%;
+    --secondary-hover: 0 0% 20%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 65%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 48 100% 68%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    /* Borders and inputs */
+    --border: 0 0% 20%;
+    --input: 0 0% 12%;
+    --ring: 48 100% 68%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    /* Dashboard specific gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(48 100% 68%), hsl(48 100% 75%));
+    --gradient-dark: linear-gradient(135deg, hsl(0 0% 4%), hsl(0 0% 12%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 8%), hsl(0 0% 12%));
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* Shadows with subtle glow */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.5);
+    --shadow-yellow: 0 4px 20px hsl(48 100% 68% / 0.3);
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar colors */
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 48 100% 68%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 48 100% 68%;
   }
 }
 
@@ -126,5 +128,144 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+
+  /* Primary button - Black in light, Yellow in dark */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary-hover transition-colors font-medium;
+  }
+
+  .dark .btn-primary {
+    box-shadow: var(--shadow-yellow);
+  }
+
+  /* Secondary button */
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary-hover transition-colors;
+  }
+
+  /* Theme Toggle Button Styles */
+  .theme-toggle {
+    @apply relative w-14 h-7 bg-muted rounded-full transition-colors duration-300 cursor-pointer;
+  }
+
+  .theme-toggle-slider {
+    @apply absolute top-0.5 left-0.5 w-6 h-6 bg-background rounded-full transition-transform duration-300 shadow-md;
+    @apply flex items-center justify-center;
+  }
+
+  .theme-toggle-icon {
+    @apply w-4 h-4 text-foreground;
+  }
+
+  .dark .theme-toggle {
+    @apply bg-primary/20;
+  }
+
+  .dark .theme-toggle-slider {
+    @apply translate-x-7 bg-primary;
+  }
+
+  .dark .theme-toggle-icon {
+    @apply text-primary-foreground;
+  }
+
+  /* Chart colors */
+  .chart-primary {
+    fill: hsl(var(--primary));
+    stroke: hsl(var(--primary));
+  }
+
+  .chart-secondary {
+    fill: hsl(0 0% 80%);
+    stroke: hsl(0 0% 80%);
+  }
+
+  .chart-accent {
+    fill: hsl(48 100% 68%);
+    stroke: hsl(48 100% 68%);
+  }
+
+  /* Dashboard cards */
+  .dashboard-card {
+    @apply bg-card border border-border rounded-lg shadow-md p-6 text-card-foreground;
+  }
+
+  .dark .dashboard-card {
+    background: var(--gradient-card);
+  }
+
+  /* Metric cards */
+  .metric-card {
+    @apply dashboard-card relative overflow-hidden;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: hsl(var(--primary));
+  }
+
+  .dark .metric-card::before {
+    background: var(--gradient-primary);
+  }
+
+  /* Status indicators */
+  .status-pending {
+    @apply bg-yellow-100 text-yellow-800 border-yellow-200;
+  }
+
+  .status-delivered {
+    @apply bg-green-100 text-green-800 border-green-200;
+  }
+
+  .status-cancelled {
+    @apply bg-red-100 text-red-800 border-red-200;
+  }
+
+  .dark .status-pending {
+    @apply bg-yellow-900/20 text-yellow-400 border-yellow-800/30;
+  }
+
+  .dark .status-delivered {
+    @apply bg-green-900/20 text-green-400 border-green-800/30;
+  }
+
+  .dark .status-cancelled {
+    @apply bg-red-900/20 text-red-400 border-red-800/30;
+  }
+
+  /* Navigation active state */
+  .nav-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  /* Input styling */
+  .input-dark {
+    @apply bg-input border-border text-foreground placeholder:text-muted-foreground;
+  }
+
+  /* TopBar specific styles */
+  .topbar-search {
+    @apply bg-muted/50 border-border focus:ring-2 focus:ring-ring;
+  }
+
+  .topbar-notification-badge {
+    @apply absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-destructive rounded-full;
+  }
+
+  .topbar-avatar {
+    @apply w-8 h-8 bg-primary rounded-full flex items-center justify-center;
+  }
+
+  .topbar-avatar-text {
+    @apply text-sm font-medium text-primary-foreground;
   }
 }

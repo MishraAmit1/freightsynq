@@ -113,8 +113,8 @@ interface EditFullBookingModalProps {
     onSave: (
         bookingId: string,
         generalData: {
-            consignor_name: string;
-            consignee_name: string;
+            consignor_id?: string;  // Changed from consignor_name
+            consignee_id?: string;
             from_location: string;
             to_location: string;
             service_type: "FTL" | "PTL";
@@ -125,8 +125,8 @@ interface EditFullBookingModalProps {
     editingBooking: { // Full Booking object expected
         id: string;
         bookingId: string;
-        consignorName: string;
-        consigneeName: string;
+        consignor_id?: string;  // Add this
+        consignee_id?: string;
         fromLocation: string;
         toLocation: string;
         serviceType: "FTL" | "PTL";
@@ -410,8 +410,8 @@ export const EditFullBookingModal = ({
             }
 
             const generalData = {
-                consignor_name: data.consignorName,
-                consignee_name: data.consigneeName,
+                consignor_id: editingBooking.consignor_id,  // Use ID instead of name
+                consignee_id: editingBooking.consignee_id,
                 from_location: data.fromLocation,
                 to_location: data.toLocation,
                 service_type: data.serviceType,

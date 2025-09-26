@@ -720,8 +720,8 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
 };
 
 export const updateBooking = async (bookingId: string, bookingData: {
-  consignor_name?: string | null
-  consignee_name?: string | null
+  consignor_id?: string | null
+  consignee_id?: string | null
   from_location?: string | null
   to_location?: string | null
   service_type?: 'FTL' | 'PTL' | null
@@ -729,8 +729,8 @@ export const updateBooking = async (bookingId: string, bookingData: {
 }) => {
   // Convert empty strings to null for DB to accept
   const payload = {
-    consignor_name: bookingData.consignor_name === '' ? null : bookingData.consignor_name,
-    consignee_name: bookingData.consignee_name === '' ? null : bookingData.consignee_name,
+    consignor_id: bookingData.consignor_id === '' ? null : bookingData.consignor_id,
+    consignee_id: bookingData.consignee_id === '' ? null : bookingData.consignee_id,
     from_location: bookingData.from_location === '' ? null : bookingData.from_location,
     to_location: bookingData.to_location === '' ? null : bookingData.to_location,
     service_type: bookingData.service_type,
@@ -751,99 +751,6 @@ export const updateBooking = async (bookingId: string, bookingData: {
 
   return data
 }
-
-// export const deleteBooking = async (bookingId: string) => {
-//   const { data: assignments, error: assignmentsError } = await supabase
-//     .from('vehicle_assignments')
-//     .select('id')
-//     .eq('booking_id', bookingId)
-//     .eq('status', 'ACTIVE');
-
-//   if (assignmentsError) {
-//     console.error('Error checking active assignments:', assignmentsError);
-//     throw new Error('Failed to check active assignments.');
-//   }
-
-//   if (assignments && assignments.length > 0) {
-//     throw new Error('Cannot delete booking with active vehicle assignments');
-//   }
-
-//   const { data: booking, error: bookingError } = await supabase
-//     .from('bookings')
-//     .select('current_warehouse_id')
-//     .eq('id', bookingId)
-//     .single();
-
-//   if (bookingError) {
-//     console.error('Error checking booking warehouse:', bookingError);
-//     throw new Error('Failed to check booking warehouse status.');
-//   }
-
-//   if (booking?.current_warehouse_id) {
-//     throw new Error('Cannot delete booking currently in warehouse');
-//   }
-
-//   const { data: bookingStatus, error: statusError } = await supabase
-//     .from('bookings')
-//     .select('status')
-//     .eq('id', bookingId)
-//     .single();
-
-//   if (statusError) {
-//     console.error('Error fetching booking status:', statusError);
-//     throw new Error('Failed to fetch booking status.');
-//   }
-
-//   if (['DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].includes(bookingStatus?.status || '')) {
-//     throw new Error('Cannot delete a booking that has already been dispatched, is in transit, or delivered.');
-//   }
-
-//   // 🔥 Delete associated consignments first
-//   const { error: deleteConsignmentsError } = await supabase
-//     .from('consignments')
-//     .delete()
-//     .eq('booking_id', bookingId);
-
-//   if (deleteConsignmentsError) {
-//     console.error('Error deleting associated consignments:', deleteConsignmentsError);
-//     throw new Error('Failed to delete associated consignments.');
-//   }
-
-//   // 🔥 Delete associated vehicle assignments (even if not active, might be completed)
-//   const { error: deleteVehicleAssignmentsError } = await supabase
-//     .from('vehicle_assignments')
-//     .delete()
-//     .eq('booking_id', bookingId);
-
-//   if (deleteVehicleAssignmentsError) {
-//     console.error('Error deleting associated vehicle assignments:', deleteVehicleAssignmentsError);
-//     throw new Error('Failed to delete associated vehicle assignments.');
-//   }
-
-//   // 🔥 Delete associated booking timeline entries
-//   const { error: deleteTimelineError } = await supabase
-//     .from('booking_timeline')
-//     .delete()
-//     .eq('booking_id', bookingId);
-
-//   if (deleteTimelineError) {
-//     console.error('Error deleting associated timeline entries:', deleteTimelineError);
-//     throw new Error('Failed to delete associated timeline entries.');
-//   }
-
-//   // Now, delete the booking
-//   const { error } = await supabase
-//     .from('bookings')
-//     .delete()
-//     .eq('id', bookingId)
-
-//   if (error) {
-//     console.error('Error deleting booking:', error)
-//     throw error
-//   }
-
-//   return true
-// }
 export const deleteBooking = async (bookingId: string) => {
   const { data: assignments, error: assignmentsError } = await supabase
     .from('vehicle_assignments')

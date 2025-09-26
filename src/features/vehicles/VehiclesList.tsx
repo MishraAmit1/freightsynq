@@ -7,6 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import {
   Search,
   Plus,
   Truck,
@@ -20,7 +27,16 @@ import {
   XCircle,
   AlertCircle,
   Calendar,
-  Building2
+  Building2,
+  Activity,
+  Wrench,
+  Clock,
+  Navigation,
+  DollarSign,
+  FileDown,
+  MoreVertical,
+  Edit,
+  Eye
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -37,6 +53,37 @@ import { AddHiredVehicleModal } from "./AddHiredVehicleModal";
 import { AddBrokerModal } from "./AddBrokerModal";
 import { useToast } from "@/hooks/use-toast";
 
+// Add custom styles for column hover
+const tableStyles = `
+  <style>
+    .vehicles-table td {
+      position: relative;
+    }
+    .vehicles-table td::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -1px;
+      bottom: -1px;
+      background: transparent;
+      pointer-events: none;
+      transition: background-color 0.2s ease;
+      z-index: 0;
+    }
+    .vehicles-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
+    .vehicles-table td > * {
+      position: relative;
+      z-index: 1;
+    }
+  </style>
+`;
 
 interface OwnedVehicle {
   id: string;
@@ -65,6 +112,7 @@ interface OwnedVehicle {
     };
   }>;
 }
+
 interface HiredVehicle {
   id: string;
   vehicle_number: string;
@@ -97,6 +145,39 @@ interface HiredVehicle {
   }>;
 }
 
+// Status configuration with colors and icons
+const statusConfig = {
+  AVAILABLE: {
+    label: "Available",
+    color: "bg-green-100 text-green-700 border-green-200",
+    icon: CheckCircle,
+    gradient: "from-green-500 to-green-600"
+  },
+  OCCUPIED: {
+    label: "Occupied",
+    color: "bg-orange-100 text-orange-700 border-orange-200",
+    icon: AlertCircle,
+    gradient: "from-orange-500 to-orange-600"
+  },
+  MAINTENANCE: {
+    label: "Maintenance",
+    color: "bg-red-100 text-red-700 border-red-200",
+    icon: Wrench,
+    gradient: "from-red-500 to-red-600"
+  },
+  INACTIVE: {
+    label: "Inactive",
+    color: "bg-gray-100 text-gray-700 border-gray-200",
+    icon: XCircle,
+    gradient: "from-gray-500 to-gray-600"
+  },
+  RELEASED: {
+    label: "Released",
+    color: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: Clock,
+    gradient: "from-blue-500 to-blue-600"
+  }
+};
 
 export const VehiclesList = () => {
   const location = useLocation();
@@ -111,6 +192,44 @@ export const VehiclesList = () => {
   const [ownedVehicles, setOwnedVehicles] = useState<OwnedVehicle[]>([]);
   const [hiredVehicles, setHiredVehicles] = useState<HiredVehicle[]>([]);
   const [activeTab, setActiveTab] = useState<'owned' | 'hired'>('owned');
+
+  // Add column hover styles
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = `
+      .vehicles-table td {
+        position: relative;
+      }
+      .vehicles-table td::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -1px;
+        bottom: -1px;
+        background: transparent;
+        pointer-events: none;
+        transition: background-color 0.2s ease;
+        z-index: 0;
+      }
+      .vehicles-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
+      .vehicles-table td > * {
+        position: relative;
+        z-index: 1;
+      }
+    `;
+    document.head.appendChild(styleElement);
+
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   // Handle modal opening from navigation
   useEffect(() => {
@@ -169,7 +288,7 @@ export const VehiclesList = () => {
     } catch (error) {
       console.error('Error loading vehicles:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to load vehicles",
         variant: "destructive",
       });
@@ -193,13 +312,13 @@ export const VehiclesList = () => {
 
       await loadVehicles();
       toast({
-        title: "Vehicle Added Successfully",
+        title: "✅ Vehicle Added Successfully",
         description: `Owned vehicle ${vehicleData.vehicle_number} has been added to your fleet`,
       });
     } catch (error) {
       console.error('Error adding vehicle:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to add vehicle. Please try again.",
         variant: "destructive",
       });
@@ -219,15 +338,15 @@ export const VehiclesList = () => {
 
       await loadVehicles();
       toast({
-        title: "Hired Vehicle Added Successfully",
+        title: "✅ Hired Vehicle Added",
         description: `Vehicle ${vehicleData.vehicleNumber} has been added`,
       });
       setIsAddHiredModalOpen(false);
     } catch (error) {
       console.error('Error adding hired vehicle:', error);
       toast({
-        title: "Error",
-        description: "Failed to add hired vehicle. Please try again.",
+        title: "❌ Error",
+        description: "Failed to add hired vehicle",
         variant: "destructive",
       });
     }
@@ -244,21 +363,18 @@ export const VehiclesList = () => {
       });
 
       toast({
-        title: "Broker Added Successfully",
+        title: "✅ Broker Added",
         description: `${brokerData.name} has been added as a broker`,
       });
 
-      // After adding broker, open hired vehicle modal
       setIsAddBrokerModalOpen(false);
       setIsAddHiredModalOpen(true);
-
-      // Reload to get updated broker list
       await loadVehicles();
     } catch (error) {
       console.error('Error adding broker:', error);
       toast({
-        title: "Error",
-        description: "Failed to add broker. Please try again.",
+        title: "❌ Error",
+        description: "Failed to add broker",
         variant: "destructive",
       });
     }
@@ -273,7 +389,7 @@ export const VehiclesList = () => {
       }
       await loadVehicles();
       toast({
-        title: currentStatus ? "Vehicle Unverified" : "Vehicle Verified",
+        title: currentStatus ? "🔓 Vehicle Unverified" : "✅ Vehicle Verified",
         description: currentStatus
           ? "Vehicle verification has been removed"
           : "Vehicle has been verified successfully",
@@ -281,7 +397,7 @@ export const VehiclesList = () => {
     } catch (error) {
       console.error('Error verifying vehicle:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to update verification status",
         variant: "destructive",
       });
@@ -294,8 +410,6 @@ export const VehiclesList = () => {
       const assignments = vehicle.vehicle_assignments || [];
       const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
       const driver = activeAssignment?.driver;
-
-      // For hired vehicles, also search by broker name
       const brokerName = activeTab === 'hired' ? (vehicle as HiredVehicle).broker?.name || '' : '';
 
       return (
@@ -310,97 +424,276 @@ export const VehiclesList = () => {
   const filteredVehicles = getFilteredVehicles();
   const totalVehicles = ownedVehicles.length + hiredVehicles.length;
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      AVAILABLE: "bg-success/10 text-success",
-      OCCUPIED: "bg-warning/10 text-warning",
-      MAINTENANCE: "bg-destructive/10 text-destructive",
-      INACTIVE: "bg-muted text-muted-foreground",
-      RELEASED: "bg-muted text-muted-foreground"
-    };
-    return colors[status as keyof typeof colors] || colors.AVAILABLE;
+  // Statistics
+  const stats = {
+    total: totalVehicles,
+    owned: ownedVehicles.length,
+    hired: hiredVehicles.length,
+    available: [...ownedVehicles, ...hiredVehicles].filter(v => v.status === 'AVAILABLE').length,
+    occupied: [...ownedVehicles, ...hiredVehicles].filter(v => v.status === 'OCCUPIED').length,
+    maintenance: [...ownedVehicles, ...hiredVehicles].filter(v => v.status === 'MAINTENANCE').length,
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'AVAILABLE':
-        return <CheckCircle className="w-4 h-4" />;
-      case 'OCCUPIED':
-        return <AlertCircle className="w-4 h-4" />;
-      case 'MAINTENANCE':
-        return <XCircle className="w-4 h-4" />;
-      default:
-        return null;
-    }
+  const handleExport = () => {
+    const headers = activeTab === 'owned'
+      ? ["Vehicle Number", "Type", "Capacity", "Status", "Driver", "Insurance Expiry", "Verified"]
+      : ["Vehicle Number", "Type", "Capacity", "Status", "Driver", "Broker", "Rate/Trip", "Verified"];
+
+    const rows = filteredVehicles.map(vehicle => {
+      const assignments = vehicle.vehicle_assignments || [];
+      const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
+      const driver = activeAssignment?.driver;
+
+      if (activeTab === 'owned') {
+        const owned = vehicle as OwnedVehicle;
+        return [
+          vehicle.vehicle_number,
+          vehicle.vehicle_type,
+          vehicle.capacity,
+          vehicle.status,
+          driver?.name || "No driver",
+          owned.insurance_expiry ? format(new Date(owned.insurance_expiry), 'dd MMM yyyy') : "Not set",
+          vehicle.is_verified ? "Yes" : "No"
+        ];
+      } else {
+        const hired = vehicle as HiredVehicle;
+        return [
+          vehicle.vehicle_number,
+          vehicle.vehicle_type,
+          vehicle.capacity,
+          vehicle.status,
+          driver?.name || "No driver",
+          hired.broker?.name || "No broker",
+          hired.rate_per_trip ? `₹${hired.rate_per_trip}` : "Not set",
+          vehicle.is_verified ? "Yes" : "No"
+        ];
+      }
+    });
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => {
+        const cellStr = String(cell);
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activeTab}_vehicles_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "✅ Exported Successfully",
+      description: `${filteredVehicles.length} vehicles exported to CSV`,
+    });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading vehicles...</span>
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="relative">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+        </div>
+        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+          Loading vehicles...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Vehicles</h1>
-          <p className="text-muted-foreground">
-            Manage your fleet of {totalVehicles} vehicles ({ownedVehicles.length} owned, {hiredVehicles.length} hired)
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {activeTab === 'hired' && (
-            <>
+    <div className="space-y-8 p-2">
+      {/* Header Section with Gradient */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Fleet Management
+            </h1>
+            <p className="text-muted-foreground mt-2 text-lg">
+              Manage your fleet of {totalVehicles} vehicles ({ownedVehicles.length} owned, {hiredVehicles.length} hired)
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
+                  >
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Export vehicles to CSV</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {activeTab === 'hired' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddBrokerModalOpen(true)}
+                  className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Add Broker
+                </Button>
+                <Button
+                  onClick={() => setIsAddHiredModalOpen(true)}
+                  className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Hired Vehicle
+                </Button>
+              </>
+            )}
+            {activeTab === 'owned' && (
               <Button
-                variant="outline"
-                onClick={() => setIsAddBrokerModalOpen(true)}
-              >
-                <Building2 className="w-4 h-4 mr-2" />
-                Add Broker
-              </Button>
-              <Button
-                onClick={() => setIsAddHiredModalOpen(true)}
+                onClick={() => {
+                  setAddModalType('owned');
+                  setIsAddModalOpen(true);
+                }}
+                className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Hired Vehicle
+                Add Owned Vehicle
               </Button>
-            </>
-          )}
-          {activeTab === 'owned' && (
-            <Button
-              onClick={() => {
-                setAddModalType('owned');
-                setIsAddModalOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Owned Vehicle
-            </Button>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="border-border shadow-sm">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Fleet</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  {stats.total}
+                </p>
+              </div>
+              <div className="p-3 bg-primary/10 rounded-xl">
+                <Truck className="w-6 h-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Owned</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                  {stats.owned}
+                </p>
+              </div>
+              <div className="p-3 bg-blue-500/10 rounded-xl">
+                <Shield className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Hired</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                  {stats.hired}
+                </p>
+              </div>
+              <div className="p-3 bg-purple-500/10 rounded-xl">
+                <Building2 className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Available</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
+                  {stats.available}
+                </p>
+              </div>
+              <div className="p-3 bg-green-500/10 rounded-xl">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Occupied</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
+                  {stats.occupied}
+                </p>
+              </div>
+              <div className="p-3 bg-orange-500/10 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Maintenance</p>
+                <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent">
+                  {stats.maintenance}
+                </p>
+              </div>
+              <div className="p-3 bg-red-500/10 rounded-xl">
+                <Wrench className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search Section */}
+      <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
         <CardHeader>
-          <CardTitle className="text-lg">Search Vehicles</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Search className="w-5 h-5 text-primary" />
+            Search Vehicles
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <div className="relative flex-1 group">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input
                 placeholder={activeTab === 'owned'
                   ? "Search by vehicle number, driver name, or type..."
                   : "Search by vehicle number, driver name, type, or broker..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
               />
             </div>
           </div>
@@ -408,46 +701,87 @@ export const VehiclesList = () => {
       </Card>
 
       {/* Vehicles Table with Tabs */}
-      <Card className="border-border shadow-sm">
-        <CardHeader>
+      <Card className="border-border shadow-xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
+        <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'owned' | 'hired')}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="owned">
+            <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+              <TabsTrigger
+                value="owned"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Shield className="w-4 h-4 mr-2" />
                 Owned Vehicles ({ownedVehicles.length})
               </TabsTrigger>
-              <TabsTrigger value="hired">
+              <TabsTrigger
+                value="hired"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
+                <Building2 className="w-4 h-4 mr-2" />
                 Hired Vehicles ({hiredVehicles.length})
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Driver</TableHead>
-                <TableHead>Status</TableHead>
-                {activeTab === 'owned' ? (
-                  <TableHead>Insurance Expiry</TableHead>
-                ) : (
-                  <TableHead>Broker</TableHead>
-                )}
-                <TableHead>Current Location</TableHead>
-                <TableHead>Verified</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredVehicles.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    <div className="text-muted-foreground">
-                      {searchQuery ? (
-                        "No vehicles found matching your search"
-                      ) : (
-                        <div className="space-y-4">
-                          <p>No {activeTab} vehicles added yet.</p>
+          <div className="overflow-x-auto">
+            <Table className="vehicles-table">
+              <TableHeader>
+                <TableRow className="border-border hover:bg-muted/30 bg-muted/10">
+                  <TableHead className="font-semibold">
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-muted-foreground" />
+                      Vehicle
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      Driver
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  {activeTab === 'owned' ? (
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        Insurance
+                      </div>
+                    </TableHead>
+                  ) : (
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                        Broker
+                      </div>
+                    </TableHead>
+                  )}
+                  <TableHead className="font-semibold">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-muted-foreground" />
+                      Location
+                    </div>
+                  </TableHead>
+                  <TableHead className="font-semibold">Verified</TableHead>
+                  <TableHead className="font-semibold text-center">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredVehicles.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-16">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="p-4 bg-muted/30 rounded-full">
+                          <Truck className="w-12 h-12 text-muted-foreground/50" />
+                        </div>
+                        <div className="text-muted-foreground">
+                          <p className="text-lg font-medium">
+                            {searchQuery ? "No vehicles found" : `No ${activeTab} vehicles added yet`}
+                          </p>
+                          <p className="text-sm mt-1">
+                            {searchQuery ? "Try adjusting your search" : "Add your first vehicle to get started"}
+                          </p>
+                        </div>
+                        {!searchQuery && (
                           <div className="flex gap-4 justify-center">
                             {activeTab === 'owned' ? (
                               <Button
@@ -456,6 +790,7 @@ export const VehiclesList = () => {
                                   setAddModalType('owned');
                                   setIsAddModalOpen(true);
                                 }}
+                                className="hover:bg-primary/10 hover:border-primary transition-all"
                               >
                                 <Plus className="w-4 h-4 mr-2" />
                                 Add Owned Vehicle
@@ -465,6 +800,7 @@ export const VehiclesList = () => {
                                 <Button
                                   variant="outline"
                                   onClick={() => setIsAddBrokerModalOpen(true)}
+                                  className="hover:bg-primary/10 hover:border-primary transition-all"
                                 >
                                   <Building2 className="w-4 h-4 mr-2" />
                                   Add Broker
@@ -472,6 +808,7 @@ export const VehiclesList = () => {
                                 <Button
                                   variant="outline"
                                   onClick={() => setIsAddHiredModalOpen(true)}
+                                  className="hover:bg-primary/10 hover:border-primary transition-all"
                                 >
                                   <Plus className="w-4 h-4 mr-2" />
                                   Add Hired Vehicle
@@ -479,147 +816,198 @@ export const VehiclesList = () => {
                               </>
                             )}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredVehicles.map((vehicle) => {
-                  const assignments = vehicle.vehicle_assignments || [];
-                  const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
-                  const driver = activeAssignment?.driver;
-                  const booking = activeAssignment?.booking;
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredVehicles.map((vehicle) => {
+                    const assignments = vehicle.vehicle_assignments || [];
+                    const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
+                    const driver = activeAssignment?.driver;
+                    const booking = activeAssignment?.booking;
+                    const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
+                    const StatusIcon = status.icon;
 
-                  return (
-                    <TableRow key={vehicle.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <Truck className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{vehicle.vehicle_number}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {vehicle.vehicle_type} • {vehicle.capacity}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {driver ? (
+                    return (
+                      <TableRow
+                        key={vehicle.id}
+                        className="border-border hover:bg-muted/20 transition-all duration-200 group"
+                      >
+                        <TableCell>
                           <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-success/10 rounded-full flex items-center justify-center">
-                              <User className="w-4 h-4 text-success" />
+                            <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/20 transition-all">
+                              <Truck className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <p className="font-medium text-foreground">{driver.name}</p>
-                              <p className="text-sm text-muted-foreground">{driver.experience || 'N/A'}</p>
+                              <p className="font-semibold text-foreground">{vehicle.vehicle_number}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {vehicle.vehicle_type} • {vehicle.capacity}
+                              </p>
                             </div>
                           </div>
-                        ) : (
-                          <span className="text-muted-foreground">No driver assigned</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${getStatusColor(vehicle.status)} gap-1`}>
-                          {getStatusIcon(vehicle.status)}
-                          {vehicle.status.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {activeTab === 'owned' ? (
-                          <div>
-                            {(vehicle as OwnedVehicle).insurance_expiry ? (
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-sm font-medium">
-                                    {format(new Date((vehicle as OwnedVehicle).insurance_expiry!), 'dd MMM yyyy')}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">Insurance Expiry</p>
-                                </div>
+                        </TableCell>
+                        <TableCell>
+                          {driver ? (
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                <User className="w-4 h-4 text-green-600" />
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground">Not set</span>
-                            )}
-                          </div>
-                        ) : (
-                          <div>
-                            {(vehicle as HiredVehicle).broker ? (
-                              <div className="flex items-center gap-2">
-                                <Building2 className="w-4 h-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-sm font-medium">{(vehicle as HiredVehicle).broker.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {(vehicle as HiredVehicle).broker.contact_person} • {(vehicle as HiredVehicle).broker.phone}
-                                  </p>
-                                  {(vehicle as HiredVehicle).rate_per_trip && (
-                                    <p className="text-xs text-success">
-                                      ₹{(vehicle as HiredVehicle).rate_per_trip}/trip
+                              <div>
+                                <p className="font-medium text-foreground">{driver.name}</p>
+                                <p className="text-xs text-muted-foreground">{driver.experience || 'Experience N/A'}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground flex items-center gap-2">
+                              <User className="w-4 h-4" />
+                              No driver assigned
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn("gap-1.5 font-medium", status.color)}>
+                            <StatusIcon className="w-3.5 h-3.5" />
+                            {status.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {activeTab === 'owned' ? (
+                            <div>
+                              {(vehicle as OwnedVehicle).insurance_expiry ? (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {format(new Date((vehicle as OwnedVehicle).insurance_expiry!), 'dd MMM yyyy')}
                                     </p>
+                                    <p className="text-xs text-muted-foreground">Expires in {formatDistanceToNow(new Date((vehicle as OwnedVehicle).insurance_expiry!))}</p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">Not set</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              {(vehicle as HiredVehicle).broker ? (
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-sm">{(vehicle as HiredVehicle).broker.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Phone className="w-3 h-3" />
+                                    {(vehicle as HiredVehicle).broker.phone}
+                                  </div>
+                                  {(vehicle as HiredVehicle).rate_per_trip && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <DollarSign className="w-3 h-3 mr-1" />
+                                      ₹{(vehicle as HiredVehicle).rate_per_trip}/trip
+                                    </Badge>
                                   )}
                                 </div>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">No broker assigned</span>
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {booking ? (
-                          <div className="text-sm">
-                            <p className="font-medium">En Route</p>
-                            <p className="text-xs text-muted-foreground">
-                              {booking.from_location} → {booking.to_location}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">At depot</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleVerifyVehicle(vehicle.id, activeTab === 'owned', vehicle.is_verified || false)}
-                          className="flex items-center space-x-2"
-                        >
-                          {vehicle.is_verified ? (
-                            <>
-                              <ShieldCheck className="w-4 h-4 text-success" />
-                              <span className="text-sm">Verified</span>
-                            </>
+                              ) : (
+                                <span className="text-muted-foreground">No broker</span>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {booking ? (
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="gap-1">
+                                <Navigation className="w-3 h-3" />
+                                En Route
+                              </Badge>
+                              <p className="text-xs text-muted-foreground">
+                                {booking.from_location} → {booking.to_location}
+                              </p>
+                            </div>
                           ) : (
-                            <>
-                              <Shield className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm">Verify</span>
-                            </>
+                            <Badge variant="secondary" className="gap-1">
+                              <MapPin className="w-3 h-3" />
+                              At Depot
+                            </Badge>
                           )}
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          {driver && (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={`tel:${driver.phone}`}>
-                                <Phone className="w-4 h-4 mr-1" />
-                                Call
-                              </a>
-                            </Button>
-                          )}
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleVerifyVehicle(vehicle.id, activeTab === 'owned', vehicle.is_verified || false)}
+                                  className="flex items-center space-x-2 hover:bg-primary/10"
+                                >
+                                  {vehicle.is_verified ? (
+                                    <>
+                                      <ShieldCheck className="w-4 h-4 text-green-600" />
+                                      <span className="text-sm text-green-600">Verified</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Shield className="w-4 h-4 text-muted-foreground" />
+                                      <span className="text-sm">Verify</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{vehicle.is_verified ? "Click to unverify" : "Click to verify"}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center space-x-2">
+                            {driver && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 hover:bg-primary/10 hover:border-primary"
+                                      asChild
+                                    >
+                                      <a href={`tel:${driver.phone}`}>
+                                        <Phone className="w-3.5 h-3.5" />
+                                      </a>
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Call Driver</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 hover:bg-primary/10"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View Details</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

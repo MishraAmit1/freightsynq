@@ -1,5 +1,5 @@
-// TopBar.tsx
-import { Bell, Search, Settings, User, LogOut, Menu } from "lucide-react";
+// TopBar.tsx - Without Theme Context
+import { Bell, Search, Settings, User, LogOut, Menu, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router";
+import { useState, useEffect } from "react";
 
 interface TopBarProps {
   onMenuClick?: () => void;
@@ -20,6 +21,27 @@ interface TopBarProps {
 export const TopBar = ({ onMenuClick }: TopBarProps) => {
   const { userProfile, company, signOut } = useAuth();
   const { toast } = useToast();
+
+  // Local theme state
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) return savedTheme as 'light' | 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   const handleSignOut = async () => {
     try {
@@ -56,7 +78,7 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search bookings, LR numbers..."
-            className="pl-10 bg-muted/50 border-border hidden sm:block"
+            className="pl-10 topbar-search hidden sm:block"
           />
         </div>
       </div>
@@ -68,10 +90,25 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
           <Search className="w-5 h-5" />
         </Button>
 
+        {/* Theme Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="theme-toggle"
+          aria-label="Toggle theme"
+        >
+          <div className="theme-toggle-slider">
+            {theme === 'dark' ? (
+              <Moon className="theme-toggle-icon" />
+            ) : (
+              <Sun className="theme-toggle-icon" />
+            )}
+          </div>
+        </button>
+
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-destructive rounded-full flex items-center justify-center">
+          <span className="topbar-notification-badge flex items-center justify-center">
             <span className="text-[10px] sm:text-xs text-destructive-foreground font-bold hidden sm:block">3</span>
           </span>
         </Button>
@@ -80,8 +117,8 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-foreground">
+              <div className="topbar-avatar">
+                <span className="topbar-avatar-text">
                   {userProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
                 </span>
               </div>
@@ -92,7 +129,6 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-
             <DropdownMenuItem asChild>
               <Link to="/profile" className="flex items-center">
                 <User className="w-4 h-4 mr-2" />

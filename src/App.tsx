@@ -22,7 +22,7 @@ import { Customers } from "./pages/Customers";
 import { CompanySettings } from "./pages/CompanySettings";
 import { EmployeeSignup } from "./pages/EmployeeSignup";
 import { Profile } from "./components/Profile";
-
+import { LRTemplateSettings } from "./pages/LRTemplateSettings";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -61,6 +61,7 @@ const App = () => {
                       <Route path="/vehicles" element={<VehicleManagement />} />
                       <Route path="/brokers" element={<Broker />} />
                       <Route path="/customers" element={<Customers />} />
+                      <Route path="/lr-template-settings" element={<LRTemplateSettings />} />
                       <Route path="/warehouses" element={<WarehouseList />} />
                       <Route path="/warehouses/:id" element={<WarehouseDetails />} />
                       <Route path="/company-settings" element={

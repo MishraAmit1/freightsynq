@@ -15,6 +15,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
     AlertDialog,
@@ -33,10 +34,18 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
     Building2,
     Plus,
@@ -53,13 +62,51 @@ import {
     FileUp,
     CheckCircle,
     XCircle,
-    AlertCircle
+    AlertCircle,
+    Users,
+    TrendingUp,
+    FileDown,
+    Building,
+    UserCheck,
+    Shield,
+    ArrowUpRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useDropzone } from "react-dropzone";
+
+// Add styles for column hover effect
+const tableStyles = `
+  <style>
+    .broker-table td {
+      position: relative;
+    }
+    .broker-table td::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -1px;
+      bottom: -1px;
+      background: transparent;
+      pointer-events: none;
+      transition: background-color 0.2s ease;
+      z-index: 0;
+    }
+    .broker-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
+    .broker-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
+    .broker-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
+    .broker-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
+    .broker-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
+    .broker-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
+    .broker-table td > * {
+      position: relative;
+      z-index: 1;
+    }
+  </style>
+`;
 
 // Types
 interface Broker {
@@ -106,7 +153,7 @@ interface ImportProgress {
     message: string;
 }
 
-// Import Modal Component
+// Import Modal Component with Enhanced Styling
 const ImportBrokersModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -198,7 +245,7 @@ const ImportBrokersModal: React.FC<{
         } catch (error) {
             console.error('Error processing file:', error);
             toast({
-                title: "Error",
+                title: "❌ Error",
                 description: "Failed to process file. Please check the format.",
                 variant: "destructive"
             });
@@ -309,7 +356,7 @@ const ImportBrokersModal: React.FC<{
     const handleImport = async () => {
         if (!preview || preview.valid.length === 0) {
             toast({
-                title: "No valid data",
+                title: "❌ No valid data",
                 description: "No valid rows to import",
                 variant: "destructive"
             });
@@ -376,7 +423,7 @@ const ImportBrokersModal: React.FC<{
         });
 
         toast({
-            title: "Import Completed",
+            title: "✅ Import Completed",
             description: `Successfully imported ${successCount} brokers${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
         });
 
@@ -401,16 +448,19 @@ const ImportBrokersModal: React.FC<{
         XLSX.writeFile(wb, 'brokers_import_template.xlsx');
 
         toast({
-            title: "Template Downloaded",
+            title: "✅ Template Downloaded",
             description: "Use this template to prepare your import data",
         });
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeader>
-                    <DialogTitle>Import Brokers</DialogTitle>
+            <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-background via-background to-muted/5">
+                <DialogHeader className="border-b pb-4">
+                    <DialogTitle className="text-xl flex items-center gap-2">
+                        <Upload className="w-5 h-5 text-primary" />
+                        Import Brokers
+                    </DialogTitle>
                 </DialogHeader>
 
                 {step === 'upload' && (
@@ -419,7 +469,12 @@ const ImportBrokersModal: React.FC<{
                             <p className="text-sm text-muted-foreground">
                                 Upload CSV or Excel file with broker data
                             </p>
-                            <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={downloadTemplate}
+                                className="hover:bg-primary/10 hover:border-primary transition-all"
+                            >
                                 <Download className="w-4 h-4 mr-2" />
                                 Download Template
                             </Button>
@@ -427,14 +482,18 @@ const ImportBrokersModal: React.FC<{
 
                         <div
                             {...getRootProps()}
-                            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                                ${isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                            className={cn(
+                                "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200",
+                                isDragActive
+                                    ? "border-primary bg-primary/5 scale-[1.02]"
+                                    : "border-border hover:border-primary/50 hover:bg-muted/30"
+                            )}
                         >
                             <input {...getInputProps()} />
                             <FileUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                             {file ? (
                                 <div>
-                                    <p className="font-medium">{file.name}</p>
+                                    <p className="font-medium text-lg">{file.name}</p>
                                     <p className="text-sm text-muted-foreground">
                                         {(file.size / 1024).toFixed(2)} KB
                                     </p>
@@ -449,21 +508,24 @@ const ImportBrokersModal: React.FC<{
                             )}
                         </div>
 
-                        <div className="bg-muted/50 p-4 rounded-lg">
-                            <h4 className="font-medium mb-2">Required Fields:</h4>
-                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                                <li>name - Company name (must be unique)</li>
-                                <li>contact_person - Contact person name</li>
-                                <li>phone - Phone number (minimum 10 digits)</li>
-                                <li>email (optional) - Email address</li>
-                                <li>status (optional) - ACTIVE or INACTIVE (defaults to ACTIVE)</li>
+                        <div className="bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg border border-primary/20">
+                            <h4 className="font-medium mb-2 flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 text-primary" />
+                                Required Fields:
+                            </h4>
+                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-6">
+                                <li><span className="font-medium">name</span> - Company name (must be unique)</li>
+                                <li><span className="font-medium">contact_person</span> - Contact person name</li>
+                                <li><span className="font-medium">phone</span> - Phone number (minimum 10 digits)</li>
+                                <li><span className="font-medium">email</span> (optional) - Email address</li>
+                                <li><span className="font-medium">status</span> (optional) - ACTIVE or INACTIVE (defaults to ACTIVE)</li>
                             </ul>
                         </div>
 
                         {progress.status === 'validating' && (
                             <div className="space-y-2">
-                                <Progress value={(progress.current / progress.total) * 100} />
-                                <p className="text-sm text-center text-muted-foreground">
+                                <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+                                <p className="text-sm text-center text-muted-foreground animate-pulse">
                                     {progress.message}
                                 </p>
                             </div>
@@ -474,34 +536,40 @@ const ImportBrokersModal: React.FC<{
                 {step === 'preview' && preview && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-3 gap-4">
-                            <Card>
+                            <Card className="border-green-200 bg-gradient-to-br from-green-50/50 to-transparent">
                                 <CardContent className="pt-6">
-                                    <div className="flex items-center gap-2">
-                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-green-100 rounded-lg">
+                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                        </div>
                                         <div>
-                                            <p className="text-2xl font-bold">{preview.valid.length}</p>
+                                            <p className="text-2xl font-bold text-green-600">{preview.valid.length}</p>
                                             <p className="text-sm text-muted-foreground">Valid Rows</p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Card>
+                            <Card className="border-red-200 bg-gradient-to-br from-red-50/50 to-transparent">
                                 <CardContent className="pt-6">
-                                    <div className="flex items-center gap-2">
-                                        <XCircle className="w-5 h-5 text-red-500" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-red-100 rounded-lg">
+                                            <XCircle className="w-5 h-5 text-red-600" />
+                                        </div>
                                         <div>
-                                            <p className="text-2xl font-bold">{preview.invalid.length}</p>
+                                            <p className="text-2xl font-bold text-red-600">{preview.invalid.length}</p>
                                             <p className="text-sm text-muted-foreground">Invalid Rows</p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Card>
+                            <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50/50 to-transparent">
                                 <CardContent className="pt-6">
-                                    <div className="flex items-center gap-2">
-                                        <AlertCircle className="w-5 h-5 text-yellow-500" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-yellow-100 rounded-lg">
+                                            <AlertCircle className="w-5 h-5 text-yellow-600" />
+                                        </div>
                                         <div>
-                                            <p className="text-2xl font-bold">{preview.duplicates.length}</p>
+                                            <p className="text-2xl font-bold text-yellow-600">{preview.duplicates.length}</p>
                                             <p className="text-sm text-muted-foreground">Duplicates</p>
                                         </div>
                                     </div>
@@ -511,22 +579,22 @@ const ImportBrokersModal: React.FC<{
 
                         <Tabs defaultValue="valid" className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="valid">
+                                <TabsTrigger value="valid" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
                                     Valid ({preview.valid.length})
                                 </TabsTrigger>
-                                <TabsTrigger value="invalid">
+                                <TabsTrigger value="invalid" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700">
                                     Invalid ({preview.invalid.length})
                                 </TabsTrigger>
-                                <TabsTrigger value="duplicates">
+                                <TabsTrigger value="duplicates" className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700">
                                     Duplicates ({preview.duplicates.length})
                                 </TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="valid">
-                                <ScrollArea className="h-[300px] w-full">
+                                <ScrollArea className="h-[300px] w-full rounded-lg border">
                                     <Table>
                                         <TableHeader>
-                                            <TableRow>
+                                            <TableRow className="bg-muted/50">
                                                 <TableHead className="w-[50px]">#</TableHead>
                                                 <TableHead>Company Name</TableHead>
                                                 <TableHead>Contact Person</TableHead>
@@ -537,14 +605,17 @@ const ImportBrokersModal: React.FC<{
                                         </TableHeader>
                                         <TableBody>
                                             {preview.valid.map((row, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{index + 1}</TableCell>
-                                                    <TableCell>{row.name}</TableCell>
+                                                <TableRow key={index} className="hover:bg-muted/30">
+                                                    <TableCell className="font-medium">{index + 1}</TableCell>
+                                                    <TableCell className="font-medium">{row.name}</TableCell>
                                                     <TableCell>{row.contact_person}</TableCell>
                                                     <TableCell>{row.phone}</TableCell>
                                                     <TableCell>{row.email || '-'}</TableCell>
                                                     <TableCell>
-                                                        <Badge variant={row.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                                                        <Badge
+                                                            variant={row.status === 'ACTIVE' ? 'default' : 'secondary'}
+                                                            className={row.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : ''}
+                                                        >
                                                             {row.status}
                                                         </Badge>
                                                     </TableCell>
@@ -557,9 +628,9 @@ const ImportBrokersModal: React.FC<{
 
                             <TabsContent value="invalid">
                                 <ScrollArea className="h-[300px] w-full">
-                                    <div className="space-y-2">
+                                    <div className="space-y-2 p-2">
                                         {preview.invalid.map((item, index) => (
-                                            <Card key={index}>
+                                            <Card key={index} className="border-red-200 bg-red-50/50">
                                                 <CardContent className="pt-4">
                                                     <div className="flex justify-between items-start">
                                                         <div>
@@ -567,7 +638,7 @@ const ImportBrokersModal: React.FC<{
                                                                 Row {index + 1}: {item.row.name || 'No name'}
                                                             </p>
                                                             {item.errors.map((error, i) => (
-                                                                <p key={i} className="text-sm text-red-500">
+                                                                <p key={i} className="text-sm text-red-600 mt-1">
                                                                     • {error.field}: {error.message}
                                                                 </p>
                                                             ))}
@@ -581,10 +652,10 @@ const ImportBrokersModal: React.FC<{
                             </TabsContent>
 
                             <TabsContent value="duplicates">
-                                <ScrollArea className="h-[300px] w-full">
+                                <ScrollArea className="h-[300px] w-full rounded-lg border">
                                     <Table>
                                         <TableHeader>
-                                            <TableRow>
+                                            <TableRow className="bg-muted/50">
                                                 <TableHead>Company Name</TableHead>
                                                 <TableHead>Duplicate Field</TableHead>
                                                 <TableHead>Value</TableHead>
@@ -592,8 +663,8 @@ const ImportBrokersModal: React.FC<{
                                         </TableHeader>
                                         <TableBody>
                                             {preview.duplicates.map((item, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell>{item.row.name}</TableCell>
+                                                <TableRow key={index} className="hover:bg-muted/30">
+                                                    <TableCell className="font-medium">{item.row.name}</TableCell>
                                                     <TableCell>
                                                         <Badge variant="destructive">
                                                             {item.field.toUpperCase()}
@@ -614,13 +685,19 @@ const ImportBrokersModal: React.FC<{
                     <div className="space-y-4 py-8">
                         <div className="text-center">
                             {progress.status === 'completed' ? (
-                                <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+                                <div className="relative">
+                                    <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+                                    <div className="absolute inset-0 blur-xl bg-green-500/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
+                                </div>
                             ) : (
-                                <Loader2 className="w-16 h-16 mx-auto mb-4 animate-spin text-primary" />
+                                <div className="relative">
+                                    <Loader2 className="w-16 h-16 mx-auto mb-4 animate-spin text-primary" />
+                                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
+                                </div>
                             )}
                             <p className="text-lg font-medium">{progress.message}</p>
                         </div>
-                        <Progress value={(progress.current / progress.total) * 100} />
+                        <Progress value={(progress.current / progress.total) * 100} className="h-2" />
                         <p className="text-sm text-center text-muted-foreground">
                             {progress.current} of {progress.total} brokers imported
                         </p>
@@ -630,12 +707,17 @@ const ImportBrokersModal: React.FC<{
                 <DialogFooter>
                     {step === 'preview' && (
                         <>
-                            <Button variant="outline" onClick={() => setStep('upload')}>
+                            <Button
+                                variant="outline"
+                                onClick={() => setStep('upload')}
+                                className="hover:bg-muted"
+                            >
                                 Back
                             </Button>
                             <Button
                                 onClick={handleImport}
                                 disabled={preview?.valid.length === 0}
+                                className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg transition-all"
                             >
                                 Import {preview?.valid.length} Valid Rows
                             </Button>
@@ -652,7 +734,7 @@ const ImportBrokersModal: React.FC<{
     );
 };
 
-// Edit/Add Broker Modal Component (keeping your existing)
+// Edit/Add Broker Modal Component with Enhanced Styling
 const BrokerModal = ({
     isOpen,
     onClose,
@@ -712,7 +794,7 @@ const BrokerModal = ({
     const handleSubmit = async () => {
         if (!brokerData.name.trim() || !brokerData.contactPerson.trim() || !brokerData.phone.trim()) {
             toast({
-                title: "Validation Error",
+                title: "❌ Validation Error",
                 description: "Please fill in all required fields",
                 variant: "destructive"
             });
@@ -721,7 +803,7 @@ const BrokerModal = ({
 
         if (brokerData.phone.length < 10) {
             toast({
-                title: "Validation Error",
+                title: "❌ Validation Error",
                 description: "Please enter a valid phone number",
                 variant: "destructive"
             });
@@ -730,7 +812,7 @@ const BrokerModal = ({
 
         if (brokerData.email && !brokerData.email.includes('@')) {
             toast({
-                title: "Validation Error",
+                title: "❌ Validation Error",
                 description: "Please enter a valid email address",
                 variant: "destructive"
             });
@@ -768,46 +850,57 @@ const BrokerModal = ({
                 onClick={handleClose}
             />
 
-            <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg">
+            <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-gradient-to-br from-background via-background to-muted/10 p-6 shadow-2xl sm:rounded-xl">
                 <div className="flex flex-col space-y-1.5">
-                    <h3 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-primary" />
+                    <h3 className="text-xl font-semibold leading-none tracking-tight flex items-center gap-2">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Building2 className="w-5 h-5 text-primary" />
+                        </div>
                         {title}
                     </h3>
                 </div>
 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-sm font-medium">Company Name *</label>
+                        <label className="text-sm font-medium flex items-center gap-1">
+                            Company Name
+                            <span className="text-red-500">*</span>
+                        </label>
                         <Input
                             value={brokerData.name}
                             onChange={(e) => setBrokerData({ ...brokerData, name: e.target.value })}
                             placeholder="ABC Transport Company"
                             disabled={loading}
-                            className="mt-1"
+                            className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium">Contact Person *</label>
+                        <label className="text-sm font-medium flex items-center gap-1">
+                            Contact Person
+                            <span className="text-red-500">*</span>
+                        </label>
                         <Input
                             value={brokerData.contactPerson}
                             onChange={(e) => setBrokerData({ ...brokerData, contactPerson: e.target.value })}
                             placeholder="John Doe"
                             disabled={loading}
-                            className="mt-1"
+                            className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium">Phone Number *</label>
+                        <label className="text-sm font-medium flex items-center gap-1">
+                            Phone Number
+                            <span className="text-red-500">*</span>
+                        </label>
                         <Input
                             value={brokerData.phone}
                             onChange={(e) => setBrokerData({ ...brokerData, phone: e.target.value })}
                             placeholder="+91-9876543210"
                             maxLength={15}
                             disabled={loading}
-                            className="mt-1"
+                            className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
 
@@ -819,16 +912,25 @@ const BrokerModal = ({
                             onChange={(e) => setBrokerData({ ...brokerData, email: e.target.value })}
                             placeholder="broker@company.com"
                             disabled={loading}
-                            className="mt-1"
+                            className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
                 </div>
 
                 <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={handleClose} disabled={loading}>
+                    <Button
+                        variant="outline"
+                        onClick={handleClose}
+                        disabled={loading}
+                        className="hover:bg-muted"
+                    >
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={loading}>
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg transition-all"
+                    >
                         {loading ? (
                             <>
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -844,7 +946,7 @@ const BrokerModal = ({
     );
 };
 
-// Main Broker Component
+// Main Broker Component with Enhanced Styling
 const Broker = () => {
     const { toast } = useToast();
     const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -854,6 +956,43 @@ const Broker = () => {
     const [showImportModal, setShowImportModal] = useState(false);
     const [editingBroker, setEditingBroker] = useState<Broker | null>(null);
     const [deletingBrokerId, setDeletingBrokerId] = useState<string | null>(null);
+
+    // Add column hover styles
+    useEffect(() => {
+        const styleElement = document.createElement('style');
+        styleElement.innerHTML = `
+            .broker-table td {
+                position: relative;
+            }
+            .broker-table td::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: -1px;
+                bottom: -1px;
+                background: transparent;
+                pointer-events: none;
+                transition: background-color 0.2s ease;
+                z-index: 0;
+            }
+            .broker-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table td > * {
+                position: relative;
+                z-index: 1;
+            }
+        `;
+        document.head.appendChild(styleElement);
+
+        return () => {
+            document.head.removeChild(styleElement);
+        };
+    }, []);
 
     useEffect(() => {
         fetchBrokers();
@@ -873,7 +1012,7 @@ const Broker = () => {
         } catch (error) {
             console.error('Error fetching brokers:', error);
             toast({
-                title: "Error",
+                title: "❌ Error",
                 description: "Failed to load brokers",
                 variant: "destructive"
             });
@@ -900,13 +1039,13 @@ const Broker = () => {
 
             await fetchBrokers();
             toast({
-                title: "Success",
+                title: "✅ Success",
                 description: "Broker added successfully",
             });
         } catch (error) {
             console.error('Error adding broker:', error);
             toast({
-                title: "Error",
+                title: "❌ Error",
                 description: "Failed to add broker",
                 variant: "destructive"
             });
@@ -932,14 +1071,14 @@ const Broker = () => {
 
             await fetchBrokers();
             toast({
-                title: "Success",
+                title: "✅ Success",
                 description: "Broker updated successfully",
             });
             setEditingBroker(null);
         } catch (error) {
             console.error('Error updating broker:', error);
             toast({
-                title: "Error",
+                title: "❌ Error",
                 description: "Failed to update broker",
                 variant: "destructive"
             });
@@ -959,7 +1098,7 @@ const Broker = () => {
 
             if (vehicles && vehicles.length > 0) {
                 toast({
-                    title: "Cannot Delete",
+                    title: "❌ Cannot Delete",
                     description: "This broker has associated vehicles. Please remove them first.",
                     variant: "destructive"
                 });
@@ -976,13 +1115,13 @@ const Broker = () => {
 
             await fetchBrokers();
             toast({
-                title: "Success",
+                title: "✅ Success",
                 description: "Broker deleted successfully",
             });
         } catch (error) {
             console.error('Error deleting broker:', error);
             toast({
-                title: "Error",
+                title: "❌ Error",
                 description: "Failed to delete broker",
                 variant: "destructive"
             });
@@ -1035,159 +1174,334 @@ const Broker = () => {
         window.URL.revokeObjectURL(url);
 
         toast({
-            title: "Exported Successfully",
+            title: "✅ Exported Successfully",
             description: `${filteredBrokers.length} brokers exported to CSV`,
         });
     };
 
+    // Statistics
+    const stats = {
+        total: brokers.length,
+        active: brokers.filter(b => b.status === 'ACTIVE').length,
+        inactive: brokers.filter(b => b.status === 'INACTIVE').length,
+        withEmail: brokers.filter(b => b.email).length,
+    };
+
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-8 h-8 animate-spin" />
-                <span className="ml-2">Loading brokers...</span>
+            <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+                <div className="relative">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                </div>
+                <p className="text-lg font-medium text-muted-foreground animate-pulse">
+                    Loading brokers...
+                </p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-foreground">Brokers</h1>
-                    <p className="text-muted-foreground">Manage your transport brokers and partners</p>
-                </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        onClick={() => setShowImportModal(true)}
-                    >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Import
-                    </Button>
-                    <Button
-                        variant="outline"
-                        onClick={handleExport}
-                    >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            setEditingBroker(null);
-                            setIsModalOpen(true);
-                        }}
-                        className="bg-gradient-to-r from-primary to-primary-hover"
-                    >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Broker
-                    </Button>
+        <div className="space-y-8 p-2">
+            {/* Header Section with Gradient */}
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+                <div className="relative flex items-center justify-between">
+                    <div>
+                        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                            Broker Management
+                        </h1>
+                        <p className="text-muted-foreground mt-2 text-lg">
+                            Manage your transport brokers and partners
+                        </p>
+                    </div>
+                    <div className="flex gap-3">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setShowImportModal(true)}
+                                        className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
+                                    >
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Import
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Import brokers from file</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleExport}
+                                        className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
+                                    >
+                                        <FileDown className="w-4 h-4 mr-2" />
+                                        Export
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Export brokers to CSV</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <Button
+                            onClick={() => {
+                                setEditingBroker(null);
+                                setIsModalOpen(true);
+                            }}
+                            className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Broker
+                        </Button>
+                    </div>
                 </div>
             </div>
 
-            {/* Search */}
-            <Card>
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Total Brokers</p>
+                                <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                                    {stats.total}
+                                </p>
+                            </div>
+                            <div className="p-3 bg-primary/10 rounded-xl">
+                                <Users className="w-6 h-6 text-primary" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
+                                    {stats.active}
+                                </p>
+                            </div>
+                            <div className="p-3 bg-green-500/10 rounded-xl">
+                                <UserCheck className="w-6 h-6 text-green-600" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Inactive</p>
+                                <p className="text-3xl font-bold bg-gradient-to-r from-gray-600 to-gray-500 bg-clip-text text-transparent">
+                                    {stats.inactive}
+                                </p>
+                            </div>
+                            <div className="p-3 bg-gray-500/10 rounded-xl">
+                                <Shield className="w-6 h-6 text-gray-600" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">With Email</p>
+                                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                                    {stats.withEmail}
+                                </p>
+                            </div>
+                            <div className="p-3 bg-blue-500/10 rounded-xl">
+                                <Mail className="w-6 h-6 text-blue-600" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Search Section */}
+            <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
                 <CardContent className="pt-6">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <div className="relative group">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
                             placeholder="Search by name, contact person, or phone..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
+                            className="pl-11 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
                         />
                     </div>
                 </CardContent>
             </Card>
 
             {/* Brokers Table */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>All Brokers ({filteredBrokers.length})</CardTitle>
+            <Card className="border-border shadow-xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
+                <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
+                    <CardTitle className="flex items-center justify-between text-xl">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg">
+                                <Building2 className="w-5 h-5 text-primary" />
+                            </div>
+                            <span>All Brokers ({filteredBrokers.length})</span>
+                        </div>
+                    </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Company Name</TableHead>
-                                <TableHead>Contact Person</TableHead>
-                                <TableHead>Phone</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredBrokers.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        <div className="text-muted-foreground">
-                                            {searchTerm ? "No brokers found matching your search" : "No brokers added yet"}
+                    <div className="overflow-x-auto">
+                        <Table className="broker-table">
+                            <TableHeader>
+                                <TableRow className="border-border hover:bg-muted/30 bg-muted/10">
+                                    <TableHead className="font-semibold w-[200px]">
+                                        <div className="flex items-center gap-2">
+                                            <Building2 className="w-4 h-4 text-muted-foreground" />
+                                            Company Name
                                         </div>
-                                    </TableCell>
+                                    </TableHead>
+                                    <TableHead className="font-semibold w-[180px]">
+                                        <div className="flex items-center gap-2">
+                                            <User className="w-4 h-4 text-muted-foreground" />
+                                            Contact Person
+                                        </div>
+                                    </TableHead>
+                                    <TableHead className="font-semibold w-[150px]">
+                                        <div className="flex items-center gap-2">
+                                            <Phone className="w-4 h-4 text-muted-foreground" />
+                                            Phone
+                                        </div>
+                                    </TableHead>
+                                    <TableHead className="font-semibold w-[200px]">
+                                        <div className="flex items-center gap-2">
+                                            <Mail className="w-4 h-4 text-muted-foreground" />
+                                            Email
+                                        </div>
+                                    </TableHead>
+                                    <TableHead className="font-semibold w-[100px]">Status</TableHead>
+                                    <TableHead className="font-semibold text-center w-[100px]">Actions</TableHead>
                                 </TableRow>
-                            ) : (
-                                filteredBrokers.map((broker) => (
-                                    <TableRow key={broker.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <Building2 className="w-4 h-4 text-muted-foreground" />
-                                                {broker.name}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <User className="w-4 h-4 text-muted-foreground" />
-                                                {broker.contact_person}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Phone className="w-4 h-4 text-muted-foreground" />
-                                                {broker.phone}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {broker.email ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Mail className="w-4 h-4 text-muted-foreground" />
-                                                    {broker.email}
+                            </TableHeader>
+                            <TableBody>
+                                {filteredBrokers.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center py-16">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <div className="p-4 bg-muted/30 rounded-full">
+                                                    <Building2 className="w-12 h-12 text-muted-foreground/50" />
                                                 </div>
-                                            ) : (
-                                                <span className="text-muted-foreground">-</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="sm">
-                                                        <MoreVertical className="w-4 h-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={() => {
-                                                            setEditingBroker(broker);
-                                                            setIsModalOpen(true);
-                                                        }}
-                                                    >
-                                                        <Edit className="w-4 h-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={() => setDeletingBrokerId(broker.id)}
-                                                    >
-                                                        <Trash2 className="w-4 h-4 mr-2" />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                                <div className="text-muted-foreground">
+                                                    <p className="text-lg font-medium">No brokers found</p>
+                                                    <p className="text-sm mt-1">
+                                                        {searchTerm
+                                                            ? "Try adjusting your search"
+                                                            : "Add your first broker to get started"}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    filteredBrokers.map((broker) => (
+                                        <TableRow
+                                            key={broker.id}
+                                            className="border-border hover:bg-muted/20 transition-all duration-200 group"
+                                        >
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                                        <Building className="w-4 h-4 text-primary" />
+                                                    </div>
+                                                    <span className="font-medium">{broker.name}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <User className="w-4 h-4 text-muted-foreground" />
+                                                    <span>{broker.contact_person}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="font-mono text-sm">{broker.phone}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {broker.email ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Mail className="w-4 h-4 text-muted-foreground" />
+                                                        <span className="text-sm">{broker.email}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    variant={broker.status === 'ACTIVE' ? 'default' : 'secondary'}
+                                                    className={cn(
+                                                        "font-medium",
+                                                        broker.status === 'ACTIVE'
+                                                            ? "bg-green-100 text-green-700 border-green-200"
+                                                            : "bg-gray-100 text-gray-700 border-gray-200"
+                                                    )}
+                                                >
+                                                    {broker.status || 'ACTIVE'}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center justify-center">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 hover:bg-primary/10"
+                                                            >
+                                                                <MoreVertical className="w-4 h-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-48">
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    setEditingBroker(broker);
+                                                                    setIsModalOpen(true);
+                                                                }}
+                                                                className="hover:bg-primary/10"
+                                                            >
+                                                                <Edit className="w-4 h-4 mr-2" />
+                                                                Edit Details
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                className="text-destructive hover:bg-destructive/10"
+                                                                onClick={() => setDeletingBrokerId(broker.id)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                                Delete Broker
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -1212,20 +1526,31 @@ const Broker = () => {
 
             {/* Delete Confirmation */}
             <AlertDialog open={!!deletingBrokerId} onOpenChange={() => setDeletingBrokerId(null)}>
-                <AlertDialogContent>
+                <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-destructive" />
+                            Are you absolutely sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-left">
                             This action cannot be undone. This will permanently delete the broker.
+                            <div className="mt-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                                <p className="text-sm font-medium text-destructive">
+                                    ⚠️ Warning:
+                                </p>
+                                <p className="text-xs mt-1">
+                                    Make sure this broker has no associated vehicles before deletion.
+                                </p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDeleteBroker}
-                            className="bg-destructive text-destructive-foreground"
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            Delete
+                            Delete Broker
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
