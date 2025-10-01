@@ -25,6 +25,7 @@ import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal
 import { TrackingMap } from "@/components/TrackingMap";
 import { useToast } from "@/hooks/use-toast";
 import { JourneyView } from "@/components/JourneyView";
+import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 
 // Interface for converted booking data
 interface BookingDetail {
@@ -486,7 +487,14 @@ export const BookingDetail = () => {
                 )}
               </CardContent>
             </Card>
-
+            {booking.assignedVehicle && (
+              <VehicleTrackingMap
+                bookingId={booking.id}
+                vehicleNumber={booking.assignedVehicle.regNumber}
+                fromLocation={booking.fromLocation}
+                toLocation={booking.toLocation}
+              />
+            )}
             {/* Live Tracking */}
             {booking.assignedVehicle && booking.assignedVehicle.driver && booking.assignedVehicle.lastLocation && (
               <TrackingMap
@@ -501,7 +509,6 @@ export const BookingDetail = () => {
             )}
           </div>
         </TabsContent>
-
         <TabsContent value="documents" className="mt-6">
           <Card className="border-border shadow-sm">
             <CardHeader>
