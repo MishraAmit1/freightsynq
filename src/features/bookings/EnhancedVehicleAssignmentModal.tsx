@@ -498,8 +498,8 @@ export const EnhancedVehicleAssignmentModal = ({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={isOpen} onOpenChange={onClose} >
+        <DialogContent className="sm:max-w-2xl z-[9999]">
           <DialogHeader>
             <DialogTitle>Assign Vehicle</DialogTitle>
             <p className="text-sm text-muted-foreground">

@@ -15,10 +15,16 @@ import {
     Navigation,
     ArrowRight,
     Info,
-    Activity
+    Activity,
+    Lock,
+    CheckCircle,
+    DollarSign,
+    TrendingUp,
+    MapPinned
 } from 'lucide-react';
 import { trackVehicle, getTrackingHistory, TollCrossing } from '@/api/tracking';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 // Fix Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -33,13 +39,17 @@ interface VehicleTrackingMapProps {
     vehicleNumber?: string;
     fromLocation?: string;
     toLocation?: string;
+    bookingStatus?: string;
+    assignmentDate?: string;
 }
 
 export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     bookingId,
     vehicleNumber,
     fromLocation,
-    toLocation
+    toLocation,
+    bookingStatus,
+    assignmentDate
 }) => {
     const { toast } = useToast();
     const [tollCrossings, setTollCrossings] = useState<TollCrossing[]>([]);
@@ -47,49 +57,211 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [waitTime, setWaitTime] = useState(0);
     const [dataSource, setDataSource] = useState<'real' | 'mock' | 'cached' | 'unknown'>('unknown');
-    const [mapCenter, setMapCenter] = useState<[number, number]>([23.0225, 72.5714]); // Gujarat center
+    const [mapCenter, setMapCenter] = useState<[number, number]>([26.9124, 75.7873]); // Jaipur center
     const [mapZoom, setMapZoom] = useState(7);
+    const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
+    const [trackingEndReason, setTrackingEndReason] = useState<string>('');
+    const [totalApiCost, setTotalApiCost] = useState(0);
+    const [monthlyUsage, setMonthlyUsage] = useState({ used: 0, limit: 1000 });
+    const [totalSaved, setTotalSaved] = useState(0);
+    const [monthlyCost, setMonthlyCost] = useState(0);
 
+    // Check if tracking should be enabled
     useEffect(() => {
-        // Initial load - get cached data
-        loadCachedData();
+        checkTrackingStatus();
+        loadMonthlyUsage();
+        loadMonthlyCost();
+    }, [bookingStatus, bookingId]);
+
+    // Load cached data on mount
+    useEffect(() => {
+        if (bookingId) {
+            loadCachedData();
+        }
     }, [bookingId]);
 
-    const loadCachedData = async () => {
+    // Auto-adjust map view when crossings change
+    useEffect(() => {
+        if (tollCrossings.length > 0) {
+            const bounds = tollCrossings.reduce((acc, crossing) => {
+                if (!acc.minLat || crossing.latitude < acc.minLat) acc.minLat = crossing.latitude;
+                if (!acc.maxLat || crossing.latitude > acc.maxLat) acc.maxLat = crossing.latitude;
+                if (!acc.minLng || crossing.longitude < acc.minLng) acc.minLng = crossing.longitude;
+                if (!acc.maxLng || crossing.longitude > acc.maxLng) acc.maxLng = crossing.longitude;
+                return acc;
+            }, {} as any);
+
+            const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+            const centerLng = (bounds.minLng + bounds.maxLng) / 2;
+
+            setMapCenter([centerLat, centerLng]);
+
+            // Calculate appropriate zoom
+            const latDiff = bounds.maxLat - bounds.minLat;
+            const lngDiff = bounds.maxLng - bounds.minLng;
+            const maxDiff = Math.max(latDiff, lngDiff);
+
+            let zoom = 10;
+            if (maxDiff > 5) zoom = 6;
+            else if (maxDiff > 2) zoom = 7;
+            else if (maxDiff > 1) zoom = 8;
+            else if (maxDiff > 0.5) zoom = 9;
+
+            setMapZoom(zoom);
+        }
+    }, [tollCrossings]);
+
+    const checkTrackingStatus = async () => {
+        if (bookingStatus === 'DELIVERED' || bookingStatus === 'CANCELLED') {
+            setIsTrackingEnabled(false);
+            setTrackingEndReason(
+                bookingStatus === 'DELIVERED'
+                    ? 'Tracking ended - Booking delivered'
+                    : 'Tracking ended - Booking cancelled'
+            );
+            return;
+        }
+
+        const { data: assignment } = await supabase
+            .from('vehicle_assignments')
+            .select('status, tracking_end_time')
+            .eq('booking_id', bookingId)
+            .eq('status', 'ACTIVE')
+            .maybeSingle();
+
+        if (!assignment) {
+            setIsTrackingEnabled(false);
+            setTrackingEndReason('No active vehicle assignment');
+            return;
+        }
+
+        if (assignment.tracking_end_time) {
+            setIsTrackingEnabled(false);
+            setTrackingEndReason('Tracking period ended');
+            return;
+        }
+
+        setIsTrackingEnabled(true);
+        setTrackingEndReason('');
+    };
+
+    const loadMonthlyUsage = async () => {
         try {
-            const history = await getTrackingHistory(bookingId);
-            if (history.length > 0) {
-                setTollCrossings(history);
-                setLastUpdated(new Date());
-                setDataSource('cached');
-                updateMapCenter(history);
+            const { data: config, error } = await supabase
+                .from('tracking_configurations')
+                .select('current_month_usage, monthly_api_limit')
+                .maybeSingle();
+
+            if (error) {
+                console.error('Error loading config:', error);
+                setMonthlyUsage({ used: 0, limit: 1000 });
+                return;
+            }
+
+            if (config) {
+                setMonthlyUsage({
+                    used: config.current_month_usage || 0,
+                    limit: config.monthly_api_limit || 1000
+                });
             }
         } catch (error) {
-            console.error('Error loading cached data:', error);
+            console.error('Error in loadMonthlyUsage:', error);
         }
     };
 
-    const updateMapCenter = (crossings: TollCrossing[]) => {
-        if (crossings.length > 0) {
-            const lastCrossing = crossings[crossings.length - 1];
-            setMapCenter([lastCrossing.latitude, lastCrossing.longitude]);
+    const loadMonthlyCost = async () => {
+        try {
+            const startOfMonth = new Date();
+            startOfMonth.setDate(1);
+            startOfMonth.setHours(0, 0, 0, 0);
 
-            // Adjust zoom based on number of crossings
-            if (crossings.length > 10) {
-                setMapZoom(6);
-            } else if (crossings.length > 5) {
-                setMapZoom(7);
-            } else {
-                setMapZoom(8);
+            const { data } = await supabase
+                .from('fastag_api_logs')
+                .select('api_cost')
+                .gte('created_at', startOfMonth.toISOString())
+                .eq('status', 'SUCCESS');
+
+            const total = data?.reduce((sum, log) => sum + (log.api_cost || 0), 0) || 0;
+            setMonthlyCost(total);
+        } catch (error) {
+            console.error('Error loading monthly cost:', error);
+        }
+    };
+
+    const loadCachedData = async () => {
+        try {
+            console.log('Loading cached data for booking:', bookingId);
+
+            const { data, error } = await supabase
+                .from('fastag_crossings')
+                .select('*')
+                .eq('booking_id', bookingId) // ← सिर्फ इस booking का data
+                .order('crossing_time', { ascending: true });
+
+            if (error) {
+                console.error('Error loading cached data:', error);
+                return;
             }
+
+            if (data && data.length > 0) {
+                // Mock data को filter करो
+                const mockTollNames = [
+                    'Jaipur Entry Toll',
+                    'Manesar Toll Plaza',
+                    'Kherki Daula Toll Plaza'
+                ];
+
+                const realData = data.filter(crossing =>
+                    !mockTollNames.includes(crossing.toll_plaza_name)
+                );
+
+                if (realData.length > 0) {
+                    setTollCrossings(realData);
+                    setLastUpdated(new Date());
+                    setDataSource('cached');
+
+                    toast({
+                        title: "📊 Real Data Loaded",
+                        description: `Showing ${realData.length} actual toll crossings`,
+                        variant: "default"
+                    });
+                } else {
+                    // सिर्फ mock data है, fresh API call करो
+                    console.log('Only mock data found, fetching real data...');
+                    setTollCrossings([]); // Clear mock data
+                    // Don't auto-fetch here, let user click Track Now
+                }
+            } else {
+                console.log('No cached data found');
+            }
+        } catch (error) {
+            console.error('Error in loadCachedData:', error);
         }
     };
 
     const loadTrackingData = async () => {
+        if (!isTrackingEnabled) {
+            toast({
+                title: "⚠️ Tracking Disabled",
+                description: trackingEndReason,
+                variant: "destructive"
+            });
+            return;
+        }
+
+        if (monthlyUsage.used >= monthlyUsage.limit) {
+            toast({
+                title: "📊 Monthly Limit Reached",
+                description: `You've used ${monthlyUsage.used}/${monthlyUsage.limit} API calls this month`,
+                variant: "destructive"
+            });
+            return;
+        }
+
         try {
             setLoading(true);
 
-            const result = await trackVehicle(bookingId);
+            const result = await trackVehicle(bookingId, assignmentDate);
 
             if (result.cached) {
                 setWaitTime(result.waitTime || 0);
@@ -101,7 +273,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     variant: "default"
                 });
 
-                // Start countdown
                 const interval = setInterval(() => {
                     setWaitTime(prev => {
                         if (prev <= 1) {
@@ -114,9 +285,11 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             } else {
                 setWaitTime(0);
 
-                // Set data source based on response
                 if (result.isRealData) {
                     setDataSource('real');
+                    setMonthlyUsage(prev => ({ ...prev, used: prev.used + 1 }));
+                    setTotalApiCost(prev => prev + 4);
+                    await loadMonthlyCost();
                 } else if (result.isMockData) {
                     setDataSource('mock');
                 } else {
@@ -140,7 +313,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
             setTollCrossings(result.data);
             setLastUpdated(new Date());
-            updateMapCenter(result.data);
 
         } catch (error: any) {
             console.error('Error loading tracking data:', error);
@@ -154,25 +326,40 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         }
     };
 
+    const shouldRefreshData = (lastCrossing: TollCrossing) => {
+        if (!lastCrossing) return true;
+
+        const lastCrossingTime = new Date(lastCrossing.crossing_time).getTime();
+        const twoHoursAgo = Date.now() - (2 * 60 * 60 * 1000);
+
+        return lastCrossingTime < twoHoursAgo;
+    };
+
     const formatTime = (dateString: string) => {
         try {
-            const date = new Date(dateString);
+            if (!dateString) return 'Unknown';
 
-            if (isNaN(date.getTime())) {
-                return dateString;
+            let date: Date;
+
+            if (dateString.includes(' ')) {
+                const [datePart, timePart] = dateString.split(' ');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute, second] = timePart.split(':').map(Number);
+
+                date = new Date(year, month - 1, day, hour, minute, Math.floor(second));
+            } else {
+                date = new Date(dateString);
             }
 
-            // Subtract 5 hours 30 minutes because database has UTC but values are actually IST
-            const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
-            const correctedDate = new Date(date.getTime() - istOffset);
+            if (isNaN(date.getTime())) return dateString;
 
-            const day = correctedDate.getDate();
+            const day = date.getDate();
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const month = months[correctedDate.getMonth()];
-            const year = correctedDate.getFullYear();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
 
-            let hours = correctedDate.getHours();
-            const minutes = correctedDate.getMinutes().toString().padStart(2, '0');
+            let hours = date.getHours();
+            const minutes = date.getMinutes().toString().padStart(2, '0');
             const ampm = hours >= 12 ? 'pm' : 'am';
             hours = hours % 12 || 12;
 
@@ -186,18 +373,28 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
     const formatTimeAgo = (dateString: string) => {
         try {
-            const [datePart, timePart] = dateString.split(' ');
-            const [year, month, day] = datePart.split('-');
-            const [hour, minute, second] = timePart.split(':');
+            if (!dateString) return 'Unknown';
 
-            const crossingTime = new Date(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                parseInt(hour),
-                parseInt(minute),
-                parseInt(second.split('.')[0])
-            ).getTime();
+            let crossingTime: number;
+
+            if (dateString.includes(' ')) {
+                const [datePart, timePart] = dateString.split(' ');
+                const [year, month, day] = datePart.split('-').map(Number);
+                const [hour, minute, second] = timePart.split(':').map(Number);
+
+                crossingTime = new Date(
+                    year,
+                    month - 1,
+                    day,
+                    hour,
+                    minute,
+                    Math.floor(second)
+                ).getTime();
+            } else {
+                crossingTime = new Date(dateString).getTime();
+            }
+
+            if (isNaN(crossingTime)) return 'Invalid date';
 
             const diff = Date.now() - crossingTime;
             const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -218,13 +415,59 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         }
     };
 
+    // Group crossings by location
+    const groupCrossingsByLocation = () => {
+        const locationGroups: { [key: string]: typeof tollCrossings } = {};
 
-    const lastCrossing = tollCrossings.length > 0 ? tollCrossings[tollCrossings.length - 1] : null;
+        tollCrossings.forEach(crossing => {
+            const key = `${crossing.latitude.toFixed(4)}-${crossing.longitude.toFixed(4)}`;
+            if (!locationGroups[key]) {
+                locationGroups[key] = [];
+            }
+            locationGroups[key].push(crossing);
+        });
 
+        return locationGroups;
+    };
+
+    // Create clustered icon showing multiple visits
+    const createClusterIcon = (count: number, numbers: number[], isLatest: boolean = false) => {
+        const bgColor = isLatest ? '#ef4444' : 'linear-gradient(135deg, #3b82f6, #1e40af)';
+        const size = isLatest ? 50 : 45;
+
+        return L.divIcon({
+            html: `
+                <div style="
+                    background: ${bgColor};
+                    color: white;
+                    width: ${size}px;
+                    height: ${size}px;
+                    border-radius: 50%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    border: 3px solid white;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+                    font-size: 11px;
+                    font-weight: bold;
+                    ${isLatest ? 'animation: pulse 2s infinite;' : ''}
+                ">
+                    <div style="font-size: 18px;">${count}</div>
+                    <div style="font-size: 9px;">visits</div>
+                </div>
+            `,
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+            className: 'cluster-marker'
+        });
+    };
+
+    // Create single visit icon
     const createNumberIcon = (number: number, isLast: boolean = false) => {
         if (isLast) {
             return L.divIcon({
-                html: `<div style="background: #ef4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 20px; animation: pulse 2s infinite;">🚚</div>`,
+                html: `<div style="background: #ef4444; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 16px; font-weight: bold; animation: pulse 2s infinite;">${number}</div>`,
                 iconSize: [40, 40],
                 iconAnchor: [20, 20],
                 className: 'current-location-marker'
@@ -232,21 +475,27 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         }
 
         return L.divIcon({
-            html: `<div style="background: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-size: 12px; font-weight: bold;">${number}</div>`,
+            html: `<div style="background: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-size: 14px; font-weight: bold;">${number}</div>`,
             iconSize: [30, 30],
             iconAnchor: [15, 15],
             className: 'toll-marker'
         });
     };
 
+    const lastCrossing = tollCrossings.length > 0 ? tollCrossings[tollCrossings.length - 1] : null;
+
     return (
         <div className="space-y-4">
             {/* Header Card */}
-            <Card className="border-primary/20">
+            <Card className={`border-primary/20 ${!isTrackingEnabled ? 'opacity-75' : ''}`}>
                 <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-transparent">
                     <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
-                            <Navigation className="w-5 h-5 text-primary animate-pulse" />
+                            {isTrackingEnabled ? (
+                                <Navigation className="w-5 h-5 text-primary animate-pulse" />
+                            ) : (
+                                <Lock className="w-5 h-5 text-muted-foreground" />
+                            )}
                             FASTag Vehicle Tracking
                         </CardTitle>
                         <div className="flex items-center gap-2">
@@ -256,48 +505,80 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                     {vehicleNumber}
                                 </Badge>
                             )}
+                            {totalSaved > 0 && (
+                                <Badge variant="success" className="gap-1">
+                                    💰 Saved ₹{totalSaved}
+                                </Badge>
+                            )}
                             <Button
                                 onClick={loadTrackingData}
-                                disabled={loading || waitTime > 0}
+                                disabled={loading || waitTime > 0 || !isTrackingEnabled}
                                 size="sm"
-                                variant={waitTime > 0 ? "outline" : "default"}
+                                variant={!isTrackingEnabled ? "ghost" : waitTime > 0 ? "outline" : "default"}
                             >
                                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                                {waitTime > 0 ? `Wait ${waitTime}s` : 'Track Now (₹4)'}
+                                {!isTrackingEnabled
+                                    ? 'Tracking Disabled'
+                                    : waitTime > 0
+                                        ? `Wait ${waitTime}s`
+                                        : 'Track Now (₹4)'}
                             </Button>
                         </div>
                     </div>
 
+                    {!isTrackingEnabled && trackingEndReason && (
+                        <Alert className="mt-2 border-warning/50 bg-warning/10">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{trackingEndReason}</AlertDescription>
+                        </Alert>
+                    )}
+
                     {lastUpdated && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
-                            <Clock className="w-3 h-3" />
-                            Last updated: {lastUpdated.toLocaleTimeString()}
-                            {dataSource === 'real' && (
-                                <Badge variant="success" className="ml-2 text-xs">REAL DATA</Badge>
-                            )}
-                            {dataSource === 'mock' && (
-                                <Badge variant="warning" className="ml-2 text-xs">MOCK DATA</Badge>
-                            )}
-                            {dataSource === 'cached' && (
-                                <Badge variant="secondary" className="ml-2 text-xs">CACHED</Badge>
-                            )}
+                        <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock className="w-3 h-3" />
+                                Last updated: {lastUpdated.toLocaleTimeString()}
+                                {dataSource === 'real' && (
+                                    <Badge variant="success" className="ml-2 text-xs">LIVE</Badge>
+                                )}
+                                {dataSource === 'cached' && (
+                                    <Badge variant="secondary" className="ml-2 text-xs">CACHED</Badge>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                    Monthly: ₹{monthlyCost}/₹4000
+                                </span>
+                            </div>
                         </div>
                     )}
                 </CardHeader>
             </Card>
 
-            {/* Live Map - Always Visible */}
+            {/* Refresh Suggestion */}
+            {tollCrossings.length > 0 && shouldRefreshData(tollCrossings[tollCrossings.length - 1]) && (
+                <Alert className="border-info/50 bg-info/5">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                        Last crossing was {formatTimeAgo(tollCrossings[tollCrossings.length - 1].crossing_time)}.
+                        Consider refreshing for latest data.
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {/* Live Map */}
             <Card className="border-border overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent">
                     <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                             <MapPin className="w-5 h-5 text-primary" />
-                            Live Route Map
+                            Live Route Map ({tollCrossings.length} crossings)
                         </CardTitle>
                         {lastCrossing && (
                             <Badge variant="outline" className="gap-1">
                                 <Activity className="w-3 h-3" />
-                                {formatTimeAgo(lastCrossing.crossing_time)}
+                                Last: {formatTimeAgo(lastCrossing.crossing_time)}
                             </Badge>
                         )}
                     </div>
@@ -309,43 +590,89 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                             zoom={mapZoom}
                             className="h-full w-full"
                             scrollWheelZoom={true}
+                            key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
                         >
                             <TileLayer
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             />
 
-                            {/* Plot all toll crossings */}
-                            {tollCrossings.map((crossing, index) => {
-                                const isLastCrossing = index === tollCrossings.length - 1;
+                            {/* Plot clustered markers for same locations */}
+                            {(() => {
+                                const locationGroups = groupCrossingsByLocation();
+                                const plottedLocations = new Set();
 
-                                return (
-                                    <Marker
-                                        key={crossing.id}
-                                        position={[crossing.latitude, crossing.longitude]}
-                                        icon={createNumberIcon(index + 1, isLastCrossing)}
-                                    >
-                                        <Popup>
-                                            <div className="p-2 min-w-[200px]">
-                                                <h3 className="font-bold text-sm">{crossing.toll_plaza_name}</h3>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {formatTime(crossing.crossing_time)}
-                                                </p>
-                                                <p className="text-xs mt-1">
-                                                    Vehicle Type: {crossing.vehicle_type}
-                                                </p>
-                                                {isLastCrossing && (
-                                                    <Badge className="mt-2 text-xs" variant="destructive">
-                                                        Current Location
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </Popup>
-                                    </Marker>
-                                );
-                            })}
+                                return tollCrossings.map((crossing, index) => {
+                                    const locationKey = `${crossing.latitude.toFixed(4)}-${crossing.longitude.toFixed(4)}`;
 
-                            {/* Draw route line connecting all points */}
+                                    if (plottedLocations.has(locationKey)) {
+                                        return null;
+                                    }
+
+                                    plottedLocations.add(locationKey);
+                                    const crossingsAtLocation = locationGroups[locationKey];
+                                    const numbers = crossingsAtLocation.map(c =>
+                                        tollCrossings.findIndex(tc => tc.id === c.id) + 1
+                                    );
+
+                                    const hasLatestCrossing = numbers.includes(tollCrossings.length);
+
+                                    return (
+                                        <Marker
+                                            key={`cluster-${locationKey}`}
+                                            position={[crossing.latitude, crossing.longitude]}
+                                            icon={crossingsAtLocation.length > 1
+                                                ? createClusterIcon(crossingsAtLocation.length, numbers, hasLatestCrossing)
+                                                : createNumberIcon(numbers[0], numbers[0] === tollCrossings.length)
+                                            }
+                                        >
+                                            <Popup>
+                                                <div className="p-2 min-w-[250px] max-w-[300px]">
+                                                    <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
+                                                        <MapPinned className="w-4 h-4" />
+                                                        {crossing.toll_plaza_name}
+                                                    </h3>
+                                                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                        {crossingsAtLocation.map((c, i) => {
+                                                            const globalIndex = tollCrossings.findIndex(tc => tc.id === c.id);
+                                                            return (
+                                                                <div key={i} className={`border-l-2 pl-2 py-1 ${globalIndex === tollCrossings.length - 1
+                                                                    ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
+                                                                    : 'border-primary'
+                                                                    }`}>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <p className="text-xs font-medium">
+                                                                            Visit #{globalIndex + 1}
+                                                                        </p>
+                                                                        {globalIndex === tollCrossings.length - 1 && (
+                                                                            <Badge variant="destructive" className="text-xs">
+                                                                                Current
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {formatTime(c.crossing_time)}
+                                                                    </p>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div className="mt-2 pt-2 border-t flex items-center justify-between">
+                                                        <p className="text-xs text-blue-600">
+                                                            Total: {crossingsAtLocation.length} crossing{crossingsAtLocation.length > 1 ? 's' : ''}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {crossing.vehicle_type || 'VC10'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </Popup>
+                                        </Marker>
+                                    );
+                                }).filter(Boolean);
+                            })()}
+
+                            {/* Draw route line */}
                             {tollCrossings.length > 1 && (
                                 <>
                                     <Polyline
@@ -360,35 +687,33 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                         weight={2}
                                         opacity={0.6}
                                         dashArray="10, 20"
-                                        className="route-animation"
                                     />
                                 </>
                             )}
                         </MapContainer>
 
-                        {/* Loading Overlay */}
                         {loading && (
                             <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
                                 <div className="text-center">
                                     <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-                                    <p className="mt-2 text-sm font-medium">Updating vehicle location...</p>
+                                    <p className="mt-2 text-sm font-medium">Fetching latest toll crossings...</p>
                                 </div>
                             </div>
                         )}
 
-                        {/* No Data Message */}
                         {!loading && tollCrossings.length === 0 && (
                             <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
                                 <div className="text-center p-6">
                                     <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto" />
                                     <h3 className="mt-4 text-lg font-semibold">No Tracking Data</h3>
                                     <p className="mt-2 text-sm text-muted-foreground">
-                                        Click "Track Now" to get the latest toll crossing information.
+                                        Click "Track Now" to get toll crossing information
                                     </p>
                                     <Button
                                         onClick={loadTrackingData}
                                         className="mt-4"
                                         size="sm"
+                                        disabled={!isTrackingEnabled}
                                     >
                                         <RefreshCw className="w-4 h-4 mr-2" />
                                         Track Now
@@ -400,68 +725,50 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 </CardContent>
             </Card>
 
-            {/* Route Info & Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Route Info */}
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="border-border">
                     <CardContent className="pt-6">
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                    <span className="font-medium text-sm">{fromLocation || 'Origin'}</span>
-                                </div>
-                                <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                                <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                    <span className="font-medium text-sm">{toLocation || 'Destination'}</span>
-                                </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Total Crossings</p>
+                                <p className="text-2xl font-bold">{tollCrossings.length}</p>
                             </div>
-
-                            {lastCrossing && (
-                                <Alert className="border-primary/20 bg-primary/5">
-                                    <MapPin className="h-4 w-4" />
-                                    <AlertDescription>
-                                        <div>
-                                            <p className="font-semibold text-sm">Current Location</p>
-                                            <p className="text-xs mt-1">{lastCrossing.toll_plaza_name}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                {formatTimeAgo(lastCrossing.crossing_time)}
-                                            </p>
-                                        </div>
-                                    </AlertDescription>
-                                </Alert>
-                            )}
+                            <MapPin className="w-8 h-8 text-primary/20" />
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Stats */}
                 <Card className="border-border">
                     <CardContent className="pt-6">
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-primary">{tollCrossings.length}</p>
-                                <p className="text-xs text-muted-foreground">Toll Crossings</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-primary">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Journey Time</p>
+                                <p className="text-2xl font-bold">
                                     {tollCrossings.length > 1
                                         ? Math.round((Date.now() - new Date(tollCrossings[0].crossing_time).getTime()) / (1000 * 60 * 60))
                                         : 0}h
                                 </p>
-                                <p className="text-xs text-muted-foreground">Journey Time</p>
                             </div>
-                            <div className="text-center">
-                                <p className="text-2xl font-bold text-primary">₹{tollCrossings.length * 100}</p>
-                                <p className="text-xs text-muted-foreground">Est. Toll Cost</p>
+                            <Clock className="w-8 h-8 text-primary/20" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border">
+                    <CardContent className="pt-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground">API Cost Today</p>
+                                <p className="text-2xl font-bold">₹{totalApiCost}</p>
                             </div>
+                            <DollarSign className="w-8 h-8 text-primary/20" />
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Timeline Card */}
+            {/* Timeline */}
             <Card className="border-border">
                 <CardHeader>
                     <CardTitle className="text-lg">Journey Timeline</CardTitle>
@@ -470,8 +777,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     {tollCrossings.length > 0 ? (
                         <div className="space-y-0 max-h-[400px] overflow-y-auto">
                             {tollCrossings.map((crossing, index) => (
-                                <div key={crossing.id || index} className="flex gap-4 group">
-                                    {/* Timeline Line */}
+                                <div key={`timeline-${index}`} className="flex gap-4 group">
                                     <div className="relative flex flex-col items-center">
                                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${index === tollCrossings.length - 1
                                             ? 'bg-primary text-primary-foreground shadow-lg scale-110'
@@ -484,7 +790,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                         )}
                                     </div>
 
-                                    {/* Content */}
                                     <div className="flex-1 pb-6 pt-1">
                                         <div className="flex items-start justify-between">
                                             <div>
@@ -513,47 +818,27 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                             <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto" />
                             <h3 className="mt-4 text-lg font-semibold">No Journey Data</h3>
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Click "Track Now" to start tracking this vehicle.
+                                Start tracking to see journey timeline
                             </p>
                         </div>
                     )}
                 </CardContent>
             </Card>
 
-            {/* Cost & Data Source Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Cost Summary */}
-                {tollCrossings.length > 0 && (
-                    <Alert className="border-info/50 bg-info/5">
-                        <Info className="h-4 w-4" />
-                        <AlertDescription>
-                            <strong>API Usage:</strong> Cost ₹{dataSource === 'real' ? '4' : '0'} per refresh.
-                        </AlertDescription>
-                    </Alert>
-                )}
-
-                {/* Data Source */}
-                {dataSource !== 'unknown' && (
-                    <Alert className={`${dataSource === 'real' ? 'border-green-500/50 bg-green-50' :
-                        dataSource === 'mock' ? 'border-yellow-500/50 bg-yellow-50' :
-                            'border-gray-500/50 bg-gray-50'
-                        }`}>
-                        <Activity className="h-4 w-4" />
-                        <AlertDescription>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm">
-                                    {dataSource === 'real' && 'Live FASTag API data'}
-                                    {dataSource === 'mock' && 'Test data for demo'}
-                                    {dataSource === 'cached' && 'Cached from previous request'}
-                                </span>
-                                <Badge variant={dataSource === 'real' ? 'default' : 'secondary'} className="text-xs">
-                                    {dataSource.toUpperCase()}
-                                </Badge>
-                            </div>
-                        </AlertDescription>
-                    </Alert>
-                )}
-            </div>
+            {/* CSS for animations */}
+            <style jsx>{`
+                @keyframes pulse {
+                    0% {
+                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+                    }
+                    70% {
+                        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+                    }
+                    100% {
+                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+                    }
+                }
+            `}</style>
         </div>
     );
 };

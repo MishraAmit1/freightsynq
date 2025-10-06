@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ApiUsageDashboard } from '@/components/ApiUsageDashboard';
 import {
     Loader2,
     Copy,
@@ -428,7 +429,7 @@ export const CompanySettings = () => {
                         )}
                     </CardContent>
                 </Card>
-
+                <ApiUsageDashboard />
                 <div className="grid gap-6 md:grid-cols-2">
                     {/* Company Code Card */}
                     <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">

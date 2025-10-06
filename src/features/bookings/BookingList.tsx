@@ -153,6 +153,7 @@ interface Warehouse {
 }
 
 // Status color mapping with gradient
+// Add AT_WAREHOUSE to statusConfig
 const statusConfig = {
   DRAFT: {
     label: "Draft",
@@ -171,6 +172,12 @@ const statusConfig = {
     color: "bg-green-100 text-green-700 border-green-200",
     icon: CheckCircle2,
     gradient: "from-green-500 to-green-600"
+  },
+  AT_WAREHOUSE: {  // ✅ NEW
+    label: "At Warehouse",
+    color: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    icon: Package,
+    gradient: "from-indigo-500 to-indigo-600"
   },
   DISPATCHED: {
     label: "Dispatched",

@@ -497,24 +497,27 @@ export const fetchBookingById = async (id: string) => {
   }
 
   if (data) {
-    const activeAssignment = (data.vehicle_assignments || []).find(va => va.status === 'ACTIVE') || data.vehicle_assignments?.[0]
+    // ✅ FIXED - Only get ACTIVE assignments (like BookingList does)
+    const activeAssignment = (data.vehicle_assignments || []).find(va => va.status === 'ACTIVE');
+
     if (activeAssignment) {
       const vehicle = activeAssignment.vehicle_type === 'OWNED'
         ? activeAssignment.owned_vehicle
         : activeAssignment.hired_vehicle
 
-      data.vehicle_assignments = [{
+      data.vehicle_assignments = vehicle ? [{
         ...activeAssignment,
-        vehicle: vehicle ? {
+        vehicle: {
           id: vehicle.id,
           vehicle_number: vehicle.vehicle_number,
           vehicle_type: vehicle.vehicle_type,
           capacity: vehicle.capacity
-        } : undefined,
+        },
         driver: activeAssignment.driver,
         broker: activeAssignment.broker
-      }]
+      }] : []
     } else {
+      // ✅ IMPORTANT - No assignment means empty array
       data.vehicle_assignments = [];
     }
   }
@@ -530,7 +533,6 @@ export const updateBookingLR = async (bookingId: string, lrData: {
   material_description?: string | null
   cargo_units?: string | null
 }) => {
-  // Convert empty strings to null for DB to accept
   const payload = {
     lr_number: lrData.lrNumber ?? lrData.lr_number ?? null,
     lr_date: lrData.lrDate ?? lrData.lr_date ?? null,
@@ -594,10 +596,81 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
 
     if (getError) throw getError;
 
+    // ✅ Handle REMOVE case
     if (warehouseId === 'remove') {
-      // Remove warehouse logic...
+      // Get current warehouse ID
+      const currentWarehouseId = booking.current_warehouse_id;
+
+      if (!currentWarehouseId) {
+        throw new Error('Booking is not in any warehouse');
+      }
+
+      // Find active consignment
+      const { data: consignments } = await supabase
+        .from('consignments')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .eq('warehouse_id', currentWarehouseId)
+        .is('departure_date', null);
+
+      if (consignments && consignments.length > 0) {
+        const consignment = consignments[0];
+
+        // Mark consignment as departed
+        await supabase
+          .from('consignments')
+          .update({
+            departure_date: new Date().toISOString(),
+            status: 'DEPARTED'  // ✅ Using valid status
+          })
+          .eq('id', consignment.id);
+
+        // Create warehouse log
+        await supabase
+          .from('warehouse_logs')
+          .insert({
+            consignment_id: consignment.id,
+            warehouse_id: currentWarehouseId,
+            type: 'OUTGOING',
+            notes: `Goods removed from warehouse - ${booking.booking_id}`,
+            created_at: new Date().toISOString()
+          });
+
+        // Update warehouse stock
+        await supabase.rpc('update_warehouse_stock', {
+          warehouse_id: currentWarehouseId,
+          stock_change: -1
+        });
+
+        // Add timeline entry
+        await supabase
+          .from('booking_timeline')
+          .insert({
+            booking_id: bookingId,
+            action: 'DEPARTED_FROM_WAREHOUSE',
+            description: 'Goods removed from warehouse',
+            warehouse_id: currentWarehouseId
+          });
+      }
+
+      // Clear warehouse from booking and reset status
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          current_warehouse_id: null,
+          status: 'CONFIRMED',  // ✅ Reset to confirmed when removed
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', bookingId);
+
+      if (updateError) throw updateError;
+
+      return { success: true, message: 'Removed from warehouse' };
+
     } else {
-      // Check for active vehicle assignment - FIXED QUERY
+      // ✅ Handle ADD TO WAREHOUSE case
+
+      // Check for active vehicle assignment
       const { data: assignments, error: assignmentError } = await supabase
         .from('vehicle_assignments')
         .select(`
@@ -637,7 +710,7 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
             .eq('id', activeAssignment.hired_vehicle_id);
         }
 
-        // Add timeline entry
+        // Add timeline entry for vehicle unassignment
         await supabase
           .from('booking_timeline')
           .insert({
@@ -647,13 +720,17 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
           });
       }
 
-      // Update booking with new warehouse
+      // Update booking with new warehouse and status
       await supabase
         .from('bookings')
-        .update({ current_warehouse_id: warehouseId })
+        .update({
+          current_warehouse_id: warehouseId,
+          status: 'AT_WAREHOUSE',  // ✅ Set AT_WAREHOUSE status
+          updated_at: new Date().toISOString()
+        })
         .eq('id', bookingId);
 
-      // Create consignment if doesn't exist
+      // Check if consignment already exists
       const { data: existingConsignments } = await supabase
         .from('consignments')
         .select('id')
@@ -709,10 +786,9 @@ export const updateBookingWarehouse = async (bookingId: string, warehouseId: str
         });
       }
 
-      return booking;
+      return { success: true, message: 'Added to warehouse' };
     }
 
-    return { success: true };
   } catch (error) {
     console.error('Error in updateBookingWarehouse:', error);
     throw error;
