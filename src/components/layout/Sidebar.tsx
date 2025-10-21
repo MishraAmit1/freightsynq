@@ -1,4 +1,3 @@
-// Sidebar.tsx
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -14,7 +13,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  UserCog // ✅ NEW ICON
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,13 +43,14 @@ export const Sidebar = ({
   const { userProfile, company } = useAuth();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // Navigation items with role-based access
+  // ✅ ADDED "Drivers" TO NAVIGATION
   const navigation = [
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Customers", href: "/customers", icon: UsersRound },
     { name: "Bookings", href: "/bookings", icon: FileText },
     { name: "Broker", href: "/brokers", icon: UserRoundPlus },
     { name: "Vehicles", href: "/vehicles", icon: Truck },
+    { name: "Drivers", href: "/drivers", icon: UserCog }, // ✅ NEW ITEM
     { name: "Warehouses", href: "/warehouses", icon: Warehouse },
     {
       name: "Company Settings",
@@ -59,7 +60,7 @@ export const Sidebar = ({
     },
   ];
 
-  // Filter navigation items based on user role
+  // ... (rest of the component remains the same)
   const filteredNavigation = navigation.filter(item => {
     if (item.adminOnly && userProfile?.role !== 'admin') {
       return false;
@@ -67,12 +68,10 @@ export const Sidebar = ({
     return true;
   });
 
-  // Check if we're on mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
 
   return (
     <TooltipProvider delayDuration={0}>
-      {/* Mobile Overlay with fade animation */}
       <div
         className={cn(
           "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
@@ -81,16 +80,12 @@ export const Sidebar = ({
         onClick={onClose}
       />
 
-      {/* Sidebar */}
       <div className={cn(
         "fixed lg:relative inset-y-0 left-0 z-50 bg-card border-r border-border flex flex-col shadow-xl lg:shadow-md transition-all duration-300 ease-in-out",
-        // Mobile: always full width when open
         isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-        // Desktop: collapsible
         !isMobile && isCollapsed ? "lg:w-20" : "w-64"
       )}>
 
-        {/* Desktop Collapse Button - Positioned on Border */}
         <Button
           variant="outline"
           size="icon"
@@ -109,7 +104,6 @@ export const Sidebar = ({
           </div>
         </Button>
 
-        {/* Logo with Mobile Close Button */}
         <div className={cn(
           "border-b border-border transition-all duration-300",
           !isMobile && isCollapsed ? "p-4" : "p-6"
@@ -130,7 +124,6 @@ export const Sidebar = ({
               )}
             </div>
 
-            {/* Mobile Close Button */}
             <Button
               variant="ghost"
               size="icon"
@@ -142,7 +135,6 @@ export const Sidebar = ({
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className={cn(
           "flex-1 py-6 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
           !isMobile && isCollapsed ? "px-3" : "px-4"
@@ -158,7 +150,6 @@ export const Sidebar = ({
                 onMouseEnter={() => setHoveredItem(item.name)}
                 onMouseLeave={() => setHoveredItem(null)}
                 onClick={() => {
-                  // Close sidebar on mobile after clicking a link
                   if (window.innerWidth < 1024) {
                     onClose?.();
                   }
@@ -175,7 +166,6 @@ export const Sidebar = ({
                   animationDelay: `${index * 50}ms`
                 }}
               >
-                {/* Active indicator bar */}
                 {isActive && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-r-full animate-in slide-in-from-left duration-300" />
                 )}
@@ -190,14 +180,12 @@ export const Sidebar = ({
                   </span>
                 )}
 
-                {/* Hover effect dot */}
                 {!isActive && hoveredItem === item.name && (
                   <div className="absolute right-2 w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
                 )}
               </NavLink>
             );
 
-            // Desktop: If collapsed, wrap in tooltip
             if (!isMobile && isCollapsed) {
               return (
                 <Tooltip key={item.name}>
@@ -225,7 +213,6 @@ export const Sidebar = ({
           })}
         </nav>
 
-        {/* Footer */}
         <div className={cn(
           "border-t border-border transition-all duration-300",
           !isMobile && isCollapsed ? "p-3" : "p-4"

@@ -399,11 +399,16 @@ export const createBroker = async (brokerData: {
   contact_person: string
   phone: string
   email?: string
+  city?: string;
 }) => {
   const { data, error } = await supabase
     .from('brokers')
     .insert([{
-      ...brokerData,
+      name: brokerData.name,
+      contact_person: brokerData.contact_person,
+      phone: brokerData.phone,
+      email: brokerData.email || null,
+      city: brokerData.city || null, // ✅ NEW
       status: 'ACTIVE'
     }])
     .select()

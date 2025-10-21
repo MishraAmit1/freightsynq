@@ -6,6 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
@@ -36,7 +45,8 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  XCircle
+  XCircle,
+  ArrowRight
 } from "lucide-react";
 import {
   fetchOwnedVehicles,
@@ -45,46 +55,14 @@ import {
   createHiredVehicle,
   verifyOwnedVehicle,
   verifyHiredVehicle,
-  createBroker
+  createBroker,
+  fetchBrokers
 } from "@/api/vehicles";
 import { AddVehicleModal } from "./AddVehicleModal";
 import { AddHiredVehicleModal } from "./AddHiredVehicleModal";
 import { VehicleDetailDrawer } from "./VehicleDetailDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { AddBrokerModal } from "./AddBrokerModal";
-
-// Add custom styles for column hover
-const tableStyles = `
-  <style>
-    .vehicle-mgmt-table td {
-      position: relative;
-    }
-    .vehicle-mgmt-table td::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: -1px;
-      bottom: -1px;
-      background: transparent;
-      pointer-events: none;
-      transition: background-color 0.2s ease;
-      z-index: 0;
-    }
-    .vehicle-mgmt-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table tr:hover td:nth-child(8)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicle-mgmt-table td > * {
-      position: relative;
-      z-index: 1;
-    }
-  </style>
-`;
 
 interface Vehicle {
   id: string;
@@ -167,6 +145,12 @@ export const VehicleManagement = () => {
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [isAddBrokerOpen, setIsAddBrokerOpen] = useState(false);
 
+  // ✅ Broker selection states
+  const [isBrokerSelectionOpen, setIsBrokerSelectionOpen] = useState(false);
+  const [brokers, setBrokers] = useState<any[]>([]);
+  const [selectedBrokerId, setSelectedBrokerId] = useState("");
+  const [loadingBrokers, setLoadingBrokers] = useState(false);
+
   // Add column hover styles
   useEffect(() => {
     const styleElement = document.createElement('style');
@@ -247,6 +231,50 @@ export const VehicleManagement = () => {
     }
   };
 
+  // ✅ Load brokers
+  const loadBrokers = async () => {
+    try {
+      setLoadingBrokers(true);
+      const data = await fetchBrokers();
+      setBrokers(data);
+    } catch (error) {
+      console.error('Error loading brokers:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to load brokers",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingBrokers(false);
+    }
+  };
+
+  // ✅ Handle "Add Hired Vehicle" button click
+  const handleAddHiredVehicleClick = async () => {
+    await loadBrokers();
+    setIsBrokerSelectionOpen(true);
+  };
+
+  // ✅ After broker selected, open vehicle modal
+  const handleBrokerSelected = () => {
+    if (!selectedBrokerId) {
+      toast({
+        title: "⚠️ Select Broker",
+        description: "Please select a broker first",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsBrokerSelectionOpen(false);
+    setIsAddHiredVehicleOpen(true);
+  };
+
+  // ✅ Handle "Add New Broker" from selection dialog
+  const handleAddBrokerFromSelection = () => {
+    setIsBrokerSelectionOpen(false);
+    setIsAddBrokerOpen(true);
+  };
+
   const allOwnedVehicles = vehicles.filter(v => v.is_owned);
   const allHiredVehicles = vehicles.filter(v => !v.is_owned);
 
@@ -256,7 +284,8 @@ export const VehicleManagement = () => {
         name: brokerData.name,
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
-        email: brokerData.email
+        email: brokerData.email,
+        city: brokerData.city
       });
 
       toast({
@@ -264,14 +293,17 @@ export const VehicleManagement = () => {
         description: `${brokerData.name} has been added as a broker`,
       });
 
-      await loadVehicles();
+      // ✅ Set the newly created broker as selected
+      setSelectedBrokerId(newBroker.id);
+
+      await loadBrokers();
       setIsAddBrokerOpen(false);
-      setIsAddHiredVehicleOpen(true);
-    } catch (error) {
+      setIsBrokerSelectionOpen(true); // ✅ Go back to broker selection
+    } catch (error: any) {
       console.error('Error adding broker:', error);
       toast({
         title: "❌ Error",
-        description: "Failed to add broker",
+        description: error.message || "Failed to add broker",
         variant: "destructive",
       });
     }
@@ -279,6 +311,16 @@ export const VehicleManagement = () => {
 
   const handleAddVehicle = async (vehicleData: any) => {
     try {
+      // Validate required fields
+      if (!vehicleData.vehicle_number || !vehicleData.vehicle_type || !vehicleData.capacity) {
+        toast({
+          title: "❌ Missing Information",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await createOwnedVehicle({
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
@@ -290,16 +332,17 @@ export const VehicleManagement = () => {
       });
 
       await loadVehicles();
+      setIsAddVehicleOpen(false);
 
       toast({
         title: "✅ Vehicle Added",
         description: `Vehicle ${vehicleData.vehicle_number} has been added to your fleet`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding vehicle:', error);
       toast({
         title: "❌ Error",
-        description: "Failed to add vehicle",
+        description: error.message || "Failed to add vehicle",
         variant: "destructive",
       });
     }
@@ -311,7 +354,7 @@ export const VehicleManagement = () => {
         vehicle_number: vehicleData.vehicleNumber,
         vehicle_type: vehicleData.vehicleType,
         capacity: vehicleData.capacity,
-        broker_id: vehicleData.brokerId,
+        broker_id: selectedBrokerId, // ✅ Use selected broker
         rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined
       });
 
@@ -321,6 +364,10 @@ export const VehicleManagement = () => {
         title: "✅ Hired Vehicle Added",
         description: `Vehicle ${vehicleData.vehicleNumber} has been added`,
       });
+
+      // ✅ Reset selection
+      setSelectedBrokerId("");
+      setIsAddHiredVehicleOpen(false);
     } catch (error) {
       console.error('Error adding hired vehicle:', error);
       toast({
@@ -345,11 +392,11 @@ export const VehicleManagement = () => {
         title: "✅ Vehicle Verified",
         description: "Vehicle has been marked as verified",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying vehicle:', error);
       toast({
         title: "❌ Error",
-        description: "Failed to verify vehicle",
+        description: error.message || "Failed to verify vehicle",
         variant: "destructive",
       });
     }
@@ -485,9 +532,10 @@ export const VehicleManagement = () => {
               </Tooltip>
             </TooltipProvider>
 
+            {/* ✅ UPDATED: Open broker selection first */}
             <Button
               variant="outline"
-              onClick={() => setIsAddHiredVehicleOpen(true)}
+              onClick={handleAddHiredVehicleClick}
               className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -548,48 +596,6 @@ export const VehicleManagement = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-4">
-            <div className="flex flex-col items-center">
-              <div className="p-2 bg-green-500/10 rounded-lg mb-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-              </div>
-              <p className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                {stats.available}
-              </p>
-              <p className="text-xs text-muted-foreground">Available</p>
-            </div>
-          </CardContent>
-        </Card> */}
-
-        {/* <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-4">
-            <div className="flex flex-col items-center">
-              <div className="p-2 bg-orange-500/10 rounded-lg mb-2">
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-              </div>
-              <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
-                {stats.occupied}
-              </p>
-              <p className="text-xs text-muted-foreground">Occupied</p>
-            </div>
-          </CardContent>
-        </Card> */}
-
-        {/* <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-4">
-            <div className="flex flex-col items-center">
-              <div className="p-2 bg-red-500/10 rounded-lg mb-2">
-                <Wrench className="w-5 h-5 text-red-600" />
-              </div>
-              <p className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent">
-                {stats.maintenance}
-              </p>
-              <p className="text-xs text-muted-foreground">Maintenance</p>
-            </div>
-          </CardContent>
-        </Card> */}
 
         <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
           <CardContent className="p-4">
@@ -896,7 +902,7 @@ export const VehicleManagement = () => {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {vehicle.broker && (
+                              {vehicle.broker ? (
                                 <div className="space-y-1">
                                   <div className="font-medium text-sm flex items-center gap-1">
                                     <Building2 className="w-3 h-3 text-muted-foreground" />
@@ -907,6 +913,8 @@ export const VehicleManagement = () => {
                                     {vehicle.broker.contact_person}
                                   </div>
                                 </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">No Broker</span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -978,6 +986,74 @@ export const VehicleManagement = () => {
         </TabsContent>
       </Tabs>
 
+      {/* ✅ BROKER SELECTION DIALOG */}
+      <Dialog open={isBrokerSelectionOpen} onOpenChange={setIsBrokerSelectionOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary" />
+              Select Broker
+            </DialogTitle>
+            <DialogDescription>
+              Choose a broker for the hired vehicle or add a new one
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>Broker</Label>
+              <Select
+                value={selectedBrokerId}
+                onValueChange={setSelectedBrokerId}
+                disabled={loadingBrokers}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={loadingBrokers ? "Loading brokers..." : "Select a broker"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brokers.map((broker) => (
+                    <SelectItem key={broker.id} value={broker.id}>
+                      <div className="flex flex-col py-1">
+                        <span className="font-medium">{broker.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {broker.contact_person} • {broker.phone}
+                          {broker.city && ` • ${broker.city}`}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleAddBrokerFromSelection}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Broker
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsBrokerSelectionOpen(false);
+                setSelectedBrokerId("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBrokerSelected} disabled={!selectedBrokerId}>
+              Continue
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modals */}
       <AddVehicleModal
         isOpen={isAddVehicleOpen}
@@ -985,14 +1061,17 @@ export const VehicleManagement = () => {
         onSave={handleAddVehicle}
       />
 
+      {/* ✅ UPDATED AddHiredVehicleModal */}
       <AddHiredVehicleModal
         isOpen={isAddHiredVehicleOpen}
-        onClose={() => setIsAddHiredVehicleOpen(false)}
-        onSave={handleAddHiredVehicle}
-        onAddBrokerClick={() => {
+        onClose={() => {
           setIsAddHiredVehicleOpen(false);
-          setIsAddBrokerOpen(true);
+          setSelectedBrokerId("");
         }}
+        onSave={handleAddHiredVehicle}
+        onAddBrokerClick={handleAddBrokerFromSelection}
+        selectedBrokerId={selectedBrokerId}
+        selectedBrokerName={brokers.find(b => b.id === selectedBrokerId)?.name}
       />
 
       <VehicleDetailDrawer

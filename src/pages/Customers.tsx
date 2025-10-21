@@ -77,12 +77,9 @@ import {
     FileUp,
     CheckCircle,
     XCircle,
-    FileSpreadsheet,
     UserCheck,
     Users,
-    Shield,
     FileDown,
-    TrendingUp,
     Building,
     Hash
 } from "lucide-react";
@@ -109,38 +106,6 @@ const useDebounce = (value: string, delay: number) => {
     return debouncedValue;
 };
 
-// Add custom styles for column hover
-const tableStyles = `
-  <style>
-    .customers-table td {
-      position: relative;
-    }
-    .customers-table td::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: -1px;
-      bottom: -1px;
-      background: transparent;
-      pointer-events: none;
-      transition: background-color 0.2s ease;
-      z-index: 0;
-    }
-    .customers-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
-    .customers-table td > * {
-      position: relative;
-      z-index: 1;
-    }
-  </style>
-`;
-
 // Types
 interface Party {
     id: string;
@@ -149,7 +114,6 @@ interface Party {
     phone: string;
     email?: string | null;
     address_line1: string;
-    address_line2?: string | null;
     city: string;
     state: string;
     pincode: string;
@@ -167,14 +131,12 @@ interface PartyFormData {
     phone: string;
     email: string;
     address_line1: string;
-    address_line2: string;
     city: string;
     state: string;
     pincode: string;
     gst_number: string;
     pan_number: string;
     party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
-    status: 'ACTIVE' | 'INACTIVE';
 }
 
 interface PartyModalProps {
@@ -198,7 +160,6 @@ interface ImportRow {
     phone: string;
     email?: string;
     address_line1: string;
-    address_line2?: string;
     city: string;
     state: string;
     pincode: string;
@@ -246,7 +207,36 @@ const partyTypeConfig = {
     }
 };
 
-// Enhanced Party Modal Component with Gradient Background
+// Email validation with proper domains
+const validateEmail = (email: string): boolean => {
+    if (!email) return true; // Email is optional
+
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) return false;
+
+    // Common valid email domains
+    const validDomains = [
+        'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',
+        'zoho.com', 'protonmail.com', 'icloud.com', 'aol.com',
+        'mail.com', 'yandex.com', 'live.com', 'msn.com',
+        'rediffmail.com', 'inbox.com'
+    ];
+
+    const domain = email.split('@')[1]?.toLowerCase();
+
+    // Check if it's a common domain or has valid TLD
+    return validDomains.includes(domain) ||
+        domain?.endsWith('.com') ||
+        domain?.endsWith('.in') ||
+        domain?.endsWith('.co') ||
+        domain?.endsWith('.org') ||
+        domain?.endsWith('.net') ||
+        domain?.endsWith('.edu');
+};
+
+// Enhanced Party Modal Component
+// PartyModal component mein yeh changes karo:
+
 const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, onSave, mode = "create" }) => {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -264,14 +254,12 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
         phone: "",
         email: "",
         address_line1: "",
-        address_line2: "",
         city: "",
         state: "",
         pincode: "",
         gst_number: "",
         pan_number: "",
-        party_type: "BOTH",
-        status: "ACTIVE"
+        party_type: "BOTH"
     });
 
     // Reset when modal opens
@@ -284,17 +272,15 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                     phone: party.phone || "",
                     email: party.email || "",
                     address_line1: party.address_line1 || "",
-                    address_line2: party.address_line2 || "",
                     city: party.city || "",
                     state: party.state || "",
                     pincode: party.pincode || "",
                     gst_number: party.gst_number || "",
                     pan_number: party.pan_number || "",
-                    party_type: party.party_type || "BOTH",
-                    status: party.status || "ACTIVE"
+                    party_type: party.party_type || "BOTH"
                 });
-                if (party.city && party.state) {
-                    setLocationSearch(`${party.city}, ${party.state}`);
+                if (party.address_line1) {
+                    setLocationSearch(party.address_line1);
                     setHasSelected(true);
                 }
             } else {
@@ -304,14 +290,12 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                     phone: "",
                     email: "",
                     address_line1: "",
-                    address_line2: "",
                     city: "",
                     state: "",
                     pincode: "",
                     gst_number: "",
                     pan_number: "",
-                    party_type: "BOTH",
-                    status: "ACTIVE"
+                    party_type: "BOTH"
                 });
                 setLocationSearch("");
                 setHasSelected(false);
@@ -321,7 +305,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
         }
     }, [isOpen, party, mode]);
 
-    // Search locations
+    // Search locations - AREA WISE
     useEffect(() => {
         if (hasSelected) {
             setLocationSuggestions([]);
@@ -338,51 +322,81 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
     }, [debouncedLocationSearch, hasSelected]);
 
     const searchLocations = async (query: string) => {
-        if (hasSelected) {
-            return;
-        }
+        if (hasSelected) return;
 
         setSearchingLocation(true);
         try {
+            // Area/Locality wise search with higher limit
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/search?` +
                 `q=${encodeURIComponent(query)}&` +
                 `format=json&` +
                 `countrycodes=in&` +
-                `limit=8&` +
-                `addressdetails=1`
+                `limit=15&` + // Increased limit for more results
+                `addressdetails=1&` +
+                `featuretype=settlement` // Focus on settlements/localities
             );
 
             const data = await response.json();
 
             if (!hasSelected) {
-                const formattedResults = data.map((item: any) => {
-                    let cityName = item.address?.city ||
-                        item.address?.town ||
-                        item.address?.village ||
-                        item.address?.suburb ||
-                        item.address?.county ||
-                        item.name?.split(',')[0] ||
-                        query;
+                const formattedResults = data
+                    .map((item: any) => {
+                        // Extract area/locality information
+                        const area = item.address?.suburb ||
+                            item.address?.neighbourhood ||
+                            item.address?.locality ||
+                            item.address?.hamlet ||
+                            item.address?.quarter ||
+                            item.address?.residential ||
+                            item.name?.split(',')[0] ||
+                            '';
 
-                    let stateName = item.address?.state || '';
+                        const city = item.address?.city ||
+                            item.address?.town ||
+                            item.address?.village ||
+                            item.address?.municipality ||
+                            '';
 
-                    if (!stateName && item.display_name) {
-                        const parts = item.display_name.split(',');
-                        if (parts.length >= 3) {
-                            stateName = parts[parts.length - 3]?.trim() || parts[parts.length - 2]?.trim() || '';
+                        const state = item.address?.state || '';
+                        const postcode = item.address?.postcode || '';
+
+                        // Create display text with area prominence
+                        let displayText = '';
+                        if (area && city && area !== city) {
+                            displayText = `${area}, ${city}`;
+                        } else if (city) {
+                            displayText = city;
+                        } else if (area) {
+                            displayText = area;
+                        } else {
+                            displayText = item.display_name;
                         }
-                    }
 
-                    return {
-                        display_name: item.display_name,
-                        city: cityName.trim(),
-                        state: stateName.trim(),
-                        postcode: item.address?.postcode || '',
-                        lat: item.lat,
-                        lon: item.lon
-                    };
-                });
+                        return {
+                            area: area || city || '',
+                            city: city || area || '',
+                            state: state,
+                            postcode: postcode,
+                            display_name: item.display_name,
+                            displayText: displayText,
+                            type: item.type,
+                            lat: item.lat,
+                            lon: item.lon,
+                            importance: item.importance || 0
+                        };
+                    })
+                    // Filter out duplicates and invalid entries
+                    .filter((item: any, index: number, self: any[]) => {
+                        return item.city &&
+                            item.state &&
+                            index === self.findIndex((t) =>
+                                t.displayText === item.displayText &&
+                                t.city === item.city
+                            );
+                    })
+                    // Sort by importance
+                    .sort((a: any, b: any) => b.importance - a.importance);
 
                 setLocationSuggestions(formattedResults);
                 setShowLocationSuggestions(formattedResults.length > 0);
@@ -395,21 +409,27 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
     };
 
     const handleLocationSelect = (location: any) => {
+        // Set area as address_line1 if it's different from city
+        const addressLine = location.area && location.area !== location.city
+            ? location.area
+            : '';
+
         setFormData(prev => ({
             ...prev,
+            address_line1: addressLine || prev.address_line1,
             city: location.city || "",
             state: location.state || "",
             pincode: location.postcode || prev.pincode
         }));
 
-        setLocationSearch(`${location.city}, ${location.state}`);
+        setLocationSearch(location.displayText);
         setHasSelected(true);
         setLocationSuggestions([]);
         setShowLocationSuggestions(false);
 
         toast({
             title: "✅ Location Selected",
-            description: `${location.city}, ${location.state}`,
+            description: `${location.displayText}, ${location.state}`,
         });
     };
 
@@ -439,7 +459,8 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
 
                 if (data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
                     const postOffice = data[0].PostOffice[0];
-                    const cityName = postOffice.Name;
+                    const areaName = postOffice.Name; // This is usually the area/locality name
+                    const cityName = postOffice.District; // District is usually the city
                     const stateName = postOffice.State;
 
                     setFormData(prev => ({
@@ -448,12 +469,13 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                         state: stateName,
                         pincode: pincode
                     }));
-                    setLocationSearch(`${cityName}, ${stateName}`);
+
+                    setLocationSearch(areaName);
                     setHasSelected(true);
 
                     toast({
                         title: "✅ Location Found",
-                        description: `${cityName}, ${stateName}`,
+                        description: `${areaName}, ${cityName}, ${stateName}`,
                     });
                 }
             } catch (error) {
@@ -462,6 +484,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
         }
     };
 
+    // Rest of the component remains same...
     const handleSubmit = async () => {
         // Validation
         if (!formData.name || !formData.phone || !formData.address_line1 ||
@@ -483,7 +506,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
             return;
         }
 
-        // Rest of validation...
+        // Phone validation
         if (!/^[0-9]{10}$/.test(formData.phone.replace(/\D/g, ""))) {
             toast({
                 title: "❌ Invalid Phone",
@@ -493,6 +516,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
             return;
         }
 
+        // Pincode validation
         if (!/^[0-9]{6}$/.test(formData.pincode)) {
             toast({
                 title: "❌ Invalid Pincode",
@@ -502,20 +526,43 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
             return;
         }
 
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        // Email validation with proper domains
+        if (formData.email && !validateEmail(formData.email)) {
             toast({
                 title: "❌ Invalid Email",
-                description: "Please enter a valid email address",
+                description: "Please enter a valid email address (e.g., user@gmail.com, user@yahoo.com)",
                 variant: "destructive"
             });
             return;
         }
 
+        // GST validation
         if (formData.gst_number && formData.gst_number.length > 0 &&
             !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gst_number)) {
             toast({
                 title: "❌ Invalid GST",
                 description: "Please enter a valid GST number",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        // Check for duplicate name (excluding current party in edit mode)
+        const { data: existingParty, error: checkError } = await supabase
+            .from("parties")
+            .select("id, name")
+            .ilike("name", formData.name.trim())
+            .neq("id", mode === "edit" && party ? party.id : "00000000-0000-0000-0000-000000000000")
+            .limit(1);
+
+        if (checkError) {
+            console.error("Error checking duplicate name:", checkError);
+        }
+
+        if (existingParty && existingParty.length > 0) {
+            toast({
+                title: "❌ Duplicate Name",
+                description: "A party with this name already exists. Please use a different name.",
                 variant: "destructive"
             });
             return;
@@ -527,7 +574,6 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                 ...formData,
                 contact_person: formData.contact_person || null,
                 email: formData.email || null,
-                address_line2: formData.address_line2 || null,
                 gst_number: formData.gst_number || null,
                 pan_number: formData.pan_number || null,
             };
@@ -545,9 +591,10 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                     description: "Party updated successfully",
                 });
             } else {
+                // New party is created with ACTIVE status by default
                 const { error } = await supabase
                     .from("parties")
-                    .insert([dataToSave]);
+                    .insert([{ ...dataToSave, status: 'ACTIVE' }]);
 
                 if (error) throw error;
 
@@ -585,7 +632,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
 
                 <div className="grid gap-4 py-4">
                     {/* Party Type Selection */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         <div>
                             <Label>Party Type *</Label>
                             <Select
@@ -604,23 +651,6 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div>
-                            <Label>Status</Label>
-                            <Select
-                                value={formData.status}
-                                onValueChange={(value: 'ACTIVE' | 'INACTIVE') =>
-                                    setFormData({ ...formData, status: value })
-                                }
-                            >
-                                <SelectTrigger className="h-11 border-muted-foreground/20">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ACTIVE">Active</SelectItem>
-                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
 
                     {/* Basic Information */}
@@ -635,7 +665,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                                 <Input
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="Enter party name"
+                                    placeholder="Enter unique party name"
                                     className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
                                 />
                             </div>
@@ -674,9 +704,12 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    placeholder="email@example.com"
+                                    placeholder="email@gmail.com"
                                     className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
                                 />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Use valid domains: gmail.com, yahoo.com, outlook.com, etc.
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -688,32 +721,13 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                             Address Details
                         </h3>
                         <div className="space-y-4">
-                            <div>
-                                <Label>Address Line 1 *</Label>
-                                <Input
-                                    value={formData.address_line1}
-                                    onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
-                                    placeholder="Building/Street address"
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                            <div>
-                                <Label>Address Line 2</Label>
-                                <Input
-                                    value={formData.address_line2}
-                                    onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
-                                    placeholder="Area/Landmark (optional)"
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-
-                            {/* Google Maps Style Location Search */}
+                            {/* Area Search - NEW IMPROVED VERSION */}
                             <div>
                                 <Label>
-                                    Search Location (Optional - for auto-fill)
+                                    Search Area/Locality (e.g., Gunjan, Chala, Chanod)
                                     {hasSelected && (
                                         <span className="text-xs text-green-500 ml-2">
-                                            ✓ Location selected
+                                            ✓ Area selected
                                         </span>
                                     )}
                                 </Label>
@@ -723,7 +737,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                                         <Input
                                             value={locationSearch}
                                             onChange={handleLocationInputChange}
-                                            placeholder="Type city name to search... (e.g., Vapi, Mumbai)"
+                                            placeholder="Type area/locality name... (e.g., Gunjan, GIDC)"
                                             className="pl-10 pr-10 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                                             autoComplete="off"
                                         />
@@ -743,26 +757,38 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                                         )}
                                     </div>
 
-                                    {/* Location Suggestions Dropdown */}
+                                    {/* Location Suggestions Dropdown - ENHANCED */}
                                     {showLocationSuggestions && locationSuggestions.length > 0 && !hasSelected && (
-                                        <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[250px] overflow-auto">
+                                        <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[300px] overflow-auto">
                                             {locationSuggestions.map((location, index) => (
                                                 <div
                                                     key={index}
-                                                    className="px-3 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                                                    className="px-3 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0 transition-colors"
                                                     onClick={() => handleLocationSelect(location)}
                                                 >
                                                     <div className="flex items-start gap-2">
-                                                        <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                                        <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" />
                                                         <div className="flex-1">
-                                                            <div className="font-medium">
-                                                                {location.city}
-                                                                {location.state && `, ${location.state}`}
+                                                            <div className="font-medium text-sm">
+                                                                {location.area && location.area !== location.city ? (
+                                                                    <>
+                                                                        <span className="text-primary">{location.area}</span>
+                                                                        <span className="text-muted-foreground"> • {location.city}</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span>{location.city}</span>
+                                                                )}
                                                             </div>
-                                                            <div className="text-sm text-muted-foreground line-clamp-1">
-                                                                {location.display_name}
+                                                            <div className="text-xs text-muted-foreground mt-0.5">
+                                                                {location.state}
+                                                                {location.postcode && ` • PIN: ${location.postcode}`}
                                                             </div>
                                                         </div>
+                                                        {location.type && (
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {location.type}
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
@@ -770,8 +796,18 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
                                     )}
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Search to auto-fill OR manually enter below
+                                    🔍 Search by area/locality name to auto-fill city & state
                                 </p>
+                            </div>
+
+                            <div>
+                                <Label>Street Address *</Label>
+                                <Input
+                                    value={formData.address_line1}
+                                    onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+                                    placeholder="Building/Street address"
+                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
+                                />
                             </div>
 
                             {/* City, State, Pincode */}
@@ -886,7 +922,7 @@ const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, 
     );
 };
 
-// Import Modal Component with Enhanced Styling
+// Import Modal Component
 const ImportModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -940,7 +976,6 @@ const ImportModal: React.FC<{
             let data: any[] = [];
 
             if (file.name.endsWith('.csv')) {
-                // Parse CSV
                 const text = await file.text();
                 const result = Papa.parse(text, {
                     header: true,
@@ -949,7 +984,6 @@ const ImportModal: React.FC<{
                 });
                 data = result.data;
             } else {
-                // Parse Excel
                 const buffer = await file.arrayBuffer();
                 const workbook = XLSX.read(buffer, { type: 'array' });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -958,7 +992,6 @@ const ImportModal: React.FC<{
                     defval: ''
                 });
 
-                // Convert to object format with headers
                 if (data.length > 0) {
                     const headers = data[0].map((h: string) =>
                         h.toString().trim().toLowerCase().replace(/\s+/g, '_')
@@ -973,7 +1006,6 @@ const ImportModal: React.FC<{
                 }
             }
 
-            // Validate and check duplicates
             await validateData(data);
         } catch (error) {
             console.error('Error processing file:', error);
@@ -999,30 +1031,33 @@ const ImportModal: React.FC<{
         const invalid: { row: ImportRow; errors: ValidationError[] }[] = [];
         const phoneNumbers: string[] = [];
         const gstNumbers: string[] = [];
+        const partyNames: string[] = [];
 
-        // Collect all phone and GST numbers for duplicate check
+        // Collect all phone, GST numbers and names for duplicate check
         data.forEach((row) => {
             if (row.phone) phoneNumbers.push(row.phone.toString().trim());
             if (row.gst_number) gstNumbers.push(row.gst_number.toString().trim().toUpperCase());
+            if (row.name) partyNames.push(row.name.toString().trim().toLowerCase());
         });
 
         // Check existing duplicates in database
         let existingPhones: string[] = [];
         let existingGSTs: string[] = [];
+        let existingNames: string[] = [];
 
         if (phoneNumbers.length > 0) {
             const { data: existingData } = await supabase
                 .from('parties')
-                .select('phone, gst_number')
+                .select('phone, gst_number, name')
                 .or(`phone.in.(${phoneNumbers.join(',')}),gst_number.in.(${gstNumbers.filter(g => g).join(',')})`);
 
             if (existingData) {
                 existingPhones = existingData.map(p => p.phone).filter(Boolean);
                 existingGSTs = existingData.map(p => p.gst_number).filter(Boolean);
+                existingNames = existingData.map(p => p.name.toLowerCase()).filter(Boolean);
             }
         }
 
-        // Validate each row
         const duplicates: { row: ImportRow; field: string; value: string }[] = [];
 
         data.forEach((row, index) => {
@@ -1033,7 +1068,6 @@ const ImportModal: React.FC<{
                 phone: row.phone?.toString().trim() || '',
                 email: row.email?.toString().trim() || '',
                 address_line1: row.address_line1?.toString().trim() || '',
-                address_line2: row.address_line2?.toString().trim() || '',
                 city: row.city?.toString().trim() || '',
                 state: row.state?.toString().trim() || '',
                 pincode: row.pincode?.toString().trim() || '',
@@ -1070,8 +1104,8 @@ const ImportModal: React.FC<{
             if (processedRow.pincode && !/^[0-9]{6}$/.test(processedRow.pincode)) {
                 errors.push({ row: index + 1, field: 'pincode', message: 'Invalid pincode' });
             }
-            if (processedRow.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(processedRow.email)) {
-                errors.push({ row: index + 1, field: 'email', message: 'Invalid email' });
+            if (processedRow.email && !validateEmail(processedRow.email)) {
+                errors.push({ row: index + 1, field: 'email', message: 'Invalid email (use valid domains like gmail.com)' });
             }
             if (processedRow.gst_number && processedRow.gst_number.length > 0 &&
                 !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(processedRow.gst_number)) {
@@ -1091,7 +1125,13 @@ const ImportModal: React.FC<{
             }
 
             // Check duplicates
-            if (existingPhones.includes(processedRow.phone)) {
+            if (existingNames.includes(processedRow.name.toLowerCase())) {
+                duplicates.push({
+                    row: processedRow,
+                    field: 'name',
+                    value: processedRow.name
+                });
+            } else if (existingPhones.includes(processedRow.phone)) {
                 duplicates.push({
                     row: processedRow,
                     field: 'phone',
@@ -1159,14 +1199,12 @@ const ImportModal: React.FC<{
             const batch = batches[i];
 
             try {
-                // Prepare data for insert
                 const dataToInsert = batch.map(row => ({
                     name: row.name,
                     contact_person: row.contact_person || null,
                     phone: row.phone,
                     email: row.email || null,
                     address_line1: row.address_line1,
-                    address_line2: row.address_line2 || null,
                     city: row.city,
                     state: row.state,
                     pincode: row.pincode,
@@ -1218,9 +1256,9 @@ const ImportModal: React.FC<{
     // Download template
     const downloadTemplate = () => {
         const template = [
-            ['name', 'contact_person', 'phone', 'email', 'address_line1', 'address_line2', 'city', 'state', 'pincode', 'gst_number', 'pan_number', 'party_type', 'status'],
-            ['ABC Traders', 'John Doe', '9876543210', 'abc@email.com', '123 Main Street', 'Near Mall', 'Mumbai', 'Maharashtra', '400001', '27AABCU9603R1ZM', 'AABCU9603R', 'CONSIGNOR', 'ACTIVE'],
-            ['XYZ Logistics', '', '8765432109', '', '456 Park Avenue', '', 'Delhi', 'Delhi', '110001', '', '', 'CONSIGNEE', 'ACTIVE']
+            ['name', 'contact_person', 'phone', 'email', 'address_line1', 'city', 'state', 'pincode', 'gst_number', 'pan_number', 'party_type', 'status'],
+            ['ABC Traders', 'John Doe', '9876543210', 'abc@gmail.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', '27AABCU9603R1ZM', 'AABCU9603R', 'CONSIGNOR', 'ACTIVE'],
+            ['XYZ Logistics', '', '8765432109', '', '456 Park Avenue', 'Delhi', 'Delhi', '110001', '', '', 'CONSIGNEE', 'ACTIVE']
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(template);
@@ -1496,7 +1534,7 @@ const ImportModal: React.FC<{
     );
 };
 
-// Main Customers Component with Enhanced Styling
+// Main Customers Component
 export const Customers = () => {
     const { toast } = useToast();
     const [parties, setParties] = useState<Party[]>([]);
@@ -1548,7 +1586,6 @@ export const Customers = () => {
             .customers-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
             .customers-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
             .customers-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
-            .customers-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
             .customers-table td > * {
                 position: relative;
                 z-index: 1;
@@ -1570,7 +1607,6 @@ export const Customers = () => {
                 .select("*")
                 .order("created_at", { ascending: false });
 
-            // Apply filters
             if (statusFilter !== "ALL") {
                 query = query.eq("status", statusFilter);
             }
@@ -1613,6 +1649,40 @@ export const Customers = () => {
     useEffect(() => {
         loadParties();
     }, [statusFilter]);
+
+    // Handle party save (clear search after adding/editing)
+    const handlePartySave = () => {
+        setSearchTerm(""); // Clear search to show new party
+        loadParties();
+    };
+
+    // Toggle party status
+    const togglePartyStatus = async (party: Party) => {
+        const newStatus = party.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+        try {
+            const { error } = await supabase
+                .from("parties")
+                .update({ status: newStatus })
+                .eq("id", party.id);
+
+            if (error) throw error;
+
+            toast({
+                title: "✅ Status Updated",
+                description: `Party is now ${newStatus.toLowerCase()}`,
+            });
+
+            loadParties();
+        } catch (error: any) {
+            console.error("Error updating status:", error);
+            toast({
+                title: "❌ Error",
+                description: "Failed to update status",
+                variant: "destructive"
+            });
+        }
+    };
 
     // Delete party
     const handleDeleteParty = async () => {
@@ -1686,19 +1756,21 @@ export const Customers = () => {
         return matchesSearch && matchesType && matchesTab;
     });
 
-    // Export to CSV
+    // Export to CSV (with address included)
     const handleExport = () => {
         const csvContent = [
-            ["Name", "Type", "Phone", "Email", "City", "State", "Pincode", "GST", "Status"],
+            ["Name", "Type", "Phone", "Email", "Address", "City", "State", "Pincode", "GST", "PAN", "Status"],
             ...filteredParties.map(party => [
                 party.name,
                 party.party_type,
                 party.phone,
                 party.email || "",
+                party.address_line1 || "",
                 party.city,
                 party.state,
                 party.pincode,
                 party.gst_number || "",
+                party.pan_number || "",
                 party.status
             ])
         ].map(row => row.join(",")).join("\n");
@@ -1714,6 +1786,12 @@ export const Customers = () => {
             title: "✅ Exported",
             description: `${filteredParties.length} parties exported to CSV`,
         });
+    };
+
+    // Handle import complete (clear search)
+    const handleImportComplete = () => {
+        setSearchTerm(""); // Clear search to show imported parties
+        loadParties();
     };
 
     if (loading) {
@@ -1868,6 +1946,16 @@ export const Customers = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="pl-11 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
                             />
+                            {searchTerm && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-1 top-1.5 h-8 w-8 p-0"
+                                    onClick={() => setSearchTerm("")}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
                         </div>
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
                             <SelectTrigger className="w-full sm:w-48 h-11 border-muted-foreground/20 bg-background/50 backdrop-blur-sm">
@@ -2018,6 +2106,9 @@ export const Customers = () => {
                                                             <span className="font-medium">{party.city}, {party.state}</span>
                                                         </div>
                                                         <div className="text-xs text-muted-foreground ml-5">
+                                                            {party.address_line1}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground ml-5">
                                                             PIN: {party.pincode}
                                                         </div>
                                                     </div>
@@ -2044,22 +2135,32 @@ export const Customers = () => {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge
-                                                        variant={party.status === "ACTIVE" ? "default" : "secondary"}
-                                                        className={cn(
-                                                            "font-medium",
-                                                            party.status === "ACTIVE"
-                                                                ? "bg-green-100 text-green-700 border-green-200"
-                                                                : "bg-gray-100 text-gray-700 border-gray-200"
-                                                        )}
-                                                    >
-                                                        {party.status === "ACTIVE" ? (
-                                                            <CheckCircle className="w-3 h-3 mr-1" />
-                                                        ) : (
-                                                            <XCircle className="w-3 h-3 mr-1" />
-                                                        )}
-                                                        {party.status}
-                                                    </Badge>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Badge
+                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
+                                                                    className={cn(
+                                                                        "font-medium cursor-pointer hover:opacity-80 transition-all",
+                                                                        party.status === "ACTIVE"
+                                                                            ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
+                                                                            : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+                                                                    )}
+                                                                    onClick={() => togglePartyStatus(party)}
+                                                                >
+                                                                    {party.status === "ACTIVE" ? (
+                                                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                                                    ) : (
+                                                                        <XCircle className="w-3 h-3 mr-1" />
+                                                                    )}
+                                                                    {party.status}
+                                                                </Badge>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Click to {party.status === "ACTIVE" ? "deactivate" : "activate"}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center justify-center">
@@ -2113,14 +2214,14 @@ export const Customers = () => {
                 onClose={() => setPartyModal({ isOpen: false, party: null, mode: "create" })}
                 party={partyModal.party}
                 mode={partyModal.mode}
-                onSave={loadParties}
+                onSave={handlePartySave}
             />
 
             {/* Import Modal */}
             <ImportModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
-                onImportComplete={loadParties}
+                onImportComplete={handleImportComplete}
             />
 
             {/* Delete Confirmation */}

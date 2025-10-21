@@ -1,60 +1,68 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Save, X } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Building2, Loader2, MapPin } from "lucide-react"; // ✅ Add MapPin
 import { useToast } from "@/hooks/use-toast";
-
-interface BrokerFormData {
-    name: string;
-    contactPerson: string;
-    phone: string;
-    email: string;
-}
 
 interface AddBrokerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (brokerData: BrokerFormData) => Promise<void>;
+    onSave: (brokerData: {
+        name: string;
+        contactPerson: string;
+        phone: string;
+        email: string;
+        city: string; // ✅ NEW
+    }) => void;
 }
 
 export const AddBrokerModal = ({ isOpen, onClose, onSave }: AddBrokerModalProps) => {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
-    const [brokerData, setBrokerData] = useState<BrokerFormData>({
+    const [formData, setFormData] = useState({
         name: "",
         contactPerson: "",
         phone: "",
-        email: ""
+        email: "",
+        city: "" // ✅ NEW
     });
 
+    useEffect(() => {
+        if (!isOpen) {
+            setFormData({
+                name: "",
+                contactPerson: "",
+                phone: "",
+                email: "",
+                city: "" // ✅ NEW
+            });
+        }
+    }, [isOpen]);
+
     const handleSubmit = async () => {
-        // Validation
-        if (!brokerData.name.trim() || !brokerData.contactPerson.trim() || !brokerData.phone.trim()) {
+        // ✅ UPDATED VALIDATION
+        if (!formData.name.trim() || !formData.contactPerson.trim() ||
+            !formData.phone.trim() || !formData.city.trim()) {
             toast({
-                title: "Validation Error",
+                title: "❌ Validation Error",
                 description: "Please fill in all required fields",
                 variant: "destructive"
             });
             return;
         }
 
-        // Phone validation
-        if (brokerData.phone.length < 10) {
+        if (formData.phone.length < 10) {
             toast({
-                title: "Validation Error",
-                description: "Please enter a valid phone number",
-                variant: "destructive"
-            });
-            return;
-        }
-
-        // Email validation (if provided)
-        if (brokerData.email && !brokerData.email.includes('@')) {
-            toast({
-                title: "Validation Error",
-                description: "Please enter a valid email address",
+                title: "❌ Invalid Phone",
+                description: "Phone number must be at least 10 digits",
                 variant: "destructive"
             });
             return;
@@ -62,110 +70,103 @@ export const AddBrokerModal = ({ isOpen, onClose, onSave }: AddBrokerModalProps)
 
         try {
             setLoading(true);
-            await onSave(brokerData);
-
-            // Reset form
-            setBrokerData({
-                name: "",
-                contactPerson: "",
-                phone: "",
-                email: ""
-            });
-
-            toast({
-                title: "Success",
-                description: "Broker added successfully",
-            });
-
+            await onSave(formData);
             onClose();
         } catch (error) {
             console.error('Error saving broker:', error);
-            toast({
-                title: "Error",
-                description: "Failed to add broker. Please try again.",
-                variant: "destructive"
-            });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleClose = () => {
-        setBrokerData({
-            name: "",
-            contactPerson: "",
-            phone: "",
-            email: ""
-        });
-        onClose();
-    };
-
     return (
-        <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-md">
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Building2 className="w-5 h-5 text-primary" />
+                        <Building2 className="w-5 h-5" />
                         Add New Broker
                     </DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
+                <div className="grid gap-4 py-4">
                     <div>
-                        <Label htmlFor="brokerName">Company Name *</Label>
+                        <Label>
+                            Company Name
+                            <span className="text-red-500 ml-1">*</span>
+                        </Label>
                         <Input
-                            id="brokerName"
-                            value={brokerData.name}
-                            onChange={(e) => setBrokerData({ ...brokerData, name: e.target.value })}
-                            placeholder="ABC Transport Company"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Enter company name"
                             disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <Label htmlFor="contactPerson">Contact Person *</Label>
+                        <Label>
+                            Contact Person
+                            <span className="text-red-500 ml-1">*</span>
+                        </Label>
                         <Input
-                            id="contactPerson"
-                            value={brokerData.contactPerson}
-                            onChange={(e) => setBrokerData({ ...brokerData, contactPerson: e.target.value })}
-                            placeholder="John Doe"
+                            value={formData.contactPerson}
+                            onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                            placeholder="Enter contact person name"
                             disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <Label htmlFor="phone">Phone Number *</Label>
+                        <Label>
+                            Phone Number
+                            <span className="text-red-500 ml-1">*</span>
+                        </Label>
                         <Input
-                            id="phone"
-                            value={brokerData.phone}
-                            onChange={(e) => setBrokerData({ ...brokerData, phone: e.target.value })}
-                            placeholder="+91-9876543210"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            placeholder="Enter phone number"
                             maxLength={15}
                             disabled={loading}
                         />
                     </div>
 
+                    {/* ✅ NEW CITY FIELD */}
                     <div>
-                        <Label htmlFor="email">Email (Optional)</Label>
+                        <Label>
+                            City
+                            <span className="text-red-500 ml-1">*</span>
+                        </Label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                value={formData.city}
+                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                placeholder="Enter city"
+                                className="pl-10"
+                                disabled={loading}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <Label>Email (Optional)</Label>
                         <Input
-                            id="email"
                             type="email"
-                            value={brokerData.email}
-                            onChange={(e) => setBrokerData({ ...brokerData, email: e.target.value })}
-                            placeholder="broker@company.com"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="Enter email address"
                             disabled={loading}
                         />
                     </div>
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={handleClose} disabled={loading}>
-                        <X className="w-4 h-4 mr-2" />
+                    <Button variant="outline" onClick={onClose} disabled={loading}>
                         Cancel
                     </Button>
                     <Button onClick={handleSubmit} disabled={loading}>
-                        <Save className="w-4 h-4 mr-2" />
-                        {loading ? "Saving..." : "Save Broker"}
+                        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                        Add Broker
                     </Button>
                 </DialogFooter>
             </DialogContent>

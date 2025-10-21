@@ -359,7 +359,8 @@ export const VehiclesList = () => {
         name: brokerData.name,
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
-        email: brokerData.email || undefined
+        email: brokerData.email || undefined,
+        city: brokerData.city || undefined // ✅ NEW
       });
 
       toast({

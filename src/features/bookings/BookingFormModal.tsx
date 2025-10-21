@@ -21,7 +21,6 @@ interface Party {
   phone: string;
   email?: string;
   address_line1: string;
-  address_line2?: string;
   city: string;
   state: string;
   pincode: string;
@@ -35,8 +34,8 @@ interface Party {
 interface BookingFormData {
   consignor_id: string;
   consignee_id: string;
-  consignorName?: string; // For display
-  consigneeName?: string; // For display
+  consignorName?: string;
+  consigneeName?: string;
   fromLocation: string;
   toLocation: string;
   serviceType: "FTL" | "PTL";
@@ -49,7 +48,7 @@ interface BookingFormModalProps {
   onSave: (data: any) => void;
 }
 
-// Date validation function
+// ✅ UPDATED - Date validation function (2 days pehle se allow kare)
 const validatePickupDate = (dateString: string | undefined): string | null => {
   if (!dateString) return null; // Optional field
 
@@ -57,12 +56,16 @@ const validatePickupDate = (dateString: string | undefined): string | null => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // ✅ Allow 2 days in the past
+  const twoDaysAgo = new Date(today);
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
   if (isNaN(selectedDate.getTime())) {
     return "Invalid date format";
   }
 
-  if (selectedDate < today) {
-    return "Pickup date cannot be in the past";
+  if (selectedDate < twoDaysAgo) {
+    return "Pickup date cannot be more than 2 days in the past";
   }
 
   const maxDate = new Date();
@@ -74,7 +77,7 @@ const validatePickupDate = (dateString: string | undefined): string | null => {
   return null;
 };
 
-// Party Select Component (embedded in same file for simplicity)
+// Party Select Component
 const PartySelect = ({
   value,
   onValueChange,
@@ -95,11 +98,9 @@ const PartySelect = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Search parties with debounce
   useEffect(() => {
     const loadParties = async () => {
       if (searchTerm.length < 1) {
-        // Load recent parties if no search term
         if (!searchTerm) {
           setLoading(true);
           try {
@@ -259,7 +260,6 @@ const QuickAddPartyModal = ({
     phone: '',
     email: '',
     address_line1: '',
-    address_line2: '',
     city: '',
     state: '',
     pincode: '',
@@ -268,7 +268,6 @@ const QuickAddPartyModal = ({
   });
 
   const handleSubmit = async () => {
-    // Validation
     if (!formData.name || !formData.phone || !formData.address_line1 ||
       !formData.city || !formData.state || !formData.pincode) {
       toast({
@@ -431,7 +430,6 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
     pickupDate: undefined,
   });
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -449,7 +447,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   }, [isOpen]);
 
   const handleConsignorSelect = (partyId: string, party: Party) => {
-    const fullAddress = `${party.address_line1}${party.address_line2 ? ', ' + party.address_line2 : ''}, ${party.city}, ${party.state} - ${party.pincode}`;
+    const fullAddress = `${party.address_line1}, ${party.city}, ${party.state} - ${party.pincode}`;
 
     setFormData({
       ...formData,
@@ -460,7 +458,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   };
 
   const handleConsigneeSelect = (partyId: string, party: Party) => {
-    const fullAddress = `${party.address_line1}${party.address_line2 ? ', ' + party.address_line2 : ''}, ${party.city}, ${party.state} - ${party.pincode}`;
+    const fullAddress = `${party.address_line1}, ${party.city}, ${party.state} - ${party.pincode}`;
 
     setFormData({
       ...formData,
@@ -478,7 +476,6 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   };
 
   const handleSubmit = async () => {
-    // Validation
     if (!formData.consignor_id || !formData.consignee_id) {
       toast({
         title: "Validation Error",
@@ -512,7 +509,6 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
     try {
       setLoading(true);
 
-      // Create booking with party IDs
       const bookingData = {
         consignor_id: formData.consignor_id,
         consignee_id: formData.consignee_id,
@@ -545,6 +541,15 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
       handleConsigneeSelect(party.id, party);
     }
   };
+
+  // ✅ Calculate minDate (2 days ago)
+  const getMinDate = () => {
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    twoDaysAgo.setHours(0, 0, 0, 0);
+    return twoDaysAgo;
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -645,12 +650,13 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
               <div>
                 <Label htmlFor="pickup">Pickup Date</Label>
+                {/* ✅ UPDATED - minDate 2 days peeche */}
                 <DatePicker
                   selected={formData.pickupDate ? new Date(formData.pickupDate) : null}
                   onChange={handleDateChange}
                   dateFormat="dd/MM/yyyy"
                   placeholderText="DD/MM/YYYY (Optional)"
-                  minDate={new Date()}
+                  minDate={getMinDate()}
                   maxDate={new Date(new Date().setFullYear(new Date().getFullYear() + 1))}
                   className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${dateError ? 'border-destructive' : 'border-input'
                     }`}
@@ -659,6 +665,9 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                 {dateError && (
                   <p className="text-sm text-destructive mt-1">{dateError}</p>
                 )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  ℹ️ Can select up to 2 days in the past
+                </p>
               </div>
             </div>
           </div>

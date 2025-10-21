@@ -435,7 +435,8 @@ export const EnhancedVehicleAssignmentModal = ({
         name: brokerData.name,
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
-        email: brokerData.email || undefined
+        email: brokerData.email || undefined,
+        city: brokerData.city || undefined // ✅ NEW
       });
 
       await loadData();
@@ -443,14 +444,15 @@ export const EnhancedVehicleAssignmentModal = ({
       setIsAddBrokerModalOpen(false);
 
       toast({
-        title: "Success",
-        description: "Broker added successfully",
+        title: "✅ Broker Added",
+        description: `${brokerData.name} has been added as a broker`,
       });
     } catch (error) {
+      console.error('Error adding broker:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to add broker",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };

@@ -69,7 +69,9 @@ import {
     Building,
     UserCheck,
     Shield,
-    ArrowUpRight
+    ArrowUpRight,
+    MapPin,
+    X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -77,36 +79,22 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useDropzone } from "react-dropzone";
 
-// Add styles for column hover effect
-const tableStyles = `
-  <style>
-    .broker-table td {
-      position: relative;
-    }
-    .broker-table td::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: -1px;
-      bottom: -1px;
-      background: transparent;
-      pointer-events: none;
-      transition: background-color 0.2s ease;
-      z-index: 0;
-    }
-    .broker-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
-    .broker-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
-    .broker-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
-    .broker-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
-    .broker-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
-    .broker-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
-    .broker-table td > * {
-      position: relative;
-      z-index: 1;
-    }
-  </style>
-`;
+// Custom hook for debouncing
+const useDebounce = (value: string, delay: number) => {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+
+    return debouncedValue;
+};
 
 // Types
 interface Broker {
@@ -115,6 +103,7 @@ interface Broker {
     contact_person: string;
     phone: string;
     email?: string;
+    city?: string;
     status?: string;
     created_at?: string;
 }
@@ -124,6 +113,7 @@ interface BrokerFormData {
     contactPerson: string;
     phone: string;
     email: string;
+    city: string;
 }
 
 interface ImportBrokerRow {
@@ -131,6 +121,7 @@ interface ImportBrokerRow {
     contact_person: string;
     phone: string;
     email?: string;
+    city?: string;
     status?: string;
 }
 
@@ -149,11 +140,11 @@ interface ImportPreviewData {
 interface ImportProgress {
     current: number;
     total: number;
-    status: 'idle' | 'validating' | 'importing' | 'completed' | 'error';
+    status: "idle" | "validating" | "importing" | "completed" | "error";
     message: string;
 }
 
-// Import Modal Component with Enhanced Styling
+// Import Modal Component
 const ImportBrokersModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -165,22 +156,22 @@ const ImportBrokersModal: React.FC<{
     const [progress, setProgress] = useState<ImportProgress>({
         current: 0,
         total: 0,
-        status: 'idle',
-        message: ''
+        status: "idle",
+        message: "",
     });
-    const [step, setStep] = useState<'upload' | 'preview' | 'importing'>('upload');
+    const [step, setStep] = useState<"upload" | "preview" | "importing">(
+        "upload"
+    );
 
-    // Reset modal state when closed
     useEffect(() => {
         if (!isOpen) {
             setFile(null);
             setPreview(null);
-            setProgress({ current: 0, total: 0, status: 'idle', message: '' });
-            setStep('upload');
+            setProgress({ current: 0, total: 0, status: "idle", message: "" });
+            setStep("upload");
         }
     }, [isOpen]);
 
-    // File drop handler
     const onDrop = useCallback((acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
         if (file) {
@@ -192,225 +183,244 @@ const ImportBrokersModal: React.FC<{
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop,
         accept: {
-            'text/csv': ['.csv'],
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-            'application/vnd.ms-excel': ['.xls']
+            "text/csv": [".csv"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+                ".xlsx",
+            ],
+            "application/vnd.ms-excel": [".xls"],
         },
-        maxFiles: 1
+        maxFiles: 1,
     });
 
-    // Process uploaded file
     const processFile = async (file: File) => {
-        setProgress({ current: 0, total: 0, status: 'validating', message: 'Reading file...' });
+        setProgress({
+            current: 0,
+            total: 0,
+            status: "validating",
+            message: "Reading file...",
+        });
 
         try {
             let data: any[] = [];
 
-            if (file.name.endsWith('.csv')) {
-                // Parse CSV
+            if (file.name.endsWith(".csv")) {
                 const text = await file.text();
                 const result = Papa.parse(text, {
                     header: true,
                     skipEmptyLines: true,
-                    transformHeader: (header) => header.trim().toLowerCase().replace(/\s+/g, '_')
+                    transformHeader: (header) =>
+                        header.trim().toLowerCase().replace(/\s+/g, "_"),
                 });
                 data = result.data;
             } else {
-                // Parse Excel
                 const buffer = await file.arrayBuffer();
-                const workbook = XLSX.read(buffer, { type: 'array' });
+                const workbook = XLSX.read(buffer, { type: "array" });
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 data = XLSX.utils.sheet_to_json(firstSheet, {
                     header: 1,
-                    defval: ''
+                    defval: "",
                 });
 
-                // Convert to object format with headers
                 if (data.length > 0) {
                     const headers = data[0].map((h: string) =>
-                        h.toString().trim().toLowerCase().replace(/\s+/g, '_')
+                        h.toString().trim().toLowerCase().replace(/\s+/g, "_")
                     );
                     data = data.slice(1).map((row: any[]) => {
                         const obj: any = {};
                         headers.forEach((header: string, index: number) => {
-                            obj[header] = row[index]?.toString().trim() || '';
+                            obj[header] = row[index]?.toString().trim() || "";
                         });
                         return obj;
                     });
                 }
             }
 
-            // Validate and check duplicates
             await validateData(data);
         } catch (error) {
-            console.error('Error processing file:', error);
+            console.error("Error processing file:", error);
             toast({
                 title: "❌ Error",
                 description: "Failed to process file. Please check the format.",
-                variant: "destructive"
+                variant: "destructive",
             });
-            setProgress({ current: 0, total: 0, status: 'error', message: 'Failed to process file' });
+            setProgress({
+                current: 0,
+                total: 0,
+                status: "error",
+                message: "Failed to process file",
+            });
         }
     };
 
-    // Validate data
     const validateData = async (data: any[]) => {
         setProgress({
             current: 0,
             total: data.length,
-            status: 'validating',
-            message: 'Validating data...'
+            status: "validating",
+            message: "Validating data...",
         });
 
         const valid: ImportBrokerRow[] = [];
         const invalid: { row: ImportBrokerRow; errors: ValidationError[] }[] = [];
-        const duplicates: { row: ImportBrokerRow; field: string; value: string }[] = [];
+        const duplicates: { row: ImportBrokerRow; field: string; value: string }[] =
+            [];
 
-        // Get existing brokers for duplicate check
         const { data: existingBrokers } = await supabase
-            .from('brokers')
-            .select('name, phone, email');
+            .from("brokers")
+            .select("name, phone, email");
 
-        const existingNames = existingBrokers?.map(b => b.name.toLowerCase()) || [];
-        const existingPhones = existingBrokers?.map(b => b.phone) || [];
-        const existingEmails = existingBrokers?.map(b => b.email?.toLowerCase()).filter(Boolean) || [];
+        const existingNames =
+            existingBrokers?.map((b) => b.name.toLowerCase()) || [];
+        const existingPhones = existingBrokers?.map((b) => b.phone) || [];
+        const existingEmails =
+            existingBrokers?.map((b) => b.email?.toLowerCase()).filter(Boolean) || [];
 
-        // Validate each row
         data.forEach((row, index) => {
             const errors: ValidationError[] = [];
             const processedRow: ImportBrokerRow = {
-                name: row.name?.toString().trim() || row.company_name?.toString().trim() || '',
-                contact_person: row.contact_person?.toString().trim() || '',
-                phone: row.phone?.toString().trim() || '',
-                email: row.email?.toString().trim().toLowerCase() || '',
-                status: (row.status?.toString().trim().toUpperCase() as any) || 'ACTIVE'
+                name:
+                    row.name?.toString().trim() ||
+                    row.company_name?.toString().trim() ||
+                    "",
+                contact_person: row.contact_person?.toString().trim() || "",
+                phone: row.phone?.toString().trim() || "",
+                email: row.email?.toString().trim().toLowerCase() || "",
+                city: row.city?.toString().trim() || "",
+                status:
+                    (row.status?.toString().trim().toUpperCase() as any) || "ACTIVE",
             };
 
-            // Required field validation
-            if (!processedRow.name) {
-                errors.push({ row: index + 1, field: 'name', message: 'Company name is required' });
-            }
-            if (!processedRow.contact_person) {
-                errors.push({ row: index + 1, field: 'contact_person', message: 'Contact person is required' });
-            }
-            if (!processedRow.phone) {
-                errors.push({ row: index + 1, field: 'phone', message: 'Phone is required' });
-            }
+            if (!processedRow.name)
+                errors.push({
+                    row: index + 1,
+                    field: "name",
+                    message: "Company name is required",
+                });
+            if (!processedRow.contact_person)
+                errors.push({
+                    row: index + 1,
+                    field: "contact_person",
+                    message: "Contact person is required",
+                });
+            if (!processedRow.phone)
+                errors.push({
+                    row: index + 1,
+                    field: "phone",
+                    message: "Phone is required",
+                });
+            if (!processedRow.city)
+                errors.push({
+                    row: index + 1,
+                    field: "city",
+                    message: "City is required",
+                });
+            if (processedRow.phone && processedRow.phone.length < 10)
+                errors.push({
+                    row: index + 1,
+                    field: "phone",
+                    message: "Phone must be at least 10 digits",
+                });
+            if (
+                processedRow.email &&
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(processedRow.email)
+            )
+                errors.push({
+                    row: index + 1,
+                    field: "email",
+                    message: "Invalid email format",
+                });
+            if (!["ACTIVE", "INACTIVE"].includes(processedRow.status || ""))
+                processedRow.status = "ACTIVE";
 
-            // Format validation
-            if (processedRow.phone && processedRow.phone.length < 10) {
-                errors.push({ row: index + 1, field: 'phone', message: 'Phone must be at least 10 digits' });
-            }
-            if (processedRow.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(processedRow.email)) {
-                errors.push({ row: index + 1, field: 'email', message: 'Invalid email format' });
-            }
-
-            // Status validation
-            if (!['ACTIVE', 'INACTIVE'].includes(processedRow.status || '')) {
-                processedRow.status = 'ACTIVE';
-            }
-
-            // Check duplicates
-            if (existingNames.includes(processedRow.name.toLowerCase())) {
+            if (existingNames.includes(processedRow.name.toLowerCase()))
                 duplicates.push({
                     row: processedRow,
-                    field: 'name',
-                    value: processedRow.name
+                    field: "name",
+                    value: processedRow.name,
                 });
-            } else if (existingPhones.includes(processedRow.phone)) {
+            else if (existingPhones.includes(processedRow.phone))
                 duplicates.push({
                     row: processedRow,
-                    field: 'phone',
-                    value: processedRow.phone
+                    field: "phone",
+                    value: processedRow.phone,
                 });
-            } else if (processedRow.email && existingEmails.includes(processedRow.email.toLowerCase())) {
+            else if (
+                processedRow.email &&
+                existingEmails.includes(processedRow.email.toLowerCase())
+            )
                 duplicates.push({
                     row: processedRow,
-                    field: 'email',
-                    value: processedRow.email
+                    field: "email",
+                    value: processedRow.email,
                 });
-            } else if (errors.length > 0) {
-                invalid.push({ row: processedRow, errors });
-            } else {
-                valid.push(processedRow);
-            }
+            else if (errors.length > 0) invalid.push({ row: processedRow, errors });
+            else valid.push(processedRow);
 
-            setProgress(prev => ({
+            setProgress((prev) => ({
                 ...prev,
                 current: index + 1,
-                message: `Validated ${index + 1} of ${data.length} rows`
+                message: `Validated ${index + 1} of ${data.length} rows`,
             }));
         });
 
         setPreview({ valid, invalid, duplicates });
-        setStep('preview');
+        setStep("preview");
         setProgress({
             current: data.length,
             total: data.length,
-            status: 'idle',
-            message: 'Validation complete'
+            status: "idle",
+            message: "Validation complete",
         });
     };
 
-    // Import data to database
     const handleImport = async () => {
         if (!preview || preview.valid.length === 0) {
             toast({
                 title: "❌ No valid data",
                 description: "No valid rows to import",
-                variant: "destructive"
+                variant: "destructive",
             });
             return;
         }
 
-        setStep('importing');
+        setStep("importing");
         setProgress({
             current: 0,
             total: preview.valid.length,
-            status: 'importing',
-            message: 'Starting import...'
+            status: "importing",
+            message: "Starting import...",
         });
 
         const BATCH_SIZE = 50;
         const batches = [];
-
-        for (let i = 0; i < preview.valid.length; i += BATCH_SIZE) {
+        for (let i = 0; i < preview.valid.length; i += BATCH_SIZE)
             batches.push(preview.valid.slice(i, i + BATCH_SIZE));
-        }
 
         let successCount = 0;
         let errorCount = 0;
 
         for (let i = 0; i < batches.length; i++) {
             const batch = batches[i];
-
             try {
-                // Prepare data for insert
-                const dataToInsert = batch.map(row => ({
+                const dataToInsert = batch.map((row) => ({
                     name: row.name,
                     contact_person: row.contact_person,
                     phone: row.phone,
                     email: row.email || null,
-                    status: row.status || 'ACTIVE'
+                    city: row.city || null,
+                    status: row.status || "ACTIVE",
                 }));
-
-                const { error } = await supabase
-                    .from('brokers')
-                    .insert(dataToInsert);
-
+                const { error } = await supabase.from("brokers").insert(dataToInsert);
                 if (error) throw error;
-
                 successCount += batch.length;
-
                 setProgress({
                     current: Math.min((i + 1) * BATCH_SIZE, preview.valid.length),
                     total: preview.valid.length,
-                    status: 'importing',
-                    message: `Imported ${successCount} of ${preview.valid.length} brokers`
+                    status: "importing",
+                    message: `Imported ${successCount} of ${preview.valid.length} brokers`,
                 });
-
             } catch (error) {
-                console.error('Batch import error:', error);
+                console.error("Batch import error:", error);
                 errorCount += batch.length;
             }
         }
@@ -418,13 +428,14 @@ const ImportBrokersModal: React.FC<{
         setProgress({
             current: preview.valid.length,
             total: preview.valid.length,
-            status: 'completed',
-            message: `Import completed: ${successCount} successful, ${errorCount} failed`
+            status: "completed",
+            message: `Import completed: ${successCount} successful, ${errorCount} failed`,
         });
 
         toast({
             title: "✅ Import Completed",
-            description: `Successfully imported ${successCount} brokers${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+            description: `Successfully imported ${successCount} brokers${errorCount > 0 ? `, ${errorCount} failed` : ""
+                }`,
         });
 
         setTimeout(() => {
@@ -433,20 +444,31 @@ const ImportBrokersModal: React.FC<{
         }, 2000);
     };
 
-    // Download template
     const downloadTemplate = () => {
         const template = [
-            ['name', 'contact_person', 'phone', 'email', 'status'],
-            ['ABC Transport Co', 'John Doe', '9876543210', 'john@abctransport.com', 'ACTIVE'],
-            ['XYZ Logistics', 'Jane Smith', '9876543211', 'jane@xyzlogistics.com', 'ACTIVE'],
-            ['Quick Movers', 'Raj Kumar', '9876543212', '', 'ACTIVE']
+            ["name", "contact_person", "phone", "email", "city", "status"],
+            [
+                "ABC Transport Co",
+                "John Doe",
+                "9876543210",
+                "john@abctransport.com",
+                "Mumbai",
+                "ACTIVE",
+            ],
+            [
+                "XYZ Logistics",
+                "Jane Smith",
+                "9876543211",
+                "jane@xyzlogistics.com",
+                "Delhi",
+                "ACTIVE",
+            ],
+            ["Quick Movers", "Raj Kumar", "9876543212", "", "Vapi", "ACTIVE"],
         ];
-
         const ws = XLSX.utils.aoa_to_sheet(template);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Brokers');
-        XLSX.writeFile(wb, 'brokers_import_template.xlsx');
-
+        XLSX.utils.book_append_sheet(wb, ws, "Brokers");
+        XLSX.writeFile(wb, "brokers_import_template.xlsx");
         toast({
             title: "✅ Template Downloaded",
             description: "Use this template to prepare your import data",
@@ -462,8 +484,7 @@ const ImportBrokersModal: React.FC<{
                         Import Brokers
                     </DialogTitle>
                 </DialogHeader>
-
-                {step === 'upload' && (
+                {step === "upload" && (
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
                             <p className="text-sm text-muted-foreground">
@@ -479,7 +500,6 @@ const ImportBrokersModal: React.FC<{
                                 Download Template
                             </Button>
                         </div>
-
                         <div
                             {...getRootProps()}
                             className={cn(
@@ -500,31 +520,52 @@ const ImportBrokersModal: React.FC<{
                                 </div>
                             ) : (
                                 <div>
-                                    <p className="font-medium">Drop your file here, or click to browse</p>
+                                    <p className="font-medium">
+                                        Drop your file here, or click to browse
+                                    </p>
                                     <p className="text-sm text-muted-foreground mt-1">
                                         Supports CSV and Excel files (.csv, .xlsx, .xls)
                                     </p>
                                 </div>
                             )}
                         </div>
-
                         <div className="bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg border border-primary/20">
                             <h4 className="font-medium mb-2 flex items-center gap-2">
                                 <AlertCircle className="w-4 h-4 text-primary" />
                                 Required Fields:
                             </h4>
                             <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-6">
-                                <li><span className="font-medium">name</span> - Company name (must be unique)</li>
-                                <li><span className="font-medium">contact_person</span> - Contact person name</li>
-                                <li><span className="font-medium">phone</span> - Phone number (minimum 10 digits)</li>
-                                <li><span className="font-medium">email</span> (optional) - Email address</li>
-                                <li><span className="font-medium">status</span> (optional) - ACTIVE or INACTIVE (defaults to ACTIVE)</li>
+                                <li>
+                                    <span className="font-medium">name</span> - Company name (must
+                                    be unique)
+                                </li>
+                                <li>
+                                    <span className="font-medium">contact_person</span> - Contact
+                                    person name
+                                </li>
+                                <li>
+                                    <span className="font-medium">phone</span> - Phone number
+                                    (minimum 10 digits)
+                                </li>
+                                <li>
+                                    <span className="font-medium">city</span> - City name
+                                </li>
+                                <li>
+                                    <span className="font-medium">email</span> (optional) - Email
+                                    address
+                                </li>
+                                <li>
+                                    <span className="font-medium">status</span> (optional) -
+                                    ACTIVE or INACTIVE (defaults to ACTIVE)
+                                </li>
                             </ul>
                         </div>
-
-                        {progress.status === 'validating' && (
+                        {progress.status === "validating" && (
                             <div className="space-y-2">
-                                <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+                                <Progress
+                                    value={(progress.current / progress.total) * 100}
+                                    className="h-2"
+                                />
                                 <p className="text-sm text-center text-muted-foreground animate-pulse">
                                     {progress.message}
                                 </p>
@@ -532,8 +573,7 @@ const ImportBrokersModal: React.FC<{
                         )}
                     </div>
                 )}
-
-                {step === 'preview' && preview && (
+                {step === "preview" && preview && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-3 gap-4">
                             <Card className="border-green-200 bg-gradient-to-br from-green-50/50 to-transparent">
@@ -543,8 +583,12 @@ const ImportBrokersModal: React.FC<{
                                             <CheckCircle className="w-5 h-5 text-green-600" />
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold text-green-600">{preview.valid.length}</p>
-                                            <p className="text-sm text-muted-foreground">Valid Rows</p>
+                                            <p className="text-2xl font-bold text-green-600">
+                                                {preview.valid.length}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Valid Rows
+                                            </p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -556,8 +600,12 @@ const ImportBrokersModal: React.FC<{
                                             <XCircle className="w-5 h-5 text-red-600" />
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold text-red-600">{preview.invalid.length}</p>
-                                            <p className="text-sm text-muted-foreground">Invalid Rows</p>
+                                            <p className="text-2xl font-bold text-red-600">
+                                                {preview.invalid.length}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Invalid Rows
+                                            </p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -569,27 +617,38 @@ const ImportBrokersModal: React.FC<{
                                             <AlertCircle className="w-5 h-5 text-yellow-600" />
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold text-yellow-600">{preview.duplicates.length}</p>
-                                            <p className="text-sm text-muted-foreground">Duplicates</p>
+                                            <p className="text-2xl font-bold text-yellow-600">
+                                                {preview.duplicates.length}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Duplicates
+                                            </p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
-
                         <Tabs defaultValue="valid" className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="valid" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
+                                <TabsTrigger
+                                    value="valid"
+                                    className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700"
+                                >
                                     Valid ({preview.valid.length})
                                 </TabsTrigger>
-                                <TabsTrigger value="invalid" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700">
+                                <TabsTrigger
+                                    value="invalid"
+                                    className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700"
+                                >
                                     Invalid ({preview.invalid.length})
                                 </TabsTrigger>
-                                <TabsTrigger value="duplicates" className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700">
+                                <TabsTrigger
+                                    value="duplicates"
+                                    className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700"
+                                >
                                     Duplicates ({preview.duplicates.length})
                                 </TabsTrigger>
                             </TabsList>
-
                             <TabsContent value="valid">
                                 <ScrollArea className="h-[300px] w-full rounded-lg border">
                                     <Table>
@@ -599,6 +658,7 @@ const ImportBrokersModal: React.FC<{
                                                 <TableHead>Company Name</TableHead>
                                                 <TableHead>Contact Person</TableHead>
                                                 <TableHead>Phone</TableHead>
+                                                <TableHead>City</TableHead>
                                                 <TableHead>Email</TableHead>
                                                 <TableHead>Status</TableHead>
                                             </TableRow>
@@ -606,15 +666,28 @@ const ImportBrokersModal: React.FC<{
                                         <TableBody>
                                             {preview.valid.map((row, index) => (
                                                 <TableRow key={index} className="hover:bg-muted/30">
-                                                    <TableCell className="font-medium">{index + 1}</TableCell>
-                                                    <TableCell className="font-medium">{row.name}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {index + 1}
+                                                    </TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {row.name}
+                                                    </TableCell>
                                                     <TableCell>{row.contact_person}</TableCell>
                                                     <TableCell>{row.phone}</TableCell>
-                                                    <TableCell>{row.email || '-'}</TableCell>
+                                                    <TableCell>{row.city || "-"}</TableCell>
+                                                    <TableCell>{row.email || "-"}</TableCell>
                                                     <TableCell>
                                                         <Badge
-                                                            variant={row.status === 'ACTIVE' ? 'default' : 'secondary'}
-                                                            className={row.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : ''}
+                                                            variant={
+                                                                row.status === "ACTIVE"
+                                                                    ? "default"
+                                                                    : "secondary"
+                                                            }
+                                                            className={
+                                                                row.status === "ACTIVE"
+                                                                    ? "bg-green-100 text-green-700"
+                                                                    : ""
+                                                            }
                                                         >
                                                             {row.status}
                                                         </Badge>
@@ -625,7 +698,6 @@ const ImportBrokersModal: React.FC<{
                                     </Table>
                                 </ScrollArea>
                             </TabsContent>
-
                             <TabsContent value="invalid">
                                 <ScrollArea className="h-[300px] w-full">
                                     <div className="space-y-2 p-2">
@@ -635,10 +707,13 @@ const ImportBrokersModal: React.FC<{
                                                     <div className="flex justify-between items-start">
                                                         <div>
                                                             <p className="font-medium">
-                                                                Row {index + 1}: {item.row.name || 'No name'}
+                                                                Row {index + 1}: {item.row.name || "No name"}
                                                             </p>
                                                             {item.errors.map((error, i) => (
-                                                                <p key={i} className="text-sm text-red-600 mt-1">
+                                                                <p
+                                                                    key={i}
+                                                                    className="text-sm text-red-600 mt-1"
+                                                                >
                                                                     • {error.field}: {error.message}
                                                                 </p>
                                                             ))}
@@ -650,7 +725,6 @@ const ImportBrokersModal: React.FC<{
                                     </div>
                                 </ScrollArea>
                             </TabsContent>
-
                             <TabsContent value="duplicates">
                                 <ScrollArea className="h-[300px] w-full rounded-lg border">
                                     <Table>
@@ -664,7 +738,9 @@ const ImportBrokersModal: React.FC<{
                                         <TableBody>
                                             {preview.duplicates.map((item, index) => (
                                                 <TableRow key={index} className="hover:bg-muted/30">
-                                                    <TableCell className="font-medium">{item.row.name}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {item.row.name}
+                                                    </TableCell>
                                                     <TableCell>
                                                         <Badge variant="destructive">
                                                             {item.field.toUpperCase()}
@@ -680,11 +756,10 @@ const ImportBrokersModal: React.FC<{
                         </Tabs>
                     </div>
                 )}
-
-                {step === 'importing' && (
+                {step === "importing" && (
                     <div className="space-y-4 py-8">
                         <div className="text-center">
-                            {progress.status === 'completed' ? (
+                            {progress.status === "completed" ? (
                                 <div className="relative">
                                     <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
                                     <div className="absolute inset-0 blur-xl bg-green-500/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
@@ -697,19 +772,21 @@ const ImportBrokersModal: React.FC<{
                             )}
                             <p className="text-lg font-medium">{progress.message}</p>
                         </div>
-                        <Progress value={(progress.current / progress.total) * 100} className="h-2" />
+                        <Progress
+                            value={(progress.current / progress.total) * 100}
+                            className="h-2"
+                        />
                         <p className="text-sm text-center text-muted-foreground">
                             {progress.current} of {progress.total} brokers imported
                         </p>
                     </div>
                 )}
-
                 <DialogFooter>
-                    {step === 'preview' && (
+                    {step === "preview" && (
                         <>
                             <Button
                                 variant="outline"
-                                onClick={() => setStep('upload')}
+                                onClick={() => setStep("upload")}
                                 className="hover:bg-muted"
                             >
                                 Back
@@ -723,7 +800,7 @@ const ImportBrokersModal: React.FC<{
                             </Button>
                         </>
                     )}
-                    {step === 'upload' && (
+                    {step === "upload" && (
                         <Button variant="outline" onClick={onClose}>
                             Cancel
                         </Button>
@@ -734,13 +811,13 @@ const ImportBrokersModal: React.FC<{
     );
 };
 
-// Edit/Add Broker Modal Component with Enhanced Styling
+// Edit/Add Broker Modal Component
 const BrokerModal = ({
     isOpen,
     onClose,
     onSave,
     broker = null,
-    title = "Add New Broker"
+    title = "Add New Broker",
 }: {
     isOpen: boolean;
     onClose: () => void;
@@ -754,77 +831,172 @@ const BrokerModal = ({
         name: "",
         contactPerson: "",
         phone: "",
-        email: ""
+        email: "",
+        city: "",
     });
 
+    const [citySearch, setCitySearch] = useState("");
+    const [citySuggestions, setCitySuggestions] = useState<any[]>([]);
+    const [searchingCity, setSearchingCity] = useState(false);
+    const [showCitySuggestions, setShowCitySuggestions] = useState(false);
+    const [hasSelectedCity, setHasSelectedCity] = useState(false);
+    const debouncedCitySearch = useDebounce(citySearch, 500);
+
     useEffect(() => {
-        if (broker) {
-            setBrokerData({
-                name: broker.name || "",
-                contactPerson: broker.contact_person || "",
-                phone: broker.phone || "",
-                email: broker.email || ""
-            });
-        } else {
-            setBrokerData({
-                name: "",
-                contactPerson: "",
-                phone: "",
-                email: ""
-            });
+        if (isOpen) {
+            if (broker && broker.city) {
+                setBrokerData({
+                    name: broker.name || "",
+                    contactPerson: broker.contact_person || "",
+                    phone: broker.phone || "",
+                    email: broker.email || "",
+                    city: broker.city || "",
+                });
+                setCitySearch(broker.city);
+                setHasSelectedCity(true);
+            } else {
+                setBrokerData({
+                    name: "",
+                    contactPerson: "",
+                    phone: "",
+                    email: "",
+                    city: "",
+                });
+                setCitySearch("");
+                setHasSelectedCity(false);
+            }
+            setCitySuggestions([]);
+            setShowCitySuggestions(false);
         }
     }, [broker, isOpen]);
 
     useEffect(() => {
-        const handleEscKey = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && isOpen) {
-                handleClose();
-            }
-        };
-
-        if (isOpen) {
-            document.addEventListener('keydown', handleEscKey);
+        if (hasSelectedCity) {
+            setShowCitySuggestions(false);
+            return;
         }
+        if (debouncedCitySearch.length > 2) {
+            searchLocations(debouncedCitySearch);
+        } else {
+            setShowCitySuggestions(false);
+        }
+    }, [debouncedCitySearch, hasSelectedCity]);
 
-        return () => {
-            document.removeEventListener('keydown', handleEscKey);
-        };
-    }, [isOpen]);
+    const searchLocations = async (query: string) => {
+        if (hasSelectedCity) return;
+        setSearchingCity(true);
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/search?` +
+                `q=${encodeURIComponent(query)}&` +
+                `format=json&countrycodes=in&limit=10&addressdetails=1&` +
+                `accept-language=en`
+            );
+            const data = await response.json();
+            if (!hasSelectedCity) {
+                const formattedResults = data
+                    .map((item: any) => {
+                        const city =
+                            item.address?.city ||
+                            item.address?.town ||
+                            item.address?.village ||
+                            item.address?.state_district ||
+                            "";
+                        let displayText = city;
+                        const area =
+                            item.address?.suburb ||
+                            item.address?.neighbourhood ||
+                            item.address?.locality ||
+                            "";
+                        if (area && city && area.toLowerCase() !== city.toLowerCase()) {
+                            displayText = `${area}, ${city}`;
+                        } else if (area && !city) {
+                            displayText = area;
+                        }
+                        return {
+                            city: city || area,
+                            displayText,
+                            display_name: item.display_name,
+                        };
+                    })
+                    .filter(
+                        (item: any, index: number, self: any[]) =>
+                            item.city &&
+                            index ===
+                            self.findIndex((t) => t.displayText === item.displayText)
+                    );
+                setCitySuggestions(formattedResults);
+                setShowCitySuggestions(formattedResults.length > 0);
+            }
+        } catch (error) {
+            console.error("Error searching locations:", error);
+        } finally {
+            setSearchingCity(false);
+        }
+    };
+
+    const handleCitySelect = (location: any) => {
+        setBrokerData((prev) => ({ ...prev, city: location.displayText }));
+        setCitySearch(location.displayText);
+        setHasSelectedCity(true);
+        setShowCitySuggestions(false);
+        toast({
+            title: "✅ City/Area Selected",
+            description: location.displayText,
+        });
+    };
+
+    const handleCityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setCitySearch(value);
+        setBrokerData((prev) => ({ ...prev, city: value }));
+        if (hasSelectedCity) {
+            setHasSelectedCity(false);
+        }
+    };
+
+    const handleClearCitySearch = () => {
+        setCitySearch("");
+        setBrokerData((prev) => ({ ...prev, city: "" }));
+        setHasSelectedCity(false);
+    };
 
     const handleSubmit = async () => {
-        if (!brokerData.name.trim() || !brokerData.contactPerson.trim() || !brokerData.phone.trim()) {
+        if (
+            !brokerData.name.trim() ||
+            !brokerData.contactPerson.trim() ||
+            !brokerData.phone.trim() ||
+            !brokerData.city.trim()
+        ) {
             toast({
                 title: "❌ Validation Error",
                 description: "Please fill in all required fields",
-                variant: "destructive"
+                variant: "destructive",
             });
             return;
         }
-
         if (brokerData.phone.length < 10) {
             toast({
                 title: "❌ Validation Error",
                 description: "Please enter a valid phone number",
-                variant: "destructive"
+                variant: "destructive",
             });
             return;
         }
-
-        if (brokerData.email && !brokerData.email.includes('@')) {
+        if (brokerData.email && !brokerData.email.includes("@")) {
             toast({
                 title: "❌ Validation Error",
                 description: "Please enter a valid email address",
-                variant: "destructive"
+                variant: "destructive",
             });
             return;
         }
-
         try {
             setLoading(true);
             await onSave(brokerData);
             handleClose();
         } catch (error) {
-            console.error('Error saving broker:', error);
+            console.error("Error saving broker:", error);
         } finally {
             setLoading(false);
         }
@@ -835,8 +1007,11 @@ const BrokerModal = ({
             name: "",
             contactPerson: "",
             phone: "",
-            email: ""
+            email: "",
+            city: "",
         });
+        setCitySearch("");
+        setHasSelectedCity(false);
         onClose();
     };
 
@@ -846,10 +1021,9 @@ const BrokerModal = ({
         <div className="fixed inset-0 z-50">
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
                 onClick={handleClose}
             />
-
             <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-gradient-to-br from-background via-background to-muted/10 p-6 shadow-2xl sm:rounded-xl">
                 <div className="flex flex-col space-y-1.5">
                     <h3 className="text-xl font-semibold leading-none tracking-tight flex items-center gap-2">
@@ -859,44 +1033,44 @@ const BrokerModal = ({
                         {title}
                     </h3>
                 </div>
-
                 <div className="space-y-4">
                     <div>
                         <label className="text-sm font-medium flex items-center gap-1">
-                            Company Name
-                            <span className="text-red-500">*</span>
+                            Company Name<span className="text-red-500">*</span>
                         </label>
                         <Input
                             value={brokerData.name}
-                            onChange={(e) => setBrokerData({ ...brokerData, name: e.target.value })}
+                            onChange={(e) =>
+                                setBrokerData({ ...brokerData, name: e.target.value })
+                            }
                             placeholder="ABC Transport Company"
                             disabled={loading}
                             className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
-
                     <div>
                         <label className="text-sm font-medium flex items-center gap-1">
-                            Contact Person
-                            <span className="text-red-500">*</span>
+                            Contact Person<span className="text-red-500">*</span>
                         </label>
                         <Input
                             value={brokerData.contactPerson}
-                            onChange={(e) => setBrokerData({ ...brokerData, contactPerson: e.target.value })}
+                            onChange={(e) =>
+                                setBrokerData({ ...brokerData, contactPerson: e.target.value })
+                            }
                             placeholder="John Doe"
                             disabled={loading}
                             className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
-
                     <div>
                         <label className="text-sm font-medium flex items-center gap-1">
-                            Phone Number
-                            <span className="text-red-500">*</span>
+                            Phone Number<span className="text-red-500">*</span>
                         </label>
                         <Input
                             value={brokerData.phone}
-                            onChange={(e) => setBrokerData({ ...brokerData, phone: e.target.value })}
+                            onChange={(e) =>
+                                setBrokerData({ ...brokerData, phone: e.target.value })
+                            }
                             placeholder="+91-9876543210"
                             maxLength={15}
                             disabled={loading}
@@ -905,18 +1079,77 @@ const BrokerModal = ({
                     </div>
 
                     <div>
+                        <label className="text-sm font-medium flex items-center gap-1">
+                            City / Area<span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    value={citySearch}
+                                    onChange={handleCityInputChange}
+                                    onFocus={() => setShowCitySuggestions(true)}
+                                    placeholder="Search area or city... (e.g., Gunjan, Vapi)"
+                                    className="pl-10 pr-10 h-11 border-muted-foreground/20 focus:border-primary transition-all"
+                                    autoComplete="off"
+                                />
+                                {searchingCity && (
+                                    <Loader2 className="absolute right-9 top-3.5 h-4 w-4 animate-spin" />
+                                )}
+                                {citySearch && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="absolute right-1 top-1.5 h-8 w-8 p-0"
+                                        onClick={handleClearCitySearch}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                            {showCitySuggestions &&
+                                citySuggestions.length > 0 &&
+                                !hasSelectedCity && (
+                                    <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[250px] overflow-auto">
+                                        {citySuggestions.map((location, index) => (
+                                            <div
+                                                key={index}
+                                                className="px-3 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0"
+                                                onClick={() => handleCitySelect(location)}
+                                            >
+                                                <div className="flex items-start gap-2">
+                                                    <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                                    <div className="flex-1">
+                                                        <div className="font-medium text-primary">
+                                                            {location.displayText}
+                                                        </div>
+                                                        <div className="text-sm text-muted-foreground line-clamp-1">
+                                                            {location.display_name}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                        </div>
+                    </div>
+
+                    <div>
                         <label className="text-sm font-medium">Email (Optional)</label>
                         <Input
                             type="email"
                             value={brokerData.email}
-                            onChange={(e) => setBrokerData({ ...brokerData, email: e.target.value })}
+                            onChange={(e) =>
+                                setBrokerData({ ...brokerData, email: e.target.value })
+                            }
                             placeholder="broker@company.com"
                             disabled={loading}
                             className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
                         />
                     </div>
                 </div>
-
                 <div className="flex justify-end gap-2">
                     <Button
                         variant="outline"
@@ -936,8 +1169,10 @@ const BrokerModal = ({
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                 Saving...
                             </>
+                        ) : broker ? (
+                            "Update Broker"
                         ) : (
-                            broker ? "Update Broker" : "Add Broker"
+                            "Add Broker"
                         )}
                     </Button>
                 </div>
@@ -946,7 +1181,7 @@ const BrokerModal = ({
     );
 };
 
-// Main Broker Component with Enhanced Styling
+// Main Broker Component
 const Broker = () => {
     const { toast } = useToast();
     const [brokers, setBrokers] = useState<Broker[]>([]);
@@ -957,41 +1192,22 @@ const Broker = () => {
     const [editingBroker, setEditingBroker] = useState<Broker | null>(null);
     const [deletingBrokerId, setDeletingBrokerId] = useState<string | null>(null);
 
-    // Add column hover styles
     useEffect(() => {
-        const styleElement = document.createElement('style');
+        const styleElement = document.createElement("style");
         styleElement.innerHTML = `
-            .broker-table td {
-                position: relative;
-            }
-            .broker-table td::before {
-                content: '';
-                position: absolute;
-                left: 0;
-                right: 0;
-                top: -1px;
-                bottom: -1px;
-                background: transparent;
-                pointer-events: none;
-                transition: background-color 0.2s ease;
-                z-index: 0;
-            }
+            .broker-table td { position: relative; }
+            .broker-table td::before { content: ''; position: absolute; left: 0; right: 0; top: -1px; bottom: -1px; background: transparent; pointer-events: none; transition: background-color 0.2s ease; z-index: 0; }
             .broker-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
             .broker-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
             .broker-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
             .broker-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
             .broker-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
             .broker-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
-            .broker-table td > * {
-                position: relative;
-                z-index: 1;
-            }
+            .broker-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
+            .broker-table td > * { position: relative; z-index: 1; }
         `;
         document.head.appendChild(styleElement);
-
-        return () => {
-            document.head.removeChild(styleElement);
-        };
+        return () => document.head.removeChild(styleElement);
     }, []);
 
     useEffect(() => {
@@ -1002,19 +1218,17 @@ const Broker = () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
-                .from('brokers')
-                .select('*')
-                .order('created_at', { ascending: false });
-
+                .from("brokers")
+                .select("*")
+                .order("created_at", { ascending: false });
             if (error) throw error;
-
             setBrokers(data || []);
         } catch (error) {
-            console.error('Error fetching brokers:', error);
+            console.error("Error fetching brokers:", error);
             toast({
                 title: "❌ Error",
                 description: "Failed to load brokers",
-                variant: "destructive"
+                variant: "destructive",
             });
         } finally {
             setLoading(false);
@@ -1023,31 +1237,29 @@ const Broker = () => {
 
     const handleAddBroker = async (brokerData: BrokerFormData) => {
         try {
-            const { data, error } = await supabase
-                .from('brokers')
-                .insert([{
-                    name: brokerData.name,
-                    contact_person: brokerData.contactPerson,
-                    phone: brokerData.phone,
-                    email: brokerData.email || null,
-                    status: 'ACTIVE'
-                }])
+            const { error } = await supabase
+                .from("brokers")
+                .insert([
+                    {
+                        name: brokerData.name,
+                        contact_person: brokerData.contactPerson,
+                        phone: brokerData.phone,
+                        email: brokerData.email || null,
+                        city: brokerData.city || null,
+                        status: "ACTIVE",
+                    },
+                ])
                 .select()
                 .single();
-
             if (error) throw error;
-
             await fetchBrokers();
-            toast({
-                title: "✅ Success",
-                description: "Broker added successfully",
-            });
+            toast({ title: "✅ Success", description: "Broker added successfully" });
         } catch (error) {
-            console.error('Error adding broker:', error);
+            console.error("Error adding broker:", error);
             toast({
                 title: "❌ Error",
                 description: "Failed to add broker",
-                variant: "destructive"
+                variant: "destructive",
             });
             throw error;
         }
@@ -1055,20 +1267,18 @@ const Broker = () => {
 
     const handleUpdateBroker = async (brokerData: BrokerFormData) => {
         if (!editingBroker) return;
-
         try {
             const { error } = await supabase
-                .from('brokers')
+                .from("brokers")
                 .update({
                     name: brokerData.name,
                     contact_person: brokerData.contactPerson,
                     phone: brokerData.phone,
-                    email: brokerData.email || null
+                    email: brokerData.email || null,
+                    city: brokerData.city || null,
                 })
-                .eq('id', editingBroker.id);
-
+                .eq("id", editingBroker.id);
             if (error) throw error;
-
             await fetchBrokers();
             toast({
                 title: "✅ Success",
@@ -1076,11 +1286,11 @@ const Broker = () => {
             });
             setEditingBroker(null);
         } catch (error) {
-            console.error('Error updating broker:', error);
+            console.error("Error updating broker:", error);
             toast({
                 title: "❌ Error",
                 description: "Failed to update broker",
-                variant: "destructive"
+                variant: "destructive",
             });
             throw error;
         }
@@ -1088,52 +1298,51 @@ const Broker = () => {
 
     const handleDeleteBroker = async () => {
         if (!deletingBrokerId) return;
-
         try {
             const { data: vehicles } = await supabase
-                .from('hired_vehicles')
-                .select('id')
-                .eq('broker_id', deletingBrokerId)
+                .from("hired_vehicles")
+                .select("id")
+                .eq("broker_id", deletingBrokerId)
                 .limit(1);
-
             if (vehicles && vehicles.length > 0) {
                 toast({
                     title: "❌ Cannot Delete",
-                    description: "This broker has associated vehicles. Please remove them first.",
-                    variant: "destructive"
+                    description:
+                        "This broker has associated vehicles. Please remove them first.",
+                    variant: "destructive",
                 });
                 setDeletingBrokerId(null);
                 return;
             }
-
             const { error } = await supabase
-                .from('brokers')
+                .from("brokers")
                 .delete()
-                .eq('id', deletingBrokerId);
-
+                .eq("id", deletingBrokerId);
             if (error) throw error;
-
             await fetchBrokers();
             toast({
                 title: "✅ Success",
                 description: "Broker deleted successfully",
             });
         } catch (error) {
-            console.error('Error deleting broker:', error);
+            console.error("Error deleting broker:", error);
             toast({
                 title: "❌ Error",
                 description: "Failed to delete broker",
-                variant: "destructive"
+                variant: "destructive",
             });
         } finally {
             setDeletingBrokerId(null);
         }
     };
 
-    const filteredBrokers = brokers.filter(broker =>
-        broker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        broker.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        broker.phone.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredBrokers = brokers.filter(
+        (broker) =>
+            broker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            broker.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            broker.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (broker.city &&
+                broker.city.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     const handleExport = () => {
@@ -1141,30 +1350,37 @@ const Broker = () => {
             "Company Name",
             "Contact Person",
             "Phone",
+            "City",
             "Email",
             "Status",
-            "Created Date"
+            "Created Date",
         ];
-
-        const rows = filteredBrokers.map(broker => [
+        const rows = filteredBrokers.map((broker) => [
             broker.name,
             broker.contact_person,
             broker.phone,
+            broker.city || "",
             broker.email || "",
             broker.status || "ACTIVE",
-            broker.created_at ? new Date(broker.created_at).toLocaleDateString() : ""
+            broker.created_at ? new Date(broker.created_at).toLocaleDateString() : "",
         ]);
-
         const csvContent = [headers, ...rows]
-            .map(row => row.map(cell => {
-                const cellStr = String(cell);
-                if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-                    return `"${cellStr.replace(/"/g, '""')}"`;
-                }
-                return cellStr;
-            }).join(','))
-            .join('\n');
-
+            .map((row) =>
+                row
+                    .map((cell) => {
+                        const cellStr = String(cell);
+                        if (
+                            cellStr.includes(",") ||
+                            cellStr.includes('"') ||
+                            cellStr.includes("\n")
+                        ) {
+                            return `"${cellStr.replace(/"/g, '""')}"`;
+                        }
+                        return cellStr;
+                    })
+                    .join(",")
+            )
+            .join("\n");
         const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -1172,19 +1388,17 @@ const Broker = () => {
         a.download = `brokers_export_${new Date().toISOString().split("T")[0]}.csv`;
         a.click();
         window.URL.revokeObjectURL(url);
-
         toast({
             title: "✅ Exported Successfully",
             description: `${filteredBrokers.length} brokers exported to CSV`,
         });
     };
 
-    // Statistics
     const stats = {
         total: brokers.length,
-        active: brokers.filter(b => b.status === 'ACTIVE').length,
-        inactive: brokers.filter(b => b.status === 'INACTIVE').length,
-        withEmail: brokers.filter(b => b.email).length,
+        active: brokers.filter((b) => b.status === "ACTIVE").length,
+        inactive: brokers.filter((b) => b.status === "INACTIVE").length,
+        withEmail: brokers.filter((b) => b.email).length,
     };
 
     if (loading) {
@@ -1203,7 +1417,6 @@ const Broker = () => {
 
     return (
         <div className="space-y-8 p-2">
-            {/* Header Section with Gradient */}
             <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
                 <div className="relative flex items-center justify-between">
@@ -1233,7 +1446,6 @@ const Broker = () => {
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -1251,7 +1463,6 @@ const Broker = () => {
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-
                         <Button
                             onClick={() => {
                                 setEditingBroker(null);
@@ -1265,14 +1476,14 @@ const Broker = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Total Brokers</p>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    Total Brokers
+                                </p>
                                 <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                                     {stats.total}
                                 </p>
@@ -1283,12 +1494,13 @@ const Broker = () => {
                         </div>
                     </CardContent>
                 </Card>
-
                 <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Active</p>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    Active
+                                </p>
                                 <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
                                     {stats.active}
                                 </p>
@@ -1299,12 +1511,13 @@ const Broker = () => {
                         </div>
                     </CardContent>
                 </Card>
-
                 <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">Inactive</p>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    Inactive
+                                </p>
                                 <p className="text-3xl font-bold bg-gradient-to-r from-gray-600 to-gray-500 bg-clip-text text-transparent">
                                     {stats.inactive}
                                 </p>
@@ -1315,12 +1528,13 @@ const Broker = () => {
                         </div>
                     </CardContent>
                 </Card>
-
                 <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-muted-foreground">With Email</p>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    With Email
+                                </p>
                                 <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
                                     {stats.withEmail}
                                 </p>
@@ -1332,14 +1546,12 @@ const Broker = () => {
                     </CardContent>
                 </Card>
             </div>
-
-            {/* Search Section */}
             <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
                 <CardContent className="pt-6">
                     <div className="relative group">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
-                            placeholder="Search by name, contact person, or phone..."
+                            placeholder="Search by name, contact person, phone, or city..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-11 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
@@ -1347,8 +1559,6 @@ const Broker = () => {
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Brokers Table */}
             <Card className="border-border shadow-xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
                 <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
                     <CardTitle className="flex items-center justify-between text-xl">
@@ -1383,26 +1593,38 @@ const Broker = () => {
                                             Phone
                                         </div>
                                     </TableHead>
+                                    <TableHead className="font-semibold w-[140px]">
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="w-4 h-4 text-muted-foreground" />
+                                            City
+                                        </div>
+                                    </TableHead>
                                     <TableHead className="font-semibold w-[200px]">
                                         <div className="flex items-center gap-2">
                                             <Mail className="w-4 h-4 text-muted-foreground" />
                                             Email
                                         </div>
                                     </TableHead>
-                                    <TableHead className="font-semibold w-[100px]">Status</TableHead>
-                                    <TableHead className="font-semibold text-center w-[100px]">Actions</TableHead>
+                                    <TableHead className="font-semibold w-[100px]">
+                                        Status
+                                    </TableHead>
+                                    <TableHead className="font-semibold text-center w-[100px]">
+                                        Actions
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredBrokers.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-16">
+                                        <TableCell colSpan={7} className="text-center py-16">
                                             <div className="flex flex-col items-center gap-4">
                                                 <div className="p-4 bg-muted/30 rounded-full">
                                                     <Building2 className="w-12 h-12 text-muted-foreground/50" />
                                                 </div>
                                                 <div className="text-muted-foreground">
-                                                    <p className="text-lg font-medium">No brokers found</p>
+                                                    <p className="text-lg font-medium">
+                                                        No brokers found
+                                                    </p>
                                                     <p className="text-sm mt-1">
                                                         {searchTerm
                                                             ? "Try adjusting your search"
@@ -1435,8 +1657,20 @@ const Broker = () => {
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     <Phone className="w-4 h-4 text-muted-foreground" />
-                                                    <span className="font-mono text-sm">{broker.phone}</span>
+                                                    <span className="font-mono text-sm">
+                                                        {broker.phone}
+                                                    </span>
                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {broker.city ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                                                        <span>{broker.city}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">-</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {broker.email ? (
@@ -1450,15 +1684,17 @@ const Broker = () => {
                                             </TableCell>
                                             <TableCell>
                                                 <Badge
-                                                    variant={broker.status === 'ACTIVE' ? 'default' : 'secondary'}
+                                                    variant={
+                                                        broker.status === "ACTIVE" ? "default" : "secondary"
+                                                    }
                                                     className={cn(
                                                         "font-medium",
-                                                        broker.status === 'ACTIVE'
+                                                        broker.status === "ACTIVE"
                                                             ? "bg-green-100 text-green-700 border-green-200"
                                                             : "bg-gray-100 text-gray-700 border-gray-200"
                                                     )}
                                                 >
-                                                    {broker.status || 'ACTIVE'}
+                                                    {broker.status || "ACTIVE"}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -1504,8 +1740,6 @@ const Broker = () => {
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Add/Edit Modal */}
             <BrokerModal
                 isOpen={isModalOpen}
                 onClose={() => {
@@ -1516,16 +1750,15 @@ const Broker = () => {
                 broker={editingBroker}
                 title={editingBroker ? "Edit Broker" : "Add New Broker"}
             />
-
-            {/* Import Modal */}
             <ImportBrokersModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onImportComplete={fetchBrokers}
             />
-
-            {/* Delete Confirmation */}
-            <AlertDialog open={!!deletingBrokerId} onOpenChange={() => setDeletingBrokerId(null)}>
+            <AlertDialog
+                open={!!deletingBrokerId}
+                onOpenChange={() => setDeletingBrokerId(null)}
+            >
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">
@@ -1533,13 +1766,15 @@ const Broker = () => {
                             Are you absolutely sure?
                         </AlertDialogTitle>
                         <AlertDialogDescription className="text-left">
-                            This action cannot be undone. This will permanently delete the broker.
+                            This action cannot be undone. This will permanently delete the
+                            broker.
                             <div className="mt-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
                                 <p className="text-sm font-medium text-destructive">
                                     ⚠️ Warning:
                                 </p>
                                 <p className="text-xs mt-1">
-                                    Make sure this broker has no associated vehicles before deletion.
+                                    Make sure this broker has no associated vehicles before
+                                    deletion.
                                 </p>
                             </div>
                         </AlertDialogDescription>
