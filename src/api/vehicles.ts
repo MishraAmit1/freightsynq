@@ -1,6 +1,5 @@
 import { supabase } from '@/lib/supabase'
 
-// Types
 export interface OwnedVehicle {
   id: string
   vehicle_number: string
@@ -128,86 +127,181 @@ export const fetchHiredVehicles = async () => {
 export const fetchAvailableOwnedVehicles = async () => {
   const { data, error } = await supabase
     .from('owned_vehicles')
-    .select('*')
+    .select(`
+      *,
+      default_driver:drivers(id, name, phone, license_number, experience)
+    `)
     .eq('status', 'AVAILABLE')
-    .order('vehicle_number')
+    .order('vehicle_number');
 
-  if (error) {
-    console.error('Error fetching available owned vehicles:', error)
-    throw error
-  }
-  return data || []
-}
+  if (error) throw error;
+  return data || [];
+};
 
-// Fetch available hired vehicles
 export const fetchAvailableHiredVehicles = async () => {
   const { data, error } = await supabase
     .from('hired_vehicles')
     .select(`
       *,
-      broker:brokers(name, contact_person, phone)
+      default_driver:drivers(id, name, phone, license_number, experience),
+      broker:brokers(id, name, contact_person, phone)
     `)
     .eq('status', 'AVAILABLE')
-    .order('vehicle_number')
+    .order('vehicle_number');
 
-  if (error) {
-    console.error('Error fetching available hired vehicles:', error)
-    throw error
-  }
-  return data || []
-}
-
+  if (error) throw error;
+  return data || [];
+};
 // Create owned vehicle
-export const createOwnedVehicle = async (vehicleData: {
-  vehicle_number: string
-  vehicle_type: string
-  capacity: string
-  registration_date?: string
-  insurance_expiry?: string
-  fitness_expiry?: string
-  permit_expiry?: string
-}) => {
-  const { data, error } = await supabase
-    .from('owned_vehicles')
-    .insert([{
-      ...vehicleData,
+export const createOwnedVehicle = async (vehicleData: any): Promise<any> => {
+  try {
+    console.log('🔍 API - Creating owned vehicle with data:', vehicleData);
+
+    // ✅ Clean the data properly
+    const cleanedData = {
+      vehicle_number: vehicleData.vehicle_number,
+      vehicle_type: vehicleData.vehicle_type,
+      capacity: vehicleData.capacity,
       status: 'AVAILABLE',
-      is_verified: false
-    }])
-    .select()
-    .single()
+      is_verified: false,
+      default_driver_id: vehicleData.default_driver_id === 'none' || !vehicleData.default_driver_id
+        ? null
+        : vehicleData.default_driver_id,
+      registration_date: vehicleData.registration_date || null,
+      insurance_expiry: vehicleData.insurance_expiry || null,
+      fitness_expiry: vehicleData.fitness_expiry || null,
+      permit_expiry: vehicleData.permit_expiry || null,
+      purchase_date: vehicleData.purchase_date || null,
+      purchase_price: vehicleData.purchase_price || null,
+      current_value: vehicleData.current_value || null,
+      fuel_type: vehicleData.fuel_type || null,
+      mileage_reading: vehicleData.mileage_reading || null
+    };
 
-  if (error) {
-    console.error('Error creating owned vehicle:', error)
-    throw error
+    console.log('💾 API - Final data to insert:', cleanedData);
+
+    const { data, error } = await supabase
+      .from('owned_vehicles')
+      .insert(cleanedData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ API - Error creating owned vehicle:', error);
+      throw error;
+    }
+
+    console.log('✅ API - Owned vehicle created:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ API - createOwnedVehicle error:', error);
+    throw error;
   }
-  return data
-}
-
-// Create hired vehicle
+};
+// Fix createHiredVehicle
 export const createHiredVehicle = async (vehicleData: {
   vehicle_number: string
   vehicle_type: string
   capacity: string
-  broker_id: string
+  broker_id?: string | null
+  default_driver_id?: string | null
   rate_per_trip?: number
 }) => {
+  console.log("🔍 API - Raw hired vehicleData:", vehicleData);
+
+  const dataToInsert = {
+    vehicle_number: vehicleData.vehicle_number,
+    vehicle_type: vehicleData.vehicle_type,
+    capacity: vehicleData.capacity,
+    broker_id: vehicleData.broker_id === "none" ? null : vehicleData.broker_id || null,
+    default_driver_id: vehicleData.default_driver_id === "none"
+      ? null
+      : vehicleData.default_driver_id || null, // ✅ Handle properly
+    rate_per_trip: vehicleData.rate_per_trip || null,
+    status: 'AVAILABLE',
+    hire_date: new Date().toISOString().split('T')[0],
+    is_verified: false
+  };
+
+  console.log("💾 API - Final data to insert:", dataToInsert);
+
   const { data, error } = await supabase
     .from('hired_vehicles')
-    .insert([{
-      ...vehicleData,
-      status: 'AVAILABLE',
-      hire_date: new Date().toISOString().split('T')[0]
-    }])
+    .insert([dataToInsert])
     .select()
     .single()
 
   if (error) {
-    console.error('Error creating hired vehicle:', error)
+    console.error('❌ API - Error creating hired vehicle:', error)
     throw error
   }
+
+  console.log("✅ API - Hired vehicle created:", data);
   return data
 }
+// Fetch only drivers who are not assigned to any vehicle
+export const fetchUnassignedDrivers = async () => {
+  try {
+    console.log("🔍 Fetching unassigned drivers...");
+
+    // Get all active drivers
+    const { data: allDrivers, error: driversError } = await supabase
+      .from('drivers')
+      .select('*')
+      .eq('status', 'ACTIVE')
+      .order('name');
+
+    if (driversError) {
+      console.error("❌ Error fetching drivers:", driversError);
+      throw driversError;
+    }
+
+    console.log(`📋 Total active drivers: ${allDrivers?.length || 0}`);
+
+    // Get CURRENTLY assigned driver IDs from owned_vehicles
+    const { data: ownedAssignments, error: ownedError } = await supabase
+      .from('owned_vehicles')
+      .select('default_driver_id')
+      .not('default_driver_id', 'is', null);
+
+    if (ownedError) {
+      console.error("❌ Error fetching owned assignments:", ownedError);
+    }
+
+    // Get CURRENTLY assigned driver IDs from hired_vehicles
+    const { data: hiredAssignments, error: hiredError } = await supabase
+      .from('hired_vehicles')
+      .select('default_driver_id')
+      .not('default_driver_id', 'is', null);
+
+    if (hiredError) {
+      console.error("❌ Error fetching hired assignments:", hiredError);
+    }
+
+    // Combine all assigned driver IDs
+    const assignedDriverIds = new Set([
+      ...(ownedAssignments?.map(v => v.default_driver_id) || []),
+      ...(hiredAssignments?.map(v => v.default_driver_id) || [])
+    ]);
+
+    console.log(`🔗 Assigned driver IDs:`, Array.from(assignedDriverIds));
+
+    // Filter out assigned drivers
+    const unassignedDrivers = allDrivers?.filter(
+      driver => !assignedDriverIds.has(driver.id)
+    ) || [];
+
+    console.log(`✅ Unassigned drivers: ${unassignedDrivers.length}`);
+    console.log("Unassigned driver names:", unassignedDrivers.map(d => d.name));
+
+    return unassignedDrivers;
+  } catch (error) {
+    console.error('❌ Error fetching unassigned drivers:', error);
+    throw error;
+  }
+};
+// createHiredVehicle function update karo:
+
 
 // Verify owned vehicle
 export const verifyOwnedVehicle = async (vehicleId: string, isVerified: boolean) => {

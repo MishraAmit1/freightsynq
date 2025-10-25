@@ -63,6 +63,7 @@ import { AddHiredVehicleModal } from "./AddHiredVehicleModal";
 import { VehicleDetailDrawer } from "./VehicleDetailDrawer";
 import { useToast } from "@/hooks/use-toast";
 import { AddBrokerModal } from "./AddBrokerModal";
+import { uploadVehicleDocument } from "@/api/vehicleDocument";
 
 interface Vehicle {
   id: string;
@@ -144,13 +145,53 @@ export const VehicleManagement = () => {
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [isAddBrokerOpen, setIsAddBrokerOpen] = useState(false);
-
-  // ✅ Broker selection states
-  const [isBrokerSelectionOpen, setIsBrokerSelectionOpen] = useState(false);
   const [brokers, setBrokers] = useState<any[]>([]);
-  const [selectedBrokerId, setSelectedBrokerId] = useState("");
   const [loadingBrokers, setLoadingBrokers] = useState(false);
+  useEffect(() => {
+    loadVehicles();
+    loadBrokers();  // ✅ Load brokers initially
+  }, []);
+  const loadBrokers = async () => {
+    try {
+      setLoadingBrokers(true);
+      const data = await fetchBrokers();
+      setBrokers(data || []);  // ✅ Ensure array
+    } catch (error) {
+      console.error('Error loading brokers:', error);
+      setBrokers([]);  // ✅ Set empty array on error
+    } finally {
+      setLoadingBrokers(false);
+    }
+  };
+  const handleAddBroker = async (brokerData: any) => {
+    try {
+      const newBroker = await createBroker({
+        name: brokerData.name,
+        contact_person: brokerData.contactPerson,
+        phone: brokerData.phone,
+        email: brokerData.email,
+        city: brokerData.city
+      });
 
+      toast({
+        title: "✅ Broker Added",
+        description: `${brokerData.name} has been added as a broker`,
+      });
+
+      await loadBrokers();
+      setIsAddBrokerOpen(false);
+      setIsAddHiredVehicleOpen(true); // ✅ Go back to vehicle modal
+
+      return newBroker;
+    } catch (error: any) {
+      console.error('Error adding broker:', error);
+      toast({
+        title: "❌ Error",
+        description: error.message || "Failed to add broker",
+        variant: "destructive",
+      });
+    }
+  };
   // Add column hover styles
   useEffect(() => {
     const styleElement = document.createElement('style');
@@ -231,86 +272,107 @@ export const VehicleManagement = () => {
     }
   };
 
-  // ✅ Load brokers
-  const loadBrokers = async () => {
-    try {
-      setLoadingBrokers(true);
-      const data = await fetchBrokers();
-      setBrokers(data);
-    } catch (error) {
-      console.error('Error loading brokers:', error);
-      toast({
-        title: "❌ Error",
-        description: "Failed to load brokers",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingBrokers(false);
-    }
-  };
+
 
   // ✅ Handle "Add Hired Vehicle" button click
   const handleAddHiredVehicleClick = async () => {
-    await loadBrokers();
-    setIsBrokerSelectionOpen(true);
-  };
-
-  // ✅ After broker selected, open vehicle modal
-  const handleBrokerSelected = () => {
-    if (!selectedBrokerId) {
-      toast({
-        title: "⚠️ Select Broker",
-        description: "Please select a broker first",
-        variant: "destructive",
-      });
-      return;
+    if (brokers.length === 0 && !loadingBrokers) {
+      await loadBrokers();
     }
-    setIsBrokerSelectionOpen(false);
     setIsAddHiredVehicleOpen(true);
   };
+  const handleAddHiredVehicle = async (vehicleData: any, documents?: any) => {
+    try {
+      console.log("📥 Received vehicle data:", vehicleData);
+      console.log("📄 Received documents:", documents);
 
-  // ✅ Handle "Add New Broker" from selection dialog
-  const handleAddBrokerFromSelection = () => {
-    setIsBrokerSelectionOpen(false);
-    setIsAddBrokerOpen(true);
+      // 1. Create vehicle first
+      const brokerIdToSave = vehicleData.brokerId === "none" ? null : vehicleData.brokerId;
+      const driverIdToSave = vehicleData.default_driver_id === "none" ? null : vehicleData.default_driver_id;
+
+      const newVehicle = await createHiredVehicle({
+        vehicle_number: vehicleData.vehicleNumber,
+        vehicle_type: vehicleData.vehicleType,
+        capacity: vehicleData.capacity,
+        broker_id: brokerIdToSave,
+        default_driver_id: driverIdToSave,
+        rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
+      });
+
+      console.log("✅ Vehicle created:", newVehicle);
+
+      // 2. Upload documents if any
+      if (documents && documents.files.length > 0) {
+        console.log(`📤 Uploading ${documents.files.length} documents...`);
+
+        let uploadedCount = 0;
+        let failedCount = 0;
+
+        for (let i = 0; i < documents.files.length; i++) {
+          const file = documents.files[i];
+          const metadata = documents.metadata[i];
+
+          try {
+            await uploadVehicleDocument({
+              vehicle_id: newVehicle.id,
+              vehicle_type: 'HIRED',
+              document_type: metadata.document_type,
+              file: file,
+              expiry_date: metadata.expiry_date
+            });
+            uploadedCount++;
+            console.log(`✅ Uploaded: ${file.name}`);
+          } catch (error) {
+            failedCount++;
+            console.error(`❌ Failed to upload: ${file.name}`, error);
+          }
+        }
+
+        // Show upload results
+        if (uploadedCount > 0) {
+          toast({
+            title: "✅ Documents Uploaded",
+            description: `${uploadedCount} document(s) uploaded successfully`,
+          });
+        }
+
+        if (failedCount > 0) {
+          toast({
+            title: "⚠️ Some Uploads Failed",
+            description: `${failedCount} document(s) failed to upload`,
+            variant: "destructive"
+          });
+        }
+      }
+
+      await loadVehicles();
+      setIsAddHiredVehicleOpen(false); // ✅ FIXED - Correct state setter name
+
+      toast({
+        title: "✅ Success",
+        description: `Vehicle ${vehicleData.vehicleNumber} added successfully`,
+      });
+
+    } catch (error) {
+      console.error('Error adding hired vehicle:', error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to add hired vehicle",
+        variant: "destructive",
+      });
+    }
   };
+
 
   const allOwnedVehicles = vehicles.filter(v => v.is_owned);
   const allHiredVehicles = vehicles.filter(v => !v.is_owned);
 
-  const handleAddBroker = async (brokerData: any) => {
+
+  const handleAddVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      const newBroker = await createBroker({
-        name: brokerData.name,
-        contact_person: brokerData.contactPerson,
-        phone: brokerData.phone,
-        email: brokerData.email,
-        city: brokerData.city
-      });
+      console.log("📥 Received owned vehicle data:", vehicleData);
+      console.log("📄 Received documents:", documents);
 
-      toast({
-        title: "✅ Broker Added",
-        description: `${brokerData.name} has been added as a broker`,
-      });
-
-      // ✅ Set the newly created broker as selected
-      setSelectedBrokerId(newBroker.id);
-
-      await loadBrokers();
-      setIsAddBrokerOpen(false);
-      setIsBrokerSelectionOpen(true); // ✅ Go back to broker selection
-    } catch (error: any) {
-      console.error('Error adding broker:', error);
-      toast({
-        title: "❌ Error",
-        description: error.message || "Failed to add broker",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddVehicle = async (vehicleData: any) => {
-    try {
       // Validate required fields
       if (!vehicleData.vehicle_number || !vehicleData.vehicle_type || !vehicleData.capacity) {
         toast({
@@ -321,15 +383,72 @@ export const VehicleManagement = () => {
         return;
       }
 
-      await createOwnedVehicle({
+      // 1. Create vehicle first
+      const newVehicle = await createOwnedVehicle({
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
         capacity: vehicleData.capacity,
-        registration_date: vehicleData.registration_date,
-        insurance_expiry: vehicleData.insurance_expiry,
-        fitness_expiry: vehicleData.fitness_expiry,
-        permit_expiry: vehicleData.permit_expiry,
+        default_driver_id: vehicleData.default_driver_id || null,  // ✅ Handle null properly
+        registration_date: vehicleData.registration_date || null,
+        insurance_expiry: vehicleData.insurance_expiry || null,
+        fitness_expiry: vehicleData.fitness_expiry || null,
+        permit_expiry: vehicleData.permit_expiry || null,
       });
+
+      console.log("✅ Owned vehicle created:", newVehicle);
+
+      // ✅ 2. Upload documents if any
+      if (documents && documents.files && documents.files.length > 0) {
+        console.log(`📤 Uploading ${documents.files.length} documents...`);
+
+        let uploadedCount = 0;
+        let failedCount = 0;
+
+        for (let i = 0; i < documents.files.length; i++) {
+          const file = documents.files[i];
+
+          // ✅ FIX: Access metadata correctly
+          const metadata = documents.metadata[i] || { document_type: 'OTHER' };
+
+          try {
+            console.log(`📤 Uploading document ${i + 1}:`, {
+              fileName: file.name,
+              documentType: metadata.document_type,
+              vehicleId: newVehicle.id
+            });
+
+            await uploadVehicleDocument({
+              vehicle_id: newVehicle.id,
+              vehicle_type: 'OWNED',  // ✅ OWNED type
+              document_type: metadata.document_type,
+              file: file,
+              expiry_date: metadata.expiry_date || null
+            });
+
+            uploadedCount++;
+            console.log(`✅ Uploaded: ${file.name}`);
+          } catch (error) {
+            failedCount++;
+            console.error(`❌ Failed to upload: ${file.name}`, error);
+          }
+        }
+
+        // Show upload results
+        if (uploadedCount > 0) {
+          toast({
+            title: "✅ Documents Uploaded",
+            description: `${uploadedCount} document(s) uploaded successfully`,
+          });
+        }
+
+        if (failedCount > 0) {
+          toast({
+            title: "⚠️ Some Uploads Failed",
+            description: `${failedCount} document(s) failed to upload`,
+            variant: "destructive"
+          });
+        }
+      }
 
       await loadVehicles();
       setIsAddVehicleOpen(false);
@@ -339,7 +458,7 @@ export const VehicleManagement = () => {
         description: `Vehicle ${vehicleData.vehicle_number} has been added to your fleet`,
       });
     } catch (error: any) {
-      console.error('Error adding vehicle:', error);
+      console.error('❌ Error adding owned vehicle:', error);
       toast({
         title: "❌ Error",
         description: error.message || "Failed to add vehicle",
@@ -348,35 +467,6 @@ export const VehicleManagement = () => {
     }
   };
 
-  const handleAddHiredVehicle = async (vehicleData: any) => {
-    try {
-      await createHiredVehicle({
-        vehicle_number: vehicleData.vehicleNumber,
-        vehicle_type: vehicleData.vehicleType,
-        capacity: vehicleData.capacity,
-        broker_id: selectedBrokerId, // ✅ Use selected broker
-        rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined
-      });
-
-      await loadVehicles();
-
-      toast({
-        title: "✅ Hired Vehicle Added",
-        description: `Vehicle ${vehicleData.vehicleNumber} has been added`,
-      });
-
-      // ✅ Reset selection
-      setSelectedBrokerId("");
-      setIsAddHiredVehicleOpen(false);
-    } catch (error) {
-      console.error('Error adding hired vehicle:', error);
-      toast({
-        title: "❌ Error",
-        description: "Failed to add hired vehicle",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleVerifyVehicle = async (vehicleId: string, isOwned: boolean) => {
     try {
@@ -536,6 +626,7 @@ export const VehicleManagement = () => {
             <Button
               variant="outline"
               onClick={handleAddHiredVehicleClick}
+              disabled={loadingBrokers}
               className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -985,75 +1076,6 @@ export const VehicleManagement = () => {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* ✅ BROKER SELECTION DIALOG */}
-      <Dialog open={isBrokerSelectionOpen} onOpenChange={setIsBrokerSelectionOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-primary" />
-              Select Broker
-            </DialogTitle>
-            <DialogDescription>
-              Choose a broker for the hired vehicle or add a new one
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Broker</Label>
-              <Select
-                value={selectedBrokerId}
-                onValueChange={setSelectedBrokerId}
-                disabled={loadingBrokers}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={loadingBrokers ? "Loading brokers..." : "Select a broker"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {brokers.map((broker) => (
-                    <SelectItem key={broker.id} value={broker.id}>
-                      <div className="flex flex-col py-1">
-                        <span className="font-medium">{broker.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {broker.contact_person} • {broker.phone}
-                          {broker.city && ` • ${broker.city}`}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleAddBrokerFromSelection}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add New Broker
-            </Button>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsBrokerSelectionOpen(false);
-                setSelectedBrokerId("");
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleBrokerSelected} disabled={!selectedBrokerId}>
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Modals */}
       <AddVehicleModal
         isOpen={isAddVehicleOpen}
@@ -1064,14 +1086,13 @@ export const VehicleManagement = () => {
       {/* ✅ UPDATED AddHiredVehicleModal */}
       <AddHiredVehicleModal
         isOpen={isAddHiredVehicleOpen}
-        onClose={() => {
-          setIsAddHiredVehicleOpen(false);
-          setSelectedBrokerId("");
-        }}
+        onClose={() => setIsAddHiredVehicleOpen(false)}
         onSave={handleAddHiredVehicle}
-        onAddBrokerClick={handleAddBrokerFromSelection}
-        selectedBrokerId={selectedBrokerId}
-        selectedBrokerName={brokers.find(b => b.id === selectedBrokerId)?.name}
+        brokers={brokers || []}
+        onAddBroker={() => {
+          setIsAddHiredVehicleOpen(false);
+          setIsAddBrokerOpen(true);
+        }}
       />
 
       <VehicleDetailDrawer

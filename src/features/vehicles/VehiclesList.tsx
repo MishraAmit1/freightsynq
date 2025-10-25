@@ -298,19 +298,72 @@ export const VehiclesList = () => {
   };
 
   // Handler for owned vehicles
-  const handleAddOwnedVehicle = async (vehicleData: any) => {
+  const handleAddOwnedVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      await createOwnedVehicle({
+      console.log("📥 Received vehicle data:", vehicleData);
+      console.log("📄 Received documents:", documents);
+
+      // 1. Create vehicle first
+      const newVehicle = await createOwnedVehicle({
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
         capacity: vehicleData.capacity,
+        default_driver_id: vehicleData.default_driver_id,
         registration_date: vehicleData.registration_date,
         insurance_expiry: vehicleData.insurance_expiry,
         fitness_expiry: vehicleData.fitness_expiry,
         permit_expiry: vehicleData.permit_expiry,
       });
 
+      console.log("✅ Vehicle created:", newVehicle);
+
+      // 2. Upload documents if any
+      if (documents && documents.files.length > 0) {
+        console.log(`📤 Uploading ${documents.files.length} documents...`);
+
+        const { uploadVehicleDocument } = await import('@/api/vehicleDocument');
+
+        let uploadedCount = 0;
+        let failedCount = 0;
+
+        for (let i = 0; i < documents.files.length; i++) {
+          const file = documents.files[i];
+          const metadata = documents.metadata[i];
+
+          try {
+            await uploadVehicleDocument({
+              vehicle_id: newVehicle.id,
+              vehicle_type: 'OWNED',  // ✅ OWNED
+              document_type: metadata.document_type,
+              file: file,
+              expiry_date: metadata.expiry_date
+            });
+            uploadedCount++;
+            console.log(`✅ Uploaded: ${file.name}`);
+          } catch (error) {
+            failedCount++;
+            console.error(`❌ Failed to upload: ${file.name}`, error);
+          }
+        }
+
+        if (uploadedCount > 0) {
+          toast({
+            title: "✅ Documents Uploaded",
+            description: `${uploadedCount} document(s) uploaded successfully`,
+          });
+        }
+
+        if (failedCount > 0) {
+          toast({
+            title: "⚠️ Some Uploads Failed",
+            description: `${failedCount} document(s) failed to upload`,
+            variant: "destructive"
+          });
+        }
+      }
+
       await loadVehicles();
+
       toast({
         title: "✅ Vehicle Added Successfully",
         description: `Owned vehicle ${vehicleData.vehicle_number} has been added to your fleet`,
@@ -333,6 +386,8 @@ export const VehiclesList = () => {
         vehicle_type: vehicleData.vehicleType,
         capacity: vehicleData.capacity,
         broker_id: vehicleData.brokerId,
+        // ✅ ADD THIS LINE:
+        default_driver_id: vehicleData.default_driver_id,
         rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
       });
 

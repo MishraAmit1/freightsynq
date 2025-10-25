@@ -48,17 +48,19 @@ interface BookingFormModalProps {
   onSave: (data: any) => void;
 }
 
-// ✅ UPDATED - Date validation function (2 days pehle se allow kare)
-const validatePickupDate = (dateString: string | undefined): string | null => {
-  if (!dateString) return null; // Optional field
 
-  const selectedDate = new Date(dateString);
+const validatePickupDate = (dateString: string | undefined): string | null => {
+  if (!dateString) return null;
+
+  // ✅ FIX: Local date banao, UTC nahi
+  const selectedDate = new Date(dateString + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // ✅ Allow 2 days in the past
+  // Allow 2 days in the past
   const twoDaysAgo = new Date(today);
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  twoDaysAgo.setHours(0, 0, 0, 0);
 
   if (isNaN(selectedDate.getTime())) {
     return "Invalid date format";
@@ -100,50 +102,55 @@ const PartySelect = ({
 
   useEffect(() => {
     const loadParties = async () => {
-      if (searchTerm.length < 1) {
-        if (!searchTerm) {
-          setLoading(true);
-          try {
-            let query = supabase
-              .from('parties')
-              .select('*')
-              .eq('status', 'ACTIVE')
-              .order('created_at', { ascending: false })
-              .limit(10);
+      // Empty search - load recent parties
+      if (!searchTerm) {
+        setLoading(true);
+        try {
+          let query = supabase
+            .from('parties')
+            .select('*')
+            .eq('status', 'ACTIVE')
+            .order('created_at', { ascending: false })
+            .limit(10);
 
-            if (type !== 'BOTH') {
-              query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-            setParties(data || []);
-          } catch (error) {
-            console.error('Error loading parties:', error);
-          } finally {
-            setLoading(false);
+          if (type && type !== 'BOTH') {
+            query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
           }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          setParties(data || []);
+        } catch (error) {
+          console.error('Error loading parties:', error);
+        } finally {
+          setLoading(false);
         }
         return;
       }
 
+      // Search parties
       setLoading(true);
       try {
+        // ✅ FIX: Use ilike for case-insensitive search
         let query = supabase
           .from('parties')
           .select('*')
-          .eq('status', 'ACTIVE')
-          .ilike('name', `%${searchTerm}%`)
-          .limit(10);
+          .eq('status', 'ACTIVE');
 
-        if (type !== 'BOTH') {
+        // Search in multiple fields
+        const searchPattern = `%${searchTerm}%`;
+        query = query.or(`name.ilike.${searchPattern},contact_person.ilike.${searchPattern},phone.ilike.${searchPattern}`);
+
+        if (type && type !== 'BOTH') {
           query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
         }
+
         const { data, error } = await query;
         if (error) throw error;
         setParties(data || []);
       } catch (error) {
         console.error('Error searching parties:', error);
+        setParties([]);
       } finally {
         setLoading(false);
       }
@@ -172,16 +179,16 @@ const PartySelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0">
-        <Command>
+        <Command shouldFilter={false}> {/* ✅ Important: disable client-side filtering */}
           <CommandInput
-            placeholder={`Search ${type.toLowerCase()}...`}
+            placeholder={`Search ${type?.toLowerCase() || 'party'}...`}
             value={searchTerm}
             onValueChange={setSearchTerm}
           />
           <CommandEmpty>
             <div className="p-4 text-center">
               <p className="text-sm text-muted-foreground mb-2">
-                No {type.toLowerCase()} found.
+                {searchTerm ? `No ${type?.toLowerCase() || 'party'} found for "${searchTerm}"` : `No ${type?.toLowerCase() || 'party'} found.`}
               </p>
               {onAddNew && (
                 <Button
@@ -205,13 +212,14 @@ const PartySelect = ({
                 Loading...
               </div>
             )}
-            {parties.map((party) => (
+            {!loading && parties.map((party) => (
               <CommandItem
                 key={party.id}
-                value={party.id}
+                value={party.name} // ✅ Use name for search matching
                 onSelect={() => {
                   onValueChange(party.id, party);
                   setOpen(false);
+                  setSearchTerm(""); // ✅ Clear search on select
                 }}
                 className="cursor-pointer"
               >
@@ -469,10 +477,20 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   };
 
   const handleDateChange = (date: Date | null) => {
-    const isoString = date ? date.toISOString().split('T')[0] : undefined;
-    const error = validatePickupDate(isoString);
-    setDateError(error);
-    setFormData({ ...formData, pickupDate: isoString });
+    if (date) {
+      // ✅ FIX: Local date format use karo
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const isoString = `${year}-${month}-${day}`;
+
+      const error = validatePickupDate(isoString);
+      setDateError(error);
+      setFormData({ ...formData, pickupDate: isoString });
+    } else {
+      setFormData({ ...formData, pickupDate: undefined });
+      setDateError(null);
+    }
   };
 
   const handleSubmit = async () => {

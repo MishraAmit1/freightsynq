@@ -242,7 +242,7 @@ export const changeTemplate = async (templateCode, customization = {}) => {
             is_default: true,
             header_config: {
                 ...customization.header_config,
-                logo_url: customization.logo_url  // <-- YEH LINE IMPORTANT HAI
+                logo_url: customization.logo_url
             },
             visible_fields: customization.visible_fields,
             custom_fields: [{ key: 'base_template_code', value: templateCode }],

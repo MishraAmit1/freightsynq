@@ -1,4 +1,4 @@
-// pages/CompanySettings.tsx (UPDATED VERSION)
+// pages/CompanySettings.tsx (COMPLETE UPDATED VERSION)
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,11 @@ import {
     Image,
     FileSignature,
     Zap,
-    XCircle
+    XCircle,
+    MapPin,
+    Plus,
+    Trash2,
+    AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +45,23 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+// ✅ NEW IMPORT
+import {
+    fetchLRCities,
+    addLRCity,
+    setActiveLRCity,
+    updateLRCityNumber,
+    deleteLRCity,
+    LRCitySequence
+} from '@/api/lr-sequences';
 
 export const CompanySettings = () => {
     const { company, userProfile } = useAuth();
@@ -55,10 +76,23 @@ export const CompanySettings = () => {
     const [currentTemplate, setCurrentTemplate] = useState(null);
     const [showTemplateOnboarding, setShowTemplateOnboarding] = useState(false);
 
+    // ✅ NEW: LR City states
+    const [lrCities, setLrCities] = useState<LRCitySequence[]>([]);
+    const [lrCitiesLoading, setLrCitiesLoading] = useState(false);
+    const [showAddCityModal, setShowAddCityModal] = useState(false);
+    const [editingCity, setEditingCity] = useState<LRCitySequence | null>(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [newCityForm, setNewCityForm] = useState({
+        city_name: '',
+        prefix: 'LR',
+        current_lr_number: 1001
+    });
+
     useEffect(() => {
         if (company) {
             loadData();
             loadTemplateData();
+            loadLRCities(); // ✅ NEW
             setIsAdmin(userProfile?.role === 'admin');
         }
     }, [company, userProfile]);
@@ -108,6 +142,117 @@ export const CompanySettings = () => {
         }
     };
 
+    // ✅ NEW: Load LR Cities
+    const loadLRCities = async () => {
+        setLrCitiesLoading(true);
+        try {
+            const cities = await fetchLRCities();
+            setLrCities(cities);
+        } catch (error: any) {
+            toast({
+                title: '❌ Error',
+                description: error.message || 'Failed to load LR cities',
+                variant: 'destructive',
+            });
+        } finally {
+            setLrCitiesLoading(false);
+        }
+    };
+
+    // ✅ NEW: Add new city handler
+    const handleAddCity = async () => {
+        if (!newCityForm.city_name.trim()) {
+            toast({
+                title: '❌ Validation Error',
+                description: 'City name is required',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        try {
+            await addLRCity(newCityForm);
+            await loadLRCities();
+            setShowAddCityModal(false);
+            setNewCityForm({ city_name: '', prefix: 'LR', current_lr_number: 1001 });
+            toast({
+                title: '✅ City Added',
+                description: `${newCityForm.city_name} has been added successfully`,
+            });
+        } catch (error: any) {
+            toast({
+                title: '❌ Error',
+                description: error.message || 'Failed to add city',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    // ✅ NEW: Set active city handler
+    const handleSetActiveCity = async (cityId: string, cityName: string) => {
+        try {
+            await setActiveLRCity(cityId);
+            await loadLRCities();
+            toast({
+                title: '✅ Active City Changed',
+                description: `${cityName} is now active for LR generation`,
+            });
+        } catch (error: any) {
+            toast({
+                title: '❌ Error',
+                description: error.message || 'Failed to set active city',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    // ✅ NEW: Delete city handler
+    const handleDeleteCity = async (cityId: string, cityName: string) => {
+        if (!confirm(`Are you sure you want to delete ${cityName}?`)) return;
+
+        try {
+            await deleteLRCity(cityId);
+            await loadLRCities();
+            toast({
+                title: '✅ City Deleted',
+                description: `${cityName} has been removed`,
+            });
+        } catch (error: any) {
+            toast({
+                title: '❌ Error',
+                description: error.message || 'Failed to delete city. Make sure it is not the active city.',
+                variant: 'destructive',
+            });
+        }
+    };
+
+    // ✅ NEW: Edit city number handler
+    const handleEditCity = (city: LRCitySequence) => {
+        setEditingCity(city);
+        setShowEditModal(true);
+    };
+
+    const handleUpdateCityNumber = async () => {
+        if (!editingCity) return;
+
+        try {
+            await updateLRCityNumber(editingCity.id, editingCity.current_lr_number);
+            await loadLRCities();
+            setShowEditModal(false);
+            setEditingCity(null);
+            toast({
+                title: '✅ Number Updated',
+                description: `${editingCity.city_name} LR number has been updated`,
+            });
+        } catch (error: any) {
+            toast({
+                title: '❌ Error',
+                description: error.message || 'Failed to update city number',
+                variant: 'destructive',
+            });
+        }
+    };
+
     const generateNewCode = async () => {
         if (!isAdmin) return;
 
@@ -154,26 +299,7 @@ export const CompanySettings = () => {
 
     const handleTemplatePreview = async () => {
         try {
-            // Create a sample booking for preview
-            const sampleBooking = {
-                id: 'preview-id',
-                booking_id: 'PREVIEW-001',
-                lr_number: 'LR-PREVIEW',
-                lr_date: new Date().toISOString(),
-                consignor_name: 'Sample Consignor Company',
-                consignee_name: 'Sample Consignee Company',
-                from_location: 'Mumbai, Maharashtra',
-                to_location: 'Delhi, NCR',
-                material_description: 'Sample goods for template preview',
-                cargo_units: '10 boxes',
-                vehicle_number: 'MH-01-AB-1234',
-                driver_name: 'Sample Driver',
-                driver_phone: '9999999999'
-            };
-
-            // Use the preview generation
             await generateLRWithTemplate('preview-mode');
-
             toast({
                 title: "✅ Preview Generated",
                 description: "Template preview has been downloaded as PDF",
@@ -239,7 +365,7 @@ export const CompanySettings = () => {
             </div>
 
             <div className="grid gap-6">
-                {/* LR Template Section - NEW */}
+                {/* LR Template Section */}
                 <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
                     <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-transparent">
                         <CardTitle className="flex items-center gap-2 text-xl">
@@ -429,7 +555,155 @@ export const CompanySettings = () => {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* ✅ NEW: LR City Configuration Card */}
+                <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+                    <CardHeader className="border-b bg-gradient-to-r from-primary/5 to-transparent">
+                        <CardTitle className="flex items-center justify-between text-xl">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 bg-primary/10 rounded-lg">
+                                    <MapPin className="w-5 h-5 text-primary" />
+                                </div>
+                                LR City Numbering
+                            </div>
+                            {isAdmin && (
+                                <Button
+                                    onClick={() => setShowAddCityModal(true)}
+                                    size="sm"
+                                    className="bg-gradient-to-r from-primary to-primary/80"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Add City
+                                </Button>
+                            )}
+                        </CardTitle>
+                        <CardDescription>
+                            Manage city-wise LR number sequences. Only one city can be active at a time.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        {lrCitiesLoading ? (
+                            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                                <div className="relative">
+                                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                                </div>
+                                <p className="text-muted-foreground">Loading LR cities...</p>
+                            </div>
+                        ) : lrCities.length === 0 ? (
+                            <div className="text-center py-12">
+                                <MapPin className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium mb-2">No Cities Configured</h3>
+                                <p className="text-muted-foreground mb-4">
+                                    Add your first city to start managing LR numbers
+                                </p>
+                                {isAdmin && (
+                                    <Button onClick={() => setShowAddCityModal(true)}>
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add First City
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {lrCities.map((city) => (
+                                    <div
+                                        key={city.id}
+                                        className={cn(
+                                            "p-4 rounded-lg border transition-all",
+                                            city.is_active
+                                                ? "bg-primary/5 border-primary shadow-sm"
+                                                : "bg-muted/30 border-border/50"
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className={cn(
+                                                        "w-3 h-3 rounded-full",
+                                                        city.is_active ? "bg-green-500 animate-pulse" : "bg-gray-300"
+                                                    )}
+                                                />
+                                                <div>
+                                                    <div className="font-semibold text-lg">{city.city_name}</div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Current: <span className="font-mono font-medium">
+                                                            {city.prefix}{city.current_lr_number}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                {city.is_active ? (
+                                                    <Badge className="bg-green-100 text-green-700 border-green-200">
+                                                        Active
+                                                    </Badge>
+                                                ) : (
+                                                    isAdmin && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleSetActiveCity(city.id, city.city_name)}
+                                                            className="hover:bg-primary/10 hover:border-primary"
+                                                        >
+                                                            Set Active
+                                                        </Button>
+                                                    )
+                                                )}
+
+                                                {isAdmin && (
+                                                    <>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => handleEditCity(city)}
+                                                                        className="hover:bg-primary/10"
+                                                                    >
+                                                                        <Edit className="w-4 h-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Edit LR Number</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+
+                                                        {!city.is_active && (
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="ghost"
+                                                                            onClick={() => handleDeleteCity(city.id, city.city_name)}
+                                                                            className="hover:bg-destructive/10 hover:text-destructive"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Delete City</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 <ApiUsageDashboard />
+
                 <div className="grid gap-6 md:grid-cols-2">
                     {/* Company Code Card */}
                     <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
@@ -548,6 +822,131 @@ export const CompanySettings = () => {
                     </Card>
                 </div>
             </div>
+
+            {/* ✅ NEW: Add City Modal */}
+            <Dialog open={showAddCityModal} onOpenChange={setShowAddCityModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add New LR City</DialogTitle>
+                        <DialogDescription>
+                            Configure LR numbering for a new city
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <Label>City Name *</Label>
+                            <Input
+                                value={newCityForm.city_name}
+                                onChange={(e) => setNewCityForm({
+                                    ...newCityForm,
+                                    city_name: e.target.value
+                                })}
+                                placeholder="e.g., Vapi, Surat, Mumbai"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label>Prefix</Label>
+                                <Input
+                                    value={newCityForm.prefix}
+                                    onChange={(e) => setNewCityForm({
+                                        ...newCityForm,
+                                        prefix: e.target.value
+                                    })}
+                                    placeholder="LR"
+                                />
+                            </div>
+
+                            <div>
+                                <Label>Starting Number *</Label>
+                                <Input
+                                    type="number"
+                                    value={newCityForm.current_lr_number}
+                                    onChange={(e) => setNewCityForm({
+                                        ...newCityForm,
+                                        current_lr_number: parseInt(e.target.value) || 1001
+                                    })}
+                                    placeholder="1869"
+                                />
+                            </div>
+                        </div>
+
+                        <Alert>
+                            <AlertDescription>
+                                LR numbers will be generated as: <strong>{newCityForm.prefix}{newCityForm.current_lr_number}</strong>
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowAddCityModal(false);
+                                setNewCityForm({ city_name: '', prefix: 'LR', current_lr_number: 1001 });
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleAddCity}
+                            disabled={!newCityForm.city_name || !newCityForm.current_lr_number}
+                        >
+                            Add City
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ✅ NEW: Edit City Number Modal */}
+            <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit LR Number</DialogTitle>
+                        <DialogDescription>
+                            Update the current LR number for {editingCity?.city_name}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div>
+                            <Label>Current LR Number</Label>
+                            <Input
+                                type="number"
+                                value={editingCity?.current_lr_number || 1001}
+                                onChange={(e) => setEditingCity(editingCity ? {
+                                    ...editingCity,
+                                    current_lr_number: parseInt(e.target.value) || 1001
+                                } : null)}
+                            />
+                        </div>
+
+                        <Alert className="border-yellow-200 bg-yellow-50/50">
+                            <AlertCircle className="w-4 h-4 text-yellow-600" />
+                            <AlertDescription className="text-yellow-700">
+                                <strong>Warning:</strong> Changing this number will affect the next LR generated for this city.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowEditModal(false);
+                                setEditingCity(null);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleUpdateCityNumber}>
+                            Update Number
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
-};
+};  

@@ -213,13 +213,13 @@ const DriverModal = ({
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium">Experience (Optional)</label>
+                        <label className="text-sm font-medium">Rating (Out of 5)</label>
                         <Input
                             value={driverData.experience}
                             onChange={(e) =>
                                 setDriverData({ ...driverData, experience: e.target.value })
                             }
-                            placeholder="e.g., 5 years"
+                            placeholder="e.g., 5 or 3"
                             disabled={loading}
                             className="mt-1 h-11"
                         />

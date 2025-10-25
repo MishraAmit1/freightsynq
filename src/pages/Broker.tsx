@@ -101,7 +101,7 @@ interface Broker {
     id: string;
     name: string;
     contact_person: string;
-    phone: string;
+    phone?: string;
     email?: string;
     city?: string;
     status?: string;
@@ -283,7 +283,7 @@ const ImportBrokersModal: React.FC<{
                     row.company_name?.toString().trim() ||
                     "",
                 contact_person: row.contact_person?.toString().trim() || "",
-                phone: row.phone?.toString().trim() || "",
+                phone: row.phone?.toString().trim() || "",  // ✅ Empty allowed
                 email: row.email?.toString().trim().toLowerCase() || "",
                 city: row.city?.toString().trim() || "",
                 status:
@@ -301,12 +301,6 @@ const ImportBrokersModal: React.FC<{
                     row: index + 1,
                     field: "contact_person",
                     message: "Contact person is required",
-                });
-            if (!processedRow.phone)
-                errors.push({
-                    row: index + 1,
-                    field: "phone",
-                    message: "Phone is required",
                 });
             if (!processedRow.city)
                 errors.push({
@@ -544,8 +538,7 @@ const ImportBrokersModal: React.FC<{
                                     person name
                                 </li>
                                 <li>
-                                    <span className="font-medium">phone</span> - Phone number
-                                    (minimum 10 digits)
+                                    <span className="font-medium">phone</span> (optional) - Phone number (minimum 10 digits if provided) {/* ✅ Updated */}
                                 </li>
                                 <li>
                                     <span className="font-medium">city</span> - City name
@@ -965,7 +958,6 @@ const BrokerModal = ({
         if (
             !brokerData.name.trim() ||
             !brokerData.contactPerson.trim() ||
-            !brokerData.phone.trim() ||
             !brokerData.city.trim()
         ) {
             toast({
@@ -975,10 +967,10 @@ const BrokerModal = ({
             });
             return;
         }
-        if (brokerData.phone.length < 10) {
+        if (brokerData.phone && brokerData.phone.length < 10) {
             toast({
                 title: "❌ Validation Error",
-                description: "Please enter a valid phone number",
+                description: "Please enter a valid phone number (minimum 10 digits)",
                 variant: "destructive",
             });
             return;
@@ -1064,14 +1056,14 @@ const BrokerModal = ({
                     </div>
                     <div>
                         <label className="text-sm font-medium flex items-center gap-1">
-                            Phone Number<span className="text-red-500">*</span>
+                            Phone Number
                         </label>
                         <Input
                             value={brokerData.phone}
                             onChange={(e) =>
                                 setBrokerData({ ...brokerData, phone: e.target.value })
                             }
-                            placeholder="+91-9876543210"
+                            placeholder="+91-9876543210 (Optional)"
                             maxLength={15}
                             disabled={loading}
                             className="mt-1 h-11 border-muted-foreground/20 focus:border-primary transition-all"
@@ -1655,12 +1647,16 @@ const Broker = () => {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Phone className="w-4 h-4 text-muted-foreground" />
-                                                    <span className="font-mono text-sm">
-                                                        {broker.phone}
-                                                    </span>
-                                                </div>
+                                                {broker.phone ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Phone className="w-4 h-4 text-muted-foreground" />
+                                                        <span className="font-mono text-sm">
+                                                            {broker.phone}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-muted-foreground">No phone</span>  // ✅ Better message
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 {broker.city ? (

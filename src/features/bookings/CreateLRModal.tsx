@@ -1,3 +1,4 @@
+// components/CreateLRModal.tsx (COMPLETE UPDATED VERSION)
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,43 +20,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Package, FileText } from "lucide-react";
-import { generateLRNumber } from "@/api/bookings";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Package, FileText, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+// ✅ NEW IMPORT
+import { getNextLRNumber, incrementLRNumber } from '@/api/lr-sequences';
 
-// Update the LRData interface in BookingList.tsx
+// Update the LRData interface
 export interface LRData {
   lrNumber: string;
   lrDate: string;
-  biltiNumber?: string; // This will store comma-separated e-way bills
-  invoiceNumber?: string; // This will store comma-separated invoice numbers
+  biltiNumber?: string;
+  invoiceNumber?: string;
   cargoUnitsString: string;
   materialDescription: string;
 }
 
+// Validate LR Date
 const validateLRDate = (dateString: string): string | null => {
   if (!dateString) return "LR date is required";
 
   const selectedDate = new Date(dateString);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   if (isNaN(selectedDate.getTime())) {
     return "Invalid date format";
   }
 
-  if (selectedDate < today) {
-    return "Date cannot be in the past";
-  }
-
-  const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 90);
-  if (selectedDate > maxDate) {
-    return "Date cannot be more than 90 days in the future";
-  }
-
+  // No restrictions - any date allowed
   return null;
 };
 
@@ -70,20 +64,13 @@ const lrItemSchema = z.object({
 const documentSchema = z.object({
   ewayBill: z.string()
     .regex(/^\d{12}$/, "E-way bill must be exactly 12 digits")
-    .or(z.literal("")), // Allow empty string
-  invoice: z.string(), // Invoice can be any string
+    .or(z.literal("")),
+  invoice: z.string(),
 });
 
 const lrSchema = z.object({
   lrNumber: z.string().min(1, "LR number is required"),
-  lrDate: z.string()
-    .min(1, "LR date is required")
-    .refine((date) => {
-      const error = validateLRDate(date);
-      return error === null;
-    }, {
-      message: "Invalid date selection"
-    }),
+  lrDate: z.string().min(1, "LR date is required"),
   documents: z.array(documentSchema),
   items: z.array(lrItemSchema).min(1, "At least one item is required"),
 });
@@ -103,7 +90,7 @@ interface CreateLRModalProps {
     bilti_number?: string;
     invoice_number?: string;
   } | null;
-  nextLRNumber: number;
+  nextLRNumber: number; // This won't be used anymore but keeping for compatibility
 }
 
 export const CreateLRModal = ({
@@ -116,6 +103,14 @@ export const CreateLRModal = ({
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lrDateError, setLrDateError] = useState<string | null>(null);
+
+  // ✅ NEW STATES
+  const [activeLRCity, setActiveLRCity] = useState<{
+    city_name: string;
+    prefix: string;
+    lr_number: string;
+  } | null>(null);
+  const [loadingLRNumber, setLoadingLRNumber] = useState(false);
 
   const {
     register,
@@ -152,14 +147,21 @@ export const CreateLRModal = ({
   });
 
   const handleLRDateChange = (date: Date | null) => {
-    const isoString = date ? date.toISOString().split('T')[0] : '';
-    const error = validateLRDate(isoString);
-    setLrDateError(error);
-    setValue("lrDate", isoString);
+    if (date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const isoString = `${year}-${month}-${day}`;
+
+      setValue("lrDate", isoString);
+      setLrDateError(null);
+    } else {
+      setValue("lrDate", '');
+      setLrDateError("LR date is required");
+    }
   };
 
   const handleAddDocument = async () => {
-    // Validate all existing documents first
     const isValid = await trigger("documents");
 
     if (!isValid) {
@@ -171,7 +173,6 @@ export const CreateLRModal = ({
       return;
     }
 
-    // Check if the last document has valid e-way bill (12 digits)
     const documents = watch("documents");
     const lastDoc = documents[documents.length - 1];
 
@@ -189,16 +190,41 @@ export const CreateLRModal = ({
     }
   };
 
+  // ✅ NEW FUNCTION: Load LR number from active city
+  const loadLRNumberFromCity = async () => {
+    setLoadingLRNumber(true);
+    try {
+      const cityData = await getNextLRNumber();
+      setActiveLRCity({
+        city_name: cityData.city_name,
+        prefix: cityData.prefix,
+        lr_number: cityData.lr_number
+      });
+      setValue("lrNumber", cityData.lr_number);
+    } catch (error: any) {
+      console.error('Error loading LR number:', error);
+      toast({
+        title: "❌ Error",
+        description: error.message || "Failed to load LR number. Please configure cities in Settings.",
+        variant: "destructive",
+      });
+      // Set a fallback
+      setActiveLRCity(null);
+    } finally {
+      setLoadingLRNumber(false);
+    }
+  };
+
+  // ✅ MODIFIED useEffect
   useEffect(() => {
     if (isOpen && booking) {
-      loadLRNumber();
+      loadLRNumberFromCity(); // ✅ Call new function
       setValue("lrDate", new Date().toISOString().split('T')[0]);
 
       // Parse existing e-way bills and invoices if any
       const ewayBills = booking.bilti_number ? booking.bilti_number.split(',').map(num => num.trim()) : [];
       const invoices = booking.invoice_number ? booking.invoice_number.split(',').map(num => num.trim()) : [];
 
-      // Combine them into document pairs
       const maxLength = Math.max(ewayBills.length, invoices.length, 1);
       const documents = [];
 
@@ -214,17 +240,9 @@ export const CreateLRModal = ({
     } else if (!isOpen) {
       reset();
       setLrDateError(null);
+      setActiveLRCity(null); // ✅ Reset city info
     }
   }, [isOpen, booking, reset, setValue]);
-
-  const loadLRNumber = async () => {
-    try {
-      const lrNumber = await generateLRNumber();
-      setValue("lrNumber", lrNumber);
-    } catch (error) {
-      setValue("lrNumber", `LR${nextLRNumber}`);
-    }
-  };
 
   const generateCargoStrings = (items: LRFormData['items']) => {
     if (!items || items.length === 0) return { units: "", materials: "" };
@@ -254,6 +272,7 @@ export const CreateLRModal = ({
     }).join('\n');
   };
 
+  // ✅ MODIFIED onSubmit - Add increment call
   const onSubmit = async (data: LRFormData) => {
     setIsSubmitting(true);
 
@@ -271,28 +290,16 @@ export const CreateLRModal = ({
         return;
       }
 
-      const lrDateValidationError = validateLRDate(data.lrDate);
-      if (lrDateValidationError) {
-        toast({
-          title: "Invalid LR Date",
-          description: lrDateValidationError,
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
       const { units, materials } = generateCargoStrings(data.items);
 
-      // Convert arrays to comma-separated strings
       const ewayBillsString = data.documents
         .map(doc => doc.ewayBill)
-        .filter(eb => eb) // Remove empty strings
+        .filter(eb => eb)
         .join(',');
 
       const invoicesString = data.documents
         .map(doc => doc.invoice)
-        .filter(inv => inv) // Remove empty strings
+        .filter(inv => inv)
         .join(',');
 
       if (booking?.id) {
@@ -304,6 +311,16 @@ export const CreateLRModal = ({
           cargoUnitsString: units,
           materialDescription: materials
         });
+
+        // ✅ NEW: Increment LR number after successful save
+        try {
+          await incrementLRNumber();
+          console.log('✅ LR number incremented successfully');
+        } catch (incrementError) {
+          console.error('Warning: Failed to increment LR number:', incrementError);
+          // Don't throw - LR is already saved, just log the error
+        }
+
         onClose();
       } else {
         toast({
@@ -314,6 +331,7 @@ export const CreateLRModal = ({
         setIsSubmitting(false);
       }
     } catch (error) {
+      console.error('Error in LR submission:', error);
       toast({
         title: "Error",
         description: "Failed to save LR. Please try again.",
@@ -327,6 +345,7 @@ export const CreateLRModal = ({
   const handleClose = () => {
     reset();
     setLrDateError(null);
+    setActiveLRCity(null);
     onClose();
   };
 
@@ -357,28 +376,62 @@ export const CreateLRModal = ({
             </div>
           </div>
 
+          {/* ✅ NEW: Active LR City Info */}
+          {loadingLRNumber ? (
+            <div className="flex items-center justify-center p-3 bg-muted/50 rounded-lg">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <span className="text-sm">Loading LR configuration...</span>
+            </div>
+          ) : activeLRCity ? (
+            <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="w-4 h-4 text-primary" />
+                <span className="font-medium">Current LR City:</span>
+                <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+                  {activeLRCity.city_name}
+                </Badge>
+                <span className="text-muted-foreground ml-2">
+                  (Next: {activeLRCity.lr_number})
+                </span>
+              </div>
+            </div>
+          ) : (
+            <Alert className="border-destructive/50 bg-destructive/10">
+              <AlertCircle className="w-4 h-4" />
+              <AlertDescription className="text-sm">
+                No active LR city configured. Please contact admin to set up cities in Company Settings.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* LR Details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>LR Number</Label>
-              <Input {...register("lrNumber")} disabled={isSubmitting} />
+              <Input
+                {...register("lrNumber")}
+                disabled // ✅ Always disabled - auto-generated
+                className="bg-muted cursor-not-allowed"
+              />
               {errors.lrNumber && (
                 <p className="text-sm text-destructive mt-1">{errors.lrNumber.message}</p>
               )}
             </div>
-
             <div>
               <Label>LR Date *</Label>
               <DatePicker
                 selected={watch("lrDate") ? new Date(watch("lrDate")) : null}
                 onChange={handleLRDateChange}
                 dateFormat="dd/MM/yyyy"
-                placeholderText="DD/MM/YYYY"
-                minDate={new Date()}
-                maxDate={new Date(new Date().setDate(new Date().getDate() + 90))}
+                placeholderText="Select any date"
                 className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${(errors.lrDate || lrDateError) ? 'border-destructive' : 'border-input'
                   }`}
                 disabled={isSubmitting}
+                showYearDropdown
+                showMonthDropdown
+                dropdownMode="select"
+                yearDropdownItemNumber={100}
+                scrollableYearDropdown
               />
               {(errors.lrDate || lrDateError) && (
                 <p className="text-sm text-destructive mt-1">
@@ -416,7 +469,6 @@ export const CreateLRModal = ({
                       placeholder="12-digit E-way bill (optional)"
                       maxLength={12}
                       onChange={(e) => {
-                        // Only allow digits
                         const value = e.target.value.replace(/\D/g, '');
                         setValue(`documents.${index}.ewayBill`, value);
                       }}
@@ -576,11 +628,26 @@ export const CreateLRModal = ({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create LR"}
+            <Button
+              type="submit"
+              disabled={isSubmitting || !activeLRCity}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create LR"
+              )}
             </Button>
           </DialogFooter>
         </form>

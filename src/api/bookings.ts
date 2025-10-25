@@ -557,27 +557,27 @@ export const updateBookingLR = async (bookingId: string, lrData: {
   return data
 }
 
-export const generateLRNumber = async () => {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('lr_number')
-    .not('lr_number', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
+// export const generateLRNumber = async () => {
+//   const { data, error } = await supabase
+//     .from('bookings')
+//     .select('lr_number')
+//     .not('lr_number', 'is', null)
+//     .order('created_at', { ascending: false })
+//     .limit(1)
 
-  if (error) {
-    console.error('Error fetching latest LR:', error)
-    return `LR${String(Date.now()).slice(-4)}`
-  }
+//   if (error) {
+//     console.error('Error fetching latest LR:', error)
+//     return `LR${String(Date.now()).slice(-4)}`
+//   }
 
-  if (data && data.length > 0) {
-    const lastLR = data[0].lr_number
-    const lastNumber = parseInt(lastLR.replace('LR', '')) || 1000
-    return `LR${String(lastNumber + 1).padStart(4, '0')}`
-  }
+//   if (data && data.length > 0) {
+//     const lastLR = data[0].lr_number
+//     const lastNumber = parseInt(lastLR.replace('LR', '')) || 1000
+//     return `LR${String(lastNumber + 1).padStart(4, '0')}`
+//   }
 
-  return 'LR1001'
-}
+//   return 'LR1001'
+// }
 
 export const updateBookingWarehouse = async (bookingId: string, warehouseId: string) => {
   try {

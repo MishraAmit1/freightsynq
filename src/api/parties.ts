@@ -61,7 +61,7 @@ export const searchParties = async (searchTerm: string, type?: 'CONSIGNOR' | 'CO
     .from('parties')
     .select('*')
     .eq('status', 'ACTIVE')
-    .ilike('name', `%${searchTerm}%`)
+    .or(`name.ilike.%${searchTerm}%,name.ilike.%${searchTerm.toLowerCase()}%,name.ilike.%${searchTerm.toUpperCase()}%`)  // ✅ Case-insensitive
     .limit(10);
 
   if (type) {

@@ -134,12 +134,13 @@ export const AddDriverModal = ({ isOpen, onClose, onSave }: AddDriverModalProps)
                     </div>
 
                     <div>
-                        <Label htmlFor="experience">Experience</Label>
+                        <Label htmlFor="experience">Rating (Out of 5)</Label>
                         <Input
                             id="experience"
                             value={driverData.experience}
                             onChange={(e) => setDriverData({ ...driverData, experience: e.target.value })}
-                            placeholder="5 years"
+                            placeholder="e.g., 5 or 3"
+
                             disabled={loading}
                         />
                     </div>

@@ -249,7 +249,6 @@ export const EnhancedVehicleAssignmentModal = ({
   useEffect(() => {
     if (isOpen) {
       loadData();
-      // Reset states when modal opens
       setSelectedVehicleId("");
       setSelectedDriverId("");
       setSelectedBrokerId("");
@@ -293,6 +292,26 @@ export const EnhancedVehicleAssignmentModal = ({
       setDataLoading(false);
     }
   };
+  useEffect(() => {
+    if (selectedVehicleId) {
+      const allVehicles = [...ownedVehicles, ...hiredVehicles];
+      const selectedVehicle = allVehicles.find(v => v.id === selectedVehicleId);
+
+      if (selectedVehicle?.default_driver) {
+        setSelectedDriverId(selectedVehicle.default_driver.id);
+
+        toast({
+          title: "🚗 Driver Auto-Selected",
+          description: `${selectedVehicle.default_driver.name} has been automatically assigned`,
+          duration: 3000,
+        });
+      } else {
+        setSelectedDriverId("");
+      }
+    } else {
+      setSelectedDriverId("");
+    }
+  }, [selectedVehicleId, ownedVehicles, hiredVehicles, toast]);
 
   const handleAssign = async () => {
     if (!selectedVehicleId || !selectedDriverId) {
@@ -316,6 +335,34 @@ export const EnhancedVehicleAssignmentModal = ({
     try {
       setIsLoading(true);
 
+      // ✅ FIX: Update hired vehicle's broker_id before assignment
+      if (activeTab === "hired") {
+        const { error: updateError } = await supabase
+          .from('hired_vehicles')
+          .update({
+            broker_id: selectedBrokerId,  // ✅ Update broker
+            status: 'OCCUPIED'
+          })
+          .eq('id', selectedVehicleId);
+
+        if (updateError) {
+          console.error('Error updating hired vehicle broker:', updateError);
+          throw updateError;
+        }
+
+        toast({
+          title: "📝 Broker Updated",
+          description: "Vehicle broker information updated",
+        });
+      } else {
+        // Update owned vehicle status
+        await supabase
+          .from('owned_vehicles')
+          .update({ status: 'OCCUPIED' })
+          .eq('id', selectedVehicleId);
+      }
+
+      // Assign vehicle to booking
       await assignVehicleToBooking({
         booking_id: bookingId,
         vehicle_type: activeTab === 'owned' ? 'OWNED' : 'HIRED',
@@ -323,12 +370,6 @@ export const EnhancedVehicleAssignmentModal = ({
         driver_id: selectedDriverId,
         broker_id: activeTab === "hired" ? selectedBrokerId : undefined,
       });
-
-      if (activeTab === 'owned') {
-        await supabase.from('owned_vehicles').update({ status: 'OCCUPIED' }).eq('id', selectedVehicleId);
-      } else {
-        await supabase.from('hired_vehicles').update({ status: 'OCCUPIED' }).eq('id', selectedVehicleId);
-      }
 
       const allVehicles = [...ownedVehicles, ...hiredVehicles];
       const selectedVehicle = allVehicles.find(v => v.id === selectedVehicleId);
@@ -353,7 +394,7 @@ export const EnhancedVehicleAssignmentModal = ({
         onAssign(assignment);
 
         toast({
-          title: "Success",
+          title: "✅ Success",
           description: `Vehicle ${selectedVehicle.vehicle_number} assigned successfully`,
         });
 
@@ -362,7 +403,7 @@ export const EnhancedVehicleAssignmentModal = ({
     } catch (error) {
       console.error('Error assigning vehicle:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to assign vehicle",
         variant: "destructive"
       });
@@ -372,20 +413,53 @@ export const EnhancedVehicleAssignmentModal = ({
   };
 
   // Add handlers
-  const handleAddOwnedVehicle = async (vehicleData: any) => {
+  const handleAddOwnedVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      const newVehicle = await createOwnedVehicle({
+      console.log("📥 Received vehicle data in handler:", vehicleData);
+      console.log("📄 Received documents:", documents);
+
+      const vehiclePayload = {
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
         capacity: vehicleData.capacity,
-        registration_date: vehicleData.registration_date,
-        insurance_expiry: vehicleData.insurance_expiry,
-        fitness_expiry: vehicleData.fitness_expiry,
-        permit_expiry: vehicleData.permit_expiry,
-      });
+        default_driver_id: vehicleData.default_driver_id,
+        registration_date: vehicleData.registration_date || null,
+        insurance_expiry: vehicleData.insurance_expiry || null,
+        fitness_expiry: vehicleData.fitness_expiry || null,
+        permit_expiry: vehicleData.permit_expiry || null,
+      };
+
+      const newVehicle = await createOwnedVehicle(vehiclePayload);
+
+      // ✅ Upload documents if provided
+      if (documents && documents.files.length > 0) {
+        const { uploadVehicleDocument } = await import('@/api/vehicleDocument');
+
+        for (let i = 0; i < documents.files.length; i++) {
+          const file = documents.files[i];
+          const metadata = documents.metadata[i];
+
+          try {
+            await uploadVehicleDocument({
+              vehicle_id: newVehicle.id,
+              vehicle_type: 'OWNED',
+              document_type: metadata.document_type,
+              file: file,
+              expiry_date: metadata.expiry_date
+            });
+          } catch (error) {
+            console.error(`❌ Failed to upload: ${file.name}`, error);
+          }
+        }
+      }
 
       await loadData();
       setSelectedVehicleId(newVehicle.id);
+
+      if (newVehicle.default_driver_id) {
+        setSelectedDriverId(newVehicle.default_driver_id);
+      }
+
       setIsAddOwnedVehicleModalOpen(false);
 
       toast({
@@ -393,6 +467,7 @@ export const EnhancedVehicleAssignmentModal = ({
         description: "Vehicle added successfully",
       });
     } catch (error) {
+      console.error("Error adding vehicle:", error);
       toast({
         title: "Error",
         description: "Failed to add vehicle",
@@ -400,20 +475,30 @@ export const EnhancedVehicleAssignmentModal = ({
       });
     }
   };
-
   const handleAddHiredVehicle = async (vehicleData: any) => {
     try {
+      console.log("📥 Received hired vehicle data:", vehicleData);
+      console.log("🚗 Driver ID received:", vehicleData.default_driver_id);
+
       const newVehicle = await createHiredVehicle({
         vehicle_number: vehicleData.vehicleNumber,
         vehicle_type: vehicleData.vehicleType,
         capacity: vehicleData.capacity,
-        broker_id: vehicleData.brokerId,
+        broker_id: vehicleData.brokerId === "none" ? null : vehicleData.brokerId, // Only convert broker
+        default_driver_id: vehicleData.default_driver_id === "none" ? null : vehicleData.default_driver_id, // ✅ Proper check
         rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
       });
 
+      console.log("✅ Hired vehicle created:", newVehicle);
+
       await loadData();
-      setSelectedBrokerId(vehicleData.brokerId);
+      if (vehicleData.brokerId !== "none") setSelectedBrokerId(vehicleData.brokerId);
       setSelectedVehicleId(newVehicle.id);
+
+      if (newVehicle.default_driver_id) {
+        setSelectedDriverId(newVehicle.default_driver_id);
+      }
+
       setIsAddHiredVehicleModalOpen(false);
 
       toast({
@@ -421,6 +506,7 @@ export const EnhancedVehicleAssignmentModal = ({
         description: "Hired vehicle added successfully",
       });
     } catch (error) {
+      console.error("Error adding hired vehicle:", error);
       toast({
         title: "Error",
         description: "Failed to add hired vehicle",
@@ -501,7 +587,9 @@ export const EnhancedVehicleAssignmentModal = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose} >
-        <DialogContent className="sm:max-w-2xl z-[9999]">
+        <DialogContent className="sm:max-w-2xl" style={{
+          zIndex: 50,  // ✅ Lower than default
+        }}>
           <DialogHeader>
             <DialogTitle>Assign Vehicle</DialogTitle>
             <p className="text-sm text-muted-foreground">
@@ -659,33 +747,35 @@ export const EnhancedVehicleAssignmentModal = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <div className="relative z-50">
 
-      {/* Sub-Modals */}
-      <AddVehicleModal
-        isOpen={isAddOwnedVehicleModalOpen}
-        onClose={() => setIsAddOwnedVehicleModalOpen(false)}
-        onSave={handleAddOwnedVehicle}
-      />
+        {/* Sub-Modals */}
+        <AddVehicleModal
+          isOpen={isAddOwnedVehicleModalOpen}
+          onClose={() => setIsAddOwnedVehicleModalOpen(false)}
+          onSave={handleAddOwnedVehicle}
+        />
 
-      <AddHiredVehicleModal
-        isOpen={isAddHiredVehicleModalOpen}
-        onClose={() => setIsAddHiredVehicleModalOpen(false)}
-        onSave={handleAddHiredVehicle}
-        selectedBrokerId={selectedBrokerId}
-        selectedBrokerName={selectedBroker?.name}
-      />
+        <AddHiredVehicleModal
+          isOpen={isAddHiredVehicleModalOpen}
+          onClose={() => setIsAddHiredVehicleModalOpen(false)}
+          onSave={handleAddHiredVehicle}
+          selectedBrokerId={selectedBrokerId}
+          selectedBrokerName={selectedBroker?.name}
+        />
 
-      <AddBrokerModal
-        isOpen={isAddBrokerModalOpen}
-        onClose={() => setIsAddBrokerModalOpen(false)}
-        onSave={handleAddBroker}
-      />
+        <AddBrokerModal
+          isOpen={isAddBrokerModalOpen}
+          onClose={() => setIsAddBrokerModalOpen(false)}
+          onSave={handleAddBroker}
+        />
 
-      <AddDriverModal
-        isOpen={isAddDriverModalOpen}
-        onClose={() => setIsAddDriverModalOpen(false)}
-        onSave={handleAddDriver}
-      />
+        <AddDriverModal
+          isOpen={isAddDriverModalOpen}
+          onClose={() => setIsAddDriverModalOpen(false)}
+          onSave={handleAddDriver}
+        />
+      </div>
     </>
   );
 };

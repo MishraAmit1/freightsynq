@@ -1,3 +1,4 @@
+// api/brokers.ts
 import { supabase } from '@/lib/supabase'
 
 // Get all brokers
@@ -12,21 +13,23 @@ export const fetchBrokers = async () => {
     console.error('Error fetching brokers:', error)
     throw error
   }
-  
+
   return data || []
 }
 
-// Create new broker
+// Create new broker - UPDATED (phone optional)
 export const createBroker = async (brokerData: {
   name: string
   contact_person: string
-  phone: string
+  phone?: string  // ✅ Optional bana diya
   email?: string
+  city?: string
 }) => {
   const { data, error } = await supabase
     .from('brokers')
     .insert([{
       ...brokerData,
+      phone: brokerData.phone || null,  // ✅ Handle empty phone
       status: 'ACTIVE'
     }])
     .select()
@@ -36,6 +39,6 @@ export const createBroker = async (brokerData: {
     console.error('Error creating broker:', error)
     throw error
   }
-  
+
   return data
 }

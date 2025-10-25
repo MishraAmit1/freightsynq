@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Package, Loader2, Save, X, FileText } from "lucide-react";
-import { generateLRNumber } from "@/api/bookings";
+import { getNextLRNumber } from "@/api/lr-sequences";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -39,14 +39,31 @@ export interface LRData {
 // Re-using validation functions from CreateLRModal/BookingFormModal
 const validatePickupDate = (dateString: string | undefined): string | null => {
     if (!dateString) return null;
-    const selectedDate = new Date(dateString);
+
+    // ✅ FIX: Local date banao, UTC nahi
+    const selectedDate = new Date(dateString + 'T00:00:00');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (isNaN(selectedDate.getTime())) return "Invalid date format";
-    if (selectedDate < today) return "Pickup date cannot be in the past";
+
+    // Allow 2 days in the past
+    const twoDaysAgo = new Date(today);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+    twoDaysAgo.setHours(0, 0, 0, 0);
+
+    if (isNaN(selectedDate.getTime())) {
+        return "Invalid date format";
+    }
+
+    if (selectedDate < twoDaysAgo) {
+        return "Pickup date cannot be more than 2 days in the past";
+    }
+
     const maxDate = new Date();
     maxDate.setFullYear(maxDate.getFullYear() + 1);
-    if (selectedDate > maxDate) return "Pickup date cannot be more than 1 year in the future";
+    if (selectedDate > maxDate) {
+        return "Pickup date cannot be more than 1 year in the future";
+    }
+
     return null;
 };
 
@@ -307,14 +324,14 @@ export const EditFullBookingModal = ({
     const loadNewLRNumber = async () => {
         if (!editingBooking?.lrNumber) {
             try {
-                const lrNumber = await generateLRNumber();
-                setValue("lrNumber", lrNumber);
+                const cityData = await getNextLRNumber();
+                setValue("lrNumber", cityData.lr_number);
             } catch (error) {
-                setValue("lrNumber", `LR${nextLRNumber}`);
+                console.error('Error loading LR number:', error);
+                setValue("lrNumber", `LR${nextLRNumber}`); // Fallback
             }
         }
     };
-
     const handlePickupDateChange = (date: Date | null) => {
         const isoString = date ? date.toISOString().split('T')[0] : undefined;
         const error = validatePickupDate(isoString);

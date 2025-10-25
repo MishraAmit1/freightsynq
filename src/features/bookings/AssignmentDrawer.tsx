@@ -73,15 +73,15 @@ export const AssignmentDrawer = ({ open, onClose, bookingId }: AssignmentDrawerP
     }
 
     setIsAssigning(true);
-    
+
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     toast({
       title: "Assignment Successful",
       description: "Transport has been assigned and notifications sent.",
     });
-    
+
     setIsAssigning(false);
     onClose();
   };
@@ -217,7 +217,7 @@ export const AssignmentDrawer = ({ open, onClose, bookingId }: AssignmentDrawerP
             <Label>Notification Channels</Label>
             <div className="space-y-3">
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <Checkbox
                   id="whatsapp"
                   checked={notificationChannels.includes("WHATSAPP")}
                   onCheckedChange={(checked) => handleChannelChange("WHATSAPP", !!checked)}
@@ -228,7 +228,7 @@ export const AssignmentDrawer = ({ open, onClose, bookingId }: AssignmentDrawerP
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <Checkbox
                   id="sms"
                   checked={notificationChannels.includes("SMS")}
                   onCheckedChange={(checked) => handleChannelChange("SMS", !!checked)}
@@ -239,7 +239,7 @@ export const AssignmentDrawer = ({ open, onClose, bookingId }: AssignmentDrawerP
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
+                <Checkbox
                   id="email"
                   checked={notificationChannels.includes("EMAIL")}
                   onCheckedChange={(checked) => handleChannelChange("EMAIL", !!checked)}

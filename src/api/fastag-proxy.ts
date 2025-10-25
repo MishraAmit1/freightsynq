@@ -1,6 +1,3 @@
-// This will be your backend proxy endpoint
-import { supabase } from '@/lib/supabase';
-
 export async function POST(request: Request) {
     try {
         const { vehicleNumber, bookingId } = await request.json();
