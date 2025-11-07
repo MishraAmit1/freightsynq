@@ -9,3 +9,36 @@ entrypoint = "./functions/fastag-tracker/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/fastag-tracker/*.html" ]
+
+[functions.eway-bill-test-credentials]
+enabled = true
+verify_jwt = true
+import_map = "./functions/eway-bill-test-credentials/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/eway-bill-test-credentials/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/eway-bill-test-credentials/*.html" ]
+
+[functions.eway-bill-generate]
+enabled = true
+verify_jwt = true
+import_map = "./functions/eway-bill-generate/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/eway-bill-generate/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/eway-bill-generate/*.html" ]
+
+[functions.get-eway-bill-details]
+enabled = true
+verify_jwt = true
+import_map = "./functions/get-eway-bill-details/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/get-eway-bill-details/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/get-eway-bill-details/*.html" ]

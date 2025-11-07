@@ -15,6 +15,7 @@ export interface BookingData {
   lr_date?: string
   bilti_number?: string;
   invoice_number?: string;
+  eway_bill_details?: any[]
   created_at: string
   current_warehouse?: {
     id?: string
@@ -76,7 +77,6 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
   }
 
   const transformedData = (data || []).map(booking => {
-    // Find only ACTIVE assignments
     const activeAssignment = (booking.vehicle_assignments || []).find(va => va.status === 'ACTIVE');
 
     let vehicle = null;
@@ -94,6 +94,9 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
       ...booking,
       consignor_name: booking.consignor?.name || 'Unknown',
       consignee_name: booking.consignee?.name || 'Unknown',
+      eway_bill_details: booking.eway_bill_details || [], // ✅ ADD THIS LINE
+      material_description: booking.material_description || '',
+      cargo_units: booking.cargo_units || '',
       current_warehouse: booking.current_warehouse ? {
         id: booking.current_warehouse.id,
         name: booking.current_warehouse.name,
@@ -107,7 +110,7 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
           capacity: vehicle.capacity
         },
         driver: activeAssignment.driver,
-        broker: broker
+        broker: broker,
       }] : []
     };
   });
@@ -124,6 +127,9 @@ export const createBooking = async (bookingData: {
   pickup_date?: string
   material_description: string;
   cargo_units: string;
+  bilti_number?: string | null;           // ✅ NEW
+  invoice_number?: string | null;         // ✅ NEW
+  eway_bill_details?: any[];              // ✅ NEW
 }) => {
   // Get current user ID
   const { data: { user } } = await supabase.auth.getUser();
@@ -143,7 +149,10 @@ export const createBooking = async (bookingData: {
       ...bookingData,
       booking_id,
       status: 'DRAFT',
-      created_by: user.id // ADD THIS LINE
+      created_by: user.id,
+      bilti_number: bookingData.bilti_number || null,           // ✅ NEW
+      invoice_number: bookingData.invoice_number || null,       // ✅ NEW
+      eway_bill_details: bookingData.eway_bill_details || []    // ✅ NEW
     }])
     .select()
     .single()
@@ -532,6 +541,7 @@ export const updateBookingLR = async (bookingId: string, lrData: {
   invoice_number?: string | null
   material_description?: string | null
   cargo_units?: string | null
+  eway_bill_details?: any[]
 }) => {
   const payload = {
     lr_number: lrData.lrNumber ?? lrData.lr_number ?? null,
@@ -540,6 +550,7 @@ export const updateBookingLR = async (bookingId: string, lrData: {
     invoice_number: lrData.invoiceNumber ?? lrData.invoice_number ?? null,
     material_description: lrData.materialDescription ?? lrData.material_description ?? null,
     cargo_units: lrData.cargoUnitsString ?? lrData.cargo_units ?? null,
+    eway_bill_details: lrData.ewayBillDetails ?? lrData.eway_bill_details ?? []
   };
 
   const { data, error } = await supabase

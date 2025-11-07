@@ -42,13 +42,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
+import { formatValidityDate } from '@/api/ewayBill';
 import { cn } from "@/lib/utils";
 import {
   Plus,
   Search,
   Filter,
   Eye,
+  AlertTriangle,
   MapPin,
   Truck,
   FileText,
@@ -125,6 +126,7 @@ interface Booking {
   lrDate?: string;
   bilti_number?: string;
   invoice_number?: string;
+  eway_bill_details?: any[];
   shipmentStatus: "AT_WAREHOUSE" | "IN_TRANSIT" | "DELIVERED";
   current_warehouse?: {
     id?: string;
@@ -307,7 +309,6 @@ export const BookingList = () => {
       setDeletingBookingId(null);
     }
   };
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -332,6 +333,7 @@ export const BookingList = () => {
         lrDate: booking.lr_date,
         bilti_number: booking.bilti_number,
         invoice_number: booking.invoice_number,
+        eway_bill_details: booking.eway_bill_details || [],
         shipmentStatus: "AT_WAREHOUSE",
         current_warehouse: booking.current_warehouse,
         assignedVehicle: booking.vehicle_assignments && booking.vehicle_assignments.length > 0 ? {
@@ -379,7 +381,6 @@ export const BookingList = () => {
       });
     }
   };
-
   const handleWarehouseChange = async (bookingId: string, warehouseId: string, warehouseName: string) => {
     try {
       if (warehouseId === 'remove') {
@@ -405,7 +406,6 @@ export const BookingList = () => {
       });
     }
   };
-
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = booking.bookingId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.consignorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -413,7 +413,6 @@ export const BookingList = () => {
     const matchesStatus = statusFilter === "ALL" || booking.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
   const handleVehicleAssignment = async (bookingId: string, vehicleAssignment: any) => {
     try {
       await loadData();
@@ -430,7 +429,6 @@ export const BookingList = () => {
       });
     }
   };
-
   const handleSaveLR = async (bookingId: string, lrData: LRData) => {
     try {
       await updateBookingLR(bookingId, {
@@ -439,7 +437,8 @@ export const BookingList = () => {
         bilti_number: lrData.biltiNumber,
         invoice_number: lrData.invoiceNumber,
         material_description: lrData.materialDescription,
-        cargo_units: lrData.cargoUnitsString
+        cargo_units: lrData.cargoUnitsString,
+        eway_bill_details: lrData.ewayBillDetails
       });
 
       await loadData();
@@ -978,30 +977,98 @@ export const BookingList = () => {
                         </TableCell>
 
                         {/* LR Status */}
+                        {/* LR Status - UPDATED WITH E-WAY BILL DISPLAY */}
                         <TableCell>
                           {booking.lrNumber ? (
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white text-xs">
-                                <FileText className="w-3 h-3 mr-1" />
-                                {booking.lrNumber}
-                              </Badge>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleDownloadLR(booking)}
-                                      className="h-7 w-7 hover:bg-primary/10"
-                                    >
-                                      <Download className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Download LR PDF</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                            <div className="space-y-2">
+                              {/* LR Badge */}
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white text-xs">
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  {booking.lrNumber}
+                                </Badge>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDownloadLR(booking)}
+                                        className="h-7 w-7 hover:bg-primary/10"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Download LR PDF</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+
+                              {/* ✅ NEW: E-way Bill Badges */}
+                              {booking.eway_bill_details && booking.eway_bill_details.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {booking.eway_bill_details.map((ewb: any, index: number) => {
+                                    const { formatted, isExpired, isExpiringSoon } = formatValidityDate(ewb.valid_until);
+
+                                    return (
+                                      <TooltipProvider key={index}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge
+                                              variant={isExpired ? "destructive" : isExpiringSoon ? "outline" : "secondary"}
+                                              className={cn(
+                                                "text-xs cursor-help",
+                                                isExpired && "bg-red-100 text-red-700 border-red-300",
+                                                isExpiringSoon && "bg-orange-100 text-orange-700 border-orange-300",
+                                                !isExpired && !isExpiringSoon && "bg-green-100 text-green-700 border-green-300"
+                                              )}
+                                            >
+                                              {isExpired ? (
+                                                <XCircle className="w-3 h-3 mr-1" />
+                                              ) : isExpiringSoon ? (
+                                                <AlertTriangle className="w-3 h-3 mr-1" />
+                                              ) : (
+                                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                              )}
+                                              {ewb.number}
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <div className="text-xs space-y-1.5">
+                                              <p className="font-semibold text-sm">E-way Bill: {ewb.number}</p>
+                                              <div className="space-y-0.5">
+                                                <p className={cn(
+                                                  "font-medium",
+                                                  isExpired && "text-red-600",
+                                                  isExpiringSoon && "text-orange-600",
+                                                  !isExpired && !isExpiringSoon && "text-green-600"
+                                                )}>
+                                                  {isExpired ? '❌ Expired' : isExpiringSoon ? '⏰ Expiring Soon' : '✅ Valid'}
+                                                </p>
+                                                <p>Valid until: {formatted}</p>
+                                              </div>
+                                              {ewb.vehicle_number && (
+                                                <p className="text-muted-foreground">Vehicle: {ewb.vehicle_number}</p>
+                                              )}
+                                              {ewb.from_trade_name && ewb.to_trade_name && (
+                                                <div className="pt-1 border-t">
+                                                  <p className="text-muted-foreground">From: {ewb.from_trade_name}</p>
+                                                  <p className="text-muted-foreground">To: {ewb.to_trade_name}</p>
+                                                </div>
+                                              )}
+                                              {ewb.is_mock && (
+                                                <p className="text-orange-600 pt-1 border-t">⚠️ Test Data (Sandbox)</p>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    );
+                                  })}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
@@ -1118,7 +1185,24 @@ export const BookingList = () => {
         isOpen={lrModal.isOpen}
         onClose={() => setLrModal({ isOpen: false, bookingId: "" })}
         onSave={handleSaveLR}
-        booking={filteredBookings.find(b => b.id === lrModal.bookingId) || null}
+        booking={(() => {
+          const foundBooking = filteredBookings.find(b => b.id === lrModal.bookingId);
+          if (!foundBooking) return null;
+
+          // ✅ Ensure all E-way bill data is passed
+          return {
+            id: foundBooking.id,
+            bookingId: foundBooking.bookingId,
+            fromLocation: foundBooking.fromLocation,
+            toLocation: foundBooking.toLocation,
+            lrNumber: foundBooking.lrNumber,
+            bilti_number: foundBooking.bilti_number,
+            invoice_number: foundBooking.invoice_number,
+            materialDescription: foundBooking.materialDescription,
+            cargoUnits: foundBooking.cargoUnits,
+            eway_bill_details: foundBooking.eway_bill_details || [] // ✅ IMPORTANT
+          };
+        })()}
         nextLRNumber={nextLRNumber}
       />
 

@@ -1,0 +1,204 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+function parseWhitebooksToDate(dateStr: string): Date {
+  const parts = dateStr.trim().split(' ');
+  const [day, month, year] = parts[0].split('/').map(Number);
+  const timePart = parts[1] || '23:59:59';
+  const meridiem = parts[2];
+
+  let [hours, minutes, seconds] = timePart.split(':').map(Number);
+
+  if (meridiem?.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+  if (meridiem?.toUpperCase() === 'AM' && hours === 12) hours = 0;
+
+  return new Date(year, month - 1, day, hours, minutes || 59, seconds || 59);
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { eway_bill_number } = await req.json();
+
+    if (!eway_bill_number || eway_bill_number.length !== 12) {
+      throw new Error('Invalid E-way bill number. Must be 12 digits.');
+    }
+
+    const WHITEBOOKS_CLIENT_ID = Deno.env.get('WHITEBOOKS_CLIENT_ID');
+    const WHITEBOOKS_CLIENT_SECRET = Deno.env.get('WHITEBOOKS_CLIENT_SECRET');
+    const WHITEBOOKS_BASE_URL = 'https://apisandbox.whitebooks.in';
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: req.headers.get('Authorization')! }
+        }
+      }
+    );
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const { data: userData } = await supabaseClient
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!userData?.company_id) throw new Error('Company not found');
+
+    const { data: company } = await supabaseClient
+      .from('companies')
+      .select('gst_number')
+      .eq('id', userData.company_id)
+      .single();
+
+    if (!company?.gst_number) {
+      throw new Error('Company GSTIN not configured');
+    }
+
+    const { data: settings } = await supabaseClient
+      .from('company_settings')
+      .select('gst_email')
+      .eq('company_id', userData.company_id)
+      .single();
+
+    if (!settings?.gst_email) {
+      throw new Error('E-way bill credentials not configured');
+    }
+
+    console.log('📋 Fetching E-way bill:', eway_bill_number);
+
+    const ewayUrl = `${WHITEBOOKS_BASE_URL}/ewaybillapi/v1.03/ewayapi/getewaybill?` +
+      `email=${encodeURIComponent(settings.gst_email)}&` +
+      `ewbNo=${eway_bill_number}`;
+
+    const response = await fetch(ewayUrl, {
+      method: 'GET',
+      headers: {
+        'ip_address': '127.0.0.1',
+        'client_id': WHITEBOOKS_CLIENT_ID,
+        'client_secret': WHITEBOOKS_CLIENT_SECRET,
+        'gstin': company.gst_number
+      }
+    });
+
+    const result = await response.json();
+    console.log('📥 Whitebooks raw response:', JSON.stringify(result, null, 2));
+
+    if (result.status_cd === '1' && result.data) {
+      const ewayBillData = result.data;
+
+      // ✅ COMPLETE MAPPING - Extract ALL fields
+      const details = {
+        number: eway_bill_number,
+        valid_until: ewayBillData.validUpto,
+        generated_date: ewayBillData.ewayBillDate,
+
+        // ✅ FROM Details (Consignor)
+        from_gstin: ewayBillData.fromGstin,
+        from_trade_name: ewayBillData.fromTrdName,
+        from_addr1: ewayBillData.fromAddr1,
+        from_addr2: ewayBillData.fromAddr2,
+        from_place: ewayBillData.fromPlace,              // ✅ City
+        from_state_code: ewayBillData.fromStateCode,
+        from_pincode: ewayBillData.fromPincode,
+
+        // ✅ TO Details (Consignee)
+        to_gstin: ewayBillData.toGstin,
+        to_trade_name: ewayBillData.toTrdName,
+        to_addr1: ewayBillData.toAddr1,
+        to_addr2: ewayBillData.toAddr2,
+        to_place: ewayBillData.toPlace,                  // ✅ City
+        to_state_code: ewayBillData.toStateCode,
+        to_pincode: ewayBillData.toPincode,
+
+        // Document Details
+        document_number: ewayBillData.docNo,
+        document_date: ewayBillData.docDate,
+        document_type: ewayBillData.docType,
+
+        // Vehicle Details
+        vehicle_number: ewayBillData.VehiclListDetails?.[0]?.vehicleNo || ewayBillData.vehicleNo,
+        vehicle_type: ewayBillData.vehicleType,
+        transporter_name: ewayBillData.transporterName,
+        transporter_id: ewayBillData.transporterId,
+        transport_mode: ewayBillData.transMode,
+        transport_distance: ewayBillData.transDistance,
+
+        // Value Details
+        total_value: ewayBillData.totInvValue,
+        taxable_value: ewayBillData.totalValue,
+        cgst_value: ewayBillData.cgstValue,
+        sgst_value: ewayBillData.sgstValue,
+        igst_value: ewayBillData.igstValue,
+        cess_value: ewayBillData.cessValue,
+
+        // Status
+        status: ewayBillData.status || 'ACTIVE',
+        fetched_at: new Date().toISOString(),
+
+        // ✅ Complete raw data for reference
+        raw_data: ewayBillData
+      };
+
+      // Check if expired
+      const validUntil = parseWhitebooksToDate(details.valid_until);
+      const now = new Date();
+      if (validUntil < now) {
+        details.status = 'EXPIRED';
+      }
+
+      console.log('✅ E-way bill details extracted:');
+      console.log('   From City:', details.from_place);
+      console.log('   To City:', details.to_place);
+      console.log('   Valid Until:', details.valid_until);
+      console.log('   Status:', details.status);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: details
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      );
+    } else {
+      console.log('⚠️ API returned error');
+      console.log('   Status Code:', result.status_cd);
+      console.log('   Error:', result.error || result.status_desc);
+
+      throw new Error(
+        result.error?.message ||
+        result.status_desc ||
+        JSON.stringify(result.errorCodes || {}) ||
+        'E-way bill not found or invalid'
+      );
+    }
+
+  } catch (error: any) {
+    console.error('❌ Error:', error.message);
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      }
+    );
+  }
+});

@@ -24,11 +24,21 @@ import { EmployeeSignup } from "./pages/EmployeeSignup";
 import { Profile } from "./components/Profile";
 import { LRTemplateSettings } from "./pages/LRTemplateSettings";
 import Drivers from "./pages/Drivers";
+import { CompanyProfile } from "./pages/CompanyProfile";
+import { VerificationPending } from "./pages/VerificationPending";
+import { VerifyEmail } from "./pages/VerifyEmail";
+import { SetupChecker } from "./components/guards/SetupChecker";
+
+// ✅ NEW IMPORTS - Super Admin Pages
+import { CreateInvites } from "./pages/super-admin/CreateInvites";
+import { ManageCompanies } from "./pages/super-admin/ManageCompanies";
+import { SystemStats } from "./pages/super-admin/SystemStats";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 2,
-      staleTime: 5 * 60 * 1000, // 5 minutes
+      staleTime: 5 * 60 * 1000,
     },
   },
 });
@@ -50,31 +60,47 @@ const App = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/employee-signup" element={<EmployeeSignup />} />
+              <Route path="/verification-pending" element={<VerificationPending />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+
               {/* Protected Routes */}
               <Route path="/*" element={
                 <ProtectedRoute>
-                  <MainLayout>
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/bookings" element={<BookingList />} />
-                      <Route path="/bookings/:id" element={<BookingDetail />} />
-                      <Route path="/vehicles" element={<VehicleManagement />} />
-                      <Route path="/brokers" element={<Broker />} />
-                      <Route path="/drivers" element={<Drivers />} />
-                      <Route path="/customers" element={<Customers />} />
-                      <Route path="/lr-template-settings" element={<LRTemplateSettings />} />
-                      <Route path="/warehouses" element={<WarehouseList />} />
-                      <Route path="/warehouses/:id" element={<WarehouseDetails />} />
-                      <Route path="/company-settings" element={
-                        <AdminRoute>
-                          <CompanySettings />
-                        </AdminRoute>
-                      } />
-                      <Route path="*" element={<NotFound />} />
+                  <SetupChecker>
+                    <MainLayout>
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/bookings" element={<BookingList />} />
+                        <Route path="/bookings/:id" element={<BookingDetail />} />
+                        <Route path="/vehicles" element={<VehicleManagement />} />
+                        <Route path="/brokers" element={<Broker />} />
+                        <Route path="/drivers" element={<Drivers />} />
+                        <Route path="/customers" element={<Customers />} />
+                        <Route path="/lr-template-settings" element={<LRTemplateSettings />} />
+                        <Route path="/warehouses" element={<WarehouseList />} />
+                        <Route path="/warehouses/:id" element={<WarehouseDetails />} />
 
-                    </Routes>
-                  </MainLayout>
+                        <Route path="/company-settings" element={
+                          <AdminRoute>
+                            <CompanySettings />
+                          </AdminRoute>
+                        } />
+                        <Route path="/company-profile" element={
+                          <AdminRoute>
+                            <CompanyProfile />
+                          </AdminRoute>
+                        } />
+
+                        {/* ✅ NEW - Super Admin Routes */}
+                        <Route path="/super-admin/invites" element={<CreateInvites />} />
+                        <Route path="/super-admin/companies" element={<ManageCompanies />} />
+                        <Route path="/super-admin/stats" element={<SystemStats />} />
+
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </MainLayout>
+                  </SetupChecker>
                 </ProtectedRoute>
               } />
             </Routes>

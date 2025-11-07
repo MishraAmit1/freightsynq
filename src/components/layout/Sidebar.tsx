@@ -1,3 +1,4 @@
+// src/components/layout/Sidebar.tsx - UPDATED VERSION
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -8,17 +9,19 @@ import {
   UsersRound,
   UserRoundPlus,
   Building2,
-  Menu,
   X,
   ChevronsLeft,
   ChevronsRight,
-  PanelLeftClose,
-  PanelLeft,
-  UserCog // ✅ NEW ICON
+  UserCog,
+  Shield, // ✅ NEW
+  Plus, // ✅ NEW
+  Building, // ✅ NEW
+  TrendingUp, // ✅ NEW
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator"; // ✅ NEW
 import {
   Tooltip,
   TooltipContent,
@@ -40,17 +43,17 @@ export const Sidebar = ({
   onToggleCollapse
 }: SidebarProps) => {
   const location = useLocation();
-  const { userProfile, company } = useAuth();
+  const { userProfile, company, isSuperAdmin } = useAuth(); // ✅ ADDED isSuperAdmin
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // ✅ ADDED "Drivers" TO NAVIGATION
+  // Regular navigation items
   const navigation = [
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Customers", href: "/customers", icon: UsersRound },
     { name: "Bookings", href: "/bookings", icon: FileText },
     { name: "Broker", href: "/brokers", icon: UserRoundPlus },
     { name: "Vehicles", href: "/vehicles", icon: Truck },
-    { name: "Drivers", href: "/drivers", icon: UserCog }, // ✅ NEW ITEM
+    { name: "Drivers", href: "/drivers", icon: UserCog },
     { name: "Warehouses", href: "/warehouses", icon: Warehouse },
     {
       name: "Company Settings",
@@ -60,7 +63,13 @@ export const Sidebar = ({
     },
   ];
 
-  // ... (rest of the component remains the same)
+  // ✅ SUPER ADMIN NAVIGATION ITEMS
+  const superAdminNavigation = [
+    { name: "Create Invites", href: "/super-admin/invites", icon: Plus },
+    { name: "Manage Companies", href: "/super-admin/companies", icon: Building },
+    { name: "System Stats", href: "/super-admin/stats", icon: TrendingUp },
+  ];
+
   const filteredNavigation = navigation.filter(item => {
     if (item.adminOnly && userProfile?.role !== 'admin') {
       return false;
@@ -69,6 +78,80 @@ export const Sidebar = ({
   });
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+
+  // ✅ RENDER NAVIGATION LINK FUNCTION
+  const renderNavLink = (item: any, index: number) => {
+    const isActive = location.pathname === item.href ||
+      (item.href !== "/" && location.pathname.startsWith(item.href));
+
+    const linkContent = (
+      <NavLink
+        key={item.name}
+        to={item.href}
+        onMouseEnter={() => setHoveredItem(item.name)}
+        onMouseLeave={() => setHoveredItem(null)}
+        onClick={() => {
+          if (window.innerWidth < 1024) {
+            onClose?.();
+          }
+        }}
+        className={cn(
+          "flex items-center rounded-lg text-sm font-medium transition-all duration-200 relative group",
+          !isMobile && isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
+          isActive
+            ? "bg-primary text-primary-foreground shadow-md scale-[1.02]"
+            : "text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-[1.02]",
+          hoveredItem === item.name && !isActive && "bg-muted/50"
+        )}
+        style={{
+          animationDelay: `${index * 50}ms`
+        }}
+      >
+        {isActive && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-r-full animate-in slide-in-from-left duration-300" />
+        )}
+
+        <item.icon className={cn(
+          "w-5 h-5 flex-shrink-0 transition-transform duration-200",
+          hoveredItem === item.name && "rotate-6 scale-110"
+        )} />
+        {(!isCollapsed || isMobile) && (
+          <span className="animate-in slide-in-from-left-2 duration-300">
+            {item.name}
+          </span>
+        )}
+
+        {!isActive && hoveredItem === item.name && (
+          <div className="absolute right-2 w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+        )}
+      </NavLink>
+    );
+
+    if (!isMobile && isCollapsed) {
+      return (
+        <Tooltip key={item.name}>
+          <TooltipTrigger asChild>
+            <div className="animate-in fade-in duration-300" style={{ animationDelay: `${index * 50}ms` }}>
+              {linkContent}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="ml-2 animate-in zoom-in-90 duration-200">
+            <p>{item.name}</p>
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <div
+        key={item.name}
+        className="animate-in fade-in slide-in-from-left-2 duration-300"
+        style={{ animationDelay: `${index * 50}ms` }}
+      >
+        {linkContent}
+      </div>
+    );
+  };
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -113,13 +196,29 @@ export const Sidebar = ({
               "flex items-center transition-all duration-300",
               !isMobile && isCollapsed ? "justify-center" : "space-x-3"
             )}>
-              <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary-hover rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg animate-in zoom-in-50 duration-300">
-                <Truck className="w-5 h-5 text-primary-foreground" />
-              </div>
+              {company?.logo_url ? (
+                <img
+                  src={company.logo_url}
+                  alt={company.name || 'Company Logo'}
+                  className={cn(
+                    "object-contain rounded-full shadow-lg animate-in zoom-in-50 duration-300",
+                    !isMobile && isCollapsed ? "w-10 h-10" : "w-10 h-10"
+                  )}
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-hover rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg animate-in zoom-in-50 duration-300">
+                  <Building2 className="w-5 h-5 text-primary-foreground" />
+                </div>
+              )}
+
               {(!isCollapsed || isMobile) && (
                 <div className="overflow-hidden animate-in slide-in-from-left-2 duration-300">
-                  <h1 className="text-xl font-bold text-foreground">FreightSynq</h1>
-                  <p className="text-xs text-muted-foreground">Booking Service</p>
+                  <h1 className="text-lg font-bold text-foreground truncate max-w-[180px]">
+                    {company?.name || 'FreightSynQ'}
+                  </h1>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {company?.company_type || 'Logistics'} Platform
+                  </p>
                 </div>
               )}
             </div>
@@ -139,78 +238,30 @@ export const Sidebar = ({
           "flex-1 py-6 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent",
           !isMobile && isCollapsed ? "px-3" : "px-4"
         )}>
-          {filteredNavigation.map((item, index) => {
-            const isActive = location.pathname === item.href ||
-              (item.href !== "/" && location.pathname.startsWith(item.href));
+          {/* Regular Navigation */}
+          {filteredNavigation.map((item, index) => renderNavLink(item, index))}
 
-            const linkContent = (
-              <NavLink
-                key={item.name}
-                to={item.href}
-                onMouseEnter={() => setHoveredItem(item.name)}
-                onMouseLeave={() => setHoveredItem(null)}
-                onClick={() => {
-                  if (window.innerWidth < 1024) {
-                    onClose?.();
-                  }
-                }}
-                className={cn(
-                  "flex items-center rounded-lg text-sm font-medium transition-all duration-200 relative group",
-                  !isMobile && isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-md scale-[1.02]"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-[1.02]",
-                  hoveredItem === item.name && !isActive && "bg-muted/50"
-                )}
-                style={{
-                  animationDelay: `${index * 50}ms`
-                }}
-              >
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-r-full animate-in slide-in-from-left duration-300" />
-                )}
+          {/* ✅ SUPER ADMIN SECTION */}
+          {isSuperAdmin && (
+            <>
+              <Separator className="my-4" />
 
-                <item.icon className={cn(
-                  "w-5 h-5 flex-shrink-0 transition-transform duration-200",
-                  hoveredItem === item.name && "rotate-6 scale-110"
-                )} />
-                {(!isCollapsed || isMobile) && (
-                  <span className="animate-in slide-in-from-left-2 duration-300">
-                    {item.name}
+              {/* Super Admin Label */}
+              {(!isCollapsed || isMobile) && (
+                <div className="px-4 py-2 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-orange-500" />
+                  <span className="text-xs font-semibold text-orange-500 uppercase tracking-wider">
+                    Super Admin
                   </span>
-                )}
+                </div>
+              )}
 
-                {!isActive && hoveredItem === item.name && (
-                  <div className="absolute right-2 w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                )}
-              </NavLink>
-            );
-
-            if (!isMobile && isCollapsed) {
-              return (
-                <Tooltip key={item.name}>
-                  <TooltipTrigger asChild>
-                    <div className="animate-in fade-in duration-300" style={{ animationDelay: `${index * 50}ms` }}>
-                      {linkContent}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="ml-2 animate-in zoom-in-90 duration-200">
-                    <p>{item.name}</p>
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
-
-            return (
-              <div
-                key={item.name}
-                className="animate-in fade-in slide-in-from-left-2 duration-300"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                {linkContent}
-              </div>
-            );
-          })}
+              {/* Super Admin Menu Items */}
+              {superAdminNavigation.map((item, index) =>
+                renderNavLink(item, filteredNavigation.length + index)
+              )}
+            </>
+          )}
         </nav>
 
         <div className={cn(
@@ -233,6 +284,9 @@ export const Sidebar = ({
                     {userProfile?.role === 'admin' ? 'Administrator' :
                       userProfile?.role === 'manager' ? 'Manager' : 'Operator'}
                   </p>
+                  {isSuperAdmin && (
+                    <p className="text-xs text-orange-500 font-medium mt-1">🔐 Super Admin</p>
+                  )}
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -251,6 +305,9 @@ export const Sidebar = ({
                   {userProfile?.role === 'admin' ? 'Administrator' :
                     userProfile?.role === 'manager' ? 'Manager' : 'Operator'}
                 </p>
+                {isSuperAdmin && (
+                  <p className="text-xs text-orange-500 font-medium">🔐 Super Admin</p>
+                )}
               </div>
             </div>
           )}

@@ -353,12 +353,6 @@ export const EmployeeSignup = () => {
                                 Sign in
                             </Link>
                         </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                            Need to register a new company?{' '}
-                            <Link to="/signup" className="text-primary hover:underline">
-                                Company Registration
-                            </Link>
-                        </p>
                     </div>
                 </CardContent>
             </Card>

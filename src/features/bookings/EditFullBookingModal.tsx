@@ -19,13 +19,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Package, Loader2, Save, X, FileText } from "lucide-react";
+import { Plus, Trash2, Package, Loader2, Save, X, FileText, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { getNextLRNumber } from "@/api/lr-sequences";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-
+import { fetchEwayBillDetails, formatValidityDate } from '@/api/ewayBill';
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 // Update the LRData interface
 export interface LRData {
     lrNumber?: string;
@@ -34,6 +35,7 @@ export interface LRData {
     invoiceNumber?: string; // This will store comma-separated invoice numbers
     cargoUnitsString: string;
     materialDescription: string;
+    ewayBillDetails?: any[];
 }
 
 // Re-using validation functions from CreateLRModal/BookingFormModal
@@ -169,7 +171,15 @@ export const EditFullBookingModal = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [pickupDateError, setPickupDateError] = useState<string | null>(null);
     const [lrDateError, setLrDateError] = useState<string | null>(null);
-
+    const [ewayBillValidations, setEwayBillValidations] = useState<{
+        [key: number]: {
+            loading: boolean;
+            valid: boolean;
+            validUntil?: string;
+            details?: any;
+            error?: string;
+        }
+    }>({});
     const {
         register,
         control,
@@ -239,7 +249,6 @@ export const EditFullBookingModal = ({
             setValue("toLocation", editingBooking.toLocation);
             setValue("serviceType", editingBooking.serviceType);
             setValue("pickupDate", editingBooking.pickupDate || undefined);
-
             // LR details
             setValue("lrNumber", editingBooking.lrNumber || "");
             setValue("lrDate", editingBooking.lrDate || "");
@@ -299,6 +308,7 @@ export const EditFullBookingModal = ({
             }
             setPickupDateError(null);
             setLrDateError(null);
+            setEwayBillValidations({});
 
         } else if (isOpen) {
             reset({
@@ -317,6 +327,7 @@ export const EditFullBookingModal = ({
             loadNewLRNumber();
             setPickupDateError(null);
             setLrDateError(null);
+            setEwayBillValidations({});
         }
     }, [isOpen, editingBooking, setValue, reset]);
 
@@ -373,7 +384,77 @@ export const EditFullBookingModal = ({
             return `${item.quantity} ${unitType} - ${item.material_description}`;
         }).join('\n');
     };
+    // ✅ ADD THIS FUNCTION
+    const validateEwayBill = async (ewayBillNumber: string, index: number) => {
+        if (!ewayBillNumber || ewayBillNumber.length !== 12) {
+            setEwayBillValidations(prev => {
+                const updated = { ...prev };
+                delete updated[index];
+                return updated;
+            });
+            return;
+        }
 
+        setEwayBillValidations(prev => ({
+            ...prev,
+            [index]: { loading: true, valid: false }
+        }));
+
+        try {
+            const response = await fetchEwayBillDetails(ewayBillNumber);
+
+            if (response.success && response.data) {
+                const { isExpired, isExpiringSoon, formatted } = formatValidityDate(response.data.valid_until);
+
+                setEwayBillValidations(prev => ({
+                    ...prev,
+                    [index]: {
+                        loading: false,
+                        valid: !isExpired,
+                        validUntil: formatted,
+                        details: response.data,
+                        error: isExpired ? 'E-way bill has expired' : undefined
+                    }
+                }));
+
+                if (isExpired) {
+                    toast({
+                        title: "⚠️ E-way Bill Expired",
+                        description: `E-way bill ${ewayBillNumber} expired on ${formatted}`,
+                        variant: "destructive",
+                    });
+                } else if (isExpiringSoon) {
+                    toast({
+                        title: "⏰ E-way Bill Expiring Soon",
+                        description: `Valid until ${formatted}`,
+                        variant: "default",
+                    });
+                } else {
+                    toast({
+                        title: "✅ E-way Bill Valid",
+                        description: `Valid until ${formatted}`,
+                    });
+                }
+            }
+        } catch (error: any) {
+            console.error('E-way bill validation error:', error);
+
+            setEwayBillValidations(prev => ({
+                ...prev,
+                [index]: {
+                    loading: false,
+                    valid: false,
+                    error: error.message || 'Failed to validate E-way bill'
+                }
+            }));
+
+            toast({
+                title: "❌ Validation Failed",
+                description: error.message || "Could not validate E-way bill",
+                variant: "destructive",
+            });
+        }
+    };
     const onSubmit = async (data: FullBookingFormData) => {
         setIsSubmitting(true);
 
@@ -383,15 +464,47 @@ export const EditFullBookingModal = ({
                 setIsSubmitting(false);
                 return;
             }
+            const ewayBillsToValidate = data.documents
+                .map((doc, index) => ({ number: doc.ewayBill, index }))
+                .filter(item => item.number && item.number.length === 12);
+            for (const item of ewayBillsToValidate) {
+                if (!ewayBillValidations[item.index]?.details) {
+                    toast({
+                        title: "⏳ Validating E-way Bills",
+                        description: "Please wait while we validate all E-way bills...",
+                    });
+                    await validateEwayBill(item.number, item.index);
+                }
+            }
+            const hasInvalidEwayBills = ewayBillsToValidate.some(item => {
+                const validation = ewayBillValidations[item.index];
+                return !validation || !validation.details;
+            });
+            if (hasInvalidEwayBills) {
+                toast({
+                    title: "❌ Validation Incomplete",
+                    description: "Please wait for all E-way bills to be validated before saving",
+                    variant: "destructive",
+                });
+                setIsSubmitting(false);
+                return;
+            }
+            const ewayBillDetailsArray = data.documents
+                .map((doc, index) => {
+                    if (doc.ewayBill && ewayBillValidations[index]?.details) {
+                        return ewayBillValidations[index].details;
+                    }
+                    return null;
+                })
+                .filter(Boolean);
 
-            // Validate general booking fields
+            console.log('💾 Saving E-way bill details:', ewayBillDetailsArray);
             const pickupDateValidationError = validatePickupDate(data.pickupDate);
             if (pickupDateValidationError) {
                 toast({ title: "Validation Error", description: pickupDateValidationError, variant: "destructive" });
                 setIsSubmitting(false);
                 return;
             }
-
             // Check if LR data is being provided (lrNumber is present and not empty)
             const isLRDataProvided = !!data.lrNumber?.trim();
 
@@ -454,7 +567,8 @@ export const EditFullBookingModal = ({
                 biltiNumber: ewayBillsString || undefined,
                 invoiceNumber: invoicesString || undefined,
                 cargoUnitsString: units,
-                materialDescription: materials
+                materialDescription: materials,
+                ewayBillDetails: ewayBillDetailsArray
             };
 
             await onSave(editingBooking.id, generalData, lrData);
@@ -470,6 +584,7 @@ export const EditFullBookingModal = ({
         reset();
         setPickupDateError(null);
         setLrDateError(null);
+        setEwayBillValidations({});
         onClose();
     };
 
@@ -633,6 +748,7 @@ export const EditFullBookingModal = ({
                         </div>
 
                         {/* E-way Bills and Invoices */}
+                        {/* E-way Bills and Invoices - UPDATED WITH VALIDATION */}
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <Label className="flex items-center gap-2">
@@ -652,46 +768,120 @@ export const EditFullBookingModal = ({
                             </div>
 
                             <div className="space-y-2">
-                                {documentFields.map((field, index) => (
-                                    <div key={field.id} className="flex gap-2">
-                                        <div className="flex-1">
-                                            <Input
-                                                {...register(`documents.${index}.ewayBill`)}
-                                                placeholder="12-digit E-way bill (optional)"
-                                                maxLength={12}
-                                                onChange={(e) => {
-                                                    // Only allow digits
-                                                    const value = e.target.value.replace(/\D/g, '');
-                                                    setValue(`documents.${index}.ewayBill`, value);
-                                                }}
-                                                disabled={isSubmitting}
-                                            />
-                                            {errors.documents?.[index]?.ewayBill && (
-                                                <p className="text-xs text-destructive mt-1">
-                                                    {errors.documents[index]?.ewayBill?.message}
-                                                </p>
+                                {documentFields.map((field, index) => {
+                                    const validation = ewayBillValidations[index]; // ✅ NEW
+
+                                    return (
+                                        <div key={field.id} className="space-y-2"> {/* ✅ CHANGED */}
+                                            <div className="flex gap-2">
+                                                <div className="flex-1">
+                                                    <div className="relative"> {/* ✅ NEW WRAPPER */}
+                                                        <Input
+                                                            {...register(`documents.${index}.ewayBill`)}
+                                                            placeholder="12-digit E-way bill (optional)"
+                                                            maxLength={12}
+                                                            className={cn(
+                                                                "pr-10", // ✅ PADDING FOR ICON
+                                                                validation?.error && "border-destructive"
+                                                            )}
+                                                            onChange={(e) => {
+                                                                const value = e.target.value.replace(/\D/g, '');
+                                                                setValue(`documents.${index}.ewayBill`, value);
+                                                            }}
+                                                            onBlur={(e) => { // ✅ NEW
+                                                                const value = e.target.value;
+                                                                if (value && value.length === 12) {
+                                                                    validateEwayBill(value, index);
+                                                                }
+                                                            }}
+                                                            disabled={isSubmitting}
+                                                        />
+
+                                                        {/* ✅ VALIDATION ICONS */}
+                                                        {validation?.loading && (
+                                                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                            </div>
+                                                        )}
+
+                                                        {!validation?.loading && validation?.valid && (
+                                                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                            </div>
+                                                        )}
+
+                                                        {!validation?.loading && validation?.error && (
+                                                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                                                <XCircle className="w-4 h-4 text-destructive" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {errors.documents?.[index]?.ewayBill && (
+                                                        <p className="text-xs text-destructive mt-1">
+                                                            {errors.documents[index]?.ewayBill?.message}
+                                                        </p>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex-1">
+                                                    <Input
+                                                        {...register(`documents.${index}.invoice`)}
+                                                        placeholder="Invoice number (optional)"
+                                                        disabled={isSubmitting}
+                                                    />
+                                                </div>
+
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        removeDocument(index);
+                                                        // ✅ CLEAR VALIDATION
+                                                        setEwayBillValidations(prev => {
+                                                            const updated = { ...prev };
+                                                            delete updated[index];
+                                                            return updated;
+                                                        });
+                                                    }}
+                                                    disabled={documentFields.length === 1 || isSubmitting}
+                                                >
+                                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                                </Button>
+                                            </div>
+
+                                            {/* ✅ VALIDITY BADGE */}
+                                            {validation?.validUntil && (
+                                                <div className="flex items-center gap-2 px-2">
+                                                    <Badge
+                                                        variant={validation.valid ? "default" : "destructive"}
+                                                        className="text-xs"
+                                                    >
+                                                        {validation.valid ? (
+                                                            <>
+                                                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                Valid until: {validation.validUntil}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <XCircle className="w-3 h-3 mr-1" />
+                                                                Expired: {validation.validUntil}
+                                                            </>
+                                                        )}
+                                                    </Badge>
+
+                                                    {validation.details?.is_mock && (
+                                                        <Badge variant="outline" className="text-xs">
+                                                            <AlertTriangle className="w-3 h-3 mr-1" />
+                                                            Test Data
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
-
-                                        <div className="flex-1">
-                                            <Input
-                                                {...register(`documents.${index}.invoice`)}
-                                                placeholder="Invoice number (optional)"
-                                                disabled={isSubmitting}
-                                            />
-                                        </div>
-
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => removeDocument(index)}
-                                            disabled={documentFields.length === 1 || isSubmitting}
-                                        >
-                                            <Trash2 className="w-4 h-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 

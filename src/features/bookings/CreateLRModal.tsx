@@ -1,6 +1,5 @@
-// components/CreateLRModal.tsx (COMPLETE UPDATED VERSION)
 import { useState, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -22,12 +21,14 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Package, FileText, Loader2, MapPin, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Package, FileText, Loader2, MapPin, AlertCircle, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-// ✅ NEW IMPORT
+import { fetchEwayBillDetails, formatValidityDate } from '@/api/ewayBill';
 import { getNextLRNumber, incrementLRNumber } from '@/api/lr-sequences';
+import { cn } from "@/lib/utils";
+import { LRCityQuickSetup } from "@/components/LRCityQuickSetup";
 
 // Update the LRData interface
 export interface LRData {
@@ -37,6 +38,7 @@ export interface LRData {
   invoiceNumber?: string;
   cargoUnitsString: string;
   materialDescription: string;
+  ewayBillDetails?: any[];
 }
 
 // Validate LR Date
@@ -77,6 +79,7 @@ const lrSchema = z.object({
 
 type LRFormData = z.infer<typeof lrSchema>;
 
+// ✅ UPDATED PROPS
 interface CreateLRModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -89,8 +92,11 @@ interface CreateLRModalProps {
     lrNumber?: string;
     bilti_number?: string;
     invoice_number?: string;
+    materialDescription?: string; // For fallback
+    cargoUnits?: string;         // For fallback
+    eway_bill_details?: any[];   // Main data source
   } | null;
-  nextLRNumber: number; // This won't be used anymore but keeping for compatibility
+  nextLRNumber: number;
 }
 
 export const CreateLRModal = ({
@@ -104,13 +110,25 @@ export const CreateLRModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lrDateError, setLrDateError] = useState<string | null>(null);
 
-  // ✅ NEW STATES
   const [activeLRCity, setActiveLRCity] = useState<{
     city_name: string;
     prefix: string;
     lr_number: string;
   } | null>(null);
   const [loadingLRNumber, setLoadingLRNumber] = useState(false);
+
+  const [ewayBillValidations, setEwayBillValidations] = useState<{
+    [key: number]: {
+      loading: boolean;
+      valid: boolean;
+      validUntil?: string;
+      details?: any;
+      error?: string;
+    }
+  }>({});
+
+  // ✅ ADD THIS STATE TO STORE E-WAY BILL VALUES
+  const [ewayBillValues, setEwayBillValues] = useState<{ [key: number]: string }>({});
 
   const {
     register,
@@ -120,7 +138,8 @@ export const CreateLRModal = ({
     reset,
     setValue,
     watch,
-    trigger
+    trigger,
+    getValues
   } = useForm<LRFormData>({
     resolver: zodResolver(lrSchema),
     defaultValues: {
@@ -145,6 +164,90 @@ export const CreateLRModal = ({
     control,
     name: "documents"
   });
+
+  const validateEwayBill = async (ewayBillNumber: string, index: number) => {
+    if (!ewayBillNumber || ewayBillNumber.length !== 12) {
+      setEwayBillValidations(prev => {
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+
+    // ✅ PRESERVE THE VALUE BEFORE AND AFTER VALIDATION
+    setValue(`documents.${index}.ewayBill`, ewayBillNumber);
+    setEwayBillValues(prev => ({
+      ...prev,
+      [index]: ewayBillNumber
+    }));
+
+    setEwayBillValidations(prev => ({
+      ...prev,
+      [index]: { loading: true, valid: false }
+    }));
+
+    try {
+      const response = await fetchEwayBillDetails(ewayBillNumber);
+
+      // ✅ ENSURE VALUE PERSISTS AFTER VALIDATION
+      setValue(`documents.${index}.ewayBill`, ewayBillNumber);
+
+      if (response.success && response.data) {
+        const { isExpired, isExpiringSoon, formatted } = formatValidityDate(response.data.valid_until);
+
+        setEwayBillValidations(prev => ({
+          ...prev,
+          [index]: {
+            loading: false,
+            valid: !isExpired,
+            validUntil: formatted,
+            details: response.data,
+            error: isExpired ? 'E-way bill has expired' : undefined
+          }
+        }));
+
+        if (isExpired) {
+          toast({
+            title: "⚠️ E-way Bill Expired",
+            description: `E-way bill ${ewayBillNumber} expired on ${formatted}`,
+            variant: "destructive",
+          });
+        } else if (isExpiringSoon) {
+          toast({
+            title: "⏰ E-way Bill Expiring Soon",
+            description: `Valid until ${formatted}`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "✅ E-way Bill Valid",
+            description: `Valid until ${formatted}`,
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('E-way bill validation error:', error);
+
+      // ✅ ENSURE VALUE PERSISTS EVEN ON ERROR
+      setValue(`documents.${index}.ewayBill`, ewayBillNumber);
+
+      setEwayBillValidations(prev => ({
+        ...prev,
+        [index]: {
+          loading: false,
+          valid: false,
+          error: error.message || 'Failed to validate E-way bill'
+        }
+      }));
+
+      toast({
+        title: "❌ Validation Failed",
+        description: error.message || "Could not validate E-way bill",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLRDateChange = (date: Date | null) => {
     if (date) {
@@ -190,7 +293,6 @@ export const CreateLRModal = ({
     }
   };
 
-  // ✅ NEW FUNCTION: Load LR number from active city
   const loadLRNumberFromCity = async () => {
     setLoadingLRNumber(true);
     try {
@@ -202,47 +304,149 @@ export const CreateLRModal = ({
       });
       setValue("lrNumber", cityData.lr_number);
     } catch (error: any) {
-      console.error('Error loading LR number:', error);
-      toast({
-        title: "❌ Error",
-        description: error.message || "Failed to load LR number. Please configure cities in Settings.",
-        variant: "destructive",
-      });
-      // Set a fallback
+      console.log('ℹ️ No active LR city configured');
       setActiveLRCity(null);
     } finally {
       setLoadingLRNumber(false);
     }
   };
 
-  // ✅ MODIFIED useEffect
+  const mapUnitType = (unit: string): "BOX" | "CARTOON" | "OTHERS" => {
+    if (!unit) return "BOX";
+    const upperUnit = unit.toUpperCase();
+    if (upperUnit === "BOX" || upperUnit === "BOXES" || upperUnit === "BX") return "BOX";
+    if (upperUnit === "CARTOON" || upperUnit === "CARTON" || upperUnit === "CTN") return "CARTOON";
+    if (upperUnit === "NOS" || upperUnit === "PCS" || upperUnit === "PIECES") return "OTHERS";
+    return "OTHERS";
+  };
+
   useEffect(() => {
     if (isOpen && booking) {
-      loadLRNumberFromCity(); // ✅ Call new function
+      loadLRNumberFromCity();
       setValue("lrDate", new Date().toISOString().split('T')[0]);
 
-      // Parse existing e-way bills and invoices if any
-      const ewayBills = booking.bilti_number ? booking.bilti_number.split(',').map(num => num.trim()) : [];
-      const invoices = booking.invoice_number ? booking.invoice_number.split(',').map(num => num.trim()) : [];
+      console.log('🔍 Booking received in LR Modal:', {
+        bookingId: booking.bookingId,
+        hasEwayDetails: !!booking.eway_bill_details,
+        ewayDetailsCount: booking.eway_bill_details?.length || 0,
+        ewayDetails: booking.eway_bill_details
+      });
 
-      const maxLength = Math.max(ewayBills.length, invoices.length, 1);
-      const documents = [];
+      // ✅ SMART DETECTION
+      if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
+        console.log('✅ E-way bill booking detected! Auto-filling...');
 
-      for (let i = 0; i < maxLength; i++) {
-        documents.push({
-          ewayBill: ewayBills[i] || "",
-          invoice: invoices[i] || ""
+        const documents = booking.eway_bill_details.map((ewb, idx) => {
+          const ewayBillNumber = ewb.number || '';
+          // ✅ STORE IN LOCAL STATE
+          if (ewayBillNumber) {
+            setEwayBillValues(prev => ({
+              ...prev,
+              [idx]: ewayBillNumber
+            }));
+          }
+          return {
+            ewayBill: ewayBillNumber,
+            invoice: ewb.document_number || ''
+          };
         });
+
+        setValue("documents", documents);
+
+        const firstEway = booking.eway_bill_details[0];
+
+        if (firstEway.raw_data?.itemList && firstEway.raw_data.itemList.length > 0) {
+          const items = firstEway.raw_data.itemList.map((item: any) => {
+            const unitType = mapUnitType(item.qtyUnit);
+            return {
+              quantity: item.quantity || 1,
+              unit_type: unitType,
+              custom_unit_type: unitType === 'OTHERS' ? item.qtyUnit : '',
+              material_description: item.productName || item.productDesc || 'Goods'
+            };
+          });
+
+          setValue("items", items);
+
+          // Pre-validate
+          booking.eway_bill_details.forEach((ewb, index) => {
+            const { formatted, isExpired } = formatValidityDate(ewb.valid_until);
+            setEwayBillValidations(prev => ({
+              ...prev,
+              [index]: {
+                loading: false,
+                valid: !isExpired,
+                validUntil: formatted,
+                details: ewb,
+                error: isExpired ? 'E-way bill has expired' : undefined
+              }
+            }));
+          });
+
+          toast({
+            title: "🎉 Auto-filled from E-way Bill",
+            description: `All details imported from E-way bill #${documents[0].ewayBill}`,
+          });
+
+        } else {
+          setValue("items", [{
+            quantity: 1,
+            unit_type: "BOX",
+            material_description: booking.materialDescription || ""
+          }]);
+        }
+
+      } else {
+        // MANUAL BOOKING
+        console.log('📝 Manual booking - using standard fields');
+
+        const ewayBills = booking.bilti_number ? booking.bilti_number.split(',').map(num => num.trim()) : [];
+        const invoices = booking.invoice_number ? booking.invoice_number.split(',').map(num => num.trim()) : [];
+
+        const maxLength = Math.max(ewayBills.length, invoices.length, 1);
+        const documents = [];
+
+        for (let i = 0; i < maxLength; i++) {
+          const ewayBillNumber = ewayBills[i] || "";
+          if (ewayBillNumber) {
+            setEwayBillValues(prev => ({
+              ...prev,
+              [i]: ewayBillNumber
+            }));
+          }
+          documents.push({
+            ewayBill: ewayBillNumber,
+            invoice: invoices[i] || ""
+          });
+        }
+
+        setValue("documents", documents);
+
+        if (booking.materialDescription && booking.cargoUnits) {
+          const parts = booking.cargoUnits.split(' ');
+          const quantity = parseInt(parts[0] || '1');
+          const unit = parts.slice(1).join(' ');
+          const unitType = mapUnitType(unit);
+
+          setValue("items", [{
+            quantity: quantity,
+            unit_type: unitType,
+            custom_unit_type: unitType === 'OTHERS' ? unit : '',
+            material_description: booking.materialDescription
+          }]);
+        } else {
+          setValue("items", [{ quantity: 1, unit_type: "BOX", material_description: "" }]);
+        }
       }
 
-      setValue("documents", documents.length > 0 ? documents : [{ ewayBill: "", invoice: "" }]);
-      setValue("items", [{ quantity: 1, unit_type: "BOX", material_description: "" }]);
     } else if (!isOpen) {
       reset();
       setLrDateError(null);
-      setActiveLRCity(null); // ✅ Reset city info
+      setActiveLRCity(null);
+      setEwayBillValidations({});
+      setEwayBillValues({});
     }
-  }, [isOpen, booking, reset, setValue]);
+  }, [isOpen, booking]);
 
   const generateCargoStrings = (items: LRFormData['items']) => {
     if (!items || items.length === 0) return { units: "", materials: "" };
@@ -272,11 +476,39 @@ export const CreateLRModal = ({
     }).join('\n');
   };
 
-  // ✅ MODIFIED onSubmit - Add increment call
   const onSubmit = async (data: LRFormData) => {
     setIsSubmitting(true);
 
     try {
+      const ewayBillsToValidate = data.documents
+        .map((doc, index) => ({ number: doc.ewayBill, index }))
+        .filter(item => item.number && item.number.length === 12);
+
+      for (const item of ewayBillsToValidate) {
+        if (!ewayBillValidations[item.index]?.details) {
+          toast({
+            title: "⏳ Validating E-way Bills",
+            description: "Please wait while we validate all E-way bills...",
+          });
+          await validateEwayBill(item.number, item.index);
+        }
+      }
+
+      const hasInvalidEwayBills = ewayBillsToValidate.some(item => {
+        const validation = ewayBillValidations[item.index];
+        return !validation || !validation.details;
+      });
+
+      if (hasInvalidEwayBills) {
+        toast({
+          title: "❌ Validation Incomplete",
+          description: "Please wait for all E-way bills to be validated before saving",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const invalidItems = data.items.filter(item =>
         item.unit_type === 'OTHERS' && !item.custom_unit_type?.trim()
       );
@@ -291,6 +523,17 @@ export const CreateLRModal = ({
       }
 
       const { units, materials } = generateCargoStrings(data.items);
+
+      const ewayBillDetailsArray = data.documents
+        .map((doc, index) => {
+          if (doc.ewayBill && ewayBillValidations[index]?.details) {
+            return ewayBillValidations[index].details;
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      console.log('💾 Saving E-way bill details:', ewayBillDetailsArray);
 
       const ewayBillsString = data.documents
         .map(doc => doc.ewayBill)
@@ -309,16 +552,15 @@ export const CreateLRModal = ({
           biltiNumber: ewayBillsString || undefined,
           invoiceNumber: invoicesString || undefined,
           cargoUnitsString: units,
-          materialDescription: materials
+          materialDescription: materials,
+          ewayBillDetails: ewayBillDetailsArray
         });
 
-        // ✅ NEW: Increment LR number after successful save
         try {
           await incrementLRNumber();
           console.log('✅ LR number incremented successfully');
         } catch (incrementError) {
           console.error('Warning: Failed to increment LR number:', incrementError);
-          // Don't throw - LR is already saved, just log the error
         }
 
         onClose();
@@ -346,6 +588,8 @@ export const CreateLRModal = ({
     reset();
     setLrDateError(null);
     setActiveLRCity(null);
+    setEwayBillValidations({});
+    setEwayBillValues({});
     onClose();
   };
 
@@ -362,7 +606,6 @@ export const CreateLRModal = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Booking Info */}
           <div className="p-3 bg-muted/50 rounded-lg text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -376,7 +619,6 @@ export const CreateLRModal = ({
             </div>
           </div>
 
-          {/* ✅ NEW: Active LR City Info */}
           {loadingLRNumber ? (
             <div className="flex items-center justify-center p-3 bg-muted/50 rounded-lg">
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -396,21 +638,15 @@ export const CreateLRModal = ({
               </div>
             </div>
           ) : (
-            <Alert className="border-destructive/50 bg-destructive/10">
-              <AlertCircle className="w-4 h-4" />
-              <AlertDescription className="text-sm">
-                No active LR city configured. Please contact admin to set up cities in Company Settings.
-              </AlertDescription>
-            </Alert>
+            <LRCityQuickSetup onCityConfigured={loadLRNumberFromCity} />
           )}
 
-          {/* LR Details */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>LR Number</Label>
               <Input
                 {...register("lrNumber")}
-                disabled // ✅ Always disabled - auto-generated
+                disabled
                 className="bg-muted cursor-not-allowed"
               />
               {errors.lrNumber && (
@@ -424,14 +660,16 @@ export const CreateLRModal = ({
                 onChange={handleLRDateChange}
                 dateFormat="dd/MM/yyyy"
                 placeholderText="Select any date"
-                className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${(errors.lrDate || lrDateError) ? 'border-destructive' : 'border-input'
-                  }`}
+                className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${(errors.lrDate || lrDateError) ? 'border-destructive' : 'border-input'}`}
                 disabled={isSubmitting}
                 showYearDropdown
                 showMonthDropdown
                 dropdownMode="select"
                 yearDropdownItemNumber={100}
                 scrollableYearDropdown
+                autoFocus={false}
+                shouldCloseOnSelect={true}
+                preventOpenOnFocus={true}
               />
               {(errors.lrDate || lrDateError) && (
                 <p className="text-sm text-destructive mt-1">
@@ -441,7 +679,6 @@ export const CreateLRModal = ({
             </div>
           </div>
 
-          {/* E-way Bills and Invoices */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label className="flex items-center gap-2">
@@ -461,47 +698,167 @@ export const CreateLRModal = ({
             </div>
 
             <div className="space-y-2">
-              {documentFields.map((field, index) => (
-                <div key={field.id} className="flex gap-2">
-                  <div className="flex-1">
-                    <Input
-                      {...register(`documents.${index}.ewayBill`)}
-                      placeholder="12-digit E-way bill (optional)"
-                      maxLength={12}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
-                        setValue(`documents.${index}.ewayBill`, value);
-                      }}
-                    />
-                    {errors.documents?.[index]?.ewayBill && (
-                      <p className="text-xs text-destructive mt-1">
-                        {errors.documents[index]?.ewayBill?.message}
-                      </p>
+              {documentFields.map((field, index) => {
+                const validation = ewayBillValidations[index];
+
+                return (
+                  <div key={field.id} className="space-y-2">
+                    <div className="flex gap-2">
+                      {/* ✅ UPDATED E-WAY BILL INPUT */}
+                      <div className="flex-1">
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <Controller
+                              name={`documents.${index}.ewayBill`}
+                              control={control}
+                              render={({ field }) => (
+                                <Input
+                                  placeholder="12-digit E-way bill (optional)"
+                                  maxLength={12}
+                                  className={cn("pr-10", validation?.error && "border-destructive")}
+                                  value={field.value || ewayBillValues[index] || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    field.onChange(val);
+                                    // ✅ STORE IN LOCAL STATE
+                                    setEwayBillValues(prev => ({
+                                      ...prev,
+                                      [index]: val
+                                    }));
+                                  }}
+                                  onBlur={field.onBlur}
+                                />
+                              )}
+                            />
+                            {/* Validation icons */}
+                            {validation?.loading && (
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                              </div>
+                            )}
+                            {!validation?.loading && validation?.valid && (
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              </div>
+                            )}
+                            {!validation?.loading && validation?.error && (
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                <XCircle className="w-4 h-4 text-destructive" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ✅ UPDATED VALIDATE BUTTON */}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const currentValue = getValues(`documents.${index}.ewayBill`) || ewayBillValues[index] || '';
+
+                              if (currentValue && currentValue.length === 12) {
+                                validateEwayBill(currentValue, index);
+                              } else {
+                                toast({
+                                  title: "❌ Invalid Format",
+                                  description: "E-way bill must be exactly 12 digits",
+                                  variant: "destructive",
+                                });
+                              }
+                            }}
+                            disabled={validation?.loading}
+                            className="hover:bg-primary/10 hover:border-primary"
+                          >
+                            {validation?.loading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                Checking
+                              </>
+                            ) : validation?.valid ? (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 mr-1" />
+                                Valid
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 mr-1" />
+                                Validate
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        {errors.documents?.[index]?.ewayBill && (
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.documents[index]?.ewayBill?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Invoice Input */}
+                      <div className="flex-1">
+                        <Input
+                          {...register(`documents.${index}.invoice`)}
+                          placeholder="Invoice number (optional)"
+                        />
+                      </div>
+
+                      {/* Delete Button */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          removeDocument(index);
+                          setEwayBillValidations(prev => {
+                            const updated = { ...prev };
+                            delete updated[index];
+                            return updated;
+                          });
+                          setEwayBillValues(prev => {
+                            const updated = { ...prev };
+                            delete updated[index];
+                            return updated;
+                          });
+                        }}
+                        disabled={documentFields.length === 1}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+
+                    {/* Validation Badge */}
+                    {validation?.validUntil && (
+                      <div className="flex items-center gap-2 px-2">
+                        <Badge
+                          variant={validation.valid ? "default" : "destructive"}
+                          className="text-xs"
+                        >
+                          {validation.valid ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Valid until: {validation.validUntil}
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Expired: {validation.validUntil}
+                            </>
+                          )}
+                        </Badge>
+                        {validation.details?.is_mock && (
+                          <Badge variant="outline" className="text-xs">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Test Data
+                          </Badge>
+                        )}
+                      </div>
                     )}
                   </div>
-
-                  <div className="flex-1">
-                    <Input
-                      {...register(`documents.${index}.invoice`)}
-                      placeholder="Invoice number (optional)"
-                    />
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeDocument(index)}
-                    disabled={documentFields.length === 1}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Cargo Items */}
           <div className="space-y-3">
             <div className="flex justify-between">
               <Label className="flex items-center gap-2">
@@ -589,14 +946,12 @@ export const CreateLRModal = ({
               })}
             </div>
 
-            {/* Preview */}
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground mb-2">Preview (LR Format):</p>
               <pre className="text-sm font-medium whitespace-pre-wrap">
                 {generateDisplayFormat(watchedItems)}
               </pre>
 
-              {/* Documents Preview */}
               {watchedDocuments.some(doc => doc.ewayBill || doc.invoice) && (
                 <div className="mt-3 space-y-2">
                   {watchedDocuments.some(doc => doc.ewayBill) && (
@@ -610,7 +965,6 @@ export const CreateLRModal = ({
                       </p>
                     </div>
                   )}
-
                   {watchedDocuments.some(doc => doc.invoice) && (
                     <div>
                       <p className="text-sm text-muted-foreground">Invoice Numbers:</p>

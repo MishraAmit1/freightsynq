@@ -1,4 +1,4 @@
-// AuthContext.tsx - Complete updated code
+// src/contexts/AuthContext.tsx - UPDATED VERSION
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
@@ -31,11 +31,12 @@ interface AuthContextType {
     user: User | null;
     userProfile: UserProfile | null;
     company: Company | null;
+    isSuperAdmin: boolean; // ✅ NEW
     loading: boolean;
     signUp: (email: string, password: string, userData: SignUpData) => Promise<any>;
     signIn: (email: string, password: string) => Promise<any>;
     signOut: () => Promise<void>;
-    refreshUserProfile: () => Promise<void>; // Added this
+    refreshUserProfile: () => Promise<void>;
 }
 
 interface SignUpData {
@@ -45,6 +46,12 @@ interface SignUpData {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// ✅ GET SUPER ADMIN EMAILS FROM ENV
+const getSuperAdminEmails = (): string[] => {
+    const emails = import.meta.env.VITE_SUPER_ADMIN_EMAILS || '';
+    return emails.split(',').map((email: string) => email.trim()).filter(Boolean);
+};
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
@@ -59,6 +66,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [company, setCompany] = useState<Company | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // ✅ CALCULATE SUPER ADMIN STATUS
+    const isSuperAdmin = !!(
+        user &&
+        getSuperAdminEmails().includes(user.email || '')
+    );
 
     // Cache user data in localStorage
     const getCachedUserData = (userId: string) => {
@@ -80,8 +93,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const fetchUserData = async (userId: string, useCache = true) => {
         console.log('Starting fetchUserData for:', userId);
+        const { data: { user: authUser } } = await supabase.auth.getUser();
 
-        // Use cached data first if available
+        if (authUser && !authUser.email_confirmed_at) {
+            console.log('⚠️ Email not verified, skipping profile load');
+            setLoading(false);
+            return;
+        }
+
         if (useCache) {
             const cachedData = getCachedUserData(userId);
             if (cachedData) {
@@ -89,15 +108,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUserProfile(cachedData.profile);
                 if (cachedData.company) setCompany(cachedData.company);
                 setLoading(false);
-
-                // Fetch fresh data in background
                 setTimeout(() => fetchUserData(userId, false), 100);
                 return;
             }
         }
 
         try {
-            // Fetch complete user profile
             const { data: profile, error: profileError } = await supabase
                 .from('users')
                 .select('*')
@@ -113,7 +129,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUserProfile(profile);
 
             let companyData = null;
-            // Fetch company data if exists
             if (profile?.company_id) {
                 const { data, error: companyError } = await supabase
                     .from('companies')
@@ -128,7 +143,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 }
             }
 
-            // Cache the data
             setCachedUserData(userId, {
                 profile,
                 company: companyData
@@ -137,14 +151,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             console.error('fetchUserData error:', error);
 
-            // Use cached data as fallback
             const cachedData = getCachedUserData(userId);
             if (cachedData) {
                 console.log('Using cached data as fallback');
                 setUserProfile(cachedData.profile);
                 if (cachedData.company) setCompany(cachedData.company);
             } else {
-                // Last resort fallback
                 setUserProfile({
                     id: userId,
                     name: 'User',
@@ -158,11 +170,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
-    // Add refreshUserProfile function
     const refreshUserProfile = async () => {
         console.log('Refreshing user profile...');
         if (user?.id) {
-            // Force refresh without cache
             await fetchUserData(user.id, false);
         }
     };
@@ -202,16 +212,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         initializeAuth();
 
-        // Auth state change listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
                 console.log('Auth state changed:', event, 'Initialized:', isInitialized);
 
                 if (!mounted) return;
 
-                // Only handle these events after initialization
                 if (event === 'SIGNED_IN' && session?.user && isInitialized) {
-                    // Check if it's the same user
                     if (user?.id !== session.user.id) {
                         console.log('Different user signed in');
                         setUser(session.user);
@@ -226,7 +233,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     setUserProfile(null);
                     setCompany(null);
                     setLoading(false);
-                    // Clear cache
                     if (user?.id) {
                         localStorage.removeItem(`user_${user.id}`);
                     }
@@ -285,7 +291,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const signOut = async () => {
         try {
-            // Clear cache before signing out
             if (user?.id) {
                 localStorage.removeItem(`user_${user.id}`);
             }
@@ -302,11 +307,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             user,
             userProfile,
             company,
+            isSuperAdmin, // ✅ NEW
             loading,
             signUp,
             signIn,
             signOut,
-            refreshUserProfile, // Added this
+            refreshUserProfile,
         }}>
             {children}
         </AuthContext.Provider>

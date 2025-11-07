@@ -1,5 +1,5 @@
 // TopBar.tsx - Without Theme Context
-import { Bell, Search, Settings, User, LogOut, Menu, Sun, Moon } from "lucide-react";
+import { Bell, Search, Settings, User, LogOut, Menu, Sun, Moon, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -135,10 +135,14 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
                 Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </DropdownMenuItem>
+            {(userProfile?.role === 'admin' || userProfile?.role === 'manager') && (
+              <DropdownMenuItem asChild>
+                <Link to="/company-profile" className="flex items-center">
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Company Profile
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
