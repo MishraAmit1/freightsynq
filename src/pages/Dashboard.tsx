@@ -568,33 +568,45 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-8 p-2">
-      {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="relative flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Dashboard Overview
-            </h1>
-            <p className="text-muted-foreground mt-2 text-lg">
-              Welcome back! Here's your freight management overview
-            </p>
+    <div className="space-y-8 -mt-1">
+      {/* Header Section */}
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col gap-4 pb-4 border-b">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
+                Dashboard Overview
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                Welcome back! Here's your freight management overview
+              </p>
+            </div>
+            <Button
+              onClick={() => setIsBookingFormOpen(true)}
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Booking
+            </Button>
           </div>
-          <div className="flex gap-3">
-            <div className="relative">
+
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search booking or LR number..."
+                placeholder="Search booking or LR..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64 pl-10 h-10 border-primary/20 bg-background/50 backdrop-blur-sm"
+                className="pl-10 h-10 text-sm"
               />
               {isSearching && (
                 <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin" />
               )}
 
-              {/* Search Results Dropdown */}
+              {/* Search Results */}
               {searchResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-[250px] overflow-auto">
                   {searchResults.map((result) => (
@@ -605,13 +617,13 @@ export const Dashboard = () => {
                     >
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary" />
-                        <div>
-                          <p className="font-medium text-sm">{result.booking_id}</p>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{result.booking_id}</p>
+                          <p className="text-xs text-muted-foreground truncate">
                             {result.from_location} → {result.to_location}
                           </p>
                         </div>
-                        <Badge className="ml-auto">{result.status}</Badge>
+                        <Badge className="text-xs shrink-0">{result.status}</Badge>
                       </div>
                     </div>
                   ))}
@@ -619,51 +631,36 @@ export const Dashboard = () => {
               )}
             </div>
 
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-32 h-10 border-primary/20 bg-background/50 backdrop-blur-sm">
-                <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
-                <SelectItem value="month">This Month</SelectItem>
-                <SelectItem value="year">This Year</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-full sm:w-32 h-10">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="year">This Year</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="border-primary/20 hover:bg-primary/10"
-                  >
-                    <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refresh Dashboard</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <Button
-              onClick={() => setIsBookingFormOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Booking
-            </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="shrink-0"
+              >
+                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Bookings"
           value={stats.bookings.total.toLocaleString()}
@@ -704,65 +701,66 @@ export const Dashboard = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Booking Trends Chart */}
-        <Card className="lg:col-span-2 border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        <Card className="lg:col-span-2 border shadow-sm">
           <CardHeader className="border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <BarChart3 className="w-5 h-5 text-primary" />
                 Booking Trends
               </CardTitle>
-              <Badge variant="secondary">Last 7 Days</Badge>
+              <Badge variant="secondary" className="w-fit">Last 7 Days</Badge>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={chartData.bookingTrends}>
-                <defs>
-                  <linearGradient id="bookingGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="deliveredGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COLORS.success} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" className="text-xs" />
-                <YAxis className="text-xs" />
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    color: 'hsl(var(--foreground))'
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="bookings"
-                  stroke={COLORS.primary}
-                  fill="url(#bookingGradient)"
-                  strokeWidth={2}
-                  name="Total Bookings"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="delivered"
-                  stroke={COLORS.success}
-                  fill="url(#deliveredGradient)"
-                  strokeWidth={2}
-                  name="Delivered"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="w-full overflow-x-auto">
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={chartData.bookingTrends}>
+                  <defs>
+                    <linearGradient id="bookingGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="deliveredGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={COLORS.success} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="bookings"
+                    stroke={COLORS.primary}
+                    fill="url(#bookingGradient)"
+                    strokeWidth={2}
+                    name="Total Bookings"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="delivered"
+                    stroke={COLORS.success}
+                    fill="url(#deliveredGradient)"
+                    strokeWidth={2}
+                    name="Delivered"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
         {/* Vehicle Status Distribution */}
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        <Card className="border shadow-sm">
           <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <PieChart className="w-5 h-5 text-primary" />
               Fleet Status
             </CardTitle>
@@ -783,25 +781,17 @@ export const Dashboard = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    color: 'hsl(var(--foreground))'
-                  }}
-                  formatter={(value: any, name: any) => [`${value} vehicles`, name]}
-                />
+                <RechartsTooltip />
               </RePieChart>
             </ResponsiveContainer>
             <div className="flex flex-col gap-2 mt-4">
               {chartData.vehicleStatus.map((status: any, index: number) => (
-                <div key={index} className="flex items-center justify-between">
+                <div key={index} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }} />
-                    <span className="text-sm">{status.name}</span>
+                    <span className="text-xs sm:text-sm">{status.name}</span>
                   </div>
-                  <span className="text-sm font-medium">{status.value}</span>
+                  <span className="text-xs sm:text-sm font-medium">{status.value}</span>
                 </div>
               ))}
             </div>
@@ -809,99 +799,71 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Secondary Stats Row */}
+      {/* Secondary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Warehouse Utilization */}
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        {/* Warehouse */}
+        <Card className="border shadow-sm">
           <CardHeader className="border-b pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Warehouse className="w-4 h-4 text-primary" />
-                Warehouse Capacity
+                <span className="text-sm sm:text-base">Warehouse</span>
               </div>
-              <Badge
-                variant={stats.warehouses.utilization > 85 ? "destructive" : "default"}
-                className="text-xs"
-              >
-                {stats.warehouses.utilization.toFixed(0)}% Used
+              <Badge variant={stats.warehouses.utilization > 85 ? "destructive" : "default"} className="text-xs">
+                {stats.warehouses.utilization.toFixed(0)}%
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">Overall Utilization</span>
-                  <span className="font-medium">
-                    {stats.warehouses.currentStock.toLocaleString()} / {stats.warehouses.totalCapacity.toLocaleString()}
-                  </span>
+              <Progress value={stats.warehouses.utilization} className="h-2" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold">{stats.warehouses.total}</p>
+                  <p className="text-xs text-muted-foreground">Total</p>
                 </div>
-                <Progress
-                  value={stats.warehouses.utilization}
-                  className="h-3"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{stats.warehouses.total}</p>
-                  <p className="text-xs text-muted-foreground">Total Warehouses</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold text-orange-600">{stats.warehouses.nearCapacity}</p>
-                  <p className="text-xs text-muted-foreground">Near Capacity</p>
+                <div>
+                  <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.warehouses.nearCapacity}</p>
+                  <p className="text-xs text-muted-foreground">Near Full</p>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Customer Overview */}
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        {/* Customers */}
+        <Card className="border shadow-sm">
           <CardHeader className="border-b pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
-                Customer Overview
+                <span className="text-sm sm:text-base">Customers</span>
               </div>
               <Badge variant="secondary" className="text-xs">
-                +{stats.customers.newThisMonth} New
+                +{stats.customers.newThisMonth}
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold">{stats.customers.total}</p>
-                  <p className="text-xs text-muted-foreground">Total Parties</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-2xl font-bold text-green-600">{stats.customers.active}</p>
-                  <p className="text-xs text-muted-foreground">Active</p>
-                </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xl sm:text-2xl font-bold">{stats.customers.total}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
               </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Consignors</span>
-                  <span className="text-sm font-medium">{stats.customers.consignors}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Consignees</span>
-                  <span className="text-sm font-medium">{stats.customers.consignees}</span>
-                </div>
+              <div>
+                <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.customers.active}</p>
+                <p className="text-xs text-muted-foreground">Active</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Quick Stats */}
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        {/* Today's Performance */}
+        <Card className="border shadow-sm">
           <CardHeader className="border-b pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Zap className="w-4 h-4 text-primary" />
-              Today's Performance
+              <span className="text-sm sm:text-base">Today</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
@@ -909,35 +871,35 @@ export const Dashboard = () => {
               <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span className="text-sm">Completed</span>
+                  <span className="text-xs sm:text-sm">Completed</span>
                 </div>
-                <span className="text-sm font-bold">{stats.bookings.completed}</span>
+                <span className="text-xs sm:text-sm font-bold">{stats.bookings.completed}</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-orange-600" />
-                  <span className="text-sm">Pending</span>
+                  <span className="text-xs sm:text-sm">Pending</span>
                 </div>
-                <span className="text-sm font-bold">{stats.bookings.pending}</span>
+                <span className="text-xs sm:text-sm font-bold">{stats.bookings.pending}</span>
               </div>
               <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm">Revenue</span>
+                  <span className="text-xs sm:text-sm">Revenue</span>
                 </div>
-                <span className="text-sm font-bold">₹{(stats.revenue.today / 1000).toFixed(0)}K</span>
+                <span className="text-xs sm:text-sm font-bold">₹{(stats.revenue.today / 1000).toFixed(0)}K</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Route Analysis & Recent Activities */}
+      {/* Routes & Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Routes */}
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        <Card className="border shadow-sm">
           <CardHeader className="border-b">
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex items-center justify-between text-lg">
               <div className="flex items-center gap-2">
                 <Navigation className="w-5 h-5 text-primary" />
                 Top Routes
@@ -951,23 +913,22 @@ export const Dashboard = () => {
           <CardContent className="pt-4">
             <div className="space-y-3">
               {chartData.routeAnalysis.map((route: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
+                <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                      "w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shrink-0",
                       index === 0 ? "bg-primary/20 text-primary" :
                         index === 1 ? "bg-blue-100 text-blue-700" :
-                          index === 2 ? "bg-green-100 text-green-700" :
-                            "bg-muted text-muted-foreground"
+                          "bg-muted text-muted-foreground"
                     )}>
                       {index + 1}
                     </div>
-                    <div>
-                      <p className="font-medium text-sm">{route.route}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{route.route}</p>
                       <p className="text-xs text-muted-foreground">{route.bookings} bookings</p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0 ml-2">
                     <p className="font-bold text-sm">₹{(route.revenue / 1000).toFixed(0)}K</p>
                     <Badge variant="secondary" className="text-xs">
                       {((route.bookings / stats.bookings.total) * 100).toFixed(0)}%
@@ -980,16 +941,14 @@ export const Dashboard = () => {
         </Card>
 
         {/* Recent Activities */}
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+        <Card className="border shadow-sm">
           <CardHeader className="border-b">
-            <CardTitle className="flex items-center justify-between">
+            <CardTitle className="flex items-center justify-between text-lg">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-primary" />
                 Recent Activities
               </div>
-              <Badge variant="outline" className="text-xs">
-                Live
-              </Badge>
+              <Badge variant="outline" className="text-xs">Live</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
@@ -1004,13 +963,12 @@ export const Dashboard = () => {
                 const Icon = icons[activity.type];
 
                 return (
-                  <div key={activity.id} className="flex gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div key={activity.id} className="flex gap-3 p-2 rounded-lg hover:bg-muted/50">
                     <div className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                      "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
                       activity.type === 'booking' ? "bg-primary/10 text-primary" :
                         activity.type === 'vehicle' ? "bg-blue-100 text-blue-600" :
-                          activity.type === 'warehouse' ? "bg-green-100 text-green-600" :
-                            "bg-orange-100 text-orange-600"
+                          "bg-green-100 text-green-600"
                     )}>
                       <Icon className="w-4 h-4" />
                     </div>
@@ -1019,11 +977,6 @@ export const Dashboard = () => {
                       <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
                       <p className="text-xs text-muted-foreground mt-1">{activity.timestamp}</p>
                     </div>
-                    {activity.status && (
-                      <Badge variant="secondary" className="text-xs">
-                        {activity.status}
-                      </Badge>
-                    )}
                   </div>
                 );
               })}
@@ -1033,9 +986,9 @@ export const Dashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
+      <Card className="border shadow-sm">
         <CardHeader className="border-b">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Target className="w-5 h-5 text-primary" />
             Quick Actions
           </CardTitle>
@@ -1044,50 +997,51 @@ export const Dashboard = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4 hover:bg-primary/10 hover:border-primary transition-all hover:text-foreground"
+              className="h-auto flex-col gap-2 p-4"
               onClick={() => setIsBookingFormOpen(true)}
             >
               <div className="p-2 bg-primary/10 rounded-lg">
-                <Plus className="w-5 h-5 text-primary" />
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
-              <span className="text-sm font-medium">Create Booking</span>
+              <span className="text-xs sm:text-sm font-medium">Create Booking</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4 hover:bg-blue-500/10 hover:border-blue-500 transition-all hover:text-foreground"
+              className="h-auto flex-col gap-2 p-4"
               onClick={() => navigate('/vehicles?openModal=owned')}
             >
               <div className="p-2 bg-blue-100 rounded-lg">
-                <Truck className="w-5 h-5 text-blue-600" />
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-              <span className="text-sm font-medium">Add Vehicle</span>
+              <span className="text-xs sm:text-sm font-medium">Add Vehicle</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4 hover:bg-green-500/10 hover:border-green-500 transition-all hover:text-foreground"
+              className="h-auto flex-col gap-2 p-4"
               onClick={() => navigate('/customers')}
             >
               <div className="p-2 bg-green-100 rounded-lg">
-                <UserCheck className="w-5 h-5 text-green-600" />
+                <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
-              <span className="text-sm font-medium">Add Customer</span>
+              <span className="text-xs sm:text-sm font-medium">Add Customer</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4 hover:bg-orange-500/10 hover:border-orange-500 transition-all hover:text-foreground"
+              className="h-auto flex-col gap-2 p-4"
               onClick={() => navigate('/warehouses')}
             >
               <div className="p-2 bg-orange-100 rounded-lg">
-                <Package className="w-5 h-5 text-orange-600" />
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
               </div>
-              <span className="text-sm font-medium">View Warehouses</span>
+              <span className="text-xs sm:text-sm font-medium">View Warehouses</span>
             </Button>
           </div>
         </CardContent>
       </Card>
+
       {/* Booking Form Modal */}
       <BookingFormModal
         isOpen={isBookingFormOpen}

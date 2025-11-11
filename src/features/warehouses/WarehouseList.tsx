@@ -892,27 +892,28 @@ export const WarehouseList = () => {
   }
 
   return (
-    <div className="space-y-8 p-2">
-      {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="relative flex items-center justify-between">
+    <div className="space-y-8 -mt-1">
+      {/* Header Section */}
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
               Warehouse Management
             </h1>
-            <p className="text-muted-foreground mt-2 text-lg">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Manage warehouse operations and inventory across locations
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setShowImportModal(true)}
-                    className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
+                    className="flex-1 sm:flex-none"
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Import
@@ -929,8 +930,9 @@ export const WarehouseList = () => {
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={handleExport}
-                    className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
+                    className="flex-1 sm:flex-none"
                   >
                     <FileDown className="w-4 h-4 mr-2" />
                     Export
@@ -943,263 +945,240 @@ export const WarehouseList = () => {
             </TooltipProvider>
 
             <Button
+              size="sm"
               onClick={() => setIsAddModalOpen(true)}
-              className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+              className="flex-1 sm:flex-none"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Warehouse
             </Button>
           </div>
         </div>
-      </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Warehouses</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  {stats.total}
-                </p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-xl">
-                <WarehouseIcon className="w-6 h-6 text-primary" />
-              </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Warehouses</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <WarehouseIcon className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+              <p className="text-xl sm:text-2xl font-semibold">{stats.total}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Capacity</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-                  {stats.totalCapacity.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-blue-500/10 rounded-xl">
-                <Package className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                  {stats.totalStock.toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-green-500/10 rounded-xl">
-                <Activity className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Near Capacity</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
-                  {stats.nearCapacity}
-                </p>
-              </div>
-              <div className="p-3 bg-orange-500/10 rounded-xl">
-                <AlertTriangle className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Search */}
-      <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative group">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  placeholder="Search warehouses by name, city, or state..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-11 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
-                />
-              </div>
-            </div>
-            <Select value={filterState} onValueChange={setFilterState}>
-              <SelectTrigger className="w-48 h-11 border-muted-foreground/20 bg-background/50 backdrop-blur-sm">
-                <MapPin className="w-4 h-4 mr-2 text-primary" />
-                <SelectValue placeholder="Filter by state" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All States</SelectItem>
-                {uniqueStates.map(state => (
-                  <SelectItem key={state} value={state}>{state}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-48 h-11 border-muted-foreground/20 bg-background/50 backdrop-blur-sm">
-                <TrendingUp className="w-4 h-4 mr-2 text-primary" />
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Name</SelectItem>
-                <SelectItem value="capacity">Capacity</SelectItem>
-                <SelectItem value="stock">Current Stock</SelectItem>
-                <SelectItem value="utilization">Utilization</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Warehouse Grid with Enhanced Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredWarehouses.map((warehouse) => {
-          const utilization = getStockUtilization(warehouse.current_stock, warehouse.capacity);
-          const isNearCapacity = utilization > 85;
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total Capacity</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+              <p className="text-xl sm:text-2xl font-semibold">{stats.totalCapacity.toLocaleString()}</p>
+            </div>
+          </div>
 
-          return (
-            <Card
-              key={warehouse.id}
-              className="hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-[1.02] border-border bg-gradient-to-br from-background via-background to-muted/5"
-              onClick={() => handleWarehouseClick(warehouse.id)}
-            >
-              <CardHeader className="pb-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <WarehouseIcon className="w-4 h-4 text-primary" />
-                      </div>
-                      {warehouse.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                      <MapPin className="w-3 h-3" />
-                      {warehouse.city}, {warehouse.state}
-                    </div>
-                  </div>
-                  {isNearCapacity && (
-                    <Badge variant="destructive" className="gap-1 animate-pulse">
-                      <AlertTriangle className="w-3 h-3" />
-                      Near Full
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm text-muted-foreground">Current Stock</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+              <p className="text-xl sm:text-2xl font-semibold">{stats.totalStock.toLocaleString()}</p>
+            </div>
+          </div>
 
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  {/* Capacity Bar with Enhanced Styling */}
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground font-medium">Stock Utilization</span>
-                      <span className={cn("font-bold", getCapacityColor(utilization))}>
-                        {warehouse.current_stock}/{warehouse.capacity} ({utilization.toFixed(1)}%)
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-3 rounded-full transition-all duration-500 relative overflow-hidden",
-                          getCapacityBgColor(utilization)
-                        )}
-                        style={{ width: `${Math.min(utilization, 100)}%` }}
-                      >
-                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Package className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">{warehouse.current_stock}</p>
-                        <p className="text-xs text-muted-foreground">In Stock</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <Users className="w-4 h-4 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold truncate">{warehouse.manager_name}</p>
-                        <p className="text-xs text-muted-foreground">Manager</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Contact Info */}
-                  <div className="pt-3 border-t space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="w-3 h-3" />
-                      {warehouse.manager_phone}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Mail className="w-3 h-3" />
-                      <span className="truncate">{warehouse.manager_email}</span>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    className="w-full hover:bg-primary/10 hover:border-primary transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleWarehouseClick(warehouse.id);
-                    }}
-                  >
-                    View Details
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+          <div className="space-y-1">
+            <p className="text-xs sm:text-sm text-muted-foreground">Near Capacity</p>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+              <p className="text-xl sm:text-2xl font-semibold">{stats.nearCapacity}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {filteredWarehouses.length === 0 && (
-        <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/5">
-          <CardContent className="p-16 text-center">
-            <div className="relative inline-block">
-              <Package className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-              <div className="absolute inset-0 blur-xl bg-primary/10 animate-pulse rounded-full" />
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between -mt-4">
+        <div className="relative w-full sm:flex-1 sm:max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, city, or state..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchTerm("")}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Select value={filterState} onValueChange={setFilterState}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by state" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All States</SelectItem>
+              {uniqueStates.map(state => (
+                <SelectItem key={state} value={state}>{state}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="capacity">Capacity</SelectItem>
+              <SelectItem value="stock">Current Stock</SelectItem>
+              <SelectItem value="utilization">Utilization</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Warehouse Grid */}
+      {filteredWarehouses.length === 0 ? (
+        <div className="text-center py-16 border rounded-lg bg-muted/20">
+          <div className="flex flex-col items-center gap-4">
+            <div className="p-4 bg-muted/30 rounded-full">
+              <Package className="w-12 h-12 text-muted-foreground/50" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No warehouses found</h3>
-            <p className="text-muted-foreground mb-6">
-              {searchTerm || filterState !== "all"
-                ? "Try adjusting your search or filter criteria."
-                : "Get started by adding your first warehouse."}
-            </p>
+            <div className="text-muted-foreground">
+              <p className="text-lg font-medium">No warehouses found</p>
+              <p className="text-sm mt-1">
+                {searchTerm || filterState !== "all"
+                  ? "Try adjusting your search or filter criteria"
+                  : "Get started by adding your first warehouse"}
+              </p>
+            </div>
             {(!searchTerm && filterState === "all") && (
               <Button
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg transition-all"
+                className="mt-2"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Your First Warehouse
               </Button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {filteredWarehouses.map((warehouse) => {
+            const utilization = getStockUtilization(warehouse.current_stock, warehouse.capacity);
+            const isNearCapacity = utilization > 85;
+
+            return (
+              <Card
+                key={warehouse.id}
+                className="hover:shadow-lg transition-all duration-300 cursor-pointer hover:scale-[1.02] border bg-white"
+                onClick={() => handleWarehouseClick(warehouse.id)}
+              >
+                <CardHeader className="pb-4">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                        <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                          <WarehouseIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                        </div>
+                        <span className="truncate">{warehouse.name}</span>
+                      </CardTitle>
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mt-2 ml-8 sm:ml-9">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{warehouse.city}, {warehouse.state}</span>
+                      </div>
+                    </div>
+                    {isNearCapacity && (
+                      <Badge variant="destructive" className="gap-1 text-xs flex-shrink-0">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span className="hidden sm:inline">Near Full</span>
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent className="pt-0">
+                  <div className="space-y-4">
+                    {/* Capacity Bar */}
+                    <div>
+                      <div className="flex justify-between text-xs sm:text-sm mb-2">
+                        <span className="text-muted-foreground font-medium">Stock Utilization</span>
+                        <span className={cn("font-bold", getCapacityColor(utilization))}>
+                          {warehouse.current_stock}/{warehouse.capacity} ({utilization.toFixed(1)}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2.5 sm:h-3 overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-2.5 sm:h-3 rounded-full transition-all duration-500",
+                            getCapacityBgColor(utilization)
+                          )}
+                          style={{ width: `${Math.min(utilization, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg flex-shrink-0">
+                          <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold">{warehouse.current_stock}</p>
+                          <p className="text-xs text-muted-foreground">In Stock</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg flex-shrink-0">
+                          <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold truncate">{warehouse.manager_name}</p>
+                          <p className="text-xs text-muted-foreground">Manager</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contact Info */}
+                    <div className="pt-3 border-t space-y-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Phone className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{warehouse.manager_phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Mail className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{warehouse.manager_email}</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs sm:text-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleWarehouseClick(warehouse.id);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
+      {/* Modals */}
       <AddWarehouseModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => setIsAddModalModal(false)}
         onSave={handleAddWarehouse}
       />
 

@@ -59,6 +59,7 @@ export const VerifyEmail = () => {
                 p_company_name: signupData.companyName,
                 p_user_email: session.user.email,
                 p_user_name: signupData.userName,
+                p_username: signupData.username,
                 p_user_phone: signupData.userPhone || null,
                 p_gst_number: signupData.gstNumber || null,
                 p_pan_number: signupData.panNumber || null,

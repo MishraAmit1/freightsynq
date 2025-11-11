@@ -1409,333 +1409,413 @@ const Broker = () => {
 
     return (
         <div className="space-y-8 p-2">
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-                <div className="relative flex items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                            Broker Management
-                        </h1>
-                        <p className="text-muted-foreground mt-2 text-lg">
-                            Manage your transport brokers and partners
-                        </p>
+            <div className="space-y-8 -mt-1">
+                {/* Header Section */}
+                <div className="space-y-4">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
+                                Broker Management
+                            </h1>
+                            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                                Manage your transport brokers and partners
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowImportModal(true)}
+                                            className="flex-1 sm:flex-none"
+                                        >
+                                            <Upload className="w-4 h-4 mr-2" />
+                                            <span>Import</span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Import brokers from file</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleExport}
+                                            className="flex-1 sm:flex-none"
+                                        >
+                                            <FileDown className="w-4 h-4 mr-2" />
+                                            <span>Export</span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Export brokers to CSV</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    setEditingBroker(null);
+                                    setIsModalOpen(true);
+                                }}
+                                className="flex-1 sm:flex-none"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Broker
+                            </Button>
+                        </div>
                     </div>
-                    <div className="flex gap-3">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setShowImportModal(true)}
-                                        className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
-                                    >
-                                        <Upload className="w-4 h-4 mr-2" />
-                                        Import
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Import brokers from file</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleExport}
-                                        className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
-                                    >
-                                        <FileDown className="w-4 h-4 mr-2" />
-                                        Export
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Export brokers to CSV</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                        <Button
-                            onClick={() => {
-                                setEditingBroker(null);
-                                setIsModalOpen(true);
-                            }}
-                            className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Broker
-                        </Button>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                        <div className="space-y-1">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Total Brokers</p>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                                <p className="text-xl sm:text-2xl font-semibold">{stats.total}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Active</p>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                                <p className="text-xl sm:text-2xl font-semibold">{stats.active}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <p className="text-xs sm:text-sm text-muted-foreground">Inactive</p>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                                <p className="text-xl sm:text-2xl font-semibold">{stats.inactive}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <p className="text-xs sm:text-sm text-muted-foreground">With Email</p>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                                <p className="text-xl sm:text-2xl font-semibold">{stats.withEmail}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    Total Brokers
-                                </p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                                    {stats.total}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-primary/10 rounded-xl">
-                                <Users className="w-6 h-6 text-primary" />
-                            </div>
+
+                {/* Search Section */}
+                <div className="">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between -mt-4">
+                        <div className="relative w-full sm:w-96">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search by name, contact, phone..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                            />
+                            {searchTerm && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                    onClick={() => setSearchTerm("")}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            )}
                         </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    Active
-                                </p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                                    {stats.active}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-green-500/10 rounded-xl">
-                                <UserCheck className="w-6 h-6 text-green-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    Inactive
-                                </p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-gray-600 to-gray-500 bg-clip-text text-transparent">
-                                    {stats.inactive}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-gray-500/10 rounded-xl">
-                                <Shield className="w-6 h-6 text-gray-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    With Email
-                                </p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-                                    {stats.withEmail}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-blue-500/10 rounded-xl">
-                                <Mail className="w-6 h-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-            <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
-                <CardContent className="pt-6">
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                            placeholder="Search by name, contact person, phone, or city..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-11 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
-                        />
                     </div>
-                </CardContent>
-            </Card>
-            <Card className="border-border shadow-xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-                    <CardTitle className="flex items-center justify-between text-xl">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary/10 rounded-lg">
-                                <Building2 className="w-5 h-5 text-primary" />
-                            </div>
-                            <span>All Brokers ({filteredBrokers.length})</span>
-                        </div>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table className="broker-table">
-                            <TableHeader>
-                                <TableRow className="border-border hover:bg-muted/30 bg-muted/10">
-                                    <TableHead className="font-semibold w-[200px]">
-                                        <div className="flex items-center gap-2">
-                                            <Building2 className="w-4 h-4 text-muted-foreground" />
-                                            Company Name
-                                        </div>
-                                    </TableHead>
-                                    <TableHead className="font-semibold w-[180px]">
-                                        <div className="flex items-center gap-2">
-                                            <User className="w-4 h-4 text-muted-foreground" />
-                                            Contact Person
-                                        </div>
-                                    </TableHead>
-                                    <TableHead className="font-semibold w-[150px]">
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-muted-foreground" />
-                                            Phone
-                                        </div>
-                                    </TableHead>
-                                    <TableHead className="font-semibold w-[140px]">
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="w-4 h-4 text-muted-foreground" />
-                                            City
-                                        </div>
-                                    </TableHead>
-                                    <TableHead className="font-semibold w-[200px]">
-                                        <div className="flex items-center gap-2">
-                                            <Mail className="w-4 h-4 text-muted-foreground" />
-                                            Email
-                                        </div>
-                                    </TableHead>
-                                    <TableHead className="font-semibold w-[100px]">
-                                        Status
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-center w-[100px]">
-                                        Actions
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredBrokers.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-16">
-                                            <div className="flex flex-col items-center gap-4">
-                                                <div className="p-4 bg-muted/30 rounded-full">
-                                                    <Building2 className="w-12 h-12 text-muted-foreground/50" />
-                                                </div>
-                                                <div className="text-muted-foreground">
-                                                    <p className="text-lg font-medium">
-                                                        No brokers found
-                                                    </p>
-                                                    <p className="text-sm mt-1">
-                                                        {searchTerm
-                                                            ? "Try adjusting your search"
-                                                            : "Add your first broker to get started"}
-                                                    </p>
-                                                </div>
+
+                    {/* Table Section */}
+                    <div className="mt-4">
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-[#f6f6f6] bg-[#f6f6f6]">
+                                        <TableHead className="font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Building2 className="w-4 h-4 text-muted-foreground" />
+                                                Company Name
                                             </div>
-                                        </TableCell>
+                                        </TableHead>
+                                        <TableHead className="font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <User className="w-4 h-4 text-muted-foreground" />
+                                                Contact Person
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Phone className="w-4 h-4 text-muted-foreground" />
+                                                Phone
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <MapPin className="w-4 h-4 text-muted-foreground" />
+                                                City
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold">
+                                            <div className="flex items-center gap-2">
+                                                <Mail className="w-4 h-4 text-muted-foreground" />
+                                                Email
+                                            </div>
+                                        </TableHead>
+                                        <TableHead className="font-semibold">Status</TableHead>
+                                        <TableHead className="font-semibold text-center">Actions</TableHead>
                                     </TableRow>
-                                ) : (
-                                    filteredBrokers.map((broker) => (
-                                        <TableRow
-                                            key={broker.id}
-                                            className="border-border hover:bg-muted/20 transition-all duration-200 group"
-                                        >
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
-                                                        <Building className="w-4 h-4 text-primary" />
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredBrokers.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="text-center py-16">
+                                                <div className="flex flex-col items-center gap-4">
+                                                    <div className="p-4 bg-muted/30 rounded-full">
+                                                        <Building2 className="w-12 h-12 text-muted-foreground/50" />
                                                     </div>
-                                                    <span className="font-medium">{broker.name}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <User className="w-4 h-4 text-muted-foreground" />
-                                                    <span>{broker.contact_person}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {broker.phone ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <Phone className="w-4 h-4 text-muted-foreground" />
-                                                        <span className="font-mono text-sm">
-                                                            {broker.phone}
-                                                        </span>
+                                                    <div className="text-muted-foreground">
+                                                        <p className="text-lg font-medium">No brokers found</p>
+                                                        <p className="text-sm mt-1">
+                                                            {searchTerm
+                                                                ? "Try adjusting your search"
+                                                                : "Add your first broker to get started"}
+                                                        </p>
                                                     </div>
-                                                ) : (
-                                                    <span className="text-muted-foreground">No phone</span>  // ✅ Better message
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {broker.city ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <MapPin className="w-4 h-4 text-muted-foreground" />
-                                                        <span>{broker.city}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {broker.email ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <Mail className="w-4 h-4 text-muted-foreground" />
-                                                        <span className="text-sm">{broker.email}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant={
-                                                        broker.status === "ACTIVE" ? "default" : "secondary"
-                                                    }
-                                                    className={cn(
-                                                        "font-medium",
-                                                        broker.status === "ACTIVE"
-                                                            ? "bg-green-100 text-green-700 border-green-200"
-                                                            : "bg-gray-100 text-gray-700 border-gray-200"
-                                                    )}
-                                                >
-                                                    {broker.status || "ACTIVE"}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center justify-center">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 hover:bg-primary/10"
-                                                            >
-                                                                <MoreVertical className="w-4 h-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-48">
-                                                            <DropdownMenuItem
-                                                                onClick={() => {
-                                                                    setEditingBroker(broker);
-                                                                    setIsModalOpen(true);
-                                                                }}
-                                                                className="hover:bg-primary/10"
-                                                            >
-                                                                <Edit className="w-4 h-4 mr-2" />
-                                                                Edit Details
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                className="text-destructive hover:bg-destructive/10"
-                                                                onClick={() => setDeletingBrokerId(broker.id)}
-                                                            >
-                                                                <Trash2 className="w-4 h-4 mr-2" />
-                                                                Delete Broker
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+                                    ) : (
+                                        filteredBrokers.map((broker) => (
+                                            <TableRow
+                                                key={broker.id}
+                                                className="hover:bg-muted/50 transition-colors"
+                                            >
+                                                <TableCell>
+                                                    <div className="font-semibold flex items-center gap-2">
+                                                        <Building className="w-4 h-4 text-muted-foreground" />
+                                                        {broker.name}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <User className="w-3.5 h-3.5 text-muted-foreground" />
+                                                        <span>{broker.contact_person}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {broker.phone ? (
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                            <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                                                            <span>{broker.phone}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted-foreground text-sm">No phone</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {broker.city ? (
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                            <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                                                            <span>{broker.city}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {broker.email ? (
+                                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                            <Mail className="w-3 h-3" />
+                                                            <span className="truncate max-w-[150px]">{broker.email}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-muted-foreground">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        variant={broker.status === "ACTIVE" ? "default" : "secondary"}
+                                                        className={cn(
+                                                            broker.status === "ACTIVE"
+                                                                ? "bg-green-100 text-green-700 border-green-200"
+                                                                : "bg-gray-100 text-gray-700 border-gray-200"
+                                                        )}
+                                                    >
+                                                        {broker.status === "ACTIVE" ? (
+                                                            <CheckCircle className="w-3 h-3 mr-1" />
+                                                        ) : (
+                                                            <XCircle className="w-3 h-3 mr-1" />
+                                                        )}
+                                                        {broker.status || "ACTIVE"}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center justify-center">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8"
+                                                                >
+                                                                    <MoreVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48">
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setEditingBroker(broker);
+                                                                        setIsModalOpen(true);
+                                                                    }}
+                                                                >
+                                                                    <Edit className="mr-2 h-4 w-4" />
+                                                                    Edit Details
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive"
+                                                                    onClick={() => setDeletingBrokerId(broker.id)}
+                                                                >
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Delete Broker
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="md:hidden space-y-3">
+                            {filteredBrokers.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <div className="flex flex-col items-center gap-4">
+                                        <div className="p-4 bg-muted/30 rounded-full">
+                                            <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                                        </div>
+                                        <div className="text-muted-foreground">
+                                            <p className="text-lg font-medium">No brokers found</p>
+                                            <p className="text-sm mt-1">
+                                                {searchTerm
+                                                    ? "Try adjusting your search"
+                                                    : "Add your first broker to get started"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                filteredBrokers.map((broker) => (
+                                    <div key={broker.id} className="bg-white border rounded-lg p-4 space-y-3 shadow-sm">
+                                        {/* Header */}
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-1 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <Building className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="font-semibold text-sm">{broker.name}</span>
+                                                </div>
+                                                {broker.contact_person && (
+                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-6">
+                                                        <User className="w-3 h-3" />
+                                                        {broker.contact_person}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-48">
+                                                    <DropdownMenuItem
+                                                        onClick={() => {
+                                                            setEditingBroker(broker);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                    >
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Edit Details
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onClick={() => setDeletingBrokerId(broker.id)}
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Delete Broker
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="flex items-center gap-2">
+                                            <Badge
+                                                variant={broker.status === "ACTIVE" ? "default" : "secondary"}
+                                                className={cn(
+                                                    "text-xs",
+                                                    broker.status === "ACTIVE"
+                                                        ? "bg-green-100 text-green-700 border-green-200"
+                                                        : "bg-gray-100 text-gray-700 border-gray-200"
+                                                )}
+                                            >
+                                                {broker.status === "ACTIVE" ? (
+                                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                                ) : (
+                                                    <XCircle className="w-3 h-3 mr-1" />
+                                                )}
+                                                {broker.status || "ACTIVE"}
+                                            </Badge>
+                                        </div>
+
+                                        {/* Contact Info */}
+                                        <div className="space-y-2 text-sm">
+                                            {broker.phone && (
+                                                <div className="flex items-center gap-2">
+                                                    <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <span>{broker.phone}</span>
+                                                </div>
+                                            )}
+                                            {broker.email && (
+                                                <div className="flex items-center gap-2">
+                                                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <span className="text-xs truncate">{broker.email}</span>
+                                                </div>
+                                            )}
+                                            {broker.city && (
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <span className="text-xs">{broker.city}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
             <BrokerModal
                 isOpen={isModalOpen}
                 onClose={() => {

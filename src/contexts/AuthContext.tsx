@@ -43,6 +43,7 @@ interface SignUpData {
     companyName: string;
     userName: string;
     userPhone: string;
+    username: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -262,7 +263,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     p_company_name: userData.companyName,
                     p_user_email: email,
                     p_user_name: userData.userName,
-                    p_user_phone: userData.userPhone
+                    p_user_phone: userData.userPhone,
+                    p_username: userData.username
                 });
 
                 if (setupError) throw setupError;

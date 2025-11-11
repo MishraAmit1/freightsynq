@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ ADD THIS
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,23 +90,6 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useDropzone } from "react-dropzone";
 
-// Custom hook for debouncing
-const useDebounce = (value: string, delay: number) => {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [value, delay]);
-
-    return debouncedValue;
-};
-
 // Types
 interface Party {
     id: string;
@@ -123,28 +107,6 @@ interface Party {
     status: 'ACTIVE' | 'INACTIVE';
     created_at?: string;
     updated_at?: string;
-}
-
-interface PartyFormData {
-    name: string;
-    contact_person: string;
-    phone: string;
-    email: string;
-    address_line1: string;
-    city: string;
-    state: string;
-    pincode: string;
-    gst_number: string;
-    pan_number: string;
-    party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
-}
-
-interface PartyModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    party: Party | null;
-    onSave: () => void;
-    mode: 'create' | 'edit';
 }
 
 interface Stats {
@@ -214,7 +176,6 @@ const validateEmail = (email: string): boolean => {
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) return false;
 
-    // Common valid email domains
     const validDomains = [
         'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com',
         'zoho.com', 'protonmail.com', 'icloud.com', 'aol.com',
@@ -224,7 +185,6 @@ const validateEmail = (email: string): boolean => {
 
     const domain = email.split('@')[1]?.toLowerCase();
 
-    // Check if it's a common domain or has valid TLD
     return validDomains.includes(domain) ||
         domain?.endsWith('.com') ||
         domain?.endsWith('.in') ||
@@ -234,593 +194,6 @@ const validateEmail = (email: string): boolean => {
         domain?.endsWith('.edu');
 };
 
-// Enhanced Party Modal Component
-// PartyModal component mein yeh changes karo:
-
-const PartyModal: React.FC<PartyModalProps> = ({ isOpen, onClose, party = null, onSave, mode = "create" }) => {
-    const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
-    const [locationSearch, setLocationSearch] = useState("");
-    const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
-    const [searchingLocation, setSearchingLocation] = useState(false);
-    const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-    const [hasSelected, setHasSelected] = useState(false);
-
-    const debouncedLocationSearch = useDebounce(locationSearch, 500);
-
-    const [formData, setFormData] = useState<PartyFormData>({
-        name: "",
-        contact_person: "",
-        phone: "",
-        email: "",
-        address_line1: "",
-        city: "",
-        state: "",
-        pincode: "",
-        gst_number: "",
-        pan_number: "",
-        party_type: "BOTH"
-    });
-
-    // Reset when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            if (party && mode === "edit") {
-                setFormData({
-                    name: party.name || "",
-                    contact_person: party.contact_person || "",
-                    phone: party.phone || "",
-                    email: party.email || "",
-                    address_line1: party.address_line1 || "",
-                    city: party.city || "",
-                    state: party.state || "",
-                    pincode: party.pincode || "",
-                    gst_number: party.gst_number || "",
-                    pan_number: party.pan_number || "",
-                    party_type: party.party_type || "BOTH"
-                });
-                if (party.address_line1) {
-                    setLocationSearch(party.address_line1);
-                    setHasSelected(true);
-                }
-            } else {
-                setFormData({
-                    name: "",
-                    contact_person: "",
-                    phone: "",
-                    email: "",
-                    address_line1: "",
-                    city: "",
-                    state: "",
-                    pincode: "",
-                    gst_number: "",
-                    pan_number: "",
-                    party_type: "BOTH"
-                });
-                setLocationSearch("");
-                setHasSelected(false);
-            }
-            setLocationSuggestions([]);
-            setShowLocationSuggestions(false);
-        }
-    }, [isOpen, party, mode]);
-
-    // Search locations - UPDATED VERSION
-    useEffect(() => {
-        if (hasSelected) {
-            setLocationSuggestions([]);
-            setShowLocationSuggestions(false);
-            return;
-        }
-
-        if (debouncedLocationSearch && debouncedLocationSearch.length > 2) {
-            searchLocations(debouncedLocationSearch);
-        } else {
-            setLocationSuggestions([]);
-            setShowLocationSuggestions(false);
-        }
-    }, [debouncedLocationSearch, hasSelected]);
-
-    const searchLocations = async (query: string) => {
-        if (hasSelected) return;
-
-        setSearchingLocation(true);
-        try {
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?` +
-                `q=${encodeURIComponent(query)}&` +
-                `format=json&` +
-                `countrycodes=in&` +
-                `limit=20&` +  // ✅ Increased limit
-                `addressdetails=1&` +
-                `featuretype=settlement&` +
-                `accept-language=en`
-            );
-
-            const data = await response.json();
-
-            if (!hasSelected) {
-                const formattedResults = data
-                    .map((item: any) => {
-                        const area = item.address?.suburb ||
-                            item.address?.neighbourhood ||
-                            item.address?.locality ||
-                            item.address?.hamlet ||
-                            item.name?.split(',')[0] ||
-                            '';
-
-                        const city = item.address?.city ||
-                            item.address?.town ||
-                            item.address?.village ||
-                            item.address?.municipality ||
-                            '';
-
-                        const state = item.address?.state || '';
-                        const postcode = item.address?.postcode || '';
-
-                        let displayText = '';
-                        if (area && city && area !== city) {
-                            displayText = `${area}, ${city}`;
-                        } else if (city) {
-                            displayText = city;
-                        } else if (area) {
-                            displayText = area;
-                        } else {
-                            displayText = item.display_name;
-                        }
-
-                        // ✅ Categorize result type
-                        const isArea = [
-                            'suburb',
-                            'neighbourhood',
-                            'locality',
-                            'hamlet',
-                            'quarter',
-                            'residential'
-                        ].includes(item.type);
-
-                        const isCity = [
-                            'city',
-                            'town',
-                            'village',
-                            'municipality'
-                        ].includes(item.type);
-
-                        return {
-                            area: area || city || '',
-                            city: city || area || '',
-                            state: state,
-                            postcode: postcode,
-                            display_name: item.display_name,
-                            displayText: displayText,
-                            fullAddress: `${area ? area + ', ' : ''}${city}, ${state} - ${postcode}`,
-                            type: item.type,
-                            importance: item.importance || 0,
-                            isArea: isArea,
-                            isCity: isCity,
-                            isActualArea: area && city && area !== city
-                        };
-                    })
-                    // ✅ UPDATED: Allow both areas AND cities
-                    .filter((item: any) => {
-                        const hasNonEnglish = /[^\x00-\x7F]/.test(item.displayText);
-                        const hasDevanagari = /[\u0900-\u097F]/.test(item.displayText);
-
-                        return (
-                            !hasNonEnglish &&
-                            !hasDevanagari &&
-                            item.city &&
-                            item.state &&
-                            // ✅ Accept both areas and cities
-                            (item.isArea || item.isCity || item.isActualArea)
-                        );
-                    })
-                    // Remove duplicates
-                    .filter((item: any, index: number, self: any[]) => {
-                        return index === self.findIndex((t) =>
-                            t.displayText === item.displayText &&
-                            t.city === item.city
-                        );
-                    })
-                    // ✅ SMART SORTING: Areas first, then cities
-                    .sort((a: any, b: any) => {
-                        // Priority 1: Actual areas (has separate area name)
-                        if (a.isActualArea && !b.isActualArea) return -1;
-                        if (!a.isActualArea && b.isActualArea) return 1;
-
-                        // Priority 2: Area types
-                        if (a.isArea && !b.isArea) return -1;
-                        if (!a.isArea && b.isArea) return 1;
-
-                        // Priority 3: Importance score
-                        return b.importance - a.importance;
-                    });
-
-                setLocationSuggestions(formattedResults);
-                setShowLocationSuggestions(formattedResults.length > 0);
-            }
-        } catch (error) {
-            console.error("Error searching locations:", error);
-        } finally {
-            setSearchingLocation(false);
-        }
-    };
-
-    const handleLocationSelect = (location: any) => {
-        // ✅ Smart detection: Area or City
-        const addressLine = location.area && location.area !== location.city
-            ? location.area
-            : '';
-
-        setFormData(prev => ({
-            ...prev,
-            address_line1: addressLine || prev.address_line1,
-            city: location.city || "",
-            state: location.state || "",
-            pincode: location.postcode || prev.pincode
-        }));
-
-        setLocationSearch(location.displayText);
-        setHasSelected(true);
-        setLocationSuggestions([]);
-        setShowLocationSuggestions(false);
-
-        toast({
-            title: "✅ Location Selected",
-            description: `${location.displayText}, ${location.state}`,
-        });
-    };
-
-    const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setLocationSearch(value);
-
-        if (hasSelected) {
-            setHasSelected(false);
-        }
-    };
-
-    const handleClearSearch = () => {
-        setLocationSearch("");
-        setHasSelected(false);
-        setLocationSuggestions([]);
-        setShowLocationSuggestions(false);
-    };
-
-    // Rest of the component remains same...
-    const handleSubmit = async () => {
-        // Validation code remains same...
-        // [Keep your existing validation logic]
-
-        setLoading(true);
-        try {
-            // [Keep your existing submit logic]
-        } catch (error: any) {
-            // [Keep your existing error handling]
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-gradient-to-br from-background via-background to-muted/5">
-                <DialogHeader className="border-b pb-4">
-                    <DialogTitle className="text-xl flex items-center gap-2">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                            <User className="w-5 h-5 text-primary" />
-                        </div>
-                        {mode === "edit" ? "Edit Party" : "Add New Party"}
-                    </DialogTitle>
-                </DialogHeader>
-
-                <div className="grid gap-4 py-4">
-                    {/* Party Type Selection */}
-                    <div className="grid grid-cols-1 gap-4">
-                        <div>
-                            <Label>Party Type *</Label>
-                            <Select
-                                value={formData.party_type}
-                                onValueChange={(value: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH') =>
-                                    setFormData({ ...formData, party_type: value })
-                                }
-                            >
-                                <SelectTrigger className="h-11 border-muted-foreground/20">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="CONSIGNOR">Consignor Only</SelectItem>
-                                    <SelectItem value="CONSIGNEE">Consignee Only</SelectItem>
-                                    <SelectItem value="BOTH">Both (Can be either)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    {/* Basic Information */}
-                    <div className="space-y-2">
-                        <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                            <Building2 className="w-4 h-4" />
-                            Basic Information
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label>Party Name *</Label>
-                                <Input
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="Enter unique party name"
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                            <div>
-                                <Label>Contact Person</Label>
-                                <Input
-                                    value={formData.contact_person}
-                                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-                                    placeholder="Contact person name"
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Contact Information */}
-                    <div className="space-y-2">
-                        <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                            <Phone className="w-4 h-4" />
-                            Contact Information
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label>Phone Number *</Label>
-                                <Input
-                                    value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                    placeholder="10-digit phone number"
-                                    maxLength={10}
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                            <div>
-                                <Label>Email Address</Label>
-                                <Input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    placeholder="email@gmail.com"
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Address Information */}
-                    <div className="space-y-2">
-                        <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                            <MapPin className="w-4 h-4" />
-                            Address Details
-                        </h3>
-                        <div className="space-y-4">
-                            {/* ✅ UPDATED Location Search */}
-                            <div>
-                                <Label>
-                                    Search Area/City (e.g., Chanod, Vapi, Surat)
-                                    {hasSelected && (
-                                        <span className="text-xs text-green-500 ml-2">
-                                            ✓ Location selected
-                                        </span>
-                                    )}
-                                </Label>
-                                <div className="relative">
-                                    <div className="relative">
-                                        <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            value={locationSearch}
-                                            onChange={handleLocationInputChange}
-                                            placeholder="Type area or city name..."
-                                            className="pl-10 pr-10 h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                            autoComplete="off"
-                                        />
-                                        {searchingLocation && (
-                                            <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin" />
-                                        )}
-                                        {locationSearch && !searchingLocation && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="absolute right-1 top-1.5 h-8 w-8 p-0"
-                                                onClick={handleClearSearch}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    </div>
-
-                                    {/* ✅ ENHANCED Location Suggestions Dropdown */}
-                                    {showLocationSuggestions && locationSuggestions.length > 0 && !hasSelected && (
-                                        <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[300px] overflow-auto">
-                                            {locationSuggestions.map((location, index) => (
-                                                <div
-                                                    key={index}
-                                                    className={cn(
-                                                        "px-3 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0 transition-colors",
-                                                        // ✅ Light highlight for areas
-                                                        location.isActualArea && "bg-primary/5"
-                                                    )}
-                                                    onClick={() => handleLocationSelect(location)}
-                                                >
-                                                    <div className="flex items-start gap-2">
-                                                        <MapPin className={cn(
-                                                            "h-4 w-4 mt-0.5 shrink-0",
-                                                            // ✅ Different colors for area vs city
-                                                            location.isActualArea ? "text-primary" : "text-muted-foreground"
-                                                        )} />
-                                                        <div className="flex-1">
-                                                            <div className="font-medium text-sm">
-                                                                {location.area && location.city && location.area !== location.city ? (
-                                                                    // AREA format
-                                                                    <>
-                                                                        <span className="text-primary font-semibold">{location.area}</span>
-                                                                        <span className="text-muted-foreground font-normal"> • {location.city}</span>
-                                                                    </>
-                                                                ) : (
-                                                                    // CITY format
-                                                                    <span className="text-foreground">{location.city}</span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* State + Pincode + Type Badge */}
-                                                            <div className="flex items-center gap-2 mt-0.5">
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {location.state}
-                                                                    {location.postcode && ` • PIN: ${location.postcode}`}
-                                                                </span>
-
-                                                                {/* ✅ Type Badge with different colors */}
-                                                                <span className={cn(
-                                                                    "text-xs px-1.5 py-0.5 rounded font-medium",
-                                                                    location.isActualArea
-                                                                        ? "bg-primary/20 text-primary"
-                                                                        : "bg-muted text-muted-foreground"
-                                                                )}>
-                                                                    {location.isActualArea ? 'Area' : 'City'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    🔍 Search area (Chanod) or city (Vapi) - both work!
-                                </p>
-                            </div>
-
-                            <div>
-                                <Label>Street Address *</Label>
-                                <Input
-                                    value={formData.address_line1}
-                                    onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
-                                    placeholder="Building/Street address"
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-
-                            {/* City, State, Pincode */}
-                            <div className="grid grid-cols-3 gap-4">
-                                <div>
-                                    <Label>
-                                        City *
-                                        {formData.city && (
-                                            <Check className="inline w-3 h-3 text-green-500 ml-1" />
-                                        )}
-                                    </Label>
-                                    <Input
-                                        value={formData.city}
-                                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                        placeholder="Enter city"
-                                        className={cn(
-                                            "h-11 border-muted-foreground/20 focus:border-primary transition-all",
-                                            formData.city && "border-green-500/50"
-                                        )}
-                                    />
-                                </div>
-                                <div>
-                                    <Label>
-                                        State *
-                                        {formData.state && (
-                                            <Check className="inline w-3 h-3 text-green-500 ml-1" />
-                                        )}
-                                    </Label>
-                                    <Input
-                                        value={formData.state}
-                                        onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                                        placeholder="Enter state"
-                                        className={cn(
-                                            "h-11 border-muted-foreground/20 focus:border-primary transition-all",
-                                            formData.state && "border-green-500/50"
-                                        )}
-                                    />
-                                </div>
-                                <div>
-                                    <Label>
-                                        Pincode *
-                                        {formData.pincode && formData.pincode.length === 6 && (
-                                            <Check className="inline w-3 h-3 text-green-500 ml-1" />
-                                        )}
-                                    </Label>
-                                    <Input
-                                        value={formData.pincode}
-                                        onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
-                                        placeholder="6-digit pincode"
-                                        maxLength={6}
-                                        className={cn(
-                                            "h-11 border-muted-foreground/20 focus:border-primary transition-all",
-                                            formData.pincode.length === 6 && "border-green-500/50"
-                                        )}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Tax Information */}
-                    <div className="space-y-2">
-                        <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                            <FileText className="w-4 h-4" />
-                            Tax Information (Optional)
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label>GST Number</Label>
-                                <Input
-                                    value={formData.gst_number}
-                                    onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
-                                    placeholder="15-character GST number"
-                                    maxLength={15}
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                            <div>
-                                <Label>PAN Number</Label>
-                                <Input
-                                    value={formData.pan_number}
-                                    onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase() })}
-                                    placeholder="10-character PAN"
-                                    maxLength={10}
-                                    className="h-11 border-muted-foreground/20 focus:border-primary transition-all"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <DialogFooter>
-                    <Button
-                        variant="outline"
-                        onClick={onClose}
-                        disabled={loading}
-                        className="hover:bg-muted"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg transition-all"
-                    >
-                        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                        {mode === "edit" ? "Update Party" : "Add Party"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
 // Import Modal Component
 const ImportModal: React.FC<{
     isOpen: boolean;
@@ -892,7 +265,7 @@ const ImportModal: React.FC<{
                 });
 
                 if (data.length > 0) {
-                    const headers = data[0].map((h: string) =>
+                    const headers = (data[0] as any[]).map((h: string) =>
                         h.toString().trim().toLowerCase().replace(/\s+/g, '_')
                     );
                     data = data.slice(1).map((row: any[]) => {
@@ -1004,7 +377,7 @@ const ImportModal: React.FC<{
                 errors.push({ row: index + 1, field: 'pincode', message: 'Invalid pincode' });
             }
             if (processedRow.email && !validateEmail(processedRow.email)) {
-                errors.push({ row: index + 1, field: 'email', message: 'Invalid email (use valid domains like gmail.com)' });
+                errors.push({ row: index + 1, field: 'email', message: 'Invalid email' });
             }
             if (processedRow.gst_number && processedRow.gst_number.length > 0 &&
                 !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(processedRow.gst_number)) {
@@ -1016,10 +389,10 @@ const ImportModal: React.FC<{
             }
 
             // Party type validation
-            if (!['CONSIGNOR', 'CONSIGNEE', 'BOTH'].includes(processedRow.party_type)) {
+            if (!['CONSIGNOR', 'CONSIGNEE', 'BOTH'].includes(processedRow.party_type!)) {
                 processedRow.party_type = 'BOTH';
             }
-            if (!['ACTIVE', 'INACTIVE'].includes(processedRow.status)) {
+            if (!['ACTIVE', 'INACTIVE'].includes(processedRow.status!)) {
                 processedRow.status = 'ACTIVE';
             }
 
@@ -1433,9 +806,10 @@ const ImportModal: React.FC<{
     );
 };
 
-// Main Customers Component
+// ✅ MAIN CUSTOMERS COMPONENT
 export const Customers = () => {
     const { toast } = useToast();
+    const navigate = useNavigate(); // ✅ ADD THIS
     const [parties, setParties] = useState<Party[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -1443,15 +817,6 @@ export const Customers = () => {
     const [statusFilter, setStatusFilter] = useState("ACTIVE");
     const [selectedTab, setSelectedTab] = useState("all");
     const [showImportModal, setShowImportModal] = useState(false);
-    const [partyModal, setPartyModal] = useState<{
-        isOpen: boolean;
-        party: Party | null;
-        mode: 'create' | 'edit';
-    }>({
-        isOpen: false,
-        party: null,
-        mode: "create"
-    });
     const [deletePartyId, setDeletePartyId] = useState<string | null>(null);
     const [stats, setStats] = useState<Stats>({
         total: 0,
@@ -1548,12 +913,6 @@ export const Customers = () => {
     useEffect(() => {
         loadParties();
     }, [statusFilter]);
-
-    // Handle party save (clear search after adding/editing)
-    const handlePartySave = () => {
-        setSearchTerm(""); // Clear search to show new party
-        loadParties();
-    };
 
     // Toggle party status
     const togglePartyStatus = async (party: Party) => {
@@ -1655,7 +1014,7 @@ export const Customers = () => {
         return matchesSearch && matchesType && matchesTab;
     });
 
-    // Export to CSV (with address included)
+    // Export to CSV
     const handleExport = () => {
         const csvContent = [
             ["Name", "Type", "Phone", "Email", "Address", "City", "State", "Pincode", "GST", "PAN", "Status"],
@@ -1687,9 +1046,9 @@ export const Customers = () => {
         });
     };
 
-    // Handle import complete (clear search)
+    // Handle import complete
     const handleImportComplete = () => {
-        setSearchTerm(""); // Clear search to show imported parties
+        setSearchTerm("");
         loadParties();
     };
 
@@ -1708,157 +1067,155 @@ export const Customers = () => {
     }
 
     return (
-        <div className="space-y-8 p-2">
-            {/* Header Section with Gradient */}
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-                <div className="relative flex items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                            Customer Management
-                        </h1>
-                        <p className="text-muted-foreground mt-2 text-lg">
-                            Manage your consignors and consignees
-                        </p>
-                    </div>
-                    <div className="flex gap-3">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setShowImportModal(true)}
-                                        className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
-                                    >
-                                        <Upload className="w-4 h-4 mr-2" />
-                                        Import
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Import parties from file</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+        <div className="space-y-8 -mt-1">
+            {/* Header Section */}
+            <div className="space-y-4">
+                <div className="space-y-4">
+                    {/* Stats Grid with Buttons */}
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 pb-4 border-b">
+                        {/* Stats - Left Side */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 flex-1">
+                            <div className="space-y-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Total Parties</p>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
+                                    <p className="text-xl sm:text-2xl font-semibold">{stats.total}</p>
+                                </div>
+                            </div>
 
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        onClick={handleExport}
-                                        className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
-                                    >
-                                        <FileDown className="w-4 h-4 mr-2" />
-                                        Export
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Export parties to CSV</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                            <div className="space-y-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Consignors</p>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <Package className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                                    <p className="text-xl sm:text-2xl font-semibold">{stats.consignors}</p>
+                                </div>
+                            </div>
 
-                        <Button
-                            onClick={() => setPartyModal({ isOpen: true, party: null, mode: "create" })}
-                            className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Party
-                        </Button>
+                            <div className="space-y-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Consignees</p>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                                    <p className="text-xl sm:text-2xl font-semibold">{stats.consignees}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <p className="text-xs sm:text-sm text-muted-foreground">Active</p>
+                                <div className="flex items-center gap-2 sm:gap-3">
+                                    <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+                                    <p className="text-xl sm:text-2xl font-semibold">{stats.active}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Buttons - Right Side */}
+                        <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowImportModal(true)}
+                                            className="flex-1 sm:flex-none"
+                                        >
+                                            <Upload className="w-4 h-4 mr-2" />
+                                            Import
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Import parties from file</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleExport}
+                                            className="flex-1 sm:flex-none"
+                                        >
+                                            <FileDown className="w-4 h-4 mr-2" />
+                                            Export
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Export parties to CSV</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            {/* ✅ UPDATED: Navigate to Add Page */}
+                            <Button
+                                size="sm"
+                                onClick={() => navigate("/customers/add")} // ✅ CHANGED
+                                className="flex-1 sm:flex-none"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Party
+                            </Button>
+                        </div>
                     </div>
                 </div>
+
+                {/* Tabs */}
+                <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+                    <div className="border-b border-gray-200 -mt-2 overflow-x-auto">
+                        <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex min-w-max">
+                            <TabsTrigger
+                                value="all"
+                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm"
+                            >
+                                All ({parties.length})
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="consignors"
+                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm"
+                            >
+                                Consignors ({stats.consignors})
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="consignees"
+                                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm"
+                            >
+                                Consignees ({stats.consignees})
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+                </Tabs>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Total Parties</p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                                    {stats.total}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-primary/10 rounded-xl">
-                                <Building2 className="w-6 h-6 text-primary" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Consignors</p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
-                                    {stats.consignors}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-blue-500/10 rounded-xl">
-                                <Package className="w-6 h-6 text-blue-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Consignees</p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
-                                    {stats.consignees}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-green-500/10 rounded-xl">
-                                <Truck className="w-6 h-6 text-green-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-muted-foreground">Active</p>
-                                <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
-                                    {stats.active}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-emerald-500/10 rounded-xl">
-                                <UserCheck className="w-6 h-6 text-emerald-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Search and Filters */}
+            <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between -mt-4">
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-96">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name, phone, city..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                        />
+                        {searchTerm && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                onClick={() => setSearchTerm("")}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        )}
+                    </div>
 
-            {/* Filters */}
-            <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
-                <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="relative flex-1 group">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                            <Input
-                                placeholder="Search by name, phone, city or GST..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-11 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
-                            />
-                            {searchTerm && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-1 top-1.5 h-8 w-8 p-0"
-                                    onClick={() => setSearchTerm("")}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
+                    {/* Filters */}
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-full sm:w-48 h-11 border-muted-foreground/20 bg-background/50 backdrop-blur-sm">
-                                <Filter className="w-4 h-4 mr-2 text-primary" />
+                            <SelectTrigger className="w-full sm:w-[180px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1868,8 +1225,9 @@ export const Customers = () => {
                                 <SelectItem value="BOTH">Both</SelectItem>
                             </SelectContent>
                         </Select>
+
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-full sm:w-48 h-11 border-muted-foreground/20 bg-background/50 backdrop-blur-sm">
+                            <SelectTrigger className="w-full sm:w-[180px]">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1879,31 +1237,15 @@ export const Customers = () => {
                             </SelectContent>
                         </Select>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
 
-            {/* Tabs and Table */}
-            <Card className="border-border shadow-xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
-                <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
-                    <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-                        <TabsList className="bg-muted/50">
-                            <TabsTrigger value="all" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                All Parties ({parties.length})
-                            </TabsTrigger>
-                            <TabsTrigger value="consignors" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                Consignors ({stats.consignors})
-                            </TabsTrigger>
-                            <TabsTrigger value="consignees" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                Consignees ({stats.consignees})
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
+                {/* Table Section */}
+                <div className="mt-4">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <Table className="customers-table">
                             <TableHeader>
-                                <TableRow className="border-border hover:bg-muted/30 bg-muted/10">
+                                <TableRow className="hover:bg-[#f6f6f6] bg-[#f6f6f6]">
                                     <TableHead className="font-semibold">
                                         <div className="flex items-center gap-2">
                                             <Building2 className="w-4 h-4 text-muted-foreground" />
@@ -1960,18 +1302,16 @@ export const Customers = () => {
                                         return (
                                             <TableRow
                                                 key={party.id}
-                                                className="border-border hover:bg-muted/20 transition-all duration-200 group"
+                                                className="hover:bg-muted/50 transition-colors"
                                             >
                                                 <TableCell>
                                                     <div className="space-y-1">
                                                         <div className="font-semibold flex items-center gap-2">
-                                                            <div className="p-1.5 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
-                                                                <Building className="w-3.5 h-3.5 text-primary" />
-                                                            </div>
+                                                            <Building className="w-4 h-4 text-muted-foreground" />
                                                             {party.name}
                                                         </div>
                                                         {party.contact_person && (
-                                                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                                            <div className="text-xs text-muted-foreground flex items-center gap-1 ml-6">
                                                                 <User className="w-3 h-3" />
                                                                 {party.contact_person}
                                                             </div>
@@ -1988,7 +1328,7 @@ export const Customers = () => {
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2 text-sm">
                                                             <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                                                            <span className="font-medium">{party.phone}</span>
+                                                            <span>{party.phone}</span>
                                                         </div>
                                                         {party.email && (
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -2002,7 +1342,7 @@ export const Customers = () => {
                                                     <div className="space-y-1">
                                                         <div className="flex items-center gap-2 text-sm">
                                                             <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                                                            <span className="font-medium">{party.city}, {party.state}</span>
+                                                            <span>{party.city}, {party.state}</span>
                                                         </div>
                                                         <div className="text-xs text-muted-foreground ml-5">
                                                             {party.address_line1}
@@ -2015,18 +1355,14 @@ export const Customers = () => {
                                                 <TableCell>
                                                     <div className="space-y-1 text-xs">
                                                         {party.gst_number && (
-                                                            <div className="flex items-center gap-1">
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    GST: {party.gst_number}
-                                                                </Badge>
-                                                            </div>
+                                                            <Badge variant="outline" className="text-xs">
+                                                                GST: {party.gst_number}
+                                                            </Badge>
                                                         )}
                                                         {party.pan_number && (
-                                                            <div className="flex items-center gap-1">
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    PAN: {party.pan_number}
-                                                                </Badge>
-                                                            </div>
+                                                            <Badge variant="outline" className="text-xs">
+                                                                PAN: {party.pan_number}
+                                                            </Badge>
                                                         )}
                                                         {!party.gst_number && !party.pan_number && (
                                                             <span className="text-muted-foreground">No tax info</span>
@@ -2040,7 +1376,7 @@ export const Customers = () => {
                                                                 <Badge
                                                                     variant={party.status === "ACTIVE" ? "default" : "secondary"}
                                                                     className={cn(
-                                                                        "font-medium cursor-pointer hover:opacity-80 transition-all",
+                                                                        "cursor-pointer",
                                                                         party.status === "ACTIVE"
                                                                             ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
                                                                             : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
@@ -2068,26 +1404,22 @@ export const Customers = () => {
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-8 w-8 hover:bg-primary/10"
+                                                                    className="h-8 w-8"
                                                                 >
                                                                     <MoreVertical className="h-4 w-4" />
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" className="w-48">
+                                                                {/* ✅ UPDATED: Navigate to Edit Page */}
                                                                 <DropdownMenuItem
-                                                                    onClick={() => setPartyModal({
-                                                                        isOpen: true,
-                                                                        party: party,
-                                                                        mode: "edit"
-                                                                    })}
-                                                                    className="hover:bg-primary/10"
+                                                                    onClick={() => navigate(`/customers/edit/${party.id}`)} // ✅ CHANGED
                                                                 >
                                                                     <Edit className="mr-2 h-4 w-4" />
                                                                     Edit Details
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuSeparator />
                                                                 <DropdownMenuItem
-                                                                    className="text-destructive hover:bg-destructive/10"
+                                                                    className="text-destructive"
                                                                     onClick={() => setDeletePartyId(party.id)}
                                                                 >
                                                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -2104,26 +1436,157 @@ export const Customers = () => {
                             </TableBody>
                         </Table>
                     </div>
-                </CardContent>
-            </Card>
 
-            {/* Party Modal */}
-            <PartyModal
-                isOpen={partyModal.isOpen}
-                onClose={() => setPartyModal({ isOpen: false, party: null, mode: "create" })}
-                party={partyModal.party}
-                mode={partyModal.mode}
-                onSave={handlePartySave}
-            />
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-3">
+                        {filteredParties.length === 0 ? (
+                            <div className="text-center py-12">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="p-4 bg-muted/30 rounded-full">
+                                        <Users className="w-12 h-12 text-muted-foreground/50" />
+                                    </div>
+                                    <div className="text-muted-foreground">
+                                        <p className="text-lg font-medium">No parties found</p>
+                                        <p className="text-sm mt-1">
+                                            {searchTerm || typeFilter !== "ALL"
+                                                ? "Try adjusting your filters"
+                                                : "Add your first party to get started"}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            filteredParties.map((party) => {
+                                const typeConfig = partyTypeConfig[party.party_type];
+                                const TypeIcon = typeConfig.icon;
 
-            {/* Import Modal */}
+                                return (
+                                    <div key={party.id} className="bg-white border rounded-lg p-4 space-y-3 shadow-sm">
+                                        {/* Header */}
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-1 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <Building className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="font-semibold text-sm">{party.name}</span>
+                                                </div>
+                                                {party.contact_person && (
+                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-6">
+                                                        <User className="w-3 h-3" />
+                                                        {party.contact_person}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                    >
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-48">
+                                                    {/* ✅ UPDATED: Navigate to Edit Page */}
+                                                    <DropdownMenuItem
+                                                        onClick={() => navigate(`/customers/edit/${party.id}`)} // ✅ CHANGED
+                                                    >
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Edit Details
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onClick={() => setDeletePartyId(party.id)}
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Delete Party
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+
+                                        {/* Type and Status */}
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={cn("gap-1 text-xs", typeConfig.color)}>
+                                                <TypeIcon className="w-3 h-3" />
+                                                {typeConfig.label}
+                                            </Badge>
+                                            <Badge
+                                                variant={party.status === "ACTIVE" ? "default" : "secondary"}
+                                                className={cn(
+                                                    "cursor-pointer text-xs",
+                                                    party.status === "ACTIVE"
+                                                        ? "bg-green-100 text-green-700 border-green-200"
+                                                        : "bg-gray-100 text-gray-700 border-gray-200"
+                                                )}
+                                                onClick={() => togglePartyStatus(party)}
+                                            >
+                                                {party.status === "ACTIVE" ? (
+                                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                                ) : (
+                                                    <XCircle className="w-3 h-3 mr-1" />
+                                                )}
+                                                {party.status}
+                                            </Badge>
+                                        </div>
+
+                                        {/* Contact Info */}
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                                                <span>{party.phone}</span>
+                                            </div>
+                                            {party.email && (
+                                                <div className="flex items-center gap-2">
+                                                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <span className="text-xs truncate">{party.email}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Address */}
+                                        <div className="space-y-1">
+                                            <div className="flex items-start gap-2 text-sm">
+                                                <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                                                <div className="text-xs">
+                                                    <div>{party.address_line1}</div>
+                                                    <div>{party.city}, {party.state} - {party.pincode}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Tax Info */}
+                                        {(party.gst_number || party.pan_number) && (
+                                            <div className="flex flex-wrap gap-2 pt-2 border-t">
+                                                {party.gst_number && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        GST: {party.gst_number}
+                                                    </Badge>
+                                                )}
+                                                {party.pan_number && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        PAN: {party.pan_number}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Import Modal - Keep as is */}
             <ImportModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onImportComplete={handleImportComplete}
             />
 
-            {/* Delete Confirmation */}
+            {/* Delete Confirmation - Keep as is */}
             <AlertDialog open={!!deletePartyId} onOpenChange={() => setDeletePartyId(null)}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>

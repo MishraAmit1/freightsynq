@@ -96,6 +96,7 @@ const validatePickupDate = (dateString: string | undefined): string | null => {
 };
 
 // Location Search Component
+// ✅ UPDATED: Location Search with Google Places + Fallback
 const LocationSearchInput = ({
   value,
   onChange,
@@ -137,147 +138,301 @@ const LocationSearchInput = ({
     }
   }, [debouncedSearch, hasSelected]);
 
+  // ✅ GOOGLE PLACES API with Nominatim Fallback
   const searchLocations = async (query: string) => {
     if (hasSelected) return;
 
     setSearching(true);
+
+    // Generate session token for billing optimization
+    const sessionToken = Math.random().toString(36).substring(7);
+
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?` +
-        `q=${encodeURIComponent(query)}&` +
-        `format=json&` +
-        `countrycodes=in&` +
-        `limit=20&` +  // ✅ Increased limit
-        `addressdetails=1&` +
-        `featuretype=settlement&` +
-        `accept-language=en`
-      );
+      // ✅ Try Google Places API first
+      const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
 
-      const data = await response.json();
+      if (apiKey) {
+        console.log("🔍 Searching with Google Places API...");
 
-      if (!hasSelected) {
-        const formattedResults = data
-          .map((item: any) => {
-            const area = item.address?.suburb ||
-              item.address?.neighbourhood ||
-              item.address?.locality ||
-              item.address?.hamlet ||
-              item.name?.split(',')[0] ||
-              '';
+        const response = await fetch(
+          'https://places.googleapis.com/v1/places:autocomplete',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
+            },
+            body: JSON.stringify({
+              input: query,
+              includedRegionCodes: ['in'],
+              sessionToken: sessionToken,
+              languageCode: 'en',
+              locationBias: {
+                rectangle: {
+                  low: { latitude: 8.0, longitude: 68.0 },
+                  high: { latitude: 37.0, longitude: 97.0 }
+                }
+              }
+            })
+          }
+        );
 
-            const city = item.address?.city ||
-              item.address?.town ||
-              item.address?.village ||
-              item.address?.municipality ||
-              '';
+        if (response.ok) {
+          const data = await response.json();
 
-            const state = item.address?.state || '';
-            const postcode = item.address?.postcode || '';
+          if (!hasSelected && data.suggestions) {
+            const formattedResults = data.suggestions.map((suggestion: any) => {
+              const prediction = suggestion.placePrediction;
+              const mainText = prediction.structuredFormat?.mainText?.text ||
+                prediction.text?.text || '';
+              const secondaryText = prediction.structuredFormat?.secondaryText?.text || '';
 
-            let displayText = '';
-            if (area && city && area !== city) {
-              displayText = `${area}, ${city}`;
-            } else if (city) {
-              displayText = city;
-            } else if (area) {
-              displayText = area;
-            } else {
-              displayText = item.display_name;
-            }
+              // Detect if it's an area or city
+              const isArea = secondaryText && !mainText.includes(secondaryText);
 
-            // ✅ Categorize result type
-            const isArea = [
-              'suburb',
-              'neighbourhood',
-              'locality',
-              'hamlet',
-              'quarter',
-              'residential'
-            ].includes(item.type);
+              return {
+                placeId: prediction.placeId,
+                area: isArea ? mainText : '',
+                city: isArea ? secondaryText.split(',')[0] : mainText,
+                state: secondaryText ? secondaryText.split(',').slice(-1)[0].trim() : '',
+                displayText: prediction.text?.text || mainText,
+                mainText: mainText,
+                secondaryText: secondaryText,
+                isActualArea: isArea,
+                fullText: prediction.text?.text || '',
+                isGoogle: true
+              };
+            });
 
-            const isCity = [
-              'city',
-              'town',
-              'village',
-              'municipality'
-            ].includes(item.type);
-
-            return {
-              area: area || city || '',
-              city: city || area || '',
-              state: state,
-              postcode: postcode,
-              display_name: item.display_name,
-              displayText: displayText,
-              fullAddress: `${area ? area + ', ' : ''}${city}, ${state} - ${postcode}`,
-              type: item.type,
-              importance: item.importance || 0,
-              isArea: isArea,
-              isCity: isCity,
-              isActualArea: area && city && area !== city
-            };
-          })
-          // ✅ UPDATED: Allow both areas AND cities
-          .filter((item: any) => {
-            const hasNonEnglish = /[^\x00-\x7F]/.test(item.displayText);
-            const hasDevanagari = /[\u0900-\u097F]/.test(item.displayText);
-
-            return (
-              !hasNonEnglish &&
-              !hasDevanagari &&
-              item.city &&
-              item.state &&
-              // ✅ Accept both areas and cities
-              (item.isArea || item.isCity || item.isActualArea)
-            );
-          })
-          // Remove duplicates
-          .filter((item: any, index: number, self: any[]) => {
-            return index === self.findIndex((t) =>
-              t.displayText === item.displayText &&
-              t.city === item.city
-            );
-          })
-          // ✅ SMART SORTING: Areas first, then cities
-          .sort((a: any, b: any) => {
-            // Priority 1: Actual areas (has separate area name)
-            if (a.isActualArea && !b.isActualArea) return -1;
-            if (!a.isActualArea && b.isActualArea) return 1;
-
-            // Priority 2: Area types
-            if (a.isArea && !b.isArea) return -1;
-            if (!a.isArea && b.isArea) return 1;
-
-            // Priority 3: Importance score
-            return b.importance - a.importance;
-          });
-
-        setSuggestions(formattedResults);
-        setShowSuggestions(formattedResults.length > 0);
+            setSuggestions(formattedResults);
+            setShowSuggestions(formattedResults.length > 0);
+            console.log(`✅ Found ${formattedResults.length} Google suggestions`);
+            return; // ✅ Success - exit early
+          }
+        }
       }
+
+      // ✅ Fallback to Nominatim if Google failed or no API key
+      throw new Error("Falling back to Nominatim");
+
     } catch (error) {
-      console.error("Error searching locations:", error);
+      console.log("🔄 Using Nominatim fallback...");
+
+      try {
+        const fallbackResponse = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(query)}&` +
+          `format=json&` +
+          `countrycodes=in&` +
+          `limit=20&` +
+          `addressdetails=1&` +
+          `featuretype=settlement&` +
+          `accept-language=en`
+        );
+
+        const data = await fallbackResponse.json();
+
+        if (!hasSelected) {
+          const formattedResults = data
+            .map((item: any) => {
+              const area = item.address?.suburb ||
+                item.address?.neighbourhood ||
+                item.address?.locality ||
+                item.address?.hamlet ||
+                item.name?.split(',')[0] ||
+                '';
+
+              const city = item.address?.city ||
+                item.address?.town ||
+                item.address?.village ||
+                item.address?.municipality ||
+                '';
+
+              const state = item.address?.state || '';
+              const postcode = item.address?.postcode || '';
+
+              let displayText = '';
+              if (area && city && area !== city) {
+                displayText = `${area}, ${city}`;
+              } else if (city) {
+                displayText = city;
+              } else if (area) {
+                displayText = area;
+              } else {
+                displayText = item.display_name;
+              }
+
+              const isArea = [
+                'suburb',
+                'neighbourhood',
+                'locality',
+                'hamlet',
+                'quarter',
+                'residential'
+              ].includes(item.type);
+
+              const isCity = [
+                'city',
+                'town',
+                'village',
+                'municipality'
+              ].includes(item.type);
+
+              return {
+                area: area || city || '',
+                city: city || area || '',
+                state: state,
+                postcode: postcode,
+                display_name: item.display_name,
+                displayText: displayText,
+                fullAddress: `${area ? area + ', ' : ''}${city}, ${state} - ${postcode}`,
+                type: item.type,
+                importance: item.importance || 0,
+                isArea: isArea,
+                isCity: isCity,
+                isActualArea: area && city && area !== city,
+                isNominatim: true
+              };
+            })
+            .filter((item: any) => {
+              const hasNonEnglish = /[^\x00-\x7F]/.test(item.displayText);
+              const hasDevanagari = /[\u0900-\u097F]/.test(item.displayText);
+
+              return (
+                !hasNonEnglish &&
+                !hasDevanagari &&
+                item.city &&
+                item.state &&
+                (item.isArea || item.isCity || item.isActualArea)
+              );
+            })
+            .filter((item: any, index: number, self: any[]) => {
+              return index === self.findIndex((t) =>
+                t.displayText === item.displayText &&
+                t.city === item.city
+              );
+            })
+            .sort((a: any, b: any) => {
+              if (a.isActualArea && !b.isActualArea) return -1;
+              if (!a.isActualArea && b.isActualArea) return 1;
+              if (a.isArea && !b.isArea) return -1;
+              if (!a.isArea && b.isArea) return 1;
+              return b.importance - a.importance;
+            });
+
+          setSuggestions(formattedResults);
+          setShowSuggestions(formattedResults.length > 0);
+          console.log(`ℹ️ Found ${formattedResults.length} Nominatim results`);
+        }
+      } catch (fallbackError) {
+        console.error("❌ Both search methods failed:", fallbackError);
+      }
     } finally {
       setSearching(false);
     }
   };
 
-  const handleSelect = (location: any) => {
-    const fullAddress = location.fullAddress || `${location.city}, ${location.state} - ${location.postcode}`;
-    setSearchTerm(fullAddress);
-    onChange(fullAddress);
-    setHasSelected(true);
-    setSuggestions([]);
-    setShowSuggestions(false);
+  const handleSelect = async (location: any) => {
+    setSearching(true);
 
-    if (onLocationSelect) {
-      onLocationSelect(location);
+    try {
+      let finalLocation = { ...location };
+
+      // If Google Places result, get detailed info
+      if (location.placeId && location.isGoogle) {
+        const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
+        if (apiKey) {
+          console.log("📍 Fetching Google place details...");
+
+          const detailsResponse = await fetch(
+            `https://places.googleapis.com/v1/places/${location.placeId}?` +
+            `key=${apiKey}&` +
+            `fields=addressComponents,location,displayName`,
+            {
+              method: 'GET',
+              headers: {
+                'X-Goog-FieldMask': 'addressComponents,location,displayName'
+              }
+            }
+          );
+
+          if (detailsResponse.ok) {
+            const placeDetails = await detailsResponse.json();
+            const components = placeDetails.addressComponents || [];
+
+            let locationData = {
+              area: '',
+              city: '',
+              state: '',
+              postcode: ''
+            };
+
+            components.forEach((comp: any) => {
+              const types = comp.types || [];
+
+              if (types.includes('sublocality_level_1') ||
+                types.includes('sublocality') ||
+                types.includes('neighborhood')) {
+                locationData.area = comp.longText || comp.shortText;
+              }
+
+              if (types.includes('locality')) {
+                locationData.city = comp.longText || comp.shortText;
+              }
+
+              if (types.includes('administrative_area_level_1')) {
+                locationData.state = comp.longText || comp.shortText;
+              }
+
+              if (types.includes('postal_code')) {
+                locationData.postcode = comp.longText || comp.shortText;
+              }
+            });
+
+            if (!locationData.area && location.mainText) {
+              locationData.area = location.mainText;
+            }
+
+            finalLocation = {
+              ...location,
+              area: locationData.area,
+              city: locationData.city,
+              state: locationData.state,
+              postcode: locationData.postcode
+            };
+          }
+        }
+      }
+
+      const fullAddress = finalLocation.fullAddress ||
+        `${finalLocation.area ? finalLocation.area + ', ' : ''}${finalLocation.city}, ${finalLocation.state}${finalLocation.postcode ? ' - ' + finalLocation.postcode : ''}`;
+
+      setSearchTerm(fullAddress);
+      onChange(fullAddress);
+      setHasSelected(true);
+      setSuggestions([]);
+      setShowSuggestions(false);
+
+      if (onLocationSelect) {
+        onLocationSelect(finalLocation);
+      }
+
+      toast({
+        title: finalLocation.isGoogle ? "✅ Location Selected (Google)" : "✅ Location Selected",
+        description: finalLocation.displayText,
+      });
+    } catch (error) {
+      console.error("Error selecting location:", error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to get location details",
+        variant: "destructive"
+      });
+    } finally {
+      setSearching(false);
     }
-
-    toast({
-      title: "✅ Location Selected",
-      description: location.displayText,
-    });
   };
 
   const handleInputChange = (newValue: string) => {
@@ -324,6 +479,7 @@ const LocationSearchInput = ({
         )}
       </div>
 
+      {/* ✅ UPDATED Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && !hasSelected && (
         <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[300px] overflow-auto">
           {suggestions.map((location, index) => (
@@ -331,7 +487,6 @@ const LocationSearchInput = ({
               key={index}
               className={cn(
                 "px-3 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0 transition-colors",
-                // ✅ Light highlight for areas
                 location.isActualArea && "bg-primary/5"
               )}
               onClick={() => handleSelect(location)}
@@ -339,32 +494,27 @@ const LocationSearchInput = ({
               <div className="flex items-start gap-2">
                 <MapPin className={cn(
                   "h-4 w-4 mt-0.5 shrink-0",
-                  // ✅ Different colors for area vs city
                   location.isActualArea ? "text-primary" : "text-muted-foreground"
                 )} />
                 <div className="flex-1">
-                  {/* ✅ Area vs City Display */}
                   <div className="font-medium text-sm">
                     {location.area && location.city && location.area !== location.city ? (
-                      // AREA format
                       <>
                         <span className="text-primary font-semibold">{location.area}</span>
                         <span className="text-muted-foreground font-normal"> • {location.city}</span>
                       </>
                     ) : (
-                      // CITY format
-                      <span className="text-foreground">{location.city}</span>
+                      <span className="text-foreground">{location.city || location.mainText}</span>
                     )}
                   </div>
 
-                  {/* State + Pincode + Type Badge */}
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-muted-foreground">
                       {location.state}
                       {location.postcode && ` • PIN: ${location.postcode}`}
                     </span>
 
-                    {/* ✅ Type Badge with different colors */}
+                    {/* Type Badge */}
                     <span className={cn(
                       "text-xs px-1.5 py-0.5 rounded font-medium",
                       location.isActualArea
@@ -373,6 +523,19 @@ const LocationSearchInput = ({
                     )}>
                       {location.isActualArea ? 'Area' : 'City'}
                     </span>
+
+                    {/* ✅ Source Badge */}
+                    {location.isGoogle && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                        ✓ Google
+                      </span>
+                    )}
+
+                    {location.isNominatim && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">
+                        Backup
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -390,7 +553,6 @@ const LocationSearchInput = ({
     </div>
   );
 };
-
 // Party Select Component
 const PartySelect = ({
   value,
@@ -684,6 +846,7 @@ const QuickAddPartyModal = ({
             </div>
           </div>
 
+
           <div>
             <Label>
               Search Area/City
@@ -699,7 +862,7 @@ const QuickAddPartyModal = ({
               placeholder="Search area/city to auto-fill..."
               disabled={loading}
               onLocationSelect={(location) => {
-                // ✅ Smart detection: Area or City
+                // ✅ Smart detection: Area or City (works with both Google & Nominatim)
                 const addressLine = location.area && location.area !== location.city
                   ? location.area
                   : '';
@@ -716,7 +879,7 @@ const QuickAddPartyModal = ({
               }}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              🔍 Search area (Gunjan) or city (Vapi) - both work!
+              🔍 Powered by Google Places (with backup search)
             </p>
           </div>
 
@@ -1009,27 +1172,41 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="from">Pickup Location *</Label>
-                  <LocationSearchInput
-                    value={formData.fromLocation}
-                    onChange={(value) => setFormData({ ...formData, fromLocation: value })}
-                    placeholder="Search pickup area/city..."
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    🔍 Auto-filled from consignor or search to change
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="from"
+                      value={formData.fromLocation}
+                      onChange={(e) => setFormData({ ...formData, fromLocation: e.target.value })}
+                      placeholder="Auto-filled from consignor address..."
+                      className="pl-10 h-11 border-muted-foreground/20 focus:border-primary transition-all"
+                      disabled={loading}
+                      readOnly // ✅ Read-only - auto-filled only
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Auto-filled from consignor address
                   </p>
                 </div>
 
                 <div>
                   <Label htmlFor="to">Drop Location *</Label>
-                  <LocationSearchInput
-                    value={formData.toLocation}
-                    onChange={(value) => setFormData({ ...formData, toLocation: value })}
-                    placeholder="Search drop area/city..."
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    🔍 Auto-filled from consignee or search to change
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="to"
+                      value={formData.toLocation}
+                      onChange={(e) => setFormData({ ...formData, toLocation: e.target.value })}
+                      placeholder="Auto-filled from consignee address..."
+                      className="pl-10 h-11 border-muted-foreground/20 focus:border-primary transition-all"
+                      disabled={loading}
+                      readOnly // ✅ Read-only - auto-filled only
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Auto-filled from consignee address
                   </p>
                 </div>
               </div>

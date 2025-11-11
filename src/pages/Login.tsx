@@ -1,4 +1,4 @@
-// pages/Login.tsx - Beautiful Split Design
+// pages/Login.tsx - FINAL VERSION
 import { useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,28 +7,24 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import {
     Loader2,
     Truck,
     AlertTriangle,
-    Mail,
+    User,
     Lock,
     ArrowRight,
     Sparkles,
-    Shield,
-    Zap,
-    Package,
-    CheckCircle2,
     Navigation,
-    FileCheck
+    FileCheck,
+    Mail
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
 export const Login = () => {
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState(''); // Can be email OR username
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -41,6 +37,11 @@ export const Login = () => {
         return <Navigate to="/" replace />;
     }
 
+    const isEmail = (str: string) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+    };
+
+    // ✅ UPDATED handleSubmit function
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -48,68 +49,84 @@ export const Login = () => {
         setShowIncompleteActions(false);
 
         try {
-            const { data, error } = await signIn(email, password);
+            let emailToUse = identifier.trim();
 
-            if (error) {
-                setError(error.message);
+            // ✅ If username provided, fetch email using SECURE RPC function
+            if (!isEmail(identifier)) {
+                console.log('🔍 Looking up email for username:', identifier);
+
+                // 🔥 UPDATED: Use RPC function instead of direct query
+                const { data: emailResult, error: lookupError } = await supabase
+                    .rpc('get_email_by_username', {
+                        p_username: identifier.trim()
+                    });
+
+                if (lookupError || !emailResult) {
+                    setError('Username not found. Please check and try again.');
+                    setLoading(false);
+                    return;
+                }
+
+                emailToUse = emailResult; // This is a string now
+                console.log('✅ Found email for username:', emailToUse);
+            }
+
+            // Now sign in with email
+            const { data, error: signInError } = await signIn(emailToUse, password);
+
+            if (signInError) {
+                if (signInError.message.includes('Invalid login credentials')) {
+                    setError('Invalid username/email or password');
+                } else {
+                    setError(signInError.message);
+                }
+                setLoading(false);
                 return;
             }
 
-            // ✅ NEW: Check if email is verified
+            // Check if email is verified
             if (data?.user && !data.user.email_confirmed_at) {
-                // Email not verified
                 setError('Please verify your email before logging in. Check your inbox for the verification link.');
-
-                // Store email for resend option
-                localStorage.setItem('pendingVerificationEmail', email);
-
-                // Sign out the user
+                localStorage.setItem('pendingVerificationEmail', emailToUse);
                 await supabase.auth.signOut();
-                // Optionally redirect to verification pending page
                 setTimeout(() => {
                     window.location.href = '/verification-pending';
                 }, 2000);
-
+                setLoading(false);
                 return;
             }
+
+            // Check user profile and company
             if (data?.user) {
                 const { data: userData, error: userError } = await supabase
                     .from('users')
-                    .select('company_id, name')
+                    .select('company_id, name, username')
                     .eq('id', data.user.id)
                     .single();
 
-                // Check if user record exists
                 if (userError || !userData) {
                     await supabase.auth.signOut();
                     setError('⚠️ User profile not found. Please contact support.');
                     setShowIncompleteActions(true);
-                    setIncompleteEmail(email);
+                    setIncompleteEmail(emailToUse);
+                    setLoading(false);
                     return;
                 }
 
-                // Check if company exists
                 if (!userData.company_id) {
-                    // ❌ INCOMPLETE SETUP - LOGOUT & BLOCK
                     await supabase.auth.signOut();
-
-                    setError(
-                        '⚠️ Account setup incomplete! Your email is verified but company setup was not completed.'
-                    );
-
+                    setError('⚠️ Account setup incomplete! Your email is verified but company setup was not completed.');
                     setShowIncompleteActions(true);
-                    setIncompleteEmail(email);
-
-                    return; // STOP HERE
+                    setIncompleteEmail(emailToUse);
+                    setLoading(false);
+                    return;
                 }
 
-                // ✅ All OK - User has company
-                toast.success('Welcome back!');
-                // Navigation will happen automatically via auth context
+                toast.success(`Welcome back, ${userData.name || userData.username}!`);
             }
 
-            // Navigation will happen automatically via auth context
         } catch (error: any) {
+            console.error('Login error:', error);
             setError(error.message || 'An error occurred during login');
         } finally {
             setLoading(false);
@@ -130,7 +147,7 @@ export const Login = () => {
                             Welcome Back
                         </h1>
                         <p className="text-muted-foreground mt-2">
-                            Sign in to continue to FreightSynq
+                            Sign in to continue to FreightSynQ
                         </p>
                     </div>
 
@@ -144,6 +161,7 @@ export const Login = () => {
                                         <AlertDescription>{error}</AlertDescription>
                                     </Alert>
                                 )}
+
                                 {showIncompleteActions && (
                                     <Card className="border-orange-200 bg-orange-50/50">
                                         <CardContent className="p-4 space-y-3">
@@ -178,24 +196,28 @@ export const Login = () => {
                                         </CardContent>
                                     </Card>
                                 )}
-                                {/* Email Field */}
+
+                                {/* ✅ Username/Email Field */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-sm font-medium">
-                                        Email Address
+                                    <Label htmlFor="identifier" className="text-sm font-medium">
+                                        Username or Email
                                     </Label>
                                     <div className="relative">
                                         <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="admin@company.com"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
+                                            id="identifier"
+                                            type="text"
+                                            placeholder="rajesh_logistics or admin@company.com"
+                                            value={identifier}
+                                            onChange={(e) => setIdentifier(e.target.value)}
                                             required
                                             disabled={loading}
                                             className="h-11 pl-10 border-muted-foreground/20 focus:border-primary transition-all"
                                         />
-                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Enter your username or email address
+                                    </p>
                                 </div>
 
                                 {/* Password Field */}
@@ -262,45 +284,6 @@ export const Login = () => {
                                         </>
                                     )}
                                 </Button>
-
-                                {/* Divider */}
-                                {/* <div className="relative py-3">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <div className="w-full border-t border-muted-foreground/20" />
-                                    </div>
-                                    <div className="relative flex justify-center text-xs uppercase">
-                                        <span className="bg-background px-2 text-muted-foreground">
-                                            New to FreightSynq?
-                                        </span>
-                                    </div>
-                                </div> */}
-
-                                {/* Sign Up Link */}
-                                {/* <div className="text-center space-y-3">
-                                    <p className="text-sm text-muted-foreground">
-                                        Don't have a company account?
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <Button
-                                            variant="outline"
-                                            asChild
-                                            className="hover:bg-primary/10 hover:border-primary transition-all"
-                                        >
-                                            <Link to="/signup">
-                                                Create Company
-                                            </Link>
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            asChild
-                                            className="hover:bg-primary/10 hover:border-primary transition-all"
-                                        >
-                                            <Link to="/employee-signup">
-                                                Join Company
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                </div> */}
                             </form>
                         </CardContent>
                     </Card>
@@ -322,14 +305,13 @@ export const Login = () => {
             </div>
 
             {/* Right Panel - Design */}
-            {/* Right Panel - Design */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative">
+            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 bg-grid-white/5" />
 
                 {/* Floating Elements */}
                 <div className="absolute top-1/4 -left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse delay-700" />
+                <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '700ms' }} />
 
                 {/* Centered Content */}
                 <div className="flex items-center justify-center w-full h-full relative z-10">
@@ -349,7 +331,7 @@ export const Login = () => {
                             Track, manage and optimize your fleet operations
                         </p>
 
-                        {/* Feature Cards - Reduced to 2 main features */}
+                        {/* Feature Cards */}
                         <div className="space-y-4 mb-12">
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-center gap-4 text-left">
                                 <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -372,16 +354,16 @@ export const Login = () => {
                             </div>
                         </div>
 
-                        {/* Simple Stats Bar */}
+                        {/* Stats Bar */}
                         <div className="flex justify-center gap-8 text-white/80">
                             <div>
-                                <span className="text-2xl font-bold">500+</span>
-                                <span className="text-sm ml-1">Clients</span>
+                                <div className="text-2xl font-bold">500+</div>
+                                <div className="text-sm">Clients</div>
                             </div>
                             <div className="text-white/20">|</div>
                             <div>
-                                <span className="text-2xl font-bold">99%</span>
-                                <span className="text-sm ml-1">Uptime</span>
+                                <div className="text-2xl font-bold">99%</div>
+                                <div className="text-sm">Uptime</div>
                             </div>
                         </div>
                     </div>
