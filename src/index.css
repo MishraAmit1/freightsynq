@@ -6,10 +6,20 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* Hide scrollbar but keep scroll functionality */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   :root {
     /* Light Mode - Black Primary Theme */
-    --background: 0 0% 100%;
+    --background: 0 0% 90%;
     --foreground: 0 0% 4%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 4%;

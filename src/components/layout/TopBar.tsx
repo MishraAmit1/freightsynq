@@ -103,10 +103,8 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
   const { toast } = useToast();
   const location = useLocation();
 
-  // Get current page info
   const pageInfo = getPageInfo(location.pathname);
 
-  // Local theme state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) return savedTheme as 'light' | 'dark';
@@ -144,8 +142,8 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
   };
 
   return (
-    <header className="h-auto min-h-16 bg-card border-b border-border shadow-sm">
-      <div className="flex items-center justify-between px-4 lg:px-6 py-4">
+    <header className="bg-gray-300">
+      <div className="flex items-center justify-between px-4 lg:px-8 py-4">
         {/* Left Side - Menu + Page Title */}
         <div className="flex items-center space-x-4 flex-1">
           {/* Hamburger Menu for Mobile */}
@@ -158,13 +156,13 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
             <Menu className="w-5 h-5" />
           </Button>
 
-          {/* Page Title - Same size as Dashboard */}
+          {/* Page Title */}
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter truncate">
               {pageInfo.title}
             </h1>
             {pageInfo.description && (
-              <p className="text-sm sm:text-base text-muted-foreground pt-0 hidden sm:block">
+              <p className="text-sm sm:text-base text-muted-foreground mt-1 hidden sm:block">
                 {pageInfo.description}
               </p>
             )}
