@@ -105,12 +105,21 @@ interface Party {
     gst_number?: string | null;
     pan_number?: string | null;
     party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
-    is_billing_party?: boolean;
     status: 'ACTIVE' | 'INACTIVE';
+    is_billing_party?: boolean;
     created_at?: string;
     updated_at?: string;
-}
 
+    // ✅ STATIC DUMMY FIELDS - Just for UI preview
+    last_booking_date?: string | null;      // "2024-01-15" or null
+    trips_this_month?: number;               // 5, 12, 0, etc.
+    has_gst_verified?: boolean;              // true/false
+    has_pan_verified?: boolean;              // true/false
+    has_documents?: boolean;                 // true/false
+    billing_status?: string;                 // "Last Billed 03 Nov" or "Pending >30d"
+    outstanding_amount?: number;             // 45000, 0, etc.
+    pod_confirmation_rate?: number;          // 85, 92, 100, etc. (percentage)
+}
 interface Stats {
     total: number;
     consignors: number;
@@ -172,7 +181,84 @@ const partyTypeConfig = {
         icon: Users
     }
 };
+// ✅ STATIC UI HELPERS - Just for preview
+const getLastBookingDisplay = (date: string | null) => {
+    if (!date) return "—";
+    const bookingDate = new Date(date);
+    const today = new Date();
+    const diffDays = Math.floor((today.getTime() - bookingDate.getTime()) / (1000 * 60 * 60 * 24));
 
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+    return bookingDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+};
+
+const getBillingStatusConfig = (status: string) => {
+    if (status.includes("Pending")) {
+        return {
+            color: "bg-red-100 text-red-700 border-red-200",
+            icon: "⚠️"
+        };
+    }
+    return {
+        color: "bg-green-100 text-green-700 border-green-200",
+        icon: "✓"
+    };
+};
+
+const VerifiedBadges: React.FC<{ party: Party }> = ({ party }) => {
+    return (
+        <div className="flex items-center gap-1">
+            {party.has_gst_verified && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center">
+                                <Check className="w-3 h-3 text-green-600" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-xs">GST: {party.gst_number}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+            {party.has_pan_verified && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">
+                                <FileText className="w-3 h-3 text-blue-600" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-xs">PAN: {party.pan_number}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+            {party.has_documents && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
+                                <FileText className="w-3 h-3 text-purple-600" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p className="text-xs">Documents uploaded</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+            {!party.has_gst_verified && !party.has_pan_verified && !party.has_documents && (
+                <span className="text-xs text-muted-foreground">—</span>
+            )}
+        </div>
+    );
+};
 // Email validation with proper domains
 const validateEmail = (email: string): boolean => {
     if (!email) return true; // Email is optional
@@ -888,26 +974,54 @@ export const Customers = () => {
 
             if (error) throw error;
 
-            setParties(data || []);
+            // ✅ ADD STATIC DUMMY DATA TO EACH PARTY
+            const partiesWithMetrics = (data || []).map((party, index) => ({
+                ...party,
+                // Static last booking (random dates)
+                last_booking_date: index % 3 === 0 ? null :
+                    index % 2 === 0 ? "2024-01-15" : "2024-01-10",
+
+                // Static trips (random numbers)
+                trips_this_month: Math.floor(Math.random() * 15),
+
+                // Static verification flags
+                has_gst_verified: !!party.gst_number,
+                has_pan_verified: !!party.pan_number,
+                has_documents: index % 2 === 0,
+
+                // Static billing status
+                billing_status: party.is_billing_party ?
+                    (index % 3 === 0 ? "Pending >30d" : `Last Billed ${Math.floor(Math.random() * 28) + 1} ${['Jan', 'Dec', 'Nov'][index % 3]}`)
+                    : "—",
+
+                // Static outstanding
+                outstanding_amount: party.is_billing_party ?
+                    Math.floor(Math.random() * 100000) : 0,
+
+                // Static POD rate
+                pod_confirmation_rate: party.party_type === 'CONSIGNEE' || party.party_type === 'BOTH' ?
+                    Math.floor(Math.random() * 30) + 70 : 0
+            }));
+
+            setParties(partiesWithMetrics);
 
             // Calculate stats
-            const totalParties = data?.length || 0;
-            const activeParties = data?.filter(p => p.status === "ACTIVE").length || 0;
-            const consignorParties = data?.filter(p =>
+            const totalParties = partiesWithMetrics?.length || 0;
+            const activeParties = partiesWithMetrics?.filter(p => p.status === "ACTIVE").length || 0;
+            const consignorParties = partiesWithMetrics?.filter(p =>
                 p.party_type === "CONSIGNOR" || p.party_type === "BOTH"
             ).length || 0;
-            const consigneeParties = data?.filter(p =>
+            const consigneeParties = partiesWithMetrics?.filter(p =>
                 p.party_type === "CONSIGNEE" || p.party_type === "BOTH"
             ).length || 0;
-
-            const billingParties = data?.filter(p => p.is_billing_party === true).length || 0;
+            const billingParties = partiesWithMetrics?.filter(p => p.is_billing_party === true).length || 0;
 
             setStats({
                 total: totalParties,
                 consignors: consignorParties,
                 consignees: consigneeParties,
                 active: activeParties,
-                billing: billingParties // ✅ ADDED
+                billing: billingParties
             });
 
         } catch (error: any) {
@@ -1316,44 +1430,71 @@ export const Customers = () => {
                 {/* Table Section */}
                 <div className="p-4 sm:p-6">
                     {/* Desktop Table View */}
+                    {/* Desktop Table View */}
                     <div className="hidden md:block">
                         <div className="w-full overflow-auto no-scrollbar">
                             <Table className="customers-table min-w-full">
                                 <TableHeader>
                                     <TableRow className="hover:bg-muted/50 bg-muted/30">
-                                        <TableHead className="font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Building2 className="w-4 h-4 text-muted-foreground" />
-                                                Name
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold">Type</TableHead>
-                                        <TableHead className="font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Phone className="w-4 h-4 text-muted-foreground" />
-                                                Contact
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <MapPin className="w-4 h-4 text-muted-foreground" />
-                                                Address
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold">
-                                            <div className="flex items-center gap-2">
-                                                <Hash className="w-4 h-4 text-muted-foreground" />
-                                                GST/PAN
-                                            </div>
-                                        </TableHead>
-                                        <TableHead className="font-semibold">Status</TableHead>
-                                        <TableHead className="font-semibold text-center">Actions</TableHead>
+                                        {/* ✅ DYNAMIC HEADERS BASED ON TAB */}
+                                        {selectedTab === "all" && (
+                                            <>
+                                                <TableHead style={{ width: '40%' }} className="font-semibold">
+                                                    <div className="flex items-center gap-2">
+                                                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                                                        Party Name
+                                                    </div>
+                                                </TableHead>
+                                                <TableHead style={{ width: '10%' }} className="font-semibold">Type</TableHead>
+                                                <TableHead style={{ width: '14%' }} className="font-semibold">City / State</TableHead>
+                                                <TableHead style={{ width: '12%' }} className="font-semibold">Last Booking</TableHead>
+                                                <TableHead style={{ width: '12%' }} className="font-semibold">Trips (Month)</TableHead>
+                                                <TableHead style={{ width: '8%' }} className="font-semibold">Verified</TableHead>
+                                                <TableHead style={{ width: '8%' }} className="font-semibold">Status</TableHead>
+                                                <TableHead style={{ width: '4%' }} className="font-semibold text-center">⋮</TableHead>
+                                            </>
+                                        )}
+
+                                        {selectedTab === "billing" && (
+                                            <>
+                                                <TableHead style={{ width: '40%' }} className="font-semibold">Party Name</TableHead>
+                                                <TableHead style={{ width: '10%' }} className="font-semibold">Type</TableHead>
+                                                <TableHead style={{ width: '14%' }} className="font-semibold">City / State</TableHead>
+                                                <TableHead style={{ width: '12%' }} className="font-semibold">Last Booking</TableHead>
+                                                <TableHead style={{ width: '10%' }} className="font-semibold">Trips</TableHead>
+                                                <TableHead style={{ width: '12%' }} className="font-semibold">Billing Status</TableHead>
+                                                <TableHead style={{ width: '8%' }} className="font-semibold">Outstanding</TableHead>
+                                                <TableHead style={{ width: '4%' }} className="font-semibold text-center">⋮</TableHead>
+                                            </>
+                                        )}
+
+                                        {selectedTab === "consignors" && (
+                                            <>
+                                                <TableHead style={{ width: '50%' }} className="font-semibold">Party Name</TableHead>
+                                                <TableHead style={{ width: '18%' }} className="font-semibold">City / State</TableHead>
+                                                <TableHead style={{ width: '12%' }} className="font-semibold">Trips (Month)</TableHead>
+                                                <TableHead style={{ width: '10%' }} className="font-semibold">Last Booking</TableHead>
+                                                <TableHead style={{ width: '6%' }} className="font-semibold">Billing?</TableHead>
+                                                <TableHead style={{ width: '4%' }} className="font-semibold">Status</TableHead>
+                                            </>
+                                        )}
+
+                                        {selectedTab === "consignees" && (
+                                            <>
+                                                <TableHead style={{ width: '50%' }} className="font-semibold">Party Name</TableHead>
+                                                <TableHead style={{ width: '18%' }} className="font-semibold">City / State</TableHead>
+                                                <TableHead style={{ width: '10%' }} className="font-semibold">Last Booking</TableHead>
+                                                <TableHead style={{ width: '10%' }} className="font-semibold">Trips</TableHead>
+                                                <TableHead style={{ width: '8%' }} className="font-semibold">POD Rate</TableHead>
+                                                <TableHead style={{ width: '4%' }} className="font-semibold">Status</TableHead>
+                                            </>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredParties.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-16">
+                                            <TableCell colSpan={8} className="text-center py-16">
                                                 <div className="flex flex-col items-center gap-4">
                                                     <div className="p-4 bg-muted/30 rounded-full">
                                                         <Users className="w-12 h-12 text-muted-foreground/50" />
@@ -1373,136 +1514,217 @@ export const Customers = () => {
                                         filteredParties.map((party) => {
                                             const typeConfig = partyTypeConfig[party.party_type];
                                             const TypeIcon = typeConfig.icon;
+                                            const billingConfig = getBillingStatusConfig(party.billing_status || "");
 
                                             return (
                                                 <TableRow
                                                     key={party.id}
                                                     className="hover:bg-muted/50 transition-colors"
                                                 >
-                                                    <TableCell>
-                                                        <div className="space-y-1">
-                                                            <div className="font-semibold flex items-center gap-2">
-                                                                <Building className="w-4 h-4 text-muted-foreground" />
-                                                                {party.name}
-                                                            </div>
-                                                            {party.contact_person && (
-                                                                <div className="text-xs text-muted-foreground flex items-center gap-1 ml-6">
-                                                                    <User className="w-3 h-3" />
-                                                                    {party.contact_person}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge className={cn("gap-1", typeConfig.color)}>
-                                                            <TypeIcon className="w-3 h-3" />
-                                                            {typeConfig.label}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2 text-sm">
-                                                                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                                                                <span>{party.phone}</span>
-                                                            </div>
-                                                            {party.email && (
-                                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                                    <Mail className="w-3 h-3" />
-                                                                    <span className="truncate max-w-[150px]">{party.email}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2 text-sm">
-                                                                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                                                                <span>{party.city}, {party.state}</span>
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground ml-5">
-                                                                {party.address_line1}
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground ml-5">
-                                                                PIN: {party.pincode}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="space-y-1 text-xs">
-                                                            {party.gst_number && (
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    GST: {party.gst_number}
+                                                    {/* ✅ ALL PARTIES TAB */}
+                                                    {selectedTab === "all" && (
+                                                        <>
+                                                            <TableCell style={{ width: '40%' }}>
+                                                                <div className="font-semibold">{party.name}</div>
+                                                                {party.contact_person && (
+                                                                    <div className="text-xs text-muted-foreground">{party.contact_person}</div>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '10%' }}>
+                                                                <Badge className={cn("gap-1", typeConfig.color)}>
+                                                                    <TypeIcon className="w-3 h-3" />
+                                                                    {typeConfig.label}
                                                                 </Badge>
-                                                            )}
-                                                            {party.pan_number && (
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    PAN: {party.pan_number}
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '14%' }}>
+                                                                {party.city}, {party.state}
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '12%' }}>
+                                                                <span className="text-sm">{getLastBookingDisplay(party.last_booking_date || null)}</span>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '12%' }}>
+                                                                <Badge variant="outline" className="font-mono">
+                                                                    {party.trips_this_month || 0}
                                                                 </Badge>
-                                                            )}
-                                                            {!party.gst_number && !party.pan_number && (
-                                                                <span className="text-muted-foreground">No tax info</span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <Badge
-                                                                        variant={party.status === "ACTIVE" ? "default" : "secondary"}
-                                                                        className={cn(
-                                                                            "cursor-pointer",
-                                                                            party.status === "ACTIVE"
-                                                                                ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
-                                                                                : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
-                                                                        )}
-                                                                        onClick={() => togglePartyStatus(party)}
-                                                                    >
-                                                                        {party.status === "ACTIVE" ? (
-                                                                            <CheckCircle className="w-3 h-3 mr-1" />
-                                                                        ) : (
-                                                                            <XCircle className="w-3 h-3 mr-1" />
-                                                                        )}
-                                                                        {party.status}
-                                                                    </Badge>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>Click to {party.status === "ACTIVE" ? "deactivate" : "activate"}</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center justify-center">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-8 w-8"
-                                                                    >
-                                                                        <MoreVertical className="h-4 w-4" />
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end" className="w-48">
-                                                                    <DropdownMenuItem
-                                                                        onClick={() => navigate(`/customers/edit/${party.id}`)}
-                                                                    >
-                                                                        <Edit className="mr-2 h-4 w-4" />
-                                                                        Edit Details
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        className="text-destructive"
-                                                                        onClick={() => setDeletePartyId(party.id)}
-                                                                    >
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                                        Delete Party
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
-                                                        </div>
-                                                    </TableCell>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '8%' }}>
+                                                                <VerifiedBadges party={party} />
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '8%' }}>
+                                                                <Badge
+                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
+                                                                    className={cn(
+                                                                        "cursor-pointer",
+                                                                        party.status === "ACTIVE"
+                                                                            ? "bg-green-100 text-green-700 border-green-200"
+                                                                            : "bg-gray-100 text-gray-700 border-gray-200"
+                                                                    )}
+                                                                    onClick={() => togglePartyStatus(party)}
+                                                                >
+                                                                    {party.status === "ACTIVE" ? <CheckCircle className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                                                                    {party.status}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '4%' }}>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                            <MoreVertical className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem onClick={() => navigate(`/customers/edit/${party.id}`)}>
+                                                                            <Edit className="mr-2 h-4 w-4" />
+                                                                            Edit Details
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem className="text-destructive" onClick={() => setDeletePartyId(party.id)}>
+                                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                                            Delete Party
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </TableCell>
+                                                        </>
+                                                    )}
+
+                                                    {/* ✅ BILLING PARTIES TAB */}
+                                                    {selectedTab === "billing" && (
+                                                        <>
+                                                            <TableCell style={{ width: '40%' }}>
+                                                                <div className="font-semibold">{party.name}</div>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '10%' }}>
+                                                                <Badge className={cn("gap-1", typeConfig.color)}>
+                                                                    <TypeIcon className="w-3 h-3" />
+                                                                    {typeConfig.label}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '14%' }}>{party.city}, {party.state}</TableCell>
+                                                            <TableCell style={{ width: '12%' }}>{getLastBookingDisplay(party.last_booking_date || null)}</TableCell>
+                                                            <TableCell style={{ width: '10%' }}>
+                                                                <Badge variant="outline">{party.trips_this_month || 0}</Badge>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '12%' }}>
+                                                                <Badge className={cn("text-xs", billingConfig.color)}>
+                                                                    {billingConfig.icon} {party.billing_status}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '8%' }}>
+                                                                {party.outstanding_amount ? (
+                                                                    <TooltipProvider>
+                                                                        <Tooltip>
+                                                                            <TooltipTrigger>
+                                                                                <span className="text-sm font-semibold text-red-600">
+                                                                                    ₹{(party.outstanding_amount / 1000).toFixed(0)}k
+                                                                                </span>
+                                                                            </TooltipTrigger>
+                                                                            <TooltipContent>
+                                                                                <p>Outstanding: ₹{party.outstanding_amount.toLocaleString('en-IN')}</p>
+                                                                                <p className="text-xs text-muted-foreground mt-1">Last 3 bills pending</p>
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+                                                                ) : (
+                                                                    <span className="text-sm text-muted-foreground">—</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '4%' }}>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                            <MoreVertical className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem onClick={() => navigate(`/customers/edit/${party.id}`)}>
+                                                                            <Edit className="mr-2 h-4 w-4" />
+                                                                            Edit Details
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </TableCell>
+                                                        </>
+                                                    )}
+
+                                                    {/* ✅ CONSIGNORS TAB */}
+                                                    {selectedTab === "consignors" && (
+                                                        <>
+                                                            <TableCell style={{ width: '50%' }}>
+                                                                <div className="font-semibold text-base">{party.name}</div>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '18%' }}>{party.city}, {party.state}</TableCell>
+                                                            <TableCell style={{ width: '12%' }}>
+                                                                <Badge variant="outline">{party.trips_this_month || 0}</Badge>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '10%' }}>{getLastBookingDisplay(party.last_booking_date || null)}</TableCell>
+                                                            <TableCell style={{ width: '6%' }}>
+                                                                {party.is_billing_party ? (
+                                                                    <Badge className="bg-green-100 text-green-700 text-xs">Y</Badge>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground text-xs">N</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '4%' }}>
+                                                                <Badge
+                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
+                                                                    className={cn(
+                                                                        party.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                                                                    )}
+                                                                >
+                                                                    {party.status === "ACTIVE" ? "✓" : "✗"}
+                                                                </Badge>
+                                                            </TableCell>
+                                                        </>
+                                                    )}
+
+                                                    {/* ✅ CONSIGNEES TAB */}
+                                                    {selectedTab === "consignees" && (
+                                                        <>
+                                                            <TableCell style={{ width: '50%' }}>
+                                                                <div className="font-semibold text-base">{party.name}</div>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '18%' }}>{party.city}, {party.state}</TableCell>
+                                                            <TableCell style={{ width: '10%' }}>{getLastBookingDisplay(party.last_booking_date || null)}</TableCell>
+                                                            <TableCell style={{ width: '10%' }}>
+                                                                <Badge variant="outline">{party.trips_this_month || 0}</Badge>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '8%' }}>
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger>
+                                                                            <Badge
+                                                                                className={cn(
+                                                                                    "font-mono",
+                                                                                    party.pod_confirmation_rate && party.pod_confirmation_rate >= 90
+                                                                                        ? "bg-green-100 text-green-700"
+                                                                                        : party.pod_confirmation_rate && party.pod_confirmation_rate >= 70
+                                                                                            ? "bg-yellow-100 text-yellow-700"
+                                                                                            : "bg-red-100 text-red-700"
+                                                                                )}
+                                                                            >
+                                                                                {party.pod_confirmation_rate || 0}%
+                                                                            </Badge>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            <p>POD Confirmation Rate</p>
+                                                                            <p className="text-xs text-muted-foreground">Based on delivery confirmations</p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            </TableCell>
+                                                            <TableCell style={{ width: '4%' }}>
+                                                                <Badge
+                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
+                                                                    className={cn(
+                                                                        party.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+                                                                    )}
+                                                                >
+                                                                    {party.status === "ACTIVE" ? "✓" : "✗"}
+                                                                </Badge>
+                                                            </TableCell>
+                                                        </>
+                                                    )}
                                                 </TableRow>
                                             );
                                         })
