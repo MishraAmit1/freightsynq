@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox"; // ✅ ADDED
 import {
     Select,
     SelectContent,
@@ -22,13 +23,14 @@ import {
     Check,
     ArrowLeft,
     Save,
-    Mail
+    Mail,
+    DollarSign // ✅ ADDED for billing icon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
-// ✅ TYPES - Yeh sab types define kar rahe hain
+// ✅ UPDATED TYPES
 interface Party {
     id: string;
     name: string;
@@ -43,6 +45,7 @@ interface Party {
     pan_number?: string | null;
     party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
     status: 'ACTIVE' | 'INACTIVE';
+    is_billing_party?: boolean; // ✅ ADDED
     created_at?: string;
     updated_at?: string;
 }
@@ -59,9 +62,10 @@ interface PartyFormData {
     gst_number: string;
     pan_number: string;
     party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
+    is_billing_party: boolean; // ✅ ADDED
 }
 
-// ✅ CUSTOM HOOK - Debounce ke liye
+// ✅ CUSTOM HOOK - Debounce
 const useDebounce = (value: string, delay: number) => {
     const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -78,9 +82,9 @@ const useDebounce = (value: string, delay: number) => {
     return debouncedValue;
 };
 
-// ✅ EMAIL VALIDATION FUNCTION
+// ✅ EMAIL VALIDATION
 const validateEmail = (email: string): boolean => {
-    if (!email) return true; // Email is optional
+    if (!email) return true;
 
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) return false;
@@ -103,7 +107,7 @@ const validateEmail = (email: string): boolean => {
         domain?.endsWith('.edu');
 };
 
-// ✅ MAIN COMPONENT START
+// ✅ MAIN COMPONENT
 export const AddEditParty = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -113,7 +117,7 @@ export const AddEditParty = () => {
 
     const mode = id ? "edit" : "create";
 
-    // ✅ LOCATION SEARCH STATES
+    // Location search states
     const [locationSearch, setLocationSearch] = useState("");
     const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
     const [searchingLocation, setSearchingLocation] = useState(false);
@@ -122,7 +126,7 @@ export const AddEditParty = () => {
 
     const debouncedLocationSearch = useDebounce(locationSearch, 500);
 
-    // ✅ FORM DATA STATE
+    // ✅ UPDATED FORM STATE - Added is_billing_party
     const [formData, setFormData] = useState<PartyFormData>({
         name: "",
         contact_person: "",
@@ -134,10 +138,11 @@ export const AddEditParty = () => {
         pincode: "",
         gst_number: "",
         pan_number: "",
-        party_type: "BOTH"
+        party_type: "BOTH",
+        is_billing_party: false // ✅ ADDED DEFAULT FALSE
     });
 
-    // ✅ LOAD PARTY DATA IF EDITING
+    // Load party data if editing
     useEffect(() => {
         if (id) {
             loadPartyData();
@@ -167,7 +172,8 @@ export const AddEditParty = () => {
                     pincode: data.pincode || "",
                     gst_number: data.gst_number || "",
                     pan_number: data.pan_number || "",
-                    party_type: data.party_type || "BOTH"
+                    party_type: data.party_type || "BOTH",
+                    is_billing_party: data.is_billing_party || false // ✅ ADDED
                 });
                 if (data.address_line1) {
                     setLocationSearch(data.address_line1);
@@ -187,7 +193,7 @@ export const AddEditParty = () => {
         }
     };
 
-    // ✅ LOCATION SEARCH useEffect
+    // Location search effect
     useEffect(() => {
         if (hasSelected) {
             setLocationSuggestions([]);
@@ -203,7 +209,7 @@ export const AddEditParty = () => {
         }
     }, [debouncedLocationSearch, hasSelected]);
 
-    // ✅ SEARCH LOCATIONS FUNCTION
+    // Search locations function
     const searchLocations = async (query: string) => {
         if (hasSelected) return;
 
@@ -275,7 +281,6 @@ export const AddEditParty = () => {
         } catch (error) {
             console.error("❌ Google Places API error:", error);
 
-            // Fallback to Nominatim
             try {
                 const fallbackResponse = await fetch(
                     `https://nominatim.openstreetmap.org/search?` +
@@ -320,7 +325,7 @@ export const AddEditParty = () => {
         }
     };
 
-    // ✅ HANDLE LOCATION SELECT
+    // Handle location select
     const handleLocationSelect = async (location: any) => {
         setSearchingLocation(true);
 
@@ -394,7 +399,6 @@ export const AddEditParty = () => {
                 setShowLocationSuggestions(false);
 
             } else {
-                // Nominatim data
                 setFormData(prev => ({
                     ...prev,
                     address_line1: location.area || prev.address_line1,
@@ -415,7 +419,6 @@ export const AddEditParty = () => {
         }
     };
 
-    // ✅ LOCATION INPUT CHANGE HANDLER
     const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setLocationSearch(value);
@@ -425,7 +428,6 @@ export const AddEditParty = () => {
         }
     };
 
-    // ✅ CLEAR SEARCH
     const handleClearSearch = () => {
         setLocationSearch("");
         setHasSelected(false);
@@ -433,7 +435,7 @@ export const AddEditParty = () => {
         setShowLocationSuggestions(false);
     };
 
-    // ✅ SUBMIT HANDLER
+    // ✅ UPDATED SUBMIT HANDLER - Added is_billing_party
     const handleSubmit = async () => {
         // Validation
         if (!formData.name.trim()) {
@@ -533,7 +535,8 @@ export const AddEditParty = () => {
                 gst_number: formData.gst_number.trim() || null,
                 pan_number: formData.pan_number.trim() || null,
                 party_type: formData.party_type,
-                status: 'ACTIVE' as const
+                status: 'ACTIVE' as const,
+                is_billing_party: formData.is_billing_party // ✅ ADDED
             };
 
             if (mode === "edit" && id) {
@@ -549,7 +552,6 @@ export const AddEditParty = () => {
                     description: "Party updated successfully",
                 });
             } else {
-                // Check for duplicates
                 const { data: existingParties, error: checkError } = await supabase
                     .from("parties")
                     .select("id, name, phone, gst_number")
@@ -602,7 +604,6 @@ export const AddEditParty = () => {
         }
     };
 
-    // ✅ LOADING STATE
     if (initialLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -612,7 +613,6 @@ export const AddEditParty = () => {
         );
     }
 
-    // ✅ MAIN JSX RETURN
     return (
         <div className="container max-w-4xl mx-auto p-4 space-y-6">
             {/* Header */}
@@ -725,7 +725,6 @@ export const AddEditParty = () => {
                             Address Details
                         </h3>
 
-                        {/* Location Search */}
                         <div>
                             <Label>
                                 Search Area/City
@@ -759,7 +758,6 @@ export const AddEditParty = () => {
                                     </Button>
                                 )}
 
-                                {/* Location Suggestions */}
                                 {showLocationSuggestions && locationSuggestions.length > 0 && !hasSelected && (
                                     <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[300px] overflow-auto">
                                         {locationSuggestions.map((location, index) => (
@@ -874,6 +872,37 @@ export const AddEditParty = () => {
                                     maxLength={10}
                                     className="h-11"
                                 />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ✅ NEW SECTION - Billing Configuration */}
+                    <div className="space-y-4 pt-4 border-t">
+                        <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                            <DollarSign className="w-4 h-4" />
+                            Billing Configuration
+                        </h3>
+                        <div className="flex items-start space-x-3 p-4 bg-muted/30 rounded-lg border">
+                            <Checkbox
+                                id="is_billing_party"
+                                checked={formData.is_billing_party}
+                                onCheckedChange={(checked) =>
+                                    setFormData({ ...formData, is_billing_party: checked as boolean })
+                                }
+                                className="mt-1"
+                            />
+                            <div className="space-y-1">
+                                <Label
+                                    htmlFor="is_billing_party"
+                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
+                                    Mark as Billing Party
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Enable this to include this party in billing reports and finance operations.
+                                    Billing parties appear in the dedicated "Billing Parties" tab with additional
+                                    financial metrics like outstanding amounts and billing status.
+                                </p>
                             </div>
                         </div>
                     </div>

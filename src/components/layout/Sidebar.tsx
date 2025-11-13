@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.tsx - UPDATED VERSION
+// src/components/layout/Sidebar.tsx - SMOOTH COLLAPSE
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -36,6 +36,9 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
 }
 
+import companyLogoFull from "../../../public/FS1.jpg"
+import companyLogoSmall from "../../../public/FS1.png"
+
 export const Sidebar = ({
   isOpen = true,
   isCollapsed = false,
@@ -46,7 +49,6 @@ export const Sidebar = ({
   const { userProfile, company, isSuperAdmin } = useAuth();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
-  // Regular navigation items
   const navigation = [
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Customers", href: "/customers", icon: UsersRound },
@@ -63,7 +65,6 @@ export const Sidebar = ({
     },
   ];
 
-  // Super admin navigation items
   const superAdminNavigation = [
     { name: "Create Invites", href: "/super-admin/invites", icon: Plus },
     { name: "Manage Companies", href: "/super-admin/companies", icon: Building },
@@ -79,7 +80,6 @@ export const Sidebar = ({
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
 
-  // Render navigation link function
   const renderNavLink = (item: any, index: number) => {
     const isActive = location.pathname === item.href ||
       (item.href !== "/" && location.pathname.startsWith(item.href));
@@ -155,18 +155,8 @@ export const Sidebar = ({
 
   return (
     <>
-      {/* Custom CSS for hiding scrollbar */}
-      <style jsx>{`
-        .hide-scrollbar {
-          scrollbar-width: none; /* Firefox */
-          -ms-overflow-style: none; /* IE and Edge */
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none; /* Chrome, Safari and Opera */
-        }
-      `}</style>
-
       <TooltipProvider delayDuration={0}>
+        {/* Mobile Overlay */}
         <div
           className={cn(
             "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
@@ -175,70 +165,72 @@ export const Sidebar = ({
           onClick={onClose}
         />
 
-        <div className={cn(
-          "fixed lg:relative inset-y-0 left-0 z-50 bg-card border-r border-border flex flex-col shadow-xl lg:shadow-md transition-all duration-300 ease-in-out",
-          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          !isMobile && isCollapsed ? "lg:w-20" : "w-64"
-        )}>
+        {/* Sidebar Container - Smooth Transition */}
+        <div
+          className={cn(
+            "fixed lg:relative inset-y-0 left-0 z-50 flex flex-col",
+            "transition-all duration-500 ease-in-out",
+            isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+            !isMobile && isCollapsed ? "lg:w-[125px]" : "w-72"
+          )}
+          style={{
+            transitionProperty: 'width, transform',
+            transitionDuration: '500ms',
+            transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        >
 
+          {/* Collapse Button */}
           <Button
             variant="outline"
             size="icon"
             className={cn(
-              "hidden lg:flex absolute -right-4 top-11 z-50 h-8 w-8 rounded-full border-2 bg-card shadow-md transition-all duration-200",
+              "hidden lg:flex absolute right-6 top-32 z-50 h-6 w-6 rounded-full border-2 bg-white dark:bg-gray-900 shadow-md",
+              "transition-all duration-300 ease-in-out",
               "hover:shadow-lg hover:scale-110 hover:rotate-180 active:scale-95"
             )}
             onClick={onToggleCollapse}
           >
             <div className="transition-transform duration-300">
               {isCollapsed ? (
-                <ChevronsRight className="w-4 h-4" />
+                <ChevronsRight className="w-3 h-3" />
               ) : (
-                <ChevronsLeft className="w-4 h-4" />
+                <ChevronsLeft className="w-3 h-3" />
               )}
             </div>
           </Button>
-
-          <div className={cn(
-            "border-b border-border transition-all duration-300",
-            !isMobile && isCollapsed ? "p-4" : "p-6"
-          )}>
-            <div className="flex items-center justify-between">
+          {/* 🔥 Company Header - Aligned with TopBar */}
+          <div className="bg-background border-b border-gray-200 dark:border-gray-800 px-4 py-4 transition-all duration-500 ease-in-out">
+            <div className={cn(
+              "flex items-center transition-all duration-500 ease-in-out",
+              !isMobile && isCollapsed ? "justify-center" : "space-x-3"
+            )}>
+              <img
+                src={companyLogoSmall}
+                alt="Company Logo"
+                className={cn(
+                  "object-contain transition-all duration-500 ease-in-out group-hover:scale-105",
+                  isCollapsed
+                    ? "w-10 h-10"
+                    : "h-12 w-auto max-w-[200px]"
+                )}
+              />
               <div className={cn(
-                "flex items-center transition-all duration-300",
-                !isMobile && isCollapsed ? "justify-center" : "space-x-3"
+                "overflow-hidden transition-all duration-500 ease-in-out",
+                isCollapsed && !isMobile ? "w-0 opacity-0" : "w-auto opacity-100"
               )}>
-                {company?.logo_url ? (
-                  <img
-                    src={company.logo_url}
-                    alt={company.name || 'Company Logo'}
-                    className={cn(
-                      "object-contain rounded-full shadow-lg animate-in zoom-in-50 duration-300",
-                      !isMobile && isCollapsed ? "w-10 h-10" : "w-10 h-10"
-                    )}
-                  />
-                ) : (
-                  <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-hover rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg animate-in zoom-in-50 duration-300">
-                    <Building2 className="w-5 h-5 text-primary-foreground" />
-                  </div>
-                )}
-
-                {(!isCollapsed || isMobile) && (
-                  <div className="overflow-hidden animate-in slide-in-from-left-2 duration-300">
-                    <h1 className="text-lg font-bold text-foreground truncate max-w-[180px]">
-                      {company?.name || 'FreightSynQ'}
-                    </h1>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {company?.company_type || 'Logistics'} Platform
-                    </p>
-                  </div>
-                )}
+                <h1 className="text-lg font-bold text-foreground truncate max-w-[180px] whitespace-nowrap">
+                  FreightSynQ
+                </h1>
+                <p className="text-xs capitalize font-medium font-sans whitespace-nowrap">
+                  Smarter Way to Move Freight
+                </p>
               </div>
 
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden hover:rotate-90 transition-transform duration-200"
+                className="lg:hidden ml-auto hover:rotate-90 transition-transform duration-200"
                 onClick={onClose}
               >
                 <X className="w-5 h-5" />
@@ -246,38 +238,53 @@ export const Sidebar = ({
             </div>
           </div>
 
-          {/* ✅ UPDATED: Added hide-scrollbar class and removed scrollbar-thin classes */}
-          <nav className={cn(
-            "flex-1 py-6 space-y-2 overflow-y-auto hide-scrollbar",
-            !isMobile && isCollapsed ? "px-3" : "px-4"
-          )}>
-            {/* Regular Navigation */}
-            {filteredNavigation.map((item, index) => renderNavLink(item, index))}
+          {/* 🔥 Navigation Card - Exact same level as Main Content */}
+          <div className="flex-1 bg-background overflow-hidden transition-all duration-500 ease-in-out">
+            {/* Exact same padding as main content */}
+            <div className="p-4 sm:p-6 pt-4 sm:pt-6 h-full transition-all duration-500 ease-in-out">
+              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm h-full flex flex-col overflow-hidden">
+                <nav
+                  className={cn(
+                    "flex-1 py-4 space-y-2 overflow-y-auto transition-all duration-500 ease-in-out ",
+                    !isMobile && isCollapsed ? "px-3" : "px-4"
+                  )}
+                  style={{
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                  }}
+                >
+                  <style jsx>{`
+                    nav::-webkit-scrollbar {
+                      display: none;
+                    }
+                  `}</style>
 
-            {/* Super Admin Section */}
-            {isSuperAdmin && (
-              <>
-                <Separator className="my-4" />
+                  {/* Regular Navigation */}
+                  {filteredNavigation.map((item, index) => renderNavLink(item, index))}
 
-                {/* Super Admin Label */}
-                {(!isCollapsed || isMobile) && (
-                  <div className="px-4 py-2 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-orange-500" />
-                    <span className="text-xs font-semibold text-orange-500 uppercase tracking-wider">
-                      Super Admin
-                    </span>
-                  </div>
-                )}
+                  {/* Super Admin Section */}
+                  {isSuperAdmin && (
+                    <>
+                      <Separator className="my-4" />
 
-                {/* Super Admin Menu Items */}
-                {superAdminNavigation.map((item, index) =>
-                  renderNavLink(item, filteredNavigation.length + index)
-                )}
-              </>
-            )}
-          </nav>
+                      {(!isCollapsed || isMobile) && (
+                        <div className="px-4 py-2 flex items-center gap-2 transition-all duration-500 ease-in-out">
+                          <Shield className="w-4 h-4 text-orange-500" />
+                          <span className="text-xs font-semibold text-orange-500 uppercase tracking-wider">
+                            Super Admin
+                          </span>
+                        </div>
+                      )}
 
-
+                      {superAdminNavigation.map((item, index) =>
+                        renderNavLink(item, filteredNavigation.length + index)
+                      )}
+                    </>
+                  )}
+                </nav>
+              </div>
+            </div>
+          </div>
         </div>
       </TooltipProvider>
     </>

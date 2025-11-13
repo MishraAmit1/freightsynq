@@ -591,644 +591,695 @@ export const VehicleManagement = () => {
   }
 
   return (
-    <div className="space-y-8 -mt-1">
-      {/* Header Section */}
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
-              Vehicle Management
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">
-              Manage your owned and hired vehicle fleet
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExport}
-                    className="flex-1 sm:flex-none"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Export vehicles to CSV</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+    <div className="space-y-6">
+      {/* 🔥 CARD 1: Stats & Buttons */}
+      <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
+        {/* Stats - Single Card with Dividers */}
+        <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 sm:gap-0 h-full">
+            {/* Total */}
+            <div className="sm:px-6 py-4 first:pl-0 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <Truck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Total
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.total}
+                </p>
+              </div>
+              {/* Custom Full Height Divider */}
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddHiredVehicleClick}
-              disabled={loadingBrokers}
-              className="flex-1 sm:flex-none"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Add Hired Vehicle</span>
-              <span className="sm:hidden">Hired</span>
-            </Button>
+            {/* Owned */}
+            <div className="sm:px-6 py-4 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <Shield className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Owned
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.owned}
+                </p>
+              </div>
+              {/* Custom Full Height Divider */}
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
 
-            <Button
-              size="sm"
-              onClick={() => setIsAddVehicleOpen(true)}
-              className="flex-1 sm:flex-none"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Add Vehicle</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
+            {/* Hired */}
+            <div className="sm:px-6 py-4 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <Building2 className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Hired
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.hired}
+                </p>
+              </div>
+              {/* Custom Full Height Divider */}
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
+
+            {/* Verified */}
+            <div className="sm:px-6 py-4 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <ShieldCheck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Verified
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.verified}
+                </p>
+              </div>
+              {/* Custom Full Height Divider */}
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
+
+            {/* Unverified */}
+            <div className="sm:px-6 py-4 last:pr-0 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <Clock className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Unverified
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.unverified}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Total</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.total}</p>
-            </div>
-          </div>
+        {/* Buttons - Right Side */}
+        <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Export vehicles to CSV</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Owned</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.owned}</p>
-            </div>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddHiredVehicleClick}
+            disabled={loadingBrokers}
+            className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Add Hired Vehicle</span>
+            <span className="sm:hidden">Hired</span>
+          </Button>
 
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Hired</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.hired}</p>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Verified</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.verified}</p>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Unverified</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.unverified}</p>
-            </div>
-          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsAddVehicleOpen(true)}
+            className="flex-1 sm:flex-none"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Add Vehicle</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between -mt-4">
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search vehicles, broker..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-              onClick={() => setSearchTerm("")}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
+      {/* 🔥 CARD 2: Tabs + Search + Table */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+
+        {/* Tabs Section */}
+        <div className="border-b border-gray-200 dark:border-gray-800">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="px-4 sm:px-6 overflow-x-auto">
+              <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex min-w-max">
+                <TabsTrigger
+                  value="owned"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                >
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Owned ({allOwnedVehicles.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="hired"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                >
+                  <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Hired ({allHiredVehicles.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </Tabs>
         </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Status</SelectItem>
-            <SelectItem value="AVAILABLE">Available</SelectItem>
-            <SelectItem value="OCCUPIED">Occupied</SelectItem>
-            <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-            <SelectItem value="INACTIVE">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        {/* Search and Filters Section */}
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Search Bar */}
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search vehicles, broker..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+              />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                  onClick={() => setSearchTerm("")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
 
-      {/* Tabs with Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        {/* Tabs Header */}
-        <div className="border-b border-gray-200 overflow-x-auto">
-          <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex min-w-max">
-            <TabsTrigger
-              value="owned"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm"
-            >
-              <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Owned ({allOwnedVehicles.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="hired"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm"
-            >
-              <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              Hired ({allHiredVehicles.length})
-            </TabsTrigger>
-          </TabsList>
+            {/* Status Filter */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Status</SelectItem>
+                  <SelectItem value="AVAILABLE">Available</SelectItem>
+                  <SelectItem value="OCCUPIED">Occupied</SelectItem>
+                  <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
-        {/* Owned Vehicles Tab */}
-        <TabsContent value="owned" className="mt-0">
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-[#f6f6f6] bg-[#f6f6f6]">
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-muted-foreground" />
-                      Vehicle No.
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Capacity</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">Verification</TableHead>
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-muted-foreground" />
-                      Booking
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+        {/* Table Section */}
+        <div className="p-4 sm:p-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            {/* Owned Vehicles Tab */}
+            <TabsContent value="owned" className="mt-0">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-muted/50 bg-muted/30">
+                      <TableHead className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Truck className="w-4 h-4 text-muted-foreground" />
+                          Vehicle No.
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold">Type</TableHead>
+                      <TableHead className="font-semibold">Capacity</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">Verification</TableHead>
+                      <TableHead className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-muted-foreground" />
+                          Booking
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ownedVehicles.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-16">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="p-4 bg-muted/30 rounded-full">
+                              <Truck className="w-12 h-12 text-muted-foreground/50" />
+                            </div>
+                            <div className="text-muted-foreground">
+                              <p className="text-lg font-medium">No owned vehicles found</p>
+                              <p className="text-sm mt-1">Add your first vehicle to get started</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      ownedVehicles.map((vehicle) => {
+                        const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
+                        const StatusIcon = status.icon;
+
+                        return (
+                          <TableRow key={vehicle.id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell>
+                              <div className="font-semibold flex items-center gap-2">
+                                <Truck className="w-4 h-4 text-muted-foreground" />
+                                {vehicle.vehicle_number}
+                              </div>
+                            </TableCell>
+                            <TableCell>{vehicle.vehicle_type}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {vehicle.capacity}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={cn("gap-1", status.color)}>
+                                <StatusIcon className="w-3 h-3" />
+                                {status.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {vehicle.is_verified ? (
+                                <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  Verified
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Unverified
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {vehicle.vehicle_assignments?.length > 0 ? (
+                                <Badge variant="secondary">
+                                  {vehicle.vehicle_assignments[0].booking?.booking_id}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-1">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => openVehicleDetail(vehicle)}
+                                        className="h-8 w-8"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>View Details</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                {!vehicle.is_verified && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleVerifyVehicle(vehicle.id, vehicle.is_owned)}
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+                                    Verify
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
                 {ownedVehicles.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-16">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="p-4 bg-muted/30 rounded-full">
-                          <Truck className="w-12 h-12 text-muted-foreground/50" />
-                        </div>
-                        <div className="text-muted-foreground">
-                          <p className="text-lg font-medium">No owned vehicles found</p>
-                          <p className="text-sm mt-1">Add your first vehicle to get started</p>
-                        </div>
+                  <div className="text-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-4 bg-muted/30 rounded-full">
+                        <Truck className="w-12 h-12 text-muted-foreground/50" />
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <div className="text-muted-foreground">
+                        <p className="text-lg font-medium">No owned vehicles found</p>
+                        <p className="text-sm mt-1">Add your first vehicle to get started</p>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   ownedVehicles.map((vehicle) => {
                     const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
                     const StatusIcon = status.icon;
 
                     return (
-                      <TableRow key={vehicle.id} className="hover:bg-muted/50 transition-colors">
-                        <TableCell>
-                          <div className="font-semibold flex items-center gap-2">
-                            <Truck className="w-4 h-4 text-muted-foreground" />
-                            {vehicle.vehicle_number}
+                      <div key={vehicle.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-sm">{vehicle.vehicle_number}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground ml-6">
+                              {vehicle.vehicle_type}
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>{vehicle.vehicle_type}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {vehicle.capacity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={cn("gap-1", status.color)}>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openVehicleDetail(vehicle)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {!vehicle.is_verified && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleVerifyVehicle(vehicle.id, vehicle.is_owned)}
+                                className="h-8 w-8"
+                              >
+                                <ShieldCheck className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={cn("gap-1 text-xs", status.color)}>
                             <StatusIcon className="w-3 h-3" />
                             {status.label}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
                           {vehicle.is_verified ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
                               <ShieldCheck className="w-3 h-3" />
                               Verified
                             </Badge>
                           ) : (
-                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1">
+                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-xs">
                               <AlertCircle className="w-3 h-3" />
                               Unverified
                             </Badge>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          {vehicle.vehicle_assignments?.length > 0 ? (
-                            <Badge variant="secondary">
-                              {vehicle.vehicle_assignments[0].booking?.booking_id}
-                            </Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => openVehicleDetail(vehicle)}
-                                    className="h-8 w-8"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>View Details</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                        </div>
 
-                            {!vehicle.is_verified && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVerifyVehicle(vehicle.id, vehicle.is_owned)}
-                              >
-                                <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-                                Verify
-                              </Button>
-                            )}
+                        <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground text-xs">Capacity:</span>
+                            <Badge variant="outline" className="text-xs">
+                              {vehicle.capacity}
+                            </Badge>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                          {vehicle.vehicle_assignments?.length > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground text-xs">Booking:</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {vehicle.vehicle_assignments[0].booking?.booking_id}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     );
                   })
                 )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="md:hidden space-y-3">
-            {ownedVehicles.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="p-4 bg-muted/30 rounded-full">
-                    <Truck className="w-12 h-12 text-muted-foreground/50" />
-                  </div>
-                  <div className="text-muted-foreground">
-                    <p className="text-lg font-medium">No owned vehicles found</p>
-                    <p className="text-sm mt-1">Add your first vehicle to get started</p>
-                  </div>
-                </div>
               </div>
-            ) : (
-              ownedVehicles.map((vehicle) => {
-                const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
-                const StatusIcon = status.icon;
+            </TabsContent>
 
-                return (
-                  <div key={vehicle.id} className="bg-white border rounded-lg p-4 space-y-3 shadow-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1 flex-1">
+            {/* Hired Vehicles Tab */}
+            <TabsContent value="hired" className="mt-0">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-muted/50 bg-muted/30">
+                      <TableHead className="font-semibold">
                         <div className="flex items-center gap-2">
                           <Truck className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-semibold text-sm">{vehicle.vehicle_number}</span>
+                          Vehicle No.
                         </div>
-                        <div className="text-xs text-muted-foreground ml-6">
-                          {vehicle.vehicle_type}
+                      </TableHead>
+                      <TableHead className="font-semibold">Type</TableHead>
+                      <TableHead className="font-semibold">Capacity</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          Broker
                         </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openVehicleDetail(vehicle)}
-                          className="h-8 w-8"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {!vehicle.is_verified && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleVerifyVehicle(vehicle.id, vehicle.is_owned)}
-                            className="h-8 w-8"
-                          >
-                            <ShieldCheck className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                      </TableHead>
+                      <TableHead className="font-semibold">Verification</TableHead>
+                      <TableHead className="font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-muted-foreground" />
+                          Booking
+                        </div>
+                      </TableHead>
+                      <TableHead className="font-semibold text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {hiredVehicles.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-16">
+                          <div className="flex flex-col items-center gap-4">
+                            <div className="p-4 bg-muted/30 rounded-full">
+                              <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                            </div>
+                            <div className="text-muted-foreground">
+                              <p className="text-lg font-medium">No hired vehicles found</p>
+                              <p className="text-sm mt-1">Add your first hired vehicle to get started</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      hiredVehicles.map((vehicle) => {
+                        const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
+                        const StatusIcon = status.icon;
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={cn("gap-1 text-xs", status.color)}>
-                        <StatusIcon className="w-3 h-3" />
-                        {status.label}
-                      </Badge>
-                      {vehicle.is_verified ? (
-                        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
-                          <ShieldCheck className="w-3 h-3" />
-                          Verified
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-xs">
-                          <AlertCircle className="w-3 h-3" />
-                          Unverified
-                        </Badge>
-                      )}
-                    </div>
+                        return (
+                          <TableRow key={vehicle.id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell>
+                              <div className="font-semibold flex items-center gap-2">
+                                <Truck className="w-4 h-4 text-muted-foreground" />
+                                {vehicle.vehicle_number}
+                              </div>
+                            </TableCell>
+                            <TableCell>{vehicle.vehicle_type}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {vehicle.capacity}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={cn("gap-1", status.color)}>
+                                <StatusIcon className="w-3 h-3" />
+                                {status.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {vehicle.broker ? (
+                                <div className="space-y-1">
+                                  <div className="font-medium text-sm flex items-center gap-1">
+                                    <Building2 className="w-3 h-3 text-muted-foreground" />
+                                    {vehicle.broker.name}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <User className="w-3 h-3" />
+                                    {vehicle.broker.contact_person}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {vehicle.is_verified ? (
+                                <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                                  <ShieldCheck className="w-3 h-3" />
+                                  Verified
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Unverified
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {vehicle.vehicle_assignments?.length > 0 ? (
+                                <Badge variant="secondary">
+                                  {vehicle.vehicle_assignments[0].booking?.booking_id}
+                                </Badge>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-center gap-1">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => openVehicleDetail(vehicle)}
+                                        className="h-8 w-8"
+                                      >
+                                        <Eye className="w-4 h-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>View Details</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
 
-                    <div className="space-y-2 text-sm pt-2 border-t">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-xs">Capacity:</span>
-                        <Badge variant="outline" className="text-xs">
-                          {vehicle.capacity}
-                        </Badge>
+                                {!vehicle.is_verified && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleVerifyVehicle(vehicle.id, false)}
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+                                    Verify
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {hiredVehicles.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="p-4 bg-muted/30 rounded-full">
+                        <Building2 className="w-12 h-12 text-muted-foreground/50" />
                       </div>
-                      {vehicle.vehicle_assignments?.length > 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-xs">Booking:</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {vehicle.vehicle_assignments[0].booking?.booking_id}
-                          </Badge>
-                        </div>
-                      )}
+                      <div className="text-muted-foreground">
+                        <p className="text-lg font-medium">No hired vehicles found</p>
+                        <p className="text-sm mt-1">Add your first hired vehicle to get started</p>
+                      </div>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Hired Vehicles Tab */}
-        <TabsContent value="hired" className="mt-0">
-          {/* Desktop Table View */}
-          <div className="hidden md:block overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-[#f6f6f6] bg-[#f6f6f6]">
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-muted-foreground" />
-                      Vehicle No.
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold">Type</TableHead>
-                  <TableHead className="font-semibold">Capacity</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-muted-foreground" />
-                      Broker
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold">Verification</TableHead>
-                  <TableHead className="font-semibold">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-muted-foreground" />
-                      Booking
-                    </div>
-                  </TableHead>
-                  <TableHead className="font-semibold text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {hiredVehicles.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-16">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="p-4 bg-muted/30 rounded-full">
-                          <Building2 className="w-12 h-12 text-muted-foreground/50" />
-                        </div>
-                        <div className="text-muted-foreground">
-                          <p className="text-lg font-medium">No hired vehicles found</p>
-                          <p className="text-sm mt-1">Add your first hired vehicle to get started</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
                 ) : (
                   hiredVehicles.map((vehicle) => {
                     const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
                     const StatusIcon = status.icon;
 
                     return (
-                      <TableRow key={vehicle.id} className="hover:bg-muted/50 transition-colors">
-                        <TableCell>
-                          <div className="font-semibold flex items-center gap-2">
-                            <Truck className="w-4 h-4 text-muted-foreground" />
-                            {vehicle.vehicle_number}
+                      <div key={vehicle.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-semibold text-sm">{vehicle.vehicle_number}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground ml-6">
+                              {vehicle.vehicle_type}
+                            </div>
                           </div>
-                        </TableCell>
-                        <TableCell>{vehicle.vehicle_type}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {vehicle.capacity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={cn("gap-1", status.color)}>
-                            <StatusIcon className="w-3 h-3" />
-                            {status.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {vehicle.broker ? (
-                            <div className="space-y-1">
-                              <div className="font-medium text-sm flex items-center gap-1">
-                                <Building2 className="w-3 h-3 text-muted-foreground" />
-                                {vehicle.broker.name}
-                              </div>
-                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openVehicleDetail(vehicle)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {!vehicle.is_verified && (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleVerifyVehicle(vehicle.id, false)}
+                                className="h-8 w-8"
+                              >
+                                <ShieldCheck className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {vehicle.broker && (
+                          <div className="flex items-start gap-2 text-xs bg-muted/50 rounded p-2">
+                            <Building2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                            <div className="flex-1">
+                              <div className="font-medium">{vehicle.broker.name}</div>
+                              <div className="text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <User className="w-3 h-3" />
                                 {vehicle.broker.contact_person}
                               </div>
                             </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={cn("gap-1 text-xs", status.color)}>
+                            <StatusIcon className="w-3 h-3" />
+                            {status.label}
+                          </Badge>
                           {vehicle.is_verified ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
                               <ShieldCheck className="w-3 h-3" />
                               Verified
                             </Badge>
                           ) : (
-                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1">
+                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-xs">
                               <AlertCircle className="w-3 h-3" />
                               Unverified
                             </Badge>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          {vehicle.vehicle_assignments?.length > 0 ? (
-                            <Badge variant="secondary">
-                              {vehicle.vehicle_assignments[0].booking?.booking_id}
-                            </Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-1">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => openVehicleDetail(vehicle)}
-                                    className="h-8 w-8"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>View Details</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                        </div>
 
-                            {!vehicle.is_verified && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleVerifyVehicle(vehicle.id, false)}
-                              >
-                                <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-                                Verify
-                              </Button>
-                            )}
+                        <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground text-xs">Capacity:</span>
+                            <Badge variant="outline" className="text-xs">
+                              {vehicle.capacity}
+                            </Badge>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                          {vehicle.vehicle_assignments?.length > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground text-xs">Booking:</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {vehicle.vehicle_assignments[0].booking?.booking_id}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     );
                   })
                 )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Mobile Card View */}
-          <div className="md:hidden space-y-3">
-            {hiredVehicles.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="p-4 bg-muted/30 rounded-full">
-                    <Building2 className="w-12 h-12 text-muted-foreground/50" />
-                  </div>
-                  <div className="text-muted-foreground">
-                    <p className="text-lg font-medium">No hired vehicles found</p>
-                    <p className="text-sm mt-1">Add your first hired vehicle to get started</p>
-                  </div>
-                </div>
               </div>
-            ) : (
-              hiredVehicles.map((vehicle) => {
-                const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
-                const StatusIcon = status.icon;
-
-                return (
-                  <div key={vehicle.id} className="bg-white border rounded-lg p-4 space-y-3 shadow-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-semibold text-sm">{vehicle.vehicle_number}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground ml-6">
-                          {vehicle.vehicle_type}
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openVehicleDetail(vehicle)}
-                          className="h-8 w-8"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {!vehicle.is_verified && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleVerifyVehicle(vehicle.id, false)}
-                            className="h-8 w-8"
-                          >
-                            <ShieldCheck className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {vehicle.broker && (
-                      <div className="flex items-start gap-2 text-xs bg-muted/50 rounded p-2">
-                        <Building2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
-                        <div className="flex-1">
-                          <div className="font-medium">{vehicle.broker.name}</div>
-                          <div className="text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <User className="w-3 h-3" />
-                            {vehicle.broker.contact_person}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge className={cn("gap-1 text-xs", status.color)}>
-                        <StatusIcon className="w-3 h-3" />
-                        {status.label}
-                      </Badge>
-                      {vehicle.is_verified ? (
-                        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
-                          <ShieldCheck className="w-3 h-3" />
-                          Verified
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-xs">
-                          <AlertCircle className="w-3 h-3" />
-                          Unverified
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="space-y-2 text-sm pt-2 border-t">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground text-xs">Capacity:</span>
-                        <Badge variant="outline" className="text-xs">
-                          {vehicle.capacity}
-                        </Badge>
-                      </div>
-                      {vehicle.vehicle_assignments?.length > 0 && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-muted-foreground text-xs">Booking:</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {vehicle.vehicle_assignments[0].booking?.booking_id}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
 
       {/* Modals */}
       <AddVehicleModal

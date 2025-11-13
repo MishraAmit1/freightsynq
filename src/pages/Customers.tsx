@@ -82,7 +82,8 @@ import {
     Users,
     FileDown,
     Building,
-    Hash
+    Hash,
+    DollarSign
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -104,6 +105,7 @@ interface Party {
     gst_number?: string | null;
     pan_number?: string | null;
     party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
+    is_billing_party?: boolean;
     status: 'ACTIVE' | 'INACTIVE';
     created_at?: string;
     updated_at?: string;
@@ -114,6 +116,7 @@ interface Stats {
     consignors: number;
     consignees: number;
     active: number;
+    billing: number;
 }
 
 interface ImportRow {
@@ -129,6 +132,7 @@ interface ImportRow {
     pan_number?: string;
     party_type?: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
     status?: 'ACTIVE' | 'INACTIVE';
+    is_billing_party?: boolean;
 }
 
 interface ValidationError {
@@ -346,7 +350,8 @@ const ImportModal: React.FC<{
                 gst_number: row.gst_number?.toString().trim().toUpperCase() || '',
                 pan_number: row.pan_number?.toString().trim().toUpperCase() || '',
                 party_type: (row.party_type?.toString().trim().toUpperCase() as any) || 'BOTH',
-                status: (row.status?.toString().trim().toUpperCase() as any) || 'ACTIVE'
+                status: (row.status?.toString().trim().toUpperCase() as any) || 'ACTIVE',
+                is_billing_party: row.is_billing_party?.toString().trim().toUpperCase() === 'TRUE' // ✅ ADDED - Converts 'TRUE'/'FALSE' to boolean
             };
 
             // Required field validation
@@ -483,7 +488,8 @@ const ImportModal: React.FC<{
                     gst_number: row.gst_number || null,
                     pan_number: row.pan_number || null,
                     party_type: row.party_type || 'BOTH',
-                    status: row.status || 'ACTIVE'
+                    status: row.status || 'ACTIVE',
+                    is_billing_party: row.is_billing_party || false // ✅ ADDED
                 }));
 
                 const { error } = await supabase
@@ -526,11 +532,13 @@ const ImportModal: React.FC<{
     };
 
     // Download template
+    // Download template
     const downloadTemplate = () => {
         const template = [
-            ['name', 'contact_person', 'phone', 'email', 'address_line1', 'city', 'state', 'pincode', 'gst_number', 'pan_number', 'party_type', 'status'],
-            ['ABC Traders', 'John Doe', '9876543210', 'abc@gmail.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', '27AABCU9603R1ZM', 'AABCU9603R', 'CONSIGNOR', 'ACTIVE'],
-            ['XYZ Logistics', '', '8765432109', '', '456 Park Avenue', 'Delhi', 'Delhi', '110001', '', '', 'CONSIGNEE', 'ACTIVE']
+            ['name', 'contact_person', 'phone', 'email', 'address_line1', 'city', 'state', 'pincode', 'gst_number', 'pan_number', 'party_type', 'status', 'is_billing_party'], // ✅ ADDED is_billing_party
+            ['ABC Traders', 'John Doe', '9876543210', 'abc@gmail.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', '27AABCU9603R1ZM', 'AABCU9603R', 'CONSIGNOR', 'ACTIVE', 'TRUE'], // ✅ ADDED TRUE
+            ['XYZ Logistics', '', '8765432109', '', '456 Park Avenue', 'Delhi', 'Delhi', '110001', '', '', 'CONSIGNEE', 'ACTIVE', 'FALSE'], // ✅ ADDED FALSE
+            ['Quick Transport', 'Rahul Kumar', '7654321098', 'quick@gmail.com', '789 Ring Road', 'Bangalore', 'Karnataka', '560001', '29AABCU9603R1ZM', 'AABCU9603R', 'BOTH', 'ACTIVE', 'TRUE'] // ✅ ADDED example with billing
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(template);
@@ -822,7 +830,8 @@ export const Customers = () => {
         total: 0,
         consignors: 0,
         consignees: 0,
-        active: 0
+        active: 0,
+        billing: 0 // ✅ ADDED
     });
 
     // Add column hover styles
@@ -891,11 +900,14 @@ export const Customers = () => {
                 p.party_type === "CONSIGNEE" || p.party_type === "BOTH"
             ).length || 0;
 
+            const billingParties = data?.filter(p => p.is_billing_party === true).length || 0;
+
             setStats({
                 total: totalParties,
                 consignors: consignorParties,
                 consignees: consigneeParties,
-                active: activeParties
+                active: activeParties,
+                billing: billingParties // ✅ ADDED
             });
 
         } catch (error: any) {
@@ -1009,15 +1021,17 @@ export const Customers = () => {
         const matchesTab =
             selectedTab === "all" ||
             (selectedTab === "consignors" && (party.party_type === "CONSIGNOR" || party.party_type === "BOTH")) ||
-            (selectedTab === "consignees" && (party.party_type === "CONSIGNEE" || party.party_type === "BOTH"));
+            (selectedTab === "consignees" && (party.party_type === "CONSIGNEE" || party.party_type === "BOTH")) ||
+            (selectedTab === "billing" && party.is_billing_party === true); // ✅ ADDED
 
         return matchesSearch && matchesType && matchesTab;
     });
 
     // Export to CSV
+    // ✅ UPDATED Export to CSV - Added is_billing_party column
     const handleExport = () => {
         const csvContent = [
-            ["Name", "Type", "Phone", "Email", "Address", "City", "State", "Pincode", "GST", "PAN", "Status"],
+            ["Name", "Type", "Phone", "Email", "Address", "City", "State", "Pincode", "GST", "PAN", "Status", "Billing Party"], // ✅ ADDED "Billing Party"
             ...filteredParties.map(party => [
                 party.name,
                 party.party_type,
@@ -1029,7 +1043,8 @@ export const Customers = () => {
                 party.pincode,
                 party.gst_number || "",
                 party.pan_number || "",
-                party.status
+                party.status,
+                party.is_billing_party ? "TRUE" : "FALSE" // ✅ ADDED - Shows TRUE/FALSE
             ])
         ].map(row => row.join(",")).join("\n");
 
@@ -1068,137 +1083,147 @@ export const Customers = () => {
 
     return (
         <div className="space-y-6">
-            {/* ✅ MAIN CARD WRAPPER - Entire Content */}
             {/* 🔥 CARD 1: Stats & Buttons */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-4 sm:p-6">
-                    <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
-                        {/* Stats - Single Card with Dividers */}
-                        <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-0 h-full">
-                                {/* Total Parties */}
-                                <div className="sm:px-6 py-6 first:pl-6 relative">
-                                    <div className="absolute top-2 right-2 opacity-10">
-                                        <Building2 className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <p className="text-xs sm:text-sm text-muted-foreground">
-                                            Total Parties
-                                        </p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                            {stats.total}
-                                        </p>
-                                    </div>
-                                    {/* Custom Full Height Divider */}
-                                    <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
-                                </div>
+            <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
+                {/* Stats - Single Card with Dividers */}
+                {/* Stats - Single Card with Dividers */}
+                <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-0 h-full"> {/* ✅ Changed from grid-cols-4 to grid-cols-5 */}
 
-                                {/* Consignors */}
-                                <div className="sm:px-6 py-6 relative">
-                                    <div className="absolute top-2 right-2 opacity-10">
-                                        <Package className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <p className="text-xs sm:text-sm text-muted-foreground">
-                                            Consignors
-                                        </p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                            {stats.consignors}
-                                        </p>
-                                    </div>
-                                    {/* Custom Full Height Divider */}
-                                    <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
-                                </div>
+                        {/* Total Parties */}
+                        <div className="sm:px-6 py-4 first:pl-0 relative">
+                            <div className="absolute top-1 right-2 opacity-10">
+                                <Building2 className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Total Parties
+                                </p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                                    {stats.total}
+                                </p>
+                            </div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                        </div>
 
-                                {/* Consignees */}
-                                <div className="sm:px-6 py-6 relative">
-                                    <div className="absolute top-2 right-2 opacity-10">
-                                        <Truck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <p className="text-xs sm:text-sm text-muted-foreground">
-                                            Consignees
-                                        </p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                            {stats.consignees}
-                                        </p>
-                                    </div>
-                                    {/* Custom Full Height Divider */}
-                                    <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
-                                </div>
+                        {/* Consignors */}
+                        <div className="sm:px-6 py-4 relative">
+                            <div className="absolute top-1 right-2 opacity-10">
+                                <Package className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Consignors
+                                </p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                                    {stats.consignors}
+                                </p>
+                            </div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                        </div>
 
-                                {/* Active */}
-                                <div className="sm:px-6 py-6 last:pr-6 relative">
-                                    <div className="absolute top-2 right-2 opacity-10">
-                                        <UserCheck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <p className="text-xs sm:text-sm text-muted-foreground">
-                                            Active
-                                        </p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                            {stats.active}
-                                        </p>
-                                    </div>
-                                </div>
+                        {/* Consignees */}
+                        <div className="sm:px-6 py-4 relative">
+                            <div className="absolute top-1 right-2 opacity-10">
+                                <Truck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Consignees
+                                </p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                                    {stats.consignees}
+                                </p>
+                            </div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                        </div>
+
+                        {/* ✅ NEW - Billing Parties */}
+                        <div className="sm:px-6 py-4 relative">
+                            <div className="absolute top-1 right-2 opacity-10">
+                                <DollarSign className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Billing
+                                </p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                                    {stats.billing}
+                                </p>
+                            </div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                        </div>
+
+                        {/* Active */}
+                        <div className="sm:px-6 py-4 last:pr-0 relative">
+                            <div className="absolute top-1 right-2 opacity-10">
+                                <UserCheck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <div className="relative z-10">
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Active
+                                </p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                                    {stats.active}
+                                </p>
                             </div>
                         </div>
-
-                        {/* Buttons - Right Side */}
-                        <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => setShowImportModal(true)}
-                                            className="flex-1 sm:flex-none"
-                                        >
-                                            <Upload className="w-4 h-4 mr-2" />
-                                            Import
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Import parties from file</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={handleExport}
-                                            className="flex-1 sm:flex-none"
-                                        >
-                                            <FileDown className="w-4 h-4 mr-2" />
-                                            Export
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Export parties to CSV</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            <Button
-                                size="sm"
-                                onClick={() => navigate("/customers/add")}
-                                className="flex-1 sm:flex-none"
-                            >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add Party
-                            </Button>
-                        </div>
                     </div>
+                </div>
+
+                {/* Buttons - Right Side */}
+                <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowImportModal(true)}
+                                    className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Import
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Import parties from file</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleExport}
+                                    className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                >
+                                    <FileDown className="w-4 h-4 mr-2" />
+                                    Export
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Export parties to CSV</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
+                    <Button
+                        size="sm"
+                        onClick={() => navigate("/customers/add")}
+                        className="flex-1 sm:flex-none"
+                    >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Party
+                    </Button>
                 </div>
             </div>
 
             {/* 🔥 CARD 2: Tabs + Search + Table */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden mt-6">
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
 
                 {/* Tabs Section */}
                 <div className="border-b border-gray-200 dark:border-gray-800">
@@ -1222,6 +1247,14 @@ export const Customers = () => {
                                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
                                 >
                                     Consignees ({stats.consignees})
+                                </TabsTrigger>
+                                {/* ✅ NEW TAB - Billing Parties */}
+                                <TabsTrigger
+                                    value="billing"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                                >
+                                    <DollarSign className="w-3.5 h-3.5 mr-1 inline" />
+                                    Billing Parties ({stats.billing})
                                 </TabsTrigger>
                             </TabsList>
                         </div>
@@ -1520,11 +1553,7 @@ export const Customers = () => {
                                             </div>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8"
-                                                    >
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
                                                         <MoreVertical className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
@@ -1573,7 +1602,7 @@ export const Customers = () => {
                                         </div>
 
                                         {/* Contact Info */}
-                                        <div className="space-y-2 text-sm">
+                                        <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
                                             <div className="flex items-center gap-2">
                                                 <Phone className="w-3.5 h-3.5 text-muted-foreground" />
                                                 <span>{party.phone}</span>
@@ -1587,7 +1616,7 @@ export const Customers = () => {
                                         </div>
 
                                         {/* Address */}
-                                        <div className="space-y-1">
+                                        <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-800">
                                             <div className="flex items-start gap-2 text-sm">
                                                 <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
                                                 <div className="text-xs">
@@ -1620,14 +1649,13 @@ export const Customers = () => {
                 </div>
             </div>
 
-            {/* Import Modal - Keep as is */}
+            {/* Modals */}
             <ImportModal
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onImportComplete={handleImportComplete}
             />
 
-            {/* Delete Confirmation - Keep as is */}
             <AlertDialog open={!!deletePartyId} onOpenChange={() => setDeletePartyId(null)}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>

@@ -16,17 +16,37 @@ export interface Party {
   status: 'ACTIVE' | 'INACTIVE'
   needs_update?: boolean
   company_id?: string
+  is_billing_party?: boolean  // ✅ ADDED
 }
 
-// Fetch all parties (with optional type filter)
-export const fetchParties = async (type?: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH') => {
+// ✅ NEW FUNCTION - Fetch billing parties
+export const fetchBillingParties = async () => {
+  const { data, error } = await supabase
+    .from('parties')
+    .select('*')
+    .eq('status', 'ACTIVE')
+    .eq('is_billing_party', true)
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching billing parties:', error);
+    throw error;
+  }
+
+  return data || [];
+};
+
+// ✅ UPDATED - Added BILLING type support
+export const fetchParties = async (type?: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH' | 'BILLING') => {
   let query = supabase
     .from('parties')
     .select('*')
     .eq('status', 'ACTIVE')
     .order('name');
 
-  if (type && type !== 'BOTH') {
+  if (type === 'BILLING') {
+    query = query.eq('is_billing_party', true);
+  } else if (type && type !== 'BOTH') {
     query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
   }
 
@@ -79,7 +99,7 @@ export const searchParties = async (searchTerm: string, type?: 'CONSIGNOR' | 'CO
   return data || [];
 };
 
-// ✅ Find party by GST number
+// Find party by GST number
 export const findPartyByGST = async (gstNumber: string): Promise<Party | null> => {
   try {
     const { data, error } = await supabase
@@ -101,7 +121,7 @@ export const findPartyByGST = async (gstNumber: string): Promise<Party | null> =
   }
 };
 
-// ✅ Create party from E-way bill data (WITH FALLBACKS)
+// ✅ UPDATED - Added is_billing_party field
 export const createPartyFromEway = async (ewayData: {
   name: string;
   gst_number: string;
@@ -113,33 +133,31 @@ export const createPartyFromEway = async (ewayData: {
   party_type: 'CONSIGNOR' | 'CONSIGNEE';
 }): Promise<Party> => {
   try {
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       throw new Error('User not authenticated');
     }
 
-    // Get user's company_id
     const { data: profile } = await supabase
       .from('profiles')
       .select('company_id')
       .eq('id', user.id)
       .single();
 
-    // ✅ Add fallbacks for required fields
     const partyData: Record<string, any> = {
       name: ewayData.name || 'Unknown Party',
       gst_number: ewayData.gst_number,
-      city: ewayData.city || 'Unknown City',              // ✅ Fallback
-      state: ewayData.state || 'Unknown State',           // ✅ Fallback
-      pincode: ewayData.pincode || '000000',              // ✅ Fallback
-      address_line1: ewayData.address1 || 'Address to be updated',  // ✅ Fallback
+      city: ewayData.city || 'Unknown City',
+      state: ewayData.state || 'Unknown State',
+      pincode: ewayData.pincode || '000000',
+      address_line1: ewayData.address1 || 'Address to be updated',
       contact_person: 'To be updated',
       phone: '0000000000',
       party_type: ewayData.party_type,
       status: 'ACTIVE',
       needs_update: true,
+      is_billing_party: false,  // ✅ ADDED
       company_id: profile?.company_id || null
     };
 
@@ -164,13 +182,14 @@ export const createPartyFromEway = async (ewayData: {
   }
 };
 
-// ✅ Update party contact details
+// ✅ UPDATED - Added is_billing_party field
 export const updatePartyContact = async (
   partyId: string,
   contactData: {
     contact_person?: string;
     phone?: string;
     email?: string;
+    is_billing_party?: boolean;  // ✅ ADDED
   }
 ): Promise<Party> => {
   try {
@@ -199,7 +218,7 @@ export const updatePartyContact = async (
   }
 };
 
-// ✅ Fetch parties that need contact details update
+// Fetch parties that need contact details update
 export const fetchIncompleteParties = async (): Promise<Party[]> => {
   try {
     const { data, error } = await supabase
@@ -217,6 +236,32 @@ export const fetchIncompleteParties = async (): Promise<Party[]> => {
     return data || [];
   } catch (error) {
     console.error('Error in fetchIncompleteParties:', error);
+    throw error;
+  }
+};
+
+// ✅ NEW FUNCTION - Update party billing status
+export const updatePartyBillingStatus = async (
+  partyId: string,
+  isBillingParty: boolean
+): Promise<Party> => {
+  try {
+    const { data, error } = await supabase
+      .from('parties')
+      .update({ is_billing_party: isBillingParty })
+      .eq('id', partyId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating party billing status:', error);
+      throw error;
+    }
+
+    console.log(`✅ Party billing status updated: ${data.name} - ${isBillingParty ? 'Billing' : 'Not Billing'}`);
+    return data;
+  } catch (error) {
+    console.error('Error in updatePartyBillingStatus:', error);
     throw error;
   }
 };

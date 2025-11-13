@@ -603,555 +603,574 @@ export const BookingList = () => {
   }
 
   return (
-    <div className="space-y-8 -mt-1">
-      {/* Header Section */}
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
-              Bookings Management
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">
-              Track and manage all your freight bookings in one place
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExport}
-                    className="flex-1 sm:flex-none"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Export bookings to CSV</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+    <div className="space-y-6">
+      {/* 🔥 CARD 1: Stats + Buttons - Single Line */}
+      <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
+        {/* Stats - Single Card with Dividers */}
+        <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-0 h-full">
+            {/* Total Bookings */}
+            <div className="sm:px-6 py-4 first:pl-0 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <Package className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Total Bookings
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.total}
+                </p>
+              </div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
 
-            <Button
-              size="sm"
-              onClick={() => setIsBookingFormOpen(true)}
-              className="flex-1 sm:flex-none"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Booking
-            </Button>
+            {/* Confirmed */}
+            <div className="sm:px-6 py-4 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Confirmed
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.confirmed}
+                </p>
+              </div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
+
+            {/* In Transit */}
+            <div className="sm:px-6 py-4 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <Truck className="w-8 h-8 text-orange-600" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  In Transit
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.inTransit}
+                </p>
+              </div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+            </div>
+
+            {/* Delivered */}
+            <div className="sm:px-6 py-4 last:pr-0 relative">
+              <div className="absolute top-1 right-2 opacity-10">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+              </div>
+              <div className="relative z-10">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Delivered
+                </p>
+                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {stats.delivered}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Total Bookings</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.total}</p>
-            </div>
-          </div>
+        {/* Buttons - Right Side */}
+        <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Export bookings to CSV</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Confirmed</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.confirmed}</p>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">In Transit</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.inTransit}</p>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">Delivered</p>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-              <p className="text-xl sm:text-2xl font-semibold">{stats.delivered}</p>
-            </div>
-          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsBookingFormOpen(true)}
+            className="flex-1 sm:flex-none"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Booking
+          </Button>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between -mt-4">
-        <div className="relative w-full sm:flex-1 sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search bookings, parties..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
-          />
-          {searchTerm && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-              onClick={() => setSearchTerm("")}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
+      {/* 🔥 CARD 2: Search + Filters + Table */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-gray-500" />
-                All Statuses
-              </div>
-            </SelectItem>
-            {Object.entries(statusConfig).map(([key, config]) => {
-              const Icon = config.icon;
-              return (
-                <SelectItem key={key} value={key}>
+        {/* Search and Filters Section */}
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {/* Search Bar */}
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search bookings, parties..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+              />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                  onClick={() => setSearchTerm("")}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">
                   <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4" />
-                    {config.label}
+                    <div className="w-2 h-2 rounded-full bg-gray-500" />
+                    All Statuses
                   </div>
                 </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Table Section */}
-      <div className="mt-4">
-        {/* Desktop Table View */}
-        <div className="hidden lg:block overflow-x-auto">
-          <Table className="booking-table">
-            <TableHeader>
-              <TableRow className="hover:bg-[#f6f6f6] bg-[#f6f6f6]">
-                <TableHead className="font-semibold">Booking ID</TableHead>
-                <TableHead className="font-semibold">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    Parties
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                    Route
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold">Status</TableHead>
-                <TableHead className="font-semibold">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-muted-foreground" />
-                    Warehouse
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold">
-                  <div className="flex items-center gap-2">
-                    <Truck className="w-4 h-4 text-muted-foreground" />
-                    Vehicle
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold">
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-muted-foreground" />
-                    LR Status
-                  </div>
-                </TableHead>
-                <TableHead className="font-semibold text-center">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBookings.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-16">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="p-4 bg-muted/30 rounded-full">
-                        <Package className="w-12 h-12 text-muted-foreground/50" />
-                      </div>
-                      <div className="text-muted-foreground">
-                        <p className="text-lg font-medium">No bookings found</p>
-                        <p className="text-sm mt-1">
-                          {searchTerm || statusFilter !== "ALL"
-                            ? "Try adjusting your filters"
-                            : "Create your first booking to get started"}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredBookings.map((booking) => {
-                  const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
-                  const StatusIcon = status.icon;
-
+                {Object.entries(statusConfig).map(([key, config]) => {
+                  const Icon = config.icon;
                   return (
-                    <TableRow
-                      key={booking.id}
-                      className="hover:bg-muted/50 transition-colors"
-                    >
-                      <TableCell>
+                    <SelectItem key={key} value={key}>
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4" />
+                        {config.label}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Table Section */}
+        <div className="p-4 sm:p-6">
+          {/* Desktop Table View */}
+          <div className="hidden lg:block">
+            <div className="w-full overflow-auto no-scrollbar">
+              <Table className="booking-table min-w-full">
+                <TableHeader>
+                  <TableRow className="hover:bg-muted/50 bg-muted/30">
+                    <TableHead className="font-semibold">Booking ID</TableHead>
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                        Parties
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        Route
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-semibold">Status</TableHead>
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-muted-foreground" />
+                        Warehouse
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-muted-foreground" />
+                        Vehicle
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-semibold">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        LR Status
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-semibold text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredBookings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-16">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="p-4 bg-muted/30 rounded-full">
+                            <Package className="w-12 h-12 text-muted-foreground/50" />
+                          </div>
+                          <div className="text-muted-foreground">
+                            <p className="text-lg font-medium">No bookings found</p>
+                            <p className="text-sm mt-1">
+                              {searchTerm || statusFilter !== "ALL"
+                                ? "Try adjusting your filters"
+                                : "Create your first booking to get started"}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBookings.map((booking) => {
+                      const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+                      const StatusIcon = status.icon;
+
+                      return (
+                        <TableRow
+                          key={booking.id}
+                          className="hover:bg-muted/50 transition-colors"
+                        >
+                          <TableCell>
+                            <Button
+                              variant="link"
+                              className="p-0 h-auto font-semibold text-primary"
+                              onClick={() => navigate(`/bookings/${booking.id}`)}
+                            >
+                              {booking.bookingId}
+                            </Button>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-primary" />
+                                <span className="font-medium text-sm">{booking.consignorName}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <ArrowRight className="w-3 h-3" />
+                                <span className="text-xs">{booking.consigneeName}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <MapPin className="w-3 h-3 text-green-600" />
+                                <span className="font-medium text-sm truncate max-w-[120px]">
+                                  {booking.fromLocation}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <MapPin className="w-3 h-3 text-red-600" />
+                                <span className="text-xs truncate max-w-[120px]">
+                                  {booking.toLocation}
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell>
+                            <Select
+                              value={booking.status}
+                              onValueChange={(value) => handleStatusChange(booking.id, value)}
+                            >
+                              <SelectTrigger className={cn(
+                                "w-[120px] h-9 border",
+                                status.color
+                              )}>
+                                <div className="flex items-center gap-1.5">
+                                  <StatusIcon className="w-3.5 h-3.5" />
+                                  <span className="text-xs">{status.label}</span>
+                                </div>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(statusConfig).map(([key, config]) => {
+                                  const Icon = config.icon;
+                                  return (
+                                    <SelectItem key={key} value={key}>
+                                      <div className="flex items-center gap-2">
+                                        <Icon className="w-4 h-4" />
+                                        {config.label}
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+
+                          <TableCell>
+                            <Button
+                              variant={booking.current_warehouse ? "secondary" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                setWarehouseModal({
+                                  isOpen: true,
+                                  bookingId: booking.id,
+                                  currentWarehouseId: booking.current_warehouse?.id
+                                });
+                              }}
+                              className="w-[130px]"
+                            >
+                              {booking.current_warehouse ? (
+                                <div className="flex items-center gap-2">
+                                  <Package className="w-3.5 h-3.5 text-primary" />
+                                  <span className="truncate text-xs">
+                                    {booking.current_warehouse.name}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Package className="w-3.5 h-3.5" />
+                                  <span className="text-xs">Select</span>
+                                </div>
+                              )}
+                            </Button>
+                          </TableCell>
+
+                          <TableCell>
+                            {booking.current_warehouse ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setAssignmentModal({ isOpen: true, bookingId: booking.id })}
+                              >
+                                <Truck className="w-3.5 h-3.5 mr-1" />
+                                <span className="text-xs">Assign</span>
+                              </Button>
+                            ) : (
+                              booking.assignedVehicle ? (
+                                <Badge variant="secondary" className="gap-1 text-xs">
+                                  <Truck className="w-3 h-3" />
+                                  {booking.assignedVehicle.vehicleNumber}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground text-xs">
+                                  <AlertCircle className="w-3 h-3 mr-1" />
+                                  No Vehicle
+                                </Badge>
+                              )
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            {booking.lrNumber ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-green-500 text-white text-xs">
+                                    <FileText className="w-3 h-3 mr-1" />
+                                    {booking.lrNumber}
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDownloadLR(booking)}
+                                    className="h-7 w-7"
+                                  >
+                                    <Download className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                                {booking.eway_bill_details && booking.eway_bill_details.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {booking.eway_bill_details.map((ewb: any, index: number) => (
+                                      <Badge key={index} variant="secondary" className="text-xs">
+                                        {ewb.number}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-muted-foreground text-xs">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  Pending
+                                </Badge>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                                  className="text-xs h-7"
+                                >
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  Create
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate(`/bookings/${booking.id}`)}
+                                className="h-7 w-7"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingFullBooking(booking);
+                                      setIsEditFullBookingModalOpen(true);
+                                    }}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit All Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => setDeletingBookingId(booking.id)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete Booking
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="lg:hidden space-y-3">
+            {filteredBookings.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="p-4 bg-muted/30 rounded-full">
+                    <Package className="w-12 h-12 text-muted-foreground/50" />
+                  </div>
+                  <div className="text-muted-foreground">
+                    <p className="text-lg font-medium">No bookings found</p>
+                    <p className="text-sm mt-1">
+                      {searchTerm || statusFilter !== "ALL"
+                        ? "Try adjusting your filters"
+                        : "Create your first booking to get started"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              filteredBookings.map((booking) => {
+                const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+                const StatusIcon = status.icon;
+
+                return (
+                  <div key={booking.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
                         <Button
                           variant="link"
-                          className="p-0 h-auto font-semibold text-primary"
+                          className="p-0 h-auto font-semibold text-primary text-sm"
                           onClick={() => navigate(`/bookings/${booking.id}`)}
                         >
                           {booking.bookingId}
                         </Button>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-primary" />
-                            <span className="font-medium text-sm">{booking.consignorName}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <ArrowRight className="w-3 h-3" />
-                            <span className="text-xs">{booking.consigneeName}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-3 h-3 text-green-600" />
-                            <span className="font-medium text-sm truncate max-w-[120px]">
-                              {booking.fromLocation}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="w-3 h-3 text-red-600" />
-                            <span className="text-xs truncate max-w-[120px]">
-                              {booking.toLocation}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <Select
-                          value={booking.status}
-                          onValueChange={(value) => handleStatusChange(booking.id, value)}
-                        >
-                          <SelectTrigger className={cn(
-                            "w-[120px] h-9 border",
-                            status.color
-                          )}>
-                            <div className="flex items-center gap-1.5">
-                              <StatusIcon className="w-3.5 h-3.5" />
-                              <span className="text-xs">{status.label}</span>
-                            </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(statusConfig).map(([key, config]) => {
-                              const Icon = config.icon;
-                              return (
-                                <SelectItem key={key} value={key}>
-                                  <div className="flex items-center gap-2">
-                                    <Icon className="w-4 h-4" />
-                                    {config.label}
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-
-                      <TableCell>
-                        <Button
-                          variant={booking.current_warehouse ? "secondary" : "outline"}
-                          size="sm"
-                          onClick={() => {
-                            setWarehouseModal({
-                              isOpen: true,
-                              bookingId: booking.id,
-                              currentWarehouseId: booking.current_warehouse?.id
-                            });
-                          }}
-                          className="w-[130px]"
-                        >
-                          {booking.current_warehouse ? (
-                            <div className="flex items-center gap-2">
-                              <Package className="w-3.5 h-3.5 text-primary" />
-                              <span className="truncate text-xs">
-                                {booking.current_warehouse.name}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Package className="w-3.5 h-3.5" />
-                              <span className="text-xs">Select</span>
-                            </div>
-                          )}
-                        </Button>
-                      </TableCell>
-
-                      <TableCell>
-                        {booking.current_warehouse ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setAssignmentModal({ isOpen: true, bookingId: booking.id })}
-                          >
-                            <Truck className="w-3.5 h-3.5 mr-1" />
-                            <span className="text-xs">Assign</span>
+                        <Badge className={cn("text-xs", status.color)}>
+                          <StatusIcon className="w-3 h-3 mr-1" />
+                          {status.label}
+                        </Badge>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                        ) : (
-                          booking.assignedVehicle ? (
-                            <div className="space-y-1">
-                              <Badge variant="secondary" className="gap-1 text-xs">
-                                <Truck className="w-3 h-3" />
-                                {booking.assignedVehicle.vehicleNumber}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <Badge variant="outline" className="text-muted-foreground text-xs">
-                              <AlertCircle className="w-3 h-3 mr-1" />
-                              No Vehicle
-                            </Badge>
-                          )
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        {booking.lrNumber ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-green-500 text-white text-xs">
-                                <FileText className="w-3 h-3 mr-1" />
-                                {booking.lrNumber}
-                              </Badge>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDownloadLR(booking)}
-                                className="h-7 w-7"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                            {booking.eway_bill_details && booking.eway_bill_details.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {booking.eway_bill_details.map((ewb: any, index: number) => (
-                                  <Badge
-                                    key={index}
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {ewb.number}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-muted-foreground text-xs">
-                              <Clock className="w-3 h-3 mr-1" />
-                              Pending
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
-                              className="text-xs h-7"
-                            >
-                              <FileText className="w-3 h-3 mr-1" />
-                              Create
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/bookings/${booking.id}`)}
-                            className="h-7 w-7"
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingFullBooking(booking);
+                              setIsEditFullBookingModalOpen(true);
+                            }}
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                              >
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingFullBooking(booking);
-                                  setIsEditFullBookingModalOpen(true);
-                                }}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit All Details
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => setDeletingBookingId(booking.id)}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Booking
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Mobile Card View */}
-        <div className="lg:hidden space-y-3">
-          {filteredBookings.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="flex flex-col items-center gap-4">
-                <div className="p-4 bg-muted/30 rounded-full">
-                  <Package className="w-12 h-12 text-muted-foreground/50" />
-                </div>
-                <div className="text-muted-foreground">
-                  <p className="text-lg font-medium">No bookings found</p>
-                  <p className="text-sm mt-1">
-                    {searchTerm || statusFilter !== "ALL"
-                      ? "Try adjusting your filters"
-                      : "Create your first booking to get started"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            filteredBookings.map((booking) => {
-              const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
-              const StatusIcon = status.icon;
-
-              return (
-                <Card key={booking.id} className="p-4 space-y-3">
-                  {/* Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-semibold text-primary text-sm"
-                        onClick={() => navigate(`/bookings/${booking.id}`)}
-                      >
-                        {booking.bookingId}
-                      </Button>
-                      <Badge className={cn("text-xs", status.color)}>
-                        <StatusIcon className="w-3 h-3 mr-1" />
-                        {status.label}
-                      </Badge>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Details
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => setDeletingBookingId(booking.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingFullBooking(booking);
-                            setIsEditFullBookingModalOpen(true);
-                          }}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Details
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => setDeletingBookingId(booking.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
 
-                  {/* Parties */}
-                  <div className="space-y-2 text-sm pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                      <span className="font-medium">{booking.consignorName}</span>
+                    <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                        <span className="font-medium">{booking.consignorName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ArrowRight className="w-3 h-3" />
+                        <span className="text-muted-foreground">{booking.consigneeName}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <ArrowRight className="w-3 h-3" />
-                      <span className="text-muted-foreground">{booking.consigneeName}</span>
-                    </div>
-                  </div>
 
-                  {/* Route */}
-                  <div className="space-y-2 text-sm pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-green-600" />
-                      <span className="font-medium">{booking.fromLocation}</span>
+                    <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3 h-3 text-green-600" />
+                        <span className="font-medium">{booking.fromLocation}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3 h-3 text-red-600" />
+                        <span className="text-muted-foreground">{booking.toLocation}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-red-600" />
-                      <span className="text-muted-foreground">{booking.toLocation}</span>
-                    </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/bookings/${booking.id}`)}
-                      className="flex-1"
-                    >
-                      <Eye className="w-3 h-3 mr-1" />
-                      View
-                    </Button>
-                    {!booking.lrNumber && (
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-800">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                        onClick={() => navigate(`/bookings/${booking.id}`)}
                         className="flex-1"
                       >
-                        <FileText className="w-3 h-3 mr-1" />
-                        Create LR
+                        <Eye className="w-3 h-3 mr-1" />
+                        View
                       </Button>
-                    )}
+                      {!booking.lrNumber && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                          className="flex-1"
+                        >
+                          <FileText className="w-3 h-3 mr-1" />
+                          Create LR
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </Card>
-              );
-            })
-          )}
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
-      {/* All Modals - Keep as is */}
+      {/* All Modals */}
       <EnhancedVehicleAssignmentModal
         isOpen={assignmentModal.isOpen}
         onClose={() => setAssignmentModal({ isOpen: false, bookingId: "" })}
