@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom"; // ✅ ADD THIS
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
     Table,
@@ -90,6 +89,7 @@ import { supabase } from "@/lib/supabase";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useDropzone } from "react-dropzone";
+import { AddEditPartyDrawer } from "@/components/AddEditPartyDrawer";
 
 // Types
 interface Party {
@@ -912,6 +912,26 @@ export const Customers = () => {
     const [selectedTab, setSelectedTab] = useState("all");
     const [showImportModal, setShowImportModal] = useState(false);
     const [deletePartyId, setDeletePartyId] = useState<string | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
+    const handleAddParty = () => {
+        setSelectedPartyId(null);
+        setIsDrawerOpen(true);
+    };
+
+    const handleEditParty = (partyId: string) => {
+        setSelectedPartyId(partyId);
+        setIsDrawerOpen(true);
+    };
+
+    const handleDrawerClose = () => {
+        setIsDrawerOpen(false);
+        setSelectedPartyId(null);
+    };
+
+    const handleDrawerSuccess = () => {
+        loadParties(); // Refresh list
+    };
     const [stats, setStats] = useState<Stats>({
         total: 0,
         consignors: 0,
@@ -1180,7 +1200,6 @@ export const Customers = () => {
         setSearchTerm("");
         loadParties();
     };
-
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -1194,12 +1213,9 @@ export const Customers = () => {
             </div>
         );
     }
-
     return (
         <div className="space-y-6">
-            {/* 🔥 CARD 1: Stats & Buttons */}
             <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
-                {/* Stats - Single Card with Dividers */}
                 {/* Stats - Single Card with Dividers */}
                 <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-0 h-full"> {/* ✅ Changed from grid-cols-4 to grid-cols-5 */}
@@ -1327,7 +1343,7 @@ export const Customers = () => {
 
                     <Button
                         size="sm"
-                        onClick={() => navigate("/customers/add")}
+                        onClick={handleAddParty}
                         className="flex-1 sm:flex-none"
                     >
                         <Plus className="w-4 h-4 mr-2" />
@@ -1398,7 +1414,6 @@ export const Customers = () => {
                                 </Button>
                             )}
                         </div>
-
                         {/* Filters */}
                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -1573,7 +1588,7 @@ export const Customers = () => {
                                                                         </Button>
                                                                     </DropdownMenuTrigger>
                                                                     <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem onClick={() => navigate(`/customers/edit/${party.id}`)}>
+                                                                        <DropdownMenuItem onClick={() => handleEditParty(party.id)}>
                                                                             <Edit className="mr-2 h-4 w-4" />
                                                                             Edit Details
                                                                         </DropdownMenuItem>
@@ -1908,6 +1923,12 @@ export const Customers = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            <AddEditPartyDrawer
+                isOpen={isDrawerOpen}
+                onClose={handleDrawerClose}
+                partyId={selectedPartyId}
+                onSuccess={handleDrawerSuccess}
+            />
         </div>
     );
 };

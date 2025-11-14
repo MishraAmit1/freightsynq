@@ -106,7 +106,6 @@ const validateEmail = (email: string): boolean => {
         domain?.endsWith('.net') ||
         domain?.endsWith('.edu');
 };
-
 // ✅ MAIN COMPONENT
 export const AddEditParty = () => {
     const navigate = useNavigate();

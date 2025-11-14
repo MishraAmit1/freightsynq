@@ -1,5 +1,3 @@
-// Replace entire VehicleDetailDrawer.tsx with this:
-
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,9 +19,8 @@ import { format } from "date-fns";
 interface VehicleDetailDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  vehicle: any | null; // Using any for now since we have mixed data structure
+  vehicle: any | null;
 }
-
 export const VehicleDetailDrawer = ({ isOpen, onClose, vehicle }: VehicleDetailDrawerProps) => {
   if (!vehicle) return null;
 

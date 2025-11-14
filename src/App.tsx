@@ -34,7 +34,6 @@ import { SetupChecker } from "./components/guards/SetupChecker";
 import { CreateInvites } from "./pages/super-admin/CreateInvites";
 import { ManageCompanies } from "./pages/super-admin/ManageCompanies";
 import { SystemStats } from "./pages/super-admin/SystemStats";
-import { AddEditParty } from "./pages/AddEditParty";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,15 +73,12 @@ const App = () => {
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/form" element={<AddPartyForm />} />
-
                         <Route path="/bookings" element={<BookingList />} />
                         <Route path="/bookings/:id" element={<BookingDetail />} />
                         <Route path="/vehicles" element={<VehicleManagement />} />
                         <Route path="/brokers" element={<Broker />} />
                         <Route path="/drivers" element={<Drivers />} />
                         <Route path="/customers" element={<Customers />} />
-                        <Route path="/customers/add" element={<AddEditParty />} />
-                        <Route path="/customers/edit/:id" element={<AddEditParty />} />
                         <Route path="/lr-template-settings" element={<LRTemplateSettings />} />
                         <Route path="/warehouses" element={<WarehouseList />} />
                         <Route path="/warehouses/:id" element={<WarehouseDetails />} />
