@@ -41,6 +41,19 @@ export interface BookingData {
   }>
 }
 
+// ✅ ADD THIS NEW INTERFACE
+export interface CompanyBranch {
+  id: string;
+  company_id: string;
+  branch_name: string;
+  branch_code: string;
+  city?: string;
+  address?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  is_default: boolean;
+  created_at: string;
+}
+
 export const fetchBookings = async (): Promise<BookingData[]> => {
   const { data, error } = await supabase
     .from('bookings')
@@ -48,6 +61,7 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
       *,
       consignor:parties!consignor_id(id, name, city, state),
       consignee:parties!consignee_id(id, name, city, state),
+      branch:company_branches(id, branch_name, branch_code, city),
       current_warehouse:warehouses(id, name, city),
       vehicle_assignments!left(
         id,
@@ -55,6 +69,9 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
         vehicle_type,
         owned_vehicle_id,
         hired_vehicle_id,
+        last_toll_crossed,
+        last_toll_time,
+        tracking_start_time,
         owned_vehicle:owned_vehicles!owned_vehicle_id(
           vehicle_number,
           vehicle_type,
@@ -94,7 +111,10 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
       ...booking,
       consignor_name: booking.consignor?.name || 'Unknown',
       consignee_name: booking.consignee?.name || 'Unknown',
-      eway_bill_details: booking.eway_bill_details || [], // ✅ ADD THIS LINE
+      branch_name: booking.branch?.branch_name || '',        // ✅ ADDED
+      branch_code: booking.branch?.branch_code || '',        // ✅ ADDED
+      branch_city: booking.branch?.city || '',               // ✅ ADDED
+      eway_bill_details: booking.eway_bill_details || [],
       material_description: booking.material_description || '',
       cargo_units: booking.cargo_units || '',
       current_warehouse: booking.current_warehouse ? {
@@ -118,52 +138,93 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
   return transformedData;
 };
 
+// ✅ UPDATED - Now requires branch_id
 export const createBooking = async (bookingData: {
-  consignor_id: string
-  consignee_id: string
-  from_location: string
-  to_location: string
-  service_type: 'FTL' | 'PTL'
-  pickup_date?: string
+  consignor_id: string;
+  consignee_id: string;
+  from_location: string;
+  to_location: string;
+  service_type: 'FTL' | 'PTL';
+  pickup_date?: string;
   material_description: string;
   cargo_units: string;
-  bilti_number?: string | null;           // ✅ NEW
-  invoice_number?: string | null;         // ✅ NEW
-  eway_bill_details?: any[];              // ✅ NEW
+  bilti_number?: string | null;
+  invoice_number?: string | null;
+  eway_bill_details?: any[];
+  branch_id: string;  // ✅ NEW REQUIRED FIELD
 }) => {
-  // Get current user ID
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    throw new Error('User not authenticated');
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Get user's company_id
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!userProfile?.company_id) {
+      throw new Error('User company not found');
+    }
+
+    console.log('🎫 Generating booking ID for branch:', bookingData.branch_id);
+
+    // ✅ Generate booking ID using NEW function
+    const { data: bookingId, error: idError } = await supabase
+      .rpc('generate_booking_id_new', {
+        p_company_id: userProfile.company_id,
+        p_branch_id: bookingData.branch_id
+      });
+
+    if (idError) {
+      console.error('❌ Error generating booking ID:', idError);
+      throw idError;
+    }
+
+    console.log('✅ Generated booking ID:', bookingId);
+
+    // Create booking with new ID format
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert([{
+        booking_id: bookingId,
+        company_id: userProfile.company_id,
+        branch_id: bookingData.branch_id,  // ✅ ADDED
+        consignor_id: bookingData.consignor_id,
+        consignee_id: bookingData.consignee_id,
+        from_location: bookingData.from_location,
+        to_location: bookingData.to_location,
+        service_type: bookingData.service_type,
+        pickup_date: bookingData.pickup_date,
+        material_description: bookingData.material_description,
+        cargo_units: bookingData.cargo_units,
+        bilti_number: bookingData.bilti_number || null,
+        invoice_number: bookingData.invoice_number || null,
+        eway_bill_details: bookingData.eway_bill_details || [],
+        status: 'DRAFT',
+        created_by: user.id
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating booking:', error);
+      throw error;
+    }
+
+    console.log('✅ Booking created:', data.booking_id);
+
+    return data;
+  } catch (error: any) {
+    console.error('❌ Error in createBooking:', error);
+    throw error;
   }
-
-  const today = new Date()
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-  const timeStr = Date.now().toString().slice(-4)
-  const booking_id = `BKG-${dateStr}-${timeStr}`
-
-  const { data, error } = await supabase
-    .from('bookings')
-    .insert([{
-      ...bookingData,
-      booking_id,
-      status: 'DRAFT',
-      created_by: user.id,
-      bilti_number: bookingData.bilti_number || null,           // ✅ NEW
-      invoice_number: bookingData.invoice_number || null,       // ✅ NEW
-      eway_bill_details: bookingData.eway_bill_details || []    // ✅ NEW
-    }])
-    .select()
-    .single()
-
-  if (error) {
-    console.error('Error creating booking:', error)
-    throw error
-  }
-
-  return data
-}
+};
 
 export const updateBookingStatus = async (bookingId: string, status: string) => {
   try {
@@ -957,4 +1018,120 @@ export const fetchBookingTimeline = async (bookingId: string) => {
   }
 
   return data || [];
+};
+
+// ============================================
+// ✅ BRANCH MANAGEMENT FUNCTIONS (NEW)
+// ============================================
+
+/**
+ * Fetch all branches for current company
+ */
+export const fetchCompanyBranches = async (): Promise<CompanyBranch[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('company_branches')
+      .select('*')
+      .eq('status', 'ACTIVE')
+      .order('branch_code');
+
+    if (error) {
+      console.error('Error fetching branches:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in fetchCompanyBranches:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get default branch (usually "A")
+ */
+export const getDefaultBranch = async (): Promise<CompanyBranch | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('company_branches')
+      .select('*')
+      .eq('is_default', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching default branch:', error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getDefaultBranch:', error);
+    return null;
+  }
+};
+
+/**
+ * Create new branch
+ */
+export const createBranch = async (branchData: {
+  branch_name: string;
+  city?: string;
+  address?: string;
+}): Promise<CompanyBranch> => {
+  try {
+    // Get current branches to determine next code
+    const branches = await fetchCompanyBranches();
+
+    // Generate next branch code (A, B, C, D...)
+    const nextCode = String.fromCharCode(65 + branches.length);
+
+    // Get current user's company_id
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!userProfile?.company_id) {
+      throw new Error('User company not found');
+    }
+
+    // Create branch
+    const { data, error } = await supabase
+      .from('company_branches')
+      .insert([{
+        branch_name: branchData.branch_name,
+        branch_code: nextCode,
+        city: branchData.city || null,
+        address: branchData.address || null,
+        status: 'ACTIVE',
+        is_default: branches.length === 0 // First branch = default
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating branch:', error);
+      throw error;
+    }
+
+    // Create counter for new branch
+    await supabase
+      .from('booking_counters')
+      .insert([{
+        company_id: userProfile.company_id,
+        branch_id: data.id,
+        current_number: 0
+      }]);
+
+    console.log('✅ Branch created:', data.branch_code, '-', data.branch_name);
+
+    return data;
+  } catch (error) {
+    console.error('Error in createBranch:', error);
+    throw error;
+  }
 };

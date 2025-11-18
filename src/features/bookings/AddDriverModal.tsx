@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Save, X } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { User, Save, X, Loader2, Phone, CreditCard, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface DriverFormData {
@@ -11,7 +12,6 @@ interface DriverFormData {
     phone: string;
     license_number: string;
     experience: string;
-    // ❌ REMOVED: address field
 }
 
 interface AddDriverModalProps {
@@ -28,14 +28,13 @@ export const AddDriverModal = ({ isOpen, onClose, onSave }: AddDriverModalProps)
         phone: "",
         license_number: "",
         experience: "",
-        // ❌ REMOVED: address: ""
     });
 
     const handleSubmit = async () => {
         // Validation
         if (!driverData.name.trim() || !driverData.phone.trim() || !driverData.license_number.trim()) {
             toast({
-                title: "Validation Error",
+                title: "❌ Validation Error",
                 description: "Please fill in all required fields",
                 variant: "destructive"
             });
@@ -44,7 +43,7 @@ export const AddDriverModal = ({ isOpen, onClose, onSave }: AddDriverModalProps)
 
         if (driverData.phone.length < 10) {
             toast({
-                title: "Validation Error",
+                title: "❌ Validation Error",
                 description: "Please enter a valid phone number",
                 variant: "destructive"
             });
@@ -61,14 +60,13 @@ export const AddDriverModal = ({ isOpen, onClose, onSave }: AddDriverModalProps)
                 phone: "",
                 license_number: "",
                 experience: "",
-                // ❌ REMOVED: address: ""
             });
 
             onClose();
         } catch (error) {
             console.error('Error saving driver:', error);
             toast({
-                title: "Error",
+                title: "❌ Error",
                 description: "Failed to add driver. Please try again.",
                 variant: "destructive"
             });
@@ -83,82 +81,126 @@ export const AddDriverModal = ({ isOpen, onClose, onSave }: AddDriverModalProps)
             phone: "",
             license_number: "",
             experience: "",
-            // ❌ REMOVED: address: ""
         });
         onClose();
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
+        <Sheet open={isOpen} onOpenChange={handleClose}>
+            <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                <SheetHeader>
+                    <SheetTitle className="flex items-center gap-2">
                         <User className="w-5 h-5 text-primary" />
                         Add New Driver
-                    </DialogTitle>
-                </DialogHeader>
+                    </SheetTitle>
+                </SheetHeader>
 
-                <div className="space-y-4 py-4">
+                <div className="space-y-5 py-6">
+                    {/* Driver Name */}
                     <div>
-                        <Label htmlFor="driverName">Full Name *</Label>
+                        <Label className="text-xs">
+                            Full Name <span className="text-red-500">*</span>
+                        </Label>
                         <Input
-                            id="driverName"
                             value={driverData.name}
                             onChange={(e) => setDriverData({ ...driverData, name: e.target.value })}
                             placeholder="John Doe"
                             disabled={loading}
+                            className="h-9 text-sm mt-1"
                         />
                     </div>
 
+                    <Separator className="my-4" />
+
+                    {/* Phone & License in 2 columns */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <Label className="text-xs">
+                                Phone Number <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="relative">
+                                <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                    value={driverData.phone}
+                                    onChange={(e) => setDriverData({ ...driverData, phone: e.target.value })}
+                                    placeholder="9876543210"
+                                    maxLength={15}
+                                    disabled={loading}
+                                    className="pl-9 h-9 text-sm mt-1"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-xs">
+                                License Number <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="relative">
+                                <CreditCard className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                    value={driverData.license_number}
+                                    onChange={(e) => setDriverData({ ...driverData, license_number: e.target.value.toUpperCase() })}
+                                    placeholder="MH123456789"
+                                    disabled={loading}
+                                    className="pl-9 h-9 text-sm mt-1 uppercase"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    {/* Rating */}
                     <div>
-                        <Label htmlFor="phone">Phone Number *</Label>
-                        <Input
-                            id="phone"
-                            value={driverData.phone}
-                            onChange={(e) => setDriverData({ ...driverData, phone: e.target.value })}
-                            placeholder="+91-9876543210"
-                            maxLength={15}
-                            disabled={loading}
-                        />
+                        <Label className="text-xs">
+                            Rating (Out of 5)
+                        </Label>
+                        <div className="relative">
+                            <Star className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                                value={driverData.experience}
+                                onChange={(e) => setDriverData({ ...driverData, experience: e.target.value })}
+                                placeholder="e.g., 5 or 3"
+                                disabled={loading}
+                                className="pl-9 h-9 text-sm mt-1"
+                            />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            Optional - Rate driver performance (1-5)
+                        </p>
                     </div>
 
-                    <div>
-                        <Label htmlFor="licenseNumber">License Number *</Label>
-                        <Input
-                            id="licenseNumber"
-                            value={driverData.license_number}
-                            onChange={(e) => setDriverData({ ...driverData, license_number: e.target.value.toUpperCase() })}
-                            placeholder="MH123456789"
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-2 pt-4 border-t">
+                        <Button
+                            variant="outline"
+                            onClick={handleClose}
                             disabled={loading}
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="experience">Rating (Out of 5)</Label>
-                        <Input
-                            id="experience"
-                            value={driverData.experience}
-                            onChange={(e) => setDriverData({ ...driverData, experience: e.target.value })}
-                            placeholder="e.g., 5 or 3"
-
+                            size="sm"
+                        >
+                            <X className="w-3.5 h-3.5 mr-2" />
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
                             disabled={loading}
-                        />
+                            size="sm"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-3.5 h-3.5 mr-2" />
+                                    Save Driver
+                                </>
+                            )}
+                        </Button>
                     </div>
-
-                    {/* ❌ REMOVED: Address field completely */}
                 </div>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={handleClose} disabled={loading}>
-                        <X className="w-4 h-4 mr-2" />
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSubmit} disabled={loading}>
-                        <Save className="w-4 h-4 mr-2" />
-                        {loading ? "Saving..." : "Save Driver"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 };

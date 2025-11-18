@@ -584,11 +584,10 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                         <p className="text-sm text-muted-foreground">Loading party details...</p>
                     </div>
                 ) : (
-                    <div className="space-y-5 py-6">
-                        {/* ✅ Party Type + Billing Party (Single Row) */}
+                    <div className="space-y-4 py-4">
                         {/* ✅ Party Type + Billing Party (Single Row) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
+                            <div className="space-y-1.5">
                                 <Label>Party Type *</Label>
                                 <Select
                                     value={formData.party_type}
@@ -608,7 +607,8 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                             </div>
 
                             <div className="space-y-1.5">
-                                <div className="flex items-center space-x-2 h-10">
+                                <Label className="text-sm">Billing Settings</Label>
+                                <div className="flex items-center space-x-2 h-10 px-3 border rounded-md bg-muted/30">
                                     <Checkbox
                                         id="is_billing_party"
                                         checked={formData.is_billing_party}
@@ -624,16 +624,13 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                                         Billing Party
                                     </Label>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground leading-tight ml-6">
-                                    Enable for billing reports and finance operations
-                                </p>
                             </div>
                         </div>
 
-                        <Separator className="my-4" />
+                        <Separator />
 
                         {/* Basic Information */}
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                                 <Building2 className="w-4 h-4" />
                                 Basic Information
@@ -660,10 +657,10 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                             </div>
                         </div>
 
-                        <Separator className="my-4" />
+                        <Separator />
 
                         {/* Contact Information */}
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                                 <Phone className="w-4 h-4" />
                                 Contact
@@ -692,10 +689,10 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                             </div>
                         </div>
 
-                        <Separator className="my-4" />
+                        <Separator />
 
                         {/* Address */}
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                                 <MapPin className="w-4 h-4" />
                                 Address
@@ -803,10 +800,10 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                             </div>
                         </div>
 
-                        <Separator className="my-4" />
+                        <Separator />
 
                         {/* Tax Info */}
-                        <div className="space-y-3">
+                        <div className="space-y-2.5">
                             <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                                 <FileText className="w-4 h-4" />
                                 Tax Info (Optional)
@@ -836,7 +833,7 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex justify-end gap-2 pt-4 border-t">
+                        <div className="flex justify-end gap-2 pt-3 border-t">
                             <Button
                                 variant="outline"
                                 onClick={onClose}

@@ -154,10 +154,9 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
           >
             <Menu className="w-5 h-5" />
           </Button>
-
           {/* Page Title - Aligned with main content */}
           <div className="flex-1 min-w-0 pl-2 sm:pl-4 lg:pl-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter truncate">
+            <h1 className="text-2xl sm:text-xl font-bold text-foreground font-inter truncate">
               {pageInfo.title}
             </h1>
             {pageInfo.description && (

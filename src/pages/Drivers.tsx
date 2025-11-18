@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import {
     Table,
     TableBody,
@@ -27,13 +28,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -46,14 +41,13 @@ import {
     Phone,
     User,
     Loader2,
-    UserCheck,
-    Shield,
-    FileLock,
     Star,
     AlertCircle,
     XCircle,
     CheckCircle,
     X,
+    Save,
+    CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -76,19 +70,17 @@ interface DriverFormData {
     experience: string;
 }
 
-// Edit/Add Driver Modal Component
-const DriverModal = ({
+// ✅ UPDATED: Drawer Modal Component
+const DriverDrawer = ({
     isOpen,
     onClose,
     onSave,
     driver = null,
-    title = "Add New Driver",
 }: {
     isOpen: boolean;
     onClose: () => void;
     onSave: (driverData: DriverFormData) => Promise<void>;
     driver?: Driver | null;
-    title?: string;
 }) => {
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -99,30 +91,30 @@ const DriverModal = ({
         experience: "",
     });
 
+    const mode = driver ? "edit" : "create";
+
     useEffect(() => {
-        if (driver) {
-            setDriverData({
-                name: driver.name || "",
-                phone: driver.phone || "",
-                licenseNumber: driver.license_number || "",
-                experience: driver.experience || "",
-            });
-        } else {
-            setDriverData({
-                name: "",
-                phone: "",
-                licenseNumber: "",
-                experience: "",
-            });
+        if (isOpen) {
+            if (driver) {
+                setDriverData({
+                    name: driver.name || "",
+                    phone: driver.phone || "",
+                    licenseNumber: driver.license_number || "",
+                    experience: driver.experience || "",
+                });
+            } else {
+                setDriverData({
+                    name: "",
+                    phone: "",
+                    licenseNumber: "",
+                    experience: "",
+                });
+            }
         }
     }, [driver, isOpen]);
 
     const handleSubmit = async () => {
-        if (
-            !driverData.name.trim() ||
-            !driverData.phone.trim() ||
-            !driverData.licenseNumber.trim()
-        ) {
+        if (!driverData.name.trim() || !driverData.phone.trim() || !driverData.licenseNumber.trim()) {
             toast({
                 title: "❌ Validation Error",
                 description: "Name, Phone, and License Number are required",
@@ -156,102 +148,117 @@ const DriverModal = ({
         onClose();
     };
 
-    if (!isOpen) return null;
-
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
+        <Sheet open={isOpen} onOpenChange={handleClose}>
+            <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                <SheetHeader>
+                    <SheetTitle className="flex items-center gap-2">
                         <UserCog className="w-5 h-5 text-primary" />
-                        {title}
-                    </DialogTitle>
-                </DialogHeader>
+                        {mode === "edit" ? "Edit Driver" : "Add New Driver"}
+                    </SheetTitle>
+                </SheetHeader>
 
-                <div className="grid gap-4 py-4">
+                <div className="space-y-5 py-6">
+                    {/* Driver Name */}
                     <div>
-                        <label className="text-sm font-medium">
-                            Name <span className="text-red-500">*</span>
-                        </label>
+                        <Label className="text-xs">
+                            Full Name <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                             value={driverData.name}
-                            onChange={(e) =>
-                                setDriverData({ ...driverData, name: e.target.value })
-                            }
+                            onChange={(e) => setDriverData({ ...driverData, name: e.target.value })}
                             placeholder="Enter driver's name"
                             disabled={loading}
-                            className="mt-1 h-11"
+                            className="h-9 text-sm mt-1"
                         />
                     </div>
-                    <div>
-                        <label className="text-sm font-medium">
-                            Phone <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                            value={driverData.phone}
-                            onChange={(e) =>
-                                setDriverData({ ...driverData, phone: e.target.value })
-                            }
-                            placeholder="10-digit mobile number"
-                            maxLength={10}
-                            disabled={loading}
-                            className="mt-1 h-11"
-                        />
+
+                    <Separator className="my-4" />
+
+                    {/* Phone & License in 2 columns */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <Label className="text-xs">
+                                Phone <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="relative">
+                                <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                    value={driverData.phone}
+                                    onChange={(e) => setDriverData({ ...driverData, phone: e.target.value })}
+                                    placeholder="10-digit mobile number"
+                                    maxLength={10}
+                                    disabled={loading}
+                                    className="pl-9 h-9 text-sm mt-1"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label className="text-xs">
+                                License Number <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="relative">
+                                <CreditCard className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                    value={driverData.licenseNumber}
+                                    onChange={(e) =>
+                                        setDriverData({
+                                            ...driverData,
+                                            licenseNumber: e.target.value.toUpperCase(),
+                                        })
+                                    }
+                                    placeholder="MH1420110012345"
+                                    disabled={loading}
+                                    className="pl-9 h-9 text-sm mt-1 uppercase"
+                                />
+                            </div>
+                        </div>
                     </div>
+
+                    <Separator className="my-4" />
+
+                    {/* Rating */}
                     <div>
-                        <label className="text-sm font-medium">
-                            License Number <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                            value={driverData.licenseNumber}
-                            onChange={(e) =>
-                                setDriverData({
-                                    ...driverData,
-                                    licenseNumber: e.target.value.toUpperCase(),
-                                })
-                            }
-                            placeholder="e.g., MH1420110012345"
-                            disabled={loading}
-                            className="mt-1 h-11"
-                        />
+                        <Label className="text-xs">Rating (Out of 5)</Label>
+                        <div className="relative">
+                            <Star className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                                value={driverData.experience}
+                                onChange={(e) => setDriverData({ ...driverData, experience: e.target.value })}
+                                placeholder="e.g., 5 or 3"
+                                disabled={loading}
+                                className="pl-9 h-9 text-sm mt-1"
+                            />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                            Optional - Rate driver performance (1-5)
+                        </p>
                     </div>
-                    <div>
-                        <label className="text-sm font-medium">Rating (Out of 5)</label>
-                        <Input
-                            value={driverData.experience}
-                            onChange={(e) =>
-                                setDriverData({ ...driverData, experience: e.target.value })
-                            }
-                            placeholder="e.g., 5 or 3"
-                            disabled={loading}
-                            className="mt-1 h-11"
-                        />
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-2 pt-4 border-t">
+                        <Button variant="outline" onClick={handleClose} disabled={loading} size="sm">
+                            <X className="w-3.5 h-3.5 mr-2" />
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSubmit} disabled={loading} size="sm">
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-3.5 h-3.5 mr-2" />
+                                    {mode === "edit" ? "Update" : "Add Driver"}
+                                </>
+                            )}
+                        </Button>
                     </div>
                 </div>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={handleClose} disabled={loading}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="bg-gradient-to-r from-primary to-primary/80"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Saving...
-                            </>
-                        ) : driver ? (
-                            "Update Driver"
-                        ) : (
-                            "Add Driver"
-                        )}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            </SheetContent>
+        </Sheet>
     );
 };
 
@@ -261,7 +268,7 @@ const Drivers = () => {
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false); // ✅ Changed name
     const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
     const [deletingDriverId, setDeletingDriverId] = useState<string | null>(null);
 
@@ -318,9 +325,7 @@ const Drivers = () => {
                 .single();
             if (error) {
                 if (error.code === "23505")
-                    throw new Error(
-                        `A driver with license number ${driverData.licenseNumber} already exists.`
-                    );
+                    throw new Error(`A driver with license number ${driverData.licenseNumber} already exists.`);
                 throw error;
             }
             await fetchDrivers();
@@ -350,16 +355,11 @@ const Drivers = () => {
                 .eq("id", editingDriver.id);
             if (error) {
                 if (error.code === "23505")
-                    throw new Error(
-                        `A driver with license number ${driverData.licenseNumber} already exists.`
-                    );
+                    throw new Error(`A driver with license number ${driverData.licenseNumber} already exists.`);
                 throw error;
             }
             await fetchDrivers();
-            toast({
-                title: "✅ Success",
-                description: "Driver updated successfully",
-            });
+            toast({ title: "✅ Success", description: "Driver updated successfully" });
             setEditingDriver(null);
         } catch (error: any) {
             console.error("Error updating driver:", error);
@@ -375,16 +375,10 @@ const Drivers = () => {
     const handleDeleteDriver = async () => {
         if (!deletingDriverId) return;
         try {
-            const { error } = await supabase
-                .from("drivers")
-                .delete()
-                .eq("id", deletingDriverId);
+            const { error } = await supabase.from("drivers").delete().eq("id", deletingDriverId);
             if (error) throw error;
             await fetchDrivers();
-            toast({
-                title: "✅ Success",
-                description: "Driver deleted successfully",
-            });
+            toast({ title: "✅ Success", description: "Driver deleted successfully" });
         } catch (error) {
             console.error("Error deleting driver:", error);
             toast({
@@ -420,13 +414,13 @@ const Drivers = () => {
 
     return (
         <div className="space-y-6">
-            {/* 🔥 Add Driver Button */}
+            {/* Add Driver Button */}
             <div className="flex justify-end">
                 <Button
                     size="sm"
                     onClick={() => {
                         setEditingDriver(null);
-                        setIsModalOpen(true);
+                        setIsDrawerOpen(true); // ✅ Changed
                     }}
                 >
                     <Plus className="w-4 h-4 mr-2" />
@@ -434,39 +428,36 @@ const Drivers = () => {
                 </Button>
             </div>
 
-            {/* 🔥 CARD: Search + Table */}
+            {/* Search + Table Card */}
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
-
                 {/* Search Section */}
                 <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="relative w-full sm:w-96">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search by name, phone, or license..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
-                            />
-                            {searchTerm && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                                    onClick={() => setSearchTerm("")}
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            )}
-                        </div>
+                    <div className="relative w-full sm:w-96">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name, phone, or license..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                        />
+                        {searchTerm && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                onClick={() => setSearchTerm("")}
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        )}
                     </div>
                 </div>
 
                 {/* Table Section */}
                 <div className="p-4 sm:p-6">
-                    {/* Desktop Table View */}
+                    {/* Desktop Table */}
                     <div className="hidden md:block overflow-x-auto">
-                        <Table>
+                        <Table className="driver-table">
                             <TableHeader>
                                 <TableRow className="hover:bg-muted/50 bg-muted/30">
                                     <TableHead className="font-semibold">
@@ -483,7 +474,7 @@ const Drivers = () => {
                                     </TableHead>
                                     <TableHead className="font-semibold">
                                         <div className="flex items-center gap-2">
-                                            <FileLock className="w-4 h-4 text-muted-foreground" />
+                                            <CreditCard className="w-4 h-4 text-muted-foreground" />
                                             License No.
                                         </div>
                                     </TableHead>
@@ -508,9 +499,7 @@ const Drivers = () => {
                                                 <div className="text-muted-foreground">
                                                     <p className="text-lg font-medium">No drivers found</p>
                                                     <p className="text-sm mt-1">
-                                                        {searchTerm
-                                                            ? "Try adjusting your search"
-                                                            : "Add your first driver to get started"}
+                                                        {searchTerm ? "Try adjusting your search" : "Add your first driver to get started"}
                                                     </p>
                                                 </div>
                                             </div>
@@ -518,10 +507,7 @@ const Drivers = () => {
                                     </TableRow>
                                 ) : (
                                     filteredDrivers.map((driver) => (
-                                        <TableRow
-                                            key={driver.id}
-                                            className="hover:bg-muted/50 transition-colors"
-                                        >
+                                        <TableRow key={driver.id} className="hover:bg-muted/50 transition-colors">
                                             <TableCell>
                                                 <div className="font-semibold flex items-center gap-2">
                                                     <User className="w-4 h-4 text-muted-foreground" />
@@ -546,7 +532,7 @@ const Drivers = () => {
                                                         <span>{driver.experience}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-sm text-muted-foreground">Not provided</span>
+                                                    <span className="text-sm text-muted-foreground">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
@@ -555,8 +541,8 @@ const Drivers = () => {
                                                     className={cn(
                                                         "cursor-pointer",
                                                         driver.status === "ACTIVE"
-                                                            ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
-                                                            : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+                                                            ? "bg-green-100 text-green-700 border-green-200"
+                                                            : "bg-gray-100 text-gray-700 border-gray-200"
                                                     )}
                                                 >
                                                     {driver.status === "ACTIVE" ? (
@@ -571,11 +557,7 @@ const Drivers = () => {
                                                 <div className="flex items-center justify-center">
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                            >
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
                                                                 <MoreVertical className="h-4 w-4" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
@@ -583,7 +565,7 @@ const Drivers = () => {
                                                             <DropdownMenuItem
                                                                 onClick={() => {
                                                                     setEditingDriver(driver);
-                                                                    setIsModalOpen(true);
+                                                                    setIsDrawerOpen(true); // ✅ Changed
                                                                 }}
                                                             >
                                                                 <Edit className="mr-2 h-4 w-4" />
@@ -608,7 +590,7 @@ const Drivers = () => {
                         </Table>
                     </div>
 
-                    {/* Mobile Card View */}
+                    {/* Mobile Card View (Same as before - no changes needed) */}
                     <div className="md:hidden space-y-3">
                         {filteredDrivers.length === 0 ? (
                             <div className="text-center py-12">
@@ -619,9 +601,7 @@ const Drivers = () => {
                                     <div className="text-muted-foreground">
                                         <p className="text-lg font-medium">No drivers found</p>
                                         <p className="text-sm mt-1">
-                                            {searchTerm
-                                                ? "Try adjusting your search"
-                                                : "Add your first driver to get started"}
+                                            {searchTerm ? "Try adjusting your search" : "Add your first driver to get started"}
                                         </p>
                                     </div>
                                 </div>
@@ -629,7 +609,6 @@ const Drivers = () => {
                         ) : (
                             filteredDrivers.map((driver) => (
                                 <div key={driver.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
-                                    {/* Header */}
                                     <div className="flex items-start justify-between">
                                         <div className="space-y-1 flex-1">
                                             <div className="flex items-center gap-2">
@@ -643,11 +622,7 @@ const Drivers = () => {
                                         </div>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8"
-                                                >
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
                                                     <MoreVertical className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -655,7 +630,7 @@ const Drivers = () => {
                                                 <DropdownMenuItem
                                                     onClick={() => {
                                                         setEditingDriver(driver);
-                                                        setIsModalOpen(true);
+                                                        setIsDrawerOpen(true);
                                                     }}
                                                 >
                                                     <Edit className="mr-2 h-4 w-4" />
@@ -673,7 +648,6 @@ const Drivers = () => {
                                         </DropdownMenu>
                                     </div>
 
-                                    {/* Status */}
                                     <div className="flex items-center gap-2">
                                         <Badge
                                             variant={driver.status === "ACTIVE" ? "default" : "secondary"}
@@ -693,7 +667,6 @@ const Drivers = () => {
                                         </Badge>
                                     </div>
 
-                                    {/* Details */}
                                     <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
                                         <div className="flex items-center justify-between">
                                             <span className="text-muted-foreground text-xs">License:</span>
@@ -718,22 +691,19 @@ const Drivers = () => {
                 </div>
             </div>
 
-            {/* Modals */}
-            <DriverModal
-                isOpen={isModalOpen}
+            {/* ✅ CHANGED: DriverModal → DriverDrawer */}
+            <DriverDrawer
+                isOpen={isDrawerOpen}
                 onClose={() => {
-                    setIsModalOpen(false);
+                    setIsDrawerOpen(false);
                     setEditingDriver(null);
                 }}
                 onSave={editingDriver ? handleUpdateDriver : handleAddDriver}
                 driver={editingDriver}
-                title={editingDriver ? "Edit Driver" : "Add New Driver"}
             />
 
-            <AlertDialog
-                open={!!deletingDriverId}
-                onOpenChange={() => setDeletingDriverId(null)}
-            >
+            {/* Delete Confirmation (No changes) */}
+            <AlertDialog open={!!deletingDriverId} onOpenChange={() => setDeletingDriverId(null)}>
                 <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2">

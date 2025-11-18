@@ -1,11 +1,11 @@
 import { useState, useEffect, ChangeEvent } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Truck,
   Save,
@@ -17,21 +17,18 @@ import {
   FileText,
   Trash2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Check,
+  MapPin
 } from "lucide-react";
 import { validateVehicleNumber } from "@/utils/vehicleValidation";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { fetchUnassignedDrivers } from "@/api/vehicles";
-import {
-  validateFile,
-  formatFileSize,
-  uploadVehicleDocument
-} from "@/api/vehicleDocument";
+import { validateFile, formatFileSize } from "@/api/vehicleDocument";
 import { AddDriverModal } from "../bookings/AddDriverModal";
 import { cn } from "@/lib/utils";
 
-// ✅ NEW: Document metadata interface
 interface DocumentMetadata {
   document_type: 'RC' | 'INSURANCE' | 'PERMIT' | 'AGREEMENT' | 'OTHER';
   expiry_date?: string;
@@ -52,10 +49,11 @@ interface AddHiredVehicleModalProps {
   onSave: (
     vehicleData: VehicleFormData,
     documents?: { files: File[], metadata: Record<number, DocumentMetadata> } | null
-  ) => void;  // ✅ Updated signature
+  ) => void;
   brokers: any[];
   onAddBroker?: () => void;
 }
+
 export const AddHiredVehicleModal = ({
   isOpen,
   onClose,
@@ -76,19 +74,11 @@ export const AddHiredVehicleModal = ({
   const [unassignedDrivers, setUnassignedDrivers] = useState<any[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [isAddDriverOpen, setIsAddDriverOpen] = useState(false);
-
-  // ✅ NEW: Document upload states
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [documentMetadata, setDocumentMetadata] = useState<Record<number, DocumentMetadata>>({});
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({
-    current: 0,
-    total: 0,
-    currentFileName: ''
-  });
-  // Add these states
   const [vehicleNumberError, setVehicleNumberError] = useState<string>("");
   const [isValidatingVehicle, setIsValidatingVehicle] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       loadUnassignedDrivers();
@@ -134,11 +124,8 @@ export const AddHiredVehicleModal = ({
     }
   };
 
-  // ✅ NEW: File selection handler
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-
-    // Validate each file
     const validFiles: File[] = [];
 
     files.forEach(file => {
@@ -156,66 +143,38 @@ export const AddHiredVehicleModal = ({
 
     if (validFiles.length > 0) {
       setSelectedFiles(prev => [...prev, ...validFiles]);
-
-      // Initialize metadata for new files
       const newMetadata = { ...documentMetadata };
       validFiles.forEach((_, index) => {
         const fileIndex = selectedFiles.length + index;
-        newMetadata[fileIndex] = {
-          document_type: 'OTHER' // Default type
-        };
+        newMetadata[fileIndex] = { document_type: 'OTHER' };
       });
       setDocumentMetadata(newMetadata);
-
-      toast({
-        title: "✅ Files Selected",
-        description: `${validFiles.length} file(s) ready to upload`
-      });
     }
-
-    // Reset input
     e.target.value = '';
   };
 
-  // ✅ NEW: Remove file handler
   const handleRemoveFile = (index: number) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-
-    // Remove metadata
     const newMetadata = { ...documentMetadata };
     delete newMetadata[index];
-
-    // Re-index remaining metadata
     const reindexed: Record<number, DocumentMetadata> = {};
     Object.entries(newMetadata).forEach(([key, value]) => {
       const oldIndex = parseInt(key);
       const newIndex = oldIndex > index ? oldIndex - 1 : oldIndex;
       reindexed[newIndex] = value;
     });
-
     setDocumentMetadata(reindexed);
   };
 
-  // ✅ NEW: Update document metadata
-  const updateDocumentMetadata = (
-    index: number,
-    field: keyof DocumentMetadata,
-    value: any
-  ) => {
+  const updateDocumentMetadata = (index: number, field: keyof DocumentMetadata, value: any) => {
     setDocumentMetadata(prev => ({
       ...prev,
-      [index]: {
-        ...prev[index],
-        [field]: value
-      }
+      [index]: { ...prev[index], [field]: value }
     }));
   };
 
-  // ✅ NEW: Validate documents before submission
   const validateDocuments = (): boolean => {
-    if (selectedFiles.length === 0) return true; // No files is okay
-
-    // Check if all files have document type selected
+    if (selectedFiles.length === 0) return true;
     for (let i = 0; i < selectedFiles.length; i++) {
       if (!documentMetadata[i]?.document_type) {
         toast({
@@ -226,69 +185,9 @@ export const AddHiredVehicleModal = ({
         return false;
       }
     }
-
     return true;
   };
 
-  // ✅ NEW: Upload documents after vehicle creation
-  const uploadDocuments = async (vehicleId: string) => {
-    if (selectedFiles.length === 0) return;
-
-    setIsUploading(true);
-    setUploadProgress({
-      current: 0,
-      total: selectedFiles.length,
-      currentFileName: ''
-    });
-
-    const uploadedDocs: any[] = [];
-    const failedDocs: any[] = [];
-
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const file = selectedFiles[i];
-      const metadata = documentMetadata[i];
-
-      try {
-        setUploadProgress({
-          current: i + 1,
-          total: selectedFiles.length,
-          currentFileName: file.name
-        });
-
-        const uploadedDoc = await uploadVehicleDocument({
-          vehicle_id: vehicleId,
-          vehicle_type: 'HIRED',
-          document_type: metadata.document_type,
-          file: file,
-          expiry_date: metadata.expiry_date
-        });
-
-        uploadedDocs.push(uploadedDoc);
-      } catch (error: any) {
-        console.error('Failed to upload:', file.name, error);
-        failedDocs.push({ fileName: file.name, error: error.message });
-      }
-    }
-
-    setIsUploading(false);
-
-    // Show results
-    if (uploadedDocs.length > 0) {
-      toast({
-        title: "✅ Documents Uploaded",
-        description: `${uploadedDocs.length} document(s) uploaded successfully`,
-      });
-    }
-
-    if (failedDocs.length > 0) {
-      toast({
-        title: "⚠️ Some Uploads Failed",
-        description: `${failedDocs.length} document(s) failed to upload`,
-        variant: "destructive"
-      });
-    }
-  };
-  // Add this function
   const handleVehicleNumberChange = async (value: string) => {
     const upperValue = value.toUpperCase();
     setVehicleData({ ...vehicleData, vehicleNumber: upperValue });
@@ -299,10 +198,8 @@ export const AddHiredVehicleModal = ({
     }
 
     setIsValidatingVehicle(true);
-
     try {
       const validation = await validateVehicleNumber(upperValue, supabase);
-
       if (!validation.isValid) {
         setVehicleNumberError(validation.error || "Invalid vehicle number");
       } else {
@@ -311,7 +208,6 @@ export const AddHiredVehicleModal = ({
           ...vehicleData,
           vehicleNumber: validation.formatted || upperValue
         });
-
         if (validation.details) {
           toast({
             title: "✅ Valid Vehicle Number",
@@ -326,7 +222,7 @@ export const AddHiredVehicleModal = ({
       setIsValidatingVehicle(false);
     }
   };
-  // ✅ UPDATED: Submit handler with document upload
+
   const handleSubmit = async () => {
     if (vehicleNumberError) {
       toast({
@@ -336,7 +232,7 @@ export const AddHiredVehicleModal = ({
       });
       return;
     }
-    // Validate vehicle data
+
     if (!vehicleData.vehicleNumber.trim() || !vehicleData.vehicleType || !vehicleData.capacity) {
       toast({
         title: "Validation Error",
@@ -346,10 +242,7 @@ export const AddHiredVehicleModal = ({
       return;
     }
 
-    // Validate documents
-    if (!validateDocuments()) {
-      return;
-    }
+    if (!validateDocuments()) return;
 
     const dataToSave = {
       vehicleNumber: vehicleData.vehicleNumber,
@@ -360,18 +253,11 @@ export const AddHiredVehicleModal = ({
       ratePerTrip: vehicleData.ratePerTrip
     };
 
-    // ✅ NEW: Prepare documents data
     const documentsData = selectedFiles.length > 0 ? {
       files: selectedFiles,
       metadata: documentMetadata
     } : null;
 
-    console.log("📤 Submitting vehicle with documents:", {
-      vehicle: dataToSave,
-      documentsCount: selectedFiles.length
-    });
-
-    // ✅ Pass documents to parent
     onSave(dataToSave, documentsData);
 
     // Reset form
@@ -385,7 +271,6 @@ export const AddHiredVehicleModal = ({
     });
     setSelectedFiles([]);
     setDocumentMetadata({});
-
     onClose();
   };
 
@@ -404,27 +289,13 @@ export const AddHiredVehicleModal = ({
   };
 
   const vehicleTypes = [
-    "Truck - 16ft",
-    "Truck - 20ft",
-    "Truck - 24ft",
-    "Container - 20ft",
-    "Container - 40ft",
-    "Trailer - 53ft",
-    "Mini Truck",
-    "Pickup Truck",
-    "Flatbed Truck"
+    "Truck - 16ft", "Truck - 20ft", "Truck - 24ft", "Container - 20ft",
+    "Container - 40ft", "Trailer - 53ft", "Mini Truck", "Pickup Truck", "Flatbed Truck"
   ];
 
   const capacities = [
-    "1 ton",
-    "2 tons",
-    "5 tons",
-    "8 tons",
-    "12 tons",
-    "15 tons",
-    "20 tons",
-    "25 tons",
-    "30 tons"
+    "1 ton", "2 tons", "5 tons", "8 tons", "12 tons", "15 tons",
+    "20 tons", "25 tons", "30 tons"
   ];
 
   const documentTypes = [
@@ -437,54 +308,50 @@ export const AddHiredVehicleModal = ({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <Sheet open={isOpen} onOpenChange={handleClose}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5 text-primary" />
               Add Hired Vehicle
-            </DialogTitle>
-          </DialogHeader>
+            </SheetTitle>
+          </SheetHeader>
 
-          <div className="space-y-6 py-4">
+          <div className="space-y-5 py-6">
             {/* Vehicle Details */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Vehicle Details</h3>
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                <Truck className="w-4 h-4" />
+                Vehicle Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="vehicleNumber">
+                  <Label className="text-xs">
                     Vehicle Number *
-                    {isValidatingVehicle && (
-                      <Loader2 className="w-3 h-3 ml-2 inline animate-spin text-primary" />
-                    )}
+                    {isValidatingVehicle && <Loader2 className="w-3 h-3 ml-2 inline animate-spin text-primary" />}
                   </Label>
                   <Input
-                    id="vehicleNumber"
                     value={vehicleData.vehicleNumber}
                     onChange={(e) => handleVehicleNumberChange(e.target.value)}
                     placeholder="GJ-01-AB-1234"
-                    className={cn(
-                      vehicleNumberError && "border-destructive focus-visible:ring-destructive"
-                    )}
+                    className={cn("h-9 text-sm mt-1", vehicleNumberError && "border-destructive")}
                   />
                   {vehicleNumberError && (
-                    <p className="text-sm text-destructive mt-1 flex items-center gap-1">
+                    <p className="text-xs text-destructive mt-1 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {vehicleNumberError}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Format: XX-00-XX-0000 (State-RTO-Series-Number)
-                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Format: XX-00-XX-0000</p>
                 </div>
 
                 <div>
-                  <Label htmlFor="vehicleType">Vehicle Type *</Label>
+                  <Label className="text-xs">Vehicle Type *</Label>
                   <Select
                     value={vehicleData.vehicleType}
                     onValueChange={(value) => setVehicleData({ ...vehicleData, vehicleType: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm mt-1">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -495,13 +362,13 @@ export const AddHiredVehicleModal = ({
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="capacity">Capacity *</Label>
+                <div className="md:col-span-2">
+                  <Label className="text-xs">Capacity *</Label>
                   <Select
                     value={vehicleData.capacity}
                     onValueChange={(value) => setVehicleData({ ...vehicleData, capacity: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-9 text-sm mt-1">
                       <SelectValue placeholder="Select capacity" />
                     </SelectTrigger>
                     <SelectContent>
@@ -514,58 +381,59 @@ export const AddHiredVehicleModal = ({
               </div>
             </div>
 
+            <Separator className="my-4" />
+
             {/* Default Driver */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium flex items-center gap-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Default Driver (Optional)
               </h3>
               <div>
-                <Label>Assign Default Driver</Label>
+                <Label className="text-xs">Assign Default Driver</Label>
                 <Select
                   value={vehicleData.default_driver_id || "none"}
                   onValueChange={(value) => setVehicleData({ ...vehicleData, default_driver_id: value })}
                   disabled={loadingDrivers}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm mt-1">
                     <SelectValue placeholder={loadingDrivers ? "Loading drivers..." : "Select driver (optional)"} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No Default Driver</SelectItem>
-                    {unassignedDrivers.length > 0 &&
-                      unassignedDrivers.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.id}>
-                          {driver.name} - {driver.phone}
-                        </SelectItem>
-                      ))
-                    }
+                    {unassignedDrivers.map((driver) => (
+                      <SelectItem key={driver.id} value={driver.id}>
+                        {driver.name} - {driver.phone}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  This driver will be auto-selected when assigning this vehicle to bookings
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  This driver will be auto-selected for this vehicle
                 </p>
 
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-2 w-full"
+                  className="mt-2 w-full h-8 text-xs"
                   onClick={() => setIsAddDriverOpen(true)}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-3 h-3 mr-2" />
                   Add New Driver
                 </Button>
               </div>
             </div>
 
-            {/* ✅ NEW: Document Upload Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium flex items-center gap-2">
+            <Separator className="my-4" />
+
+            {/* Document Upload */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Documents (Optional)
               </h3>
 
-              {/* File Input (Hidden) */}
               <input
                 type="file"
                 id="document-upload"
@@ -575,164 +443,109 @@ export const AddHiredVehicleModal = ({
                 className="hidden"
               />
 
-              {/* Upload Button/Dropzone */}
-              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                <Upload className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Upload Vehicle RC & Agreement
-                </p>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Supported: PDF, JPG, PNG (Max 5MB per file)
-                </p>
+              <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground mb-2">Upload Vehicle RC & Agreement</p>
+                <p className="text-[10px] text-muted-foreground mb-3">Supported: PDF, JPG, PNG (Max 5MB)</p>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="h-8 text-xs"
                   onClick={() => document.getElementById('document-upload')?.click()}
-                  disabled={isUploading}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-3 h-3 mr-2" />
                   Choose Files
                 </Button>
               </div>
 
-              {/* Selected Files Preview */}
               {selectedFiles.length > 0 && (
-                <div className="space-y-3">
+                <div className="space-y-2 max-h-60 overflow-y-auto">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">
+                    <Label className="text-xs font-medium">
                       Selected Files ({selectedFiles.length})
                     </Label>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-[10px]">
                       {formatFileSize(selectedFiles.reduce((acc, file) => acc + file.size, 0))}
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {selectedFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="border rounded-lg p-3 space-y-3 bg-muted/30"
-                      >
-                        {/* File Info */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <File className="w-4 h-4 text-primary flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">
-                                {file.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatFileSize(file.size)}
-                              </p>
-                            </div>
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <File className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{file.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 flex-shrink-0"
-                            onClick={() => handleRemoveFile(index)}
-                            disabled={isUploading}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 flex-shrink-0"
+                          onClick={() => handleRemoveFile(index)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px]">Document Type *</Label>
+                          <Select
+                            value={documentMetadata[index]?.document_type || 'OTHER'}
+                            onValueChange={(value: any) => updateDocumentMetadata(index, 'document_type', value)}
                           >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
+                            <SelectTrigger className="h-7 text-[10px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {documentTypes.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
-                        {/* Document Metadata */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-xs">Document Type *</Label>
-                            <Select
-                              value={documentMetadata[index]?.document_type || 'OTHER'}
-                              onValueChange={(value: any) =>
-                                updateDocumentMetadata(index, 'document_type', value)
-                              }
-                              disabled={isUploading}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {documentTypes.map((type) => (
-                                  <SelectItem key={type.value} value={type.value}>
-                                    {type.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <Label className="text-xs">Expiry Date (Optional)</Label>
-                            <Input
-                              type="date"
-                              className="h-8 text-xs"
-                              value={documentMetadata[index]?.expiry_date || ''}
-                              onChange={(e) =>
-                                updateDocumentMetadata(index, 'expiry_date', e.target.value)
-                              }
-                              disabled={isUploading}
-                            />
-                          </div>
+                        <div>
+                          <Label className="text-[10px]">Expiry Date (Optional)</Label>
+                          <Input
+                            type="date"
+                            className="h-7 text-[10px]"
+                            value={documentMetadata[index]?.expiry_date || ''}
+                            onChange={(e) => updateDocumentMetadata(index, 'expiry_date', e.target.value)}
+                          />
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Progress */}
-              {isUploading && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Uploading {uploadProgress.current} of {uploadProgress.total}...
-                    </span>
-                    <span className="font-medium">
-                      {Math.round((uploadProgress.current / uploadProgress.total) * 100)}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={(uploadProgress.current / uploadProgress.total) * 100}
-                    className="h-2"
-                  />
-                  <p className="text-xs text-muted-foreground truncate">
-                    {uploadProgress.currentFileName}
-                  </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={handleClose}
-              disabled={isUploading}
-            >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Add Hired Vehicle
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                size="sm"
+              >
+                <X className="w-3.5 h-3.5 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                size="sm"
+              >
+                <Save className="w-3.5 h-3.5 mr-2" />
+                Add Hired Vehicle
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <AddDriverModal
         isOpen={isAddDriverOpen}

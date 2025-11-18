@@ -253,7 +253,7 @@ export const Sidebar = ({
                     msOverflowStyle: 'none'
                   }}
                 >
-                  <style jsx>{`
+                  <style>{`
                     nav::-webkit-scrollbar {
                       display: none;
                     }

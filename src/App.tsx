@@ -35,6 +35,9 @@ import { CreateInvites } from "./pages/super-admin/CreateInvites";
 import { ManageCompanies } from "./pages/super-admin/ManageCompanies";
 import { SystemStats } from "./pages/super-admin/SystemStats";
 
+// ✅ ADD THIS - Branch Management Import
+import { BranchManagement } from "./pages/branches";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -82,6 +85,9 @@ const App = () => {
                         <Route path="/lr-template-settings" element={<LRTemplateSettings />} />
                         <Route path="/warehouses" element={<WarehouseList />} />
                         <Route path="/warehouses/:id" element={<WarehouseDetails />} />
+
+                        {/* ✅ ADD THIS - Branch Management Route */}
+                        <Route path="/branches" element={<BranchManagement />} />
 
                         <Route path="/company-settings" element={
                           <AdminRoute>
