@@ -343,20 +343,6 @@ export const BookingList = () => {
     isOpen: boolean;
     bookingId: string;
   }>({ isOpen: false, bookingId: "" });
-  useEffect(() => {
-    if (bookings.length > 0) {
-      console.log('🧪 Testing Stage Detection:');
-      bookings.slice(0, 3).forEach(booking => {
-        const stage = getBookingStage(booking);
-        const action = getProgressiveAction(stage, booking);
-        console.log({
-          bookingId: booking.bookingId,
-          detectedStage: stage,
-          actionButton: action?.label
-        });
-      });
-    }
-  }, [bookings]);
   const [detailSheet, setDetailSheet] = useState<{
     isOpen: boolean;
     bookingId: string;
@@ -914,178 +900,205 @@ export const BookingList = () => {
         {/* Table Section */}
         <div className="p-4 sm:p-6">
           {/* Desktop Table View */}
+          {/* Desktop Table View */}
           <div className="hidden lg:block">
-            <div className="w-full overflow-auto no-scrollbar">
-              <Table className="booking-table min-w-full">
-                <TableHeader>
-                  <TableRow className="hover:bg-muted/50 bg-muted/30">
-                    <TableHead className="font-semibold">Booking / Branch</TableHead>
-                    <TableHead className="font-semibold">
+            <div className="w-full overflow-auto">
+              <Table className="min-w-full">
+                <TableHeader className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900">
+                  <TableRow className="border-b-2 border-gray-200 dark:border-gray-700">
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[130px]">
                       <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        Parties
+                        <Package className="w-4 h-4 text-primary" />
+                        Booking
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[220px]">
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-muted-foreground" />
-                        Route
+                        <User className="w-4 h-4 text-primary" />
+                        Parties & Route
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold">Status</TableHead>
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[130px]">
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-muted-foreground" />
-                        Warehouse/Location
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        Stage
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold">
+                    {/* Location Column Header - Line ~700 */}
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[180px]">
                       <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-muted-foreground" />
+                        <MapPin className="w-4 h-4 text-primary" />
+                        Location
+                      </div>
+                    </TableHead>
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[130px]">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-primary" />
                         Vehicle
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[140px]">
                       <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-muted-foreground" />
+                        <FileText className="w-4 h-4 text-primary" />
                         LR Status
                       </div>
                     </TableHead>
-                    <TableHead className="font-semibold text-center">Actions</TableHead>
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[100px] text-center">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredBookings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-16">
+                      <TableCell colSpan={7} className="text-center py-20">
                         <div className="flex flex-col items-center gap-4">
-                          <div className="p-4 bg-muted/30 rounded-full">
-                            <Package className="w-12 h-12 text-muted-foreground/50" />
+                          <div className="p-5 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl">
+                            <Package className="w-16 h-16 text-primary/40" />
                           </div>
-                          <div className="text-muted-foreground">
-                            <p className="text-lg font-medium">No bookings found</p>
-                            <p className="text-sm mt-1">
+                          <div className="space-y-2">
+                            <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                              No bookings found
+                            </p>
+                            <p className="text-sm text-muted-foreground max-w-md">
                               {searchTerm || statusFilter !== "ALL"
                                 ? "Try adjusting your filters"
-                                : "Create your first booking to get started"}
+                                : "Create your first booking"}
                             </p>
                           </div>
+                          {!searchTerm && statusFilter === "ALL" && (
+                            <Button onClick={() => setIsBookingFormOpen(true)} className="mt-2">
+                              <Plus className="w-4 h-4 mr-2" />
+                              Create First Booking
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredBookings.map((booking) => {
-                      const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
-                      const StatusIcon = status.icon;
+                    filteredBookings.map((booking, index) => {
+                      const stage = getBookingStage(booking);
+                      const stageConf = stageConfig[stage];
+                      const location = getLocationDisplay(booking);
+                      const Icon = location.icon;
 
                       return (
                         <TableRow
                           key={booking.id}
-                          className="hover:bg-muted/50 transition-colors"
+                          className={cn(
+                            "group transition-all duration-200 border-b border-gray-100 dark:border-gray-800",
+                            "hover:bg-primary/5 hover:shadow-sm",
+                            index % 2 === 0
+                              ? "bg-white dark:bg-gray-900"
+                              : "bg-gray-50/50 dark:bg-gray-900/50"
+                          )}
                         >
-                          <TableCell>
-
-                            <Button
-                              variant="link"
-                              className="p-0 h-auto font-mono font-semibold text-primary"
-                              onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
-                            >
-                              {booking.bookingId}
-                            </Button>
-                            {booking.branch_name && (
-                              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                                <Building2 className="w-3 h-3" />
-                                {booking.branch_name}
-                                <Badge variant="outline" className="ml-1">{booking.branch_code}</Badge>
-                              </div>
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-primary" />
-                                <span className="font-medium text-sm">{booking.consignorName}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <ArrowRight className="w-3 h-3" />
-                                <span className="text-xs">{booking.consigneeName}</span>
-                              </div>
+                          {/* ✅ COLUMN 1: Booking ID - COMPACT */}
+                          <TableCell className="font-mono py-3">
+                            <div className="space-y-1">
+                              <Button
+                                variant="link"
+                                className="p-0 h-auto font-bold text-sm text-primary hover:text-primary/80"
+                                onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
+                              >
+                                {booking.bookingId}
+                              </Button>
+                              {booking.branch_name && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                                    <Building2 className="w-2.5 h-2.5" />
+                                    <span className="font-medium truncate max-w-[70px]" title={booking.branch_name}>
+                                      {booking.branch_name}
+                                    </span>
+                                  </div>
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-primary/30">
+                                    {booking.branch_code}
+                                  </Badge>
+                                </div>
+                              )}
                             </div>
                           </TableCell>
 
-                          <TableCell>
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <MapPin className="w-3 h-3 text-green-600" />
-                                <span className="font-medium text-sm truncate max-w-[120px]">
-                                  {booking.fromLocation}
+                          {/* ✅ COLUMN 2: Parties & Route - COMBINED */}
+                          <TableCell className="py-3">
+                            <div className="space-y-2.5">
+                              {/* Parties Row */}
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0" />
+                                <span className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate max-w-[85px]" title={booking.consignorName}>
+                                  {booking.consignorName}
+                                </span>
+                                <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+                                <span className="text-[11px] text-muted-foreground truncate max-w-[85px]" title={booking.consigneeName}>
+                                  {booking.consigneeName}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <MapPin className="w-3 h-3 text-red-600" />
-                                <span className="text-xs truncate max-w-[120px]">
+
+                              {/* Route Row */}
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-2.5 h-2.5 text-green-600 flex-shrink-0" />
+                                <span className="font-medium text-[11px] text-green-900 dark:text-green-100 truncate max-w-[85px]" title={booking.fromLocation}>
+                                  {booking.fromLocation}
+                                </span>
+                                <ArrowRight className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
+                                <MapPin className="w-2.5 h-2.5 text-red-600 flex-shrink-0" />
+                                <span className="text-[11px] text-red-900 dark:text-red-100 truncate max-w-[85px]" title={booking.toLocation}>
                                   {booking.toLocation}
                                 </span>
                               </div>
                             </div>
                           </TableCell>
 
-                          <TableCell>
-                            {(() => {
-                              const stage = getBookingStage(booking);
-                              const config = stageConfig[stage];
-
-                              return (
-                                <Badge className={cn(config.bgColor, config.textColor, "border")}>
-                                  {config.label}
-                                </Badge>
-                              );
-                            })()}
+                          {/* ✅ COLUMN 3: Stage */}
+                          <TableCell className="py-3">
+                            <Badge
+                              className={cn(
+                                stageConf.bgColor,
+                                stageConf.textColor,
+                                "text-[10px] px-2 py-1 font-bold border-2 shadow-sm"
+                              )}
+                            >
+                              {stageConf.label}
+                            </Badge>
                           </TableCell>
-
-                          <TableCell className="min-w-[200px]">
+                          {/* ✅ COLUMN 4: Location - IMPROVED */}
+                          <TableCell className="py-3">
                             {(() => {
                               const location = getLocationDisplay(booking);
                               const Icon = location.icon;
 
                               return (
-                                <div className="space-y-1">
-                                  {/* ✅ WRAP THIS SECTION WITH TOOLTIP */}
-                                  <TooltipProvider delayDuration={300}>
+                                <div className="space-y-1.5">
+                                  <TooltipProvider delayDuration={200}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        {/* Primary Status Row */}
                                         <div className={cn(
-                                          "inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-help",
+                                          "inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-help w-full",
+                                          "border transition-all duration-200",
                                           location.bgColor
                                         )}>
-                                          {/* Badge */}
                                           <Badge
                                             variant={location.badgeVariant}
-                                            className="text-[10px] px-1.5 py-0 h-4"
+                                            className="text-[9px] px-1.5 py-0.5 h-4 font-bold flex-shrink-0"
                                           >
                                             {location.badgeText}
                                           </Badge>
 
-                                          {/* Icon */}
-                                          <Icon className={cn("w-3.5 h-3.5 shrink-0", location.iconColor)} />
+                                          <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", location.iconColor)} />
 
-                                          {/* Text Content */}
                                           <div className="min-w-0 flex-1">
-                                            <p className="font-medium text-xs truncate">
+                                            <p className="font-semibold text-xs truncate" title={location.primary}>
                                               {location.primary}
                                             </p>
                                             {location.secondary && (
-                                              <div className="flex items-center gap-1">
+                                              <div className="flex items-center gap-1.5 mt-0.5">
                                                 <p className="text-[10px] text-muted-foreground truncate">
                                                   {location.secondary}
                                                 </p>
-                                                {/* Freshness Indicator Dot */}
                                                 {location.showDot && (
                                                   <span
                                                     className={cn(
-                                                      "w-1.5 h-1.5 rounded-full shrink-0",
+                                                      "w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse",
                                                       location.dotColor
                                                     )}
                                                   />
@@ -1096,18 +1109,16 @@ export const BookingList = () => {
                                         </div>
                                       </TooltipTrigger>
 
-                                      {/* ✅ ADD TOOLTIP CONTENT */}
-                                      <TooltipContent side="top" className="max-w-xs">
+                                      <TooltipContent side="top" className="max-w-xs p-3">
                                         {location.type === 'WAREHOUSE' && booking.current_warehouse && (
                                           <div className="space-y-1.5">
-                                            <div className="flex items-center gap-2">
-                                              <Package className="w-4 h-4 text-indigo-600" />
-                                              <span className="font-semibold text-sm">At Warehouse</span>
+                                            <div className="flex items-center gap-2 pb-1.5 border-b">
+                                              <Package className="w-3.5 h-3.5 text-indigo-600" />
+                                              <span className="font-bold text-xs">At Warehouse</span>
                                             </div>
-                                            <div className="text-xs space-y-0.5">
-                                              <p><span className="text-muted-foreground">Name:</span> {booking.current_warehouse.name}</p>
-                                              <p><span className="text-muted-foreground">City:</span> {booking.current_warehouse.city}</p>
-                                              <p><span className="text-muted-foreground">Status:</span> Goods stored safely</p>
+                                            <div className="text-[11px] space-y-0.5">
+                                              <p><span className="text-muted-foreground">Name:</span> <span className="font-semibold">{booking.current_warehouse.name}</span></p>
+                                              <p><span className="text-muted-foreground">City:</span> <span className="font-semibold">{booking.current_warehouse.city}</span></p>
                                             </div>
                                           </div>
                                         )}
@@ -1118,74 +1129,44 @@ export const BookingList = () => {
 
                                           return (
                                             <div className="space-y-1.5">
-                                              <div className="flex items-center gap-2">
-                                                <MapPin className="w-4 h-4 text-orange-600" />
-                                                <span className="font-semibold text-sm">Live Tracking</span>
+                                              <div className="flex items-center gap-2 pb-1.5 border-b">
+                                                <MapPin className="w-3.5 h-3.5 text-orange-600" />
+                                                <span className="font-bold text-xs">Live Tracking</span>
                                               </div>
-                                              <div className="text-xs space-y-0.5">
-                                                <p><span className="text-muted-foreground">Last Location:</span> {activeAssignment.last_toll_crossed}</p>
-                                                <p><span className="text-muted-foreground">Crossed:</span> {new Date(activeAssignment.last_toll_time!).toLocaleString('en-IN', {
-                                                  day: '2-digit',
-                                                  month: 'short',
-                                                  hour: '2-digit',
-                                                  minute: '2-digit'
-                                                })}</p>
-                                                <p>
-                                                  <span className="text-muted-foreground">Status:</span>{' '}
-                                                  <span className={cn(
-                                                    "font-medium",
-                                                    location.isFresh && "text-green-600",
-                                                    location.isStale && "text-yellow-600",
-                                                    location.isOld && "text-gray-500"
-                                                  )}>
-                                                    {location.isFresh ? '🟢 Live tracking' :
-                                                      location.isStale ? '🟡 Recent data' :
-                                                        '⚪ Old data'}
-                                                  </span>
-                                                </p>
+                                              <div className="text-[11px] space-y-0.5">
+                                                <p><span className="text-muted-foreground">Last:</span> <span className="font-semibold">{activeAssignment.last_toll_crossed}</span></p>
                                                 {booking.assignedVehicle && (
-                                                  <p><span className="text-muted-foreground">Vehicle:</span> {booking.assignedVehicle.vehicleNumber}</p>
+                                                  <p><span className="text-muted-foreground">Vehicle:</span> <span className="font-semibold">{booking.assignedVehicle.vehicleNumber}</span></p>
                                                 )}
                                               </div>
                                             </div>
                                           );
                                         })()}
 
-                                        {location.type === 'VEHICLE' && (
+                                        {location.type === 'VEHICLE' && booking.assignedVehicle && (
                                           <div className="space-y-1.5">
-                                            <div className="flex items-center gap-2">
-                                              <Truck className="w-4 h-4 text-blue-600" />
-                                              <span className="font-semibold text-sm">Vehicle Dispatched</span>
+                                            <div className="flex items-center gap-2 pb-1.5 border-b">
+                                              <Truck className="w-3.5 h-3.5 text-blue-600" />
+                                              <span className="font-bold text-xs">Dispatched</span>
                                             </div>
-                                            <div className="text-xs space-y-0.5">
-                                              {booking.assignedVehicle && (
-                                                <>
-                                                  <p><span className="text-muted-foreground">Vehicle:</span> {booking.assignedVehicle.vehicleNumber}</p>
-                                                  <p><span className="text-muted-foreground">Driver:</span> {booking.assignedVehicle.driver.name}</p>
-                                                </>
-                                              )}
-                                              <p className="text-yellow-600">⚠️ Tracking data not available yet</p>
+                                            <div className="text-[11px]">
+                                              <p className="font-semibold">{booking.assignedVehicle.vehicleNumber}</p>
+                                              <p className="text-muted-foreground">{booking.assignedVehicle.driver.name}</p>
                                             </div>
                                           </div>
                                         )}
 
                                         {location.type === 'DRAFT' && (
-                                          <div className="space-y-1.5">
-                                            <div className="flex items-center gap-2">
-                                              <AlertCircle className="w-4 h-4 text-gray-400" />
-                                              <span className="font-semibold text-sm">Booking Created</span>
-                                            </div>
-                                            <div className="text-xs space-y-0.5">
-                                              <p className="text-muted-foreground">Status: Awaiting vehicle assignment</p>
-                                              <p className="text-muted-foreground">Next Step: Assign a vehicle to dispatch</p>
-                                            </div>
+                                          <div className="text-[11px]">
+                                            <p className="font-semibold">Not dispatched</p>
+                                            <p className="text-muted-foreground">Assign vehicle to start</p>
                                           </div>
                                         )}
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
 
-                                  {/* Warehouse Management Button - STAYS SAME */}
+                                  {/* ✅ IMPROVED: Full warehouse button text */}
                                   {location.type !== 'DRAFT' && (
                                     <Button
                                       variant="ghost"
@@ -1197,10 +1178,12 @@ export const BookingList = () => {
                                           currentWarehouseId: booking.current_warehouse?.id
                                         });
                                       }}
-                                      className="h-6 px-2 text-xs w-full justify-start hover:bg-accent/50"
+                                      className="h-6 px-2 text-[10px] w-full justify-start hover:bg-primary/10 font-medium"
                                     >
-                                      <Package className="w-3 h-3 mr-1.5" />
-                                      {booking.current_warehouse ? 'Change' : 'Add'} Warehouse
+                                      <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                                      <span className="truncate">
+                                        {booking.current_warehouse ? 'Change Warehouse' : 'Add Warehouse'}
+                                      </span>
                                     </Button>
                                   )}
                                 </div>
@@ -1208,24 +1191,26 @@ export const BookingList = () => {
                             })()}
                           </TableCell>
 
-                          <TableCell>
+                          {/* ✅ COLUMN 5: Vehicle */}
+                          <TableCell className="py-3">
                             {booking.current_warehouse ? (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setAssignmentModal({ isOpen: true, bookingId: booking.id })}
+                                className="w-full h-7 text-[11px] border-2 hover:border-primary hover:bg-primary/5"
                               >
-                                <Truck className="w-3.5 h-3.5 mr-1" />
-                                <span className="text-xs">Assign</span>
+                                <Truck className="w-3 h-3 mr-1" />
+                                Assign
                               </Button>
                             ) : (
                               booking.assignedVehicle ? (
-                                <Badge variant="secondary" className="gap-1 text-xs">
-                                  <Truck className="w-3 h-3" />
+                                <Badge variant="secondary" className="text-[10px] px-2 py-1 border w-full justify-center">
+                                  <Truck className="w-3 h-3 mr-1" />
                                   {booking.assignedVehicle.vehicleNumber}
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-muted-foreground text-xs">
+                                <Badge variant="outline" className="text-[10px] px-2 py-1 border-dashed w-full justify-center">
                                   <AlertCircle className="w-3 h-3 mr-1" />
                                   No Vehicle
                                 </Badge>
@@ -1233,96 +1218,116 @@ export const BookingList = () => {
                             )}
                           </TableCell>
 
-                          <TableCell>
+                          {/* ✅ COLUMN 6: LR Status - VERTICAL STACK */}
+                          <TableCell className="py-3">
                             {booking.lrNumber ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge className="bg-green-500 text-white text-xs">
-                                    <FileText className="w-3 h-3 mr-1" />
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-1">
+                                  <Badge className="bg-green-600 text-white text-[10px] px-2 py-0.5 border-0 flex-1">
+                                    <FileText className="w-2.5 h-2.5 mr-1" />
                                     {booking.lrNumber}
                                   </Badge>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDownloadLR(booking)}
-                                    className="h-7 w-7"
-                                  >
-                                    <Download className="w-3.5 h-3.5" />
-                                  </Button>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => handleDownloadLR(booking)}
+                                          className="h-6 w-6 hover:bg-green-100"
+                                        >
+                                          <Download className="w-3 h-3 text-green-600" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Download PDF</TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </div>
                                 {booking.eway_bill_details && booking.eway_bill_details.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {booking.eway_bill_details.map((ewb: any, index: number) => (
-                                      <Badge key={index} variant="secondary" className="text-xs">
-                                        {ewb.number}
+                                  <div className="flex flex-wrap gap-0.5">
+                                    {booking.eway_bill_details.slice(0, 1).map((ewb: any, idx: number) => (
+                                      <Badge key={idx} variant="secondary" className="text-[9px] px-1.5 py-0">
+                                        E: {ewb.number.slice(-4)}
                                       </Badge>
                                     ))}
+                                    {booking.eway_bill_details.length > 1 && (
+                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                                        +{booking.eway_bill_details.length - 1}
+                                      </Badge>
+                                    )}
                                   </div>
                                 )}
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-muted-foreground text-xs">
-                                  <Clock className="w-3 h-3 mr-1" />
+                              <div className="space-y-1">
+                                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-dashed w-full justify-center">
+                                  <Clock className="w-2.5 h-2.5 mr-1" />
                                   Pending
                                 </Badge>
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
-                                  className="text-xs h-7"
+                                  className="w-full h-6 text-[10px] border hover:border-primary hover:bg-primary/5"
                                 >
-                                  <FileText className="w-3 h-3 mr-1" />
+                                  <FileText className="w-2.5 h-2.5 mr-1" />
                                   Create
                                 </Button>
                               </div>
                             )}
                           </TableCell>
 
-                          <TableCell>
-                            <div className="flex items-center justify-center gap-2">
-                              {/* ✅ NEW: Progressive Action Button */}
-                              <ProgressiveActionButton
-                                booking={booking}
-                                stage={getBookingStage(booking)}
-                                onAction={(actionType) => {
-                                  switch (actionType) {
-                                    case 'ASSIGN_VEHICLE':
-                                      setAssignmentModal({ isOpen: true, bookingId: booking.id });
-                                      break;
-                                    case 'CREATE_LR':
-                                      setLrModal({ isOpen: true, bookingId: booking.id });
-                                      break;
-                                    case 'UPLOAD_POD':
-                                      setPodModal({ isOpen: true, bookingId: booking.id });
-                                      break;
-                                    case 'GENERATE_INVOICE':
-                                      setInvoiceModal({ isOpen: true, bookingId: booking.id });
-                                      break;
-                                    case 'VIEW_INVOICE':
-                                      toast({
-                                        title: "Invoice",
-                                        description: `Invoice ${booking.invoice_number}`,
-                                      });
-                                      break;
-                                    case 'REFRESH':
-                                      loadData();
-                                      break;
-                                  }
-                                }}
-                              />
+                          {/* ✅ COLUMN 7: Actions - COMPACT */}
+                          <TableCell className="py-3">
+                            <div className="flex flex-row items-center">
+                              {/* Progressive Action - Make it smaller */}
+                              <div className="w-full">
+                                <ProgressiveActionButton
+                                  booking={booking}
+                                  stage={getBookingStage(booking)}
+                                  onAction={(actionType) => {
+                                    switch (actionType) {
+                                      case 'ASSIGN_VEHICLE':
+                                        setAssignmentModal({ isOpen: true, bookingId: booking.id });
+                                        break;
+                                      case 'CREATE_LR':
+                                        setLrModal({ isOpen: true, bookingId: booking.id });
+                                        break;
+                                      case 'UPLOAD_POD':
+                                        setPodModal({ isOpen: true, bookingId: booking.id });
+                                        break;
+                                      case 'GENERATE_INVOICE':
+                                        setInvoiceModal({ isOpen: true, bookingId: booking.id });
+                                        break;
+                                      case 'VIEW_INVOICE':
+                                        toast({
+                                          title: "Invoice",
+                                          description: `Invoice ${booking.invoice_number}`,
+                                        });
+                                        break;
+                                      case 'REFRESH':
+                                        loadData();
+                                        break;
+                                    }
+                                  }}
+                                />
+                              </div>
 
-                              {/* Keep dropdown for secondary actions */}
+                              {/* Menu Button */}
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 hover:bg-primary/10"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
                                   <DropdownMenuItem onClick={() => navigate(`/bookings/${booking.id}`)}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    View Details
+                                    <Eye className="mr-2 h-3.5 w-3.5" />
+                                    <span className="text-xs">View Details</span>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
@@ -1330,16 +1335,16 @@ export const BookingList = () => {
                                       setIsEditFullBookingModalOpen(true);
                                     }}
                                   >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit All Details
+                                    <Edit className="mr-2 h-3.5 w-3.5" />
+                                    <span className="text-xs">Edit Details</span>
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    className="text-destructive"
+                                    className="text-destructive focus:text-destructive"
                                     onClick={() => setDeletingBookingId(booking.id)}
                                   >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete Booking
+                                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                    <span className="text-xs">Delete</span>
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>

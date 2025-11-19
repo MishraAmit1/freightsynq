@@ -265,3 +265,205 @@ export const updatePartyBillingStatus = async (
     throw error;
   }
 };
+
+// api/parties.ts - ADD THESE FUNCTIONS AT THE END
+
+// ============================================
+// ✅ HELPER FUNCTIONS - Calculate Metrics
+// ============================================
+
+/**
+ * Get the most recent booking date for a party
+ */
+const calculateLastBooking = (party: any): string | null => {
+  const allBookings = [
+    ...(party.consignor_bookings || []),
+    ...(party.consignee_bookings || [])
+  ];
+
+  if (allBookings.length === 0) return null;
+
+  const mostRecent = allBookings.reduce((latest, booking) => {
+    const currentDate = new Date(booking.created_at);
+    const latestDate = new Date(latest.created_at);
+    return currentDate > latestDate ? booking : latest;
+  });
+
+  return mostRecent.created_at;
+};
+
+/**
+ * Count bookings in current month
+ */
+const calculateTripsThisMonth = (party: any): number => {
+  const allBookings = [
+    ...(party.consignor_bookings || []),
+    ...(party.consignee_bookings || [])
+  ];
+
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+
+  return allBookings.filter(booking => {
+    const bookingDate = new Date(booking.created_at);
+    return bookingDate.getMonth() === thisMonth &&
+      bookingDate.getFullYear() === thisYear;
+  }).length;
+};
+
+/**
+ * Calculate POD confirmation rate for consignees
+ */
+const calculatePODRate = (party: any): number => {
+  // Only relevant for consignees
+  if (party.party_type !== 'CONSIGNEE' && party.party_type !== 'BOTH') {
+    return 0;
+  }
+
+  const consigneeBookings = party.consignee_bookings || [];
+
+  if (consigneeBookings.length === 0) return 0;
+
+  // Count bookings with POD uploaded
+  const withPOD = consigneeBookings.filter(b => b.pod_uploaded_at !== null).length;
+
+  return Math.round((withPOD / consigneeBookings.length) * 100);
+};
+
+/**
+ * Get billing status text
+ */
+const calculateBillingStatus = (party: any): string => {
+  if (!party.is_billing_party) return "—";
+
+  const allBookings = [
+    ...(party.consignor_bookings || []),
+    ...(party.consignee_bookings || [])
+  ];
+
+  // Get billed bookings
+  const billedBookings = allBookings.filter(b => b.billed_at !== null);
+
+  if (billedBookings.length === 0) {
+    return "Never Billed";
+  }
+
+  // Find most recent billed booking
+  const lastBilled = billedBookings.reduce((latest, booking) => {
+    const currentDate = new Date(booking.billed_at);
+    const latestDate = new Date(latest.billed_at);
+    return currentDate > latestDate ? booking : latest;
+  });
+
+  // Calculate days since last bill
+  const daysSince = Math.floor(
+    (Date.now() - new Date(lastBilled.billed_at).getTime()) /
+    (1000 * 60 * 60 * 24)
+  );
+
+  if (daysSince > 30) {
+    return `Pending >${daysSince}d`;
+  }
+
+  // Format date nicely
+  const billedDate = new Date(lastBilled.billed_at);
+  const month = billedDate.toLocaleDateString('en-US', { month: 'short' });
+  const day = billedDate.getDate().toString().padStart(2, '0');
+
+  return `Last Billed ${day} ${month}`;
+};
+
+/**
+ * Calculate outstanding (count of unbilled bookings)
+ */
+const calculateOutstanding = (party: any): number => {
+  if (!party.is_billing_party) return 0;
+
+  const allBookings = [
+    ...(party.consignor_bookings || []),
+    ...(party.consignee_bookings || [])
+  ];
+
+  // Count bookings without billed_at
+  return allBookings.filter(b => b.billed_at === null).length;
+};
+
+// ============================================
+// ✅ MAIN FUNCTION - Fetch Parties with Metrics
+// ============================================
+
+/**
+ * Fetch all parties with calculated metrics
+ * Returns dynamic data instead of static/dummy values
+ */
+export const fetchPartiesWithMetrics = async () => {
+  try {
+    console.log('🔍 Fetching parties with real metrics...');
+
+    const { data, error } = await supabase
+      .from('parties')
+      .select(`
+        *,
+        consignor_bookings:bookings!consignor_id(
+          id,
+          created_at,
+          billed_at,
+          pod_uploaded_at,
+          invoice_number,
+          billing_status
+        ),
+        consignee_bookings:bookings!consignee_id(
+          id,
+          created_at,
+          billed_at,
+          pod_uploaded_at,
+          billing_status
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Error fetching parties:', error);
+      throw error;
+    }
+
+    console.log(`✅ Fetched ${data?.length || 0} parties from database`);
+
+    // Process and add calculated metrics
+    const partiesWithMetrics = (data || []).map(party => {
+      const metrics = {
+        // ✅ DYNAMIC: Last booking date
+        last_booking_date: calculateLastBooking(party),
+
+        // ✅ DYNAMIC: Monthly trips count
+        trips_this_month: calculateTripsThisMonth(party),
+
+        // ✅ LOGIC-BASED: Verification badges
+        has_gst_verified: !!party.gst_number,
+        has_pan_verified: !!party.pan_number,
+        has_documents: false, // Remove - no table exists
+
+        // ✅ DYNAMIC: Billing metrics
+        billing_status: calculateBillingStatus(party),
+        outstanding_amount: calculateOutstanding(party),
+
+        // ✅ DYNAMIC: POD confirmation rate
+        pod_confirmation_rate: calculatePODRate(party)
+      };
+
+      return {
+        ...party,
+        ...metrics
+      };
+    });
+
+    console.log(`✅ Calculated metrics for ${partiesWithMetrics.length} parties`);
+
+    return partiesWithMetrics;
+
+  } catch (error) {
+    console.error('❌ Error in fetchPartiesWithMetrics:', error);
+    throw error;
+  }
+};

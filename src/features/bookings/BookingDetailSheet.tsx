@@ -4,8 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import {
     Sheet,
     SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
     FileText,
     MapPin,
@@ -22,16 +26,12 @@ import {
     Navigation,
     Zap,
     MapPinned,
-    TrendingUp,
-    PackageCheck,
-    Circle,
     Activity,
 } from "lucide-react";
 import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
 
 interface BookingDetailSheetProps {
     isOpen: boolean;
@@ -47,8 +47,12 @@ interface BookingDetail {
     consigneeName: string;
     consignorPhone?: string;
     consignorAddress?: string;
+    consignorCity?: string;
+    consignorGSTIN?: string;
     consigneePhone?: string;
     consigneeAddress?: string;
+    consigneeCity?: string;
+    consigneeGSTIN?: string;
     fromLocation: string;
     toLocation: string;
     cargoUnits: number;
@@ -76,21 +80,21 @@ interface BookingDetail {
         };
         assignedAt?: string;
         assignment_id?: string;
+        // ✅ NEW: Tracking data from vehicle_assignments
+        last_toll_crossed?: string;
+        last_toll_time?: string;
     };
     broker?: {
         name: string;
+        contact_person?: string;
+        phone?: string;
+        email?: string;
+        city?: string;
     };
     eway_bill_details?: Array<{
         number: string;
         valid_until?: string;
     }>;
-}
-
-interface TollCrossing {
-    id: string;
-    toll_name: string;
-    crossed_at: string;
-    location?: string;
 }
 
 const statusConfig = {
@@ -114,8 +118,6 @@ export const BookingDetailSheet = ({
     const [booking, setBooking] = useState<BookingDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [showVehicleAssignModal, setShowVehicleAssignModal] = useState(false);
-    const [tollCrossings, setTollCrossings] = useState<TollCrossing[]>([]);
-    const [loadingTolls, setLoadingTolls] = useState(false);
 
     useEffect(() => {
         if (isOpen && bookingId) {
@@ -141,18 +143,19 @@ export const BookingDetailSheet = ({
                 const convertedBooking: BookingDetail = {
                     id: data.id,
                     bookingId: data.booking_id,
-
-                    // ✅ Now these come directly from API
                     consignorName: data.consignor_name,
                     consigneeName: data.consignee_name,
                     consignorPhone: data.consignor?.phone,
-                    consignorAddress: data.consignor?.address,
+                    consignorAddress: data.consignor?.address_line1,
+                    consignorCity: data.consignor?.city,
+                    consignorGSTIN: data.consignor?.gst_number,
                     consigneePhone: data.consignee?.phone,
-                    consigneeAddress: data.consignee?.address,
-
+                    consigneeAddress: data.consignee?.address_line1,
+                    consigneeCity: data.consignee?.city,
+                    consigneeGSTIN: data.consignee?.gst_number,
                     fromLocation: data.from_location,
                     toLocation: data.to_location,
-                    cargoUnits: data.cargo_units,
+                    cargoUnits: parseInt(data.cargo_units) || 0,
                     materialDescription: data.material_description,
                     serviceType: data.service_type as "FTL" | "PTL",
                     status: data.status,
@@ -175,7 +178,10 @@ export const BookingDetailSheet = ({
                             phone: activeAssignment.driver.phone,
                         } : undefined,
                         assignedAt: activeAssignment.created_at,
-                        assignment_id: activeAssignment.id, // ✅ This now exists!
+                        assignment_id: activeAssignment.id,
+                        // ✅ FIXED: Get tracking data from assignment
+                        last_toll_crossed: activeAssignment.last_toll_crossed,
+                        last_toll_time: activeAssignment.last_toll_time,
                     } : undefined,
 
                     broker: activeAssignment?.broker,
@@ -185,20 +191,11 @@ export const BookingDetailSheet = ({
                     consignorName: convertedBooking.consignorName,
                     consigneeName: convertedBooking.consigneeName,
                     vehicleAssigned: !!convertedBooking.assignedVehicle,
-                    assignmentId: convertedBooking.assignedVehicle?.assignment_id,
-                    vehicleNumber: convertedBooking.assignedVehicle?.regNumber
+                    lastTollCrossed: convertedBooking.assignedVehicle?.last_toll_crossed,
+                    lastTollTime: convertedBooking.assignedVehicle?.last_toll_time,
                 });
 
                 setBooking(convertedBooking);
-
-                // ✅ Load toll crossings if vehicle is assigned
-                if (hasActiveAssignment && activeAssignment.id) {
-                    console.log('🚛 Loading tolls for assignment:', activeAssignment.id);
-                    loadTollCrossings(activeAssignment.id);
-                } else {
-                    console.log('⚠️ No active vehicle assignment');
-                    setTollCrossings([]);
-                }
             }
         } catch (error) {
             console.error('❌ Error loading booking:', error);
@@ -212,40 +209,12 @@ export const BookingDetailSheet = ({
         }
     };
 
-    const loadTollCrossings = async (assignmentId: string) => {
-        try {
-            setLoadingTolls(true);
-            console.log('🔍 Fetching tolls for assignment:', assignmentId);
-
-            const { data, error } = await supabase
-                .from('vehicle_tracking')
-                .select('id, toll_name, crossed_at, location')
-                .eq('assignment_id', assignmentId)
-                .order('crossed_at', { ascending: false })
-                .limit(10);
-
-            if (error) {
-                console.error('❌ Supabase error:', error);
-                throw error;
-            }
-
-            console.log('✅ Toll crossings loaded:', data?.length || 0);
-            setTollCrossings(data || []);
-        } catch (error) {
-            console.error('❌ Error loading toll crossings:', error);
-            setTollCrossings([]);
-        } finally {
-            setLoadingTolls(false);
-        }
-    };
-
     const handleVehicleUnassign = async () => {
         try {
             const { unassignVehicle } = await import('@/api/vehicles');
             await unassignVehicle(booking!.id);
 
             setBooking(prev => prev ? { ...prev, assignedVehicle: undefined } : null);
-            setTollCrossings([]);
             await loadBookingDetails();
             onUpdate?.();
 
@@ -262,28 +231,58 @@ export const BookingDetailSheet = ({
         }
     };
 
-    const getTollFreshness = (crossedAt: string) => {
-        const now = new Date();
-        const crossedTime = new Date(crossedAt);
-        const hoursDiff = (now.getTime() - crossedTime.getTime()) / (1000 * 60 * 60);
+    // ✅ FIXED: Same freshness logic as BookingList
+    const getTrackingFreshness = () => {
+        if (!booking?.assignedVehicle?.last_toll_time) return null;
 
-        if (hoursDiff < 2) {
-            return { label: 'Live', color: 'bg-green-500', dotColor: 'bg-green-500' };
-        } else if (hoursDiff < 6) {
-            return { label: 'Recent', color: 'bg-yellow-500', dotColor: 'bg-yellow-500' };
-        } else {
-            return { label: 'Old', color: 'bg-gray-400', dotColor: 'bg-gray-400' };
-        }
+        const lastUpdate = new Date(booking.assignedVehicle.last_toll_time);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+
+        const isFresh = hoursDiff < 2;
+        const isStale = hoursDiff >= 2 && hoursDiff < 6;
+        const isOld = hoursDiff >= 6;
+
+        const getTimeAgo = () => {
+            if (hoursDiff < 1) {
+                const minutes = Math.floor(hoursDiff * 60);
+                return `${minutes}m ago`;
+            } else if (hoursDiff < 24) {
+                return `${Math.floor(hoursDiff)}h ago`;
+            } else {
+                const days = Math.floor(hoursDiff / 24);
+                return `${days}d ago`;
+            }
+        };
+
+        return {
+            isFresh,
+            isStale,
+            isOld,
+            timeAgo: getTimeAgo(),
+            statusEmoji: isFresh ? '🟢' : isStale ? '🟡' : '⚪',
+            statusText: isFresh ? 'Live tracking' : isStale ? 'Recent data' : 'Old data',
+            dotColor: isFresh ? 'bg-green-500' : isStale ? 'bg-yellow-500' : 'bg-gray-400',
+        };
     };
 
     if (!booking && !loading) return null;
 
     const status = statusConfig[booking?.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+    const trackingInfo = getTrackingFreshness();
 
     return (
         <>
             <Sheet open={isOpen} onOpenChange={onClose}>
                 <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
+                    <VisuallyHidden>
+                        <SheetHeader>
+                            <SheetTitle>Booking Details - {booking?.bookingId || 'Loading'}</SheetTitle>
+                            <SheetDescription>
+                                View comprehensive booking information including parties, cargo, vehicle assignment, and live tracking
+                            </SheetDescription>
+                        </SheetHeader>
+                    </VisuallyHidden>
                     {loading ? (
                         <div className="flex items-center justify-center h-screen">
                             <div className="text-center space-y-3">
@@ -399,6 +398,11 @@ export const BookingDetailSheet = ({
                                         <p className="font-semibold text-sm truncate" title={booking.consignorName}>
                                             {booking.consignorName}
                                         </p>
+                                        {booking.consignorAddress && (
+                                            <p className="text-xs text-muted-foreground mt-1 truncate" title={booking.consignorAddress}>
+                                                {booking.consignorAddress}
+                                            </p>
+                                        )}
                                         {booking.consignorPhone && (
                                             <Button variant="link" className="h-auto p-0 text-xs mt-1" asChild>
                                                 <a href={`tel:${booking.consignorPhone}`}>
@@ -419,6 +423,11 @@ export const BookingDetailSheet = ({
                                         <p className="font-semibold text-sm truncate" title={booking.consigneeName}>
                                             {booking.consigneeName}
                                         </p>
+                                        {booking.consigneeAddress && (
+                                            <p className="text-xs text-muted-foreground mt-1 truncate" title={booking.consigneeAddress}>
+                                                {booking.consigneeAddress}
+                                            </p>
+                                        )}
                                         {booking.consigneePhone && (
                                             <Button variant="link" className="h-auto p-0 text-xs mt-1" asChild>
                                                 <a href={`tel:${booking.consigneePhone}`}>
@@ -474,73 +483,70 @@ export const BookingDetailSheet = ({
                                     </div>
                                 )}
 
-                                {/* Live Tracking */}
-                                {booking.assignedVehicle && (
-                                    <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
+                                {/* ✅ FIXED: Live Tracking - Same as BookingList */}
+                                {booking.assignedVehicle && booking.assignedVehicle.last_toll_crossed && trackingInfo && (
+                                    <div className={cn(
+                                        "rounded-lg p-4 border",
+                                        trackingInfo.isFresh && "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800",
+                                        trackingInfo.isStale && "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
+                                        trackingInfo.isOld && "bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                                    )}>
                                         <div className="flex items-center gap-2 mb-3">
-                                            <Activity className="w-4 h-4 text-purple-600" />
-                                            <h3 className="font-semibold text-sm">Live Tracking</h3>
-                                            {loadingTolls ? (
-                                                <Loader2 className="w-3 h-3 animate-spin ml-auto" />
-                                            ) : (
-                                                <Badge variant="outline" className="ml-auto text-xs">
-                                                    {tollCrossings.length} {tollCrossings.length === 1 ? 'Toll' : 'Tolls'}
-                                                </Badge>
-                                            )}
+                                            <Activity className={cn(
+                                                "w-5 h-5",
+                                                trackingInfo.isFresh && "text-orange-600",
+                                                trackingInfo.isStale && "text-yellow-600",
+                                                trackingInfo.isOld && "text-gray-500"
+                                            )} />
+                                            <h3 className="font-semibold">Live Tracking</h3>
+                                            <Badge variant="outline" className="ml-auto">
+                                                En Route
+                                            </Badge>
                                         </div>
 
-                                        {tollCrossings.length > 0 ? (
-                                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                                {tollCrossings.map((toll) => {
-                                                    const freshness = getTollFreshness(toll.crossed_at);
-                                                    return (
-                                                        <div
-                                                            key={toll.id}
-                                                            className="flex items-center gap-3 p-2.5 bg-white/70 dark:bg-gray-900/70 rounded-lg border hover:bg-white dark:hover:bg-gray-900 transition-colors"
-                                                        >
-                                                            <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center shrink-0 relative">
-                                                                <MapPin className="w-4 h-4 text-purple-600" />
-                                                                <span className={cn(
-                                                                    "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white",
-                                                                    freshness.dotColor
-                                                                )} />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className="font-semibold text-sm truncate">{toll.toll_name}</p>
-                                                                <div className="flex items-center gap-2 mt-0.5">
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        {formatDateTime(toll.crossed_at)}
-                                                                    </p>
-                                                                    <Badge className={cn(
-                                                                        "text-[10px] px-1.5 py-0 h-4",
-                                                                        freshness.color,
-                                                                        "text-white"
-                                                                    )}>
-                                                                        {freshness.label}
-                                                                    </Badge>
-                                                                </div>
-                                                            </div>
-                                                            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                                                        </div>
-                                                    );
-                                                })}
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3 p-3 bg-white/70 dark:bg-gray-900/70 rounded-lg">
+                                                <div className="relative">
+                                                    <MapPin className={cn(
+                                                        "w-5 h-5",
+                                                        trackingInfo.isFresh && "text-orange-600",
+                                                        trackingInfo.isStale && "text-yellow-600",
+                                                        trackingInfo.isOld && "text-gray-500"
+                                                    )} />
+                                                    <span className={cn(
+                                                        "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white",
+                                                        trackingInfo.dotColor
+                                                    )} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs text-muted-foreground">Last Location</p>
+                                                    <p className="font-semibold">{booking.assignedVehicle.last_toll_crossed}</p>
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="text-center py-6 text-sm text-muted-foreground">
-                                                {loadingTolls ? (
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                        Loading tracking data...
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <MapPin className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
-                                                        <p>No tracking data available yet</p>
-                                                        <p className="text-xs mt-1">Vehicle is on the way</p>
-                                                    </>
-                                                )}
+
+                                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                                <div className="p-2 bg-white/50 dark:bg-gray-900/50 rounded">
+                                                    <p className="text-xs text-muted-foreground">Crossed</p>
+                                                    <p className="font-medium text-xs">
+                                                        {formatDateTime(booking.assignedVehicle.last_toll_time!)}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                                        ({trackingInfo.timeAgo})
+                                                    </p>
+                                                </div>
+                                                <div className="p-2 bg-white/50 dark:bg-gray-900/50 rounded">
+                                                    <p className="text-xs text-muted-foreground">Status</p>
+                                                    <p className="font-medium text-sm">
+                                                        {trackingInfo.statusEmoji} {trackingInfo.statusText}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        )}
+
+                                            <div className="p-2 bg-white/50 dark:bg-gray-900/50 rounded">
+                                                <p className="text-xs text-muted-foreground">Vehicle</p>
+                                                <p className="font-bold">{booking.assignedVehicle.regNumber}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
@@ -599,9 +605,24 @@ export const BookingDetailSheet = ({
                                             {booking.broker && (
                                                 <>
                                                     <Separator />
-                                                    <div className="text-xs">
-                                                        <p className="text-muted-foreground">Broker</p>
-                                                        <p className="font-medium">{booking.broker.name}</p>
+                                                    <div className="space-y-2">
+                                                        <p className="text-xs text-muted-foreground font-medium">Broker Details</p>
+                                                        <div className="text-sm space-y-1">
+                                                            <p className="font-medium">{booking.broker.name}</p>
+                                                            {booking.broker.contact_person && (
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Contact: {booking.broker.contact_person}
+                                                                </p>
+                                                            )}
+                                                            {booking.broker.phone && (
+                                                                <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                                                                    <a href={`tel:${booking.broker.phone}`}>
+                                                                        <Phone className="w-2.5 h-2.5 mr-1" />
+                                                                        {booking.broker.phone}
+                                                                    </a>
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </>
                                             )}

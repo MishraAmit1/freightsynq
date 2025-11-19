@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { getProgressiveAction, BookingStage } from "@/lib/bookingStages";
 import { useToast } from "@/hooks/use-toast";
 import { updateBookingStatus } from "@/api/bookings";
+import { cn } from "@/lib/utils";
 
 interface ProgressiveActionButtonProps {
     booking: any;
@@ -31,17 +32,14 @@ export const ProgressiveActionButton = ({
         try {
             switch (action.stage) {
                 case 'DRAFT':
-                    // Open vehicle assignment modal
                     onAction('ASSIGN_VEHICLE');
                     break;
 
                 case 'DISPATCHED':
-                    // Open LR creation modal
                     onAction('CREATE_LR');
                     break;
 
                 case 'IN_TRANSIT':
-                    // Mark as delivered
                     await updateBookingStatus(booking.id, 'DELIVERED');
                     toast({
                         title: "✅ Marked as Delivered",
@@ -51,17 +49,14 @@ export const ProgressiveActionButton = ({
                     break;
 
                 case 'DELIVERED':
-                    // Open POD upload modal
                     onAction('UPLOAD_POD');
                     break;
 
                 case 'POD_UPLOADED':
-                    // Open invoice generation modal
                     onAction('GENERATE_INVOICE');
                     break;
 
                 case 'BILLED':
-                    // View invoice
                     onAction('VIEW_INVOICE');
                     break;
             }
@@ -79,17 +74,33 @@ export const ProgressiveActionButton = ({
 
     return (
         <Button
+            variant="outline"
             size="sm"
             onClick={handleClick}
             disabled={loading}
-            className={action.color}
+            className={cn(
+                // ✅ COMPACT SIZE
+                "h-7 px-2.5 text-[10px] font-medium",
+
+                // ✅ NEUTRAL COLORS (Remove rang birangi)
+                "border border-gray-300 dark:border-gray-700",
+                "bg-white dark:bg-gray-900",
+                "text-gray-700 dark:text-gray-300",
+
+                // ✅ SUBTLE HOVER
+                "hover:bg-gray-100 dark:hover:bg-gray-800",
+                "hover:border-gray-400 dark:hover:border-gray-600",
+
+                // ✅ DISABLED/LOADING STATE
+                loading && "opacity-70 cursor-wait"
+            )}
         >
             {loading ? (
-                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                <Loader2 className="w-3 h-3 mr-1 animate-spin flex-shrink-0" />
             ) : (
-                <Icon className="w-3.5 h-3.5 mr-2" />
+                <Icon className="w-3 h-3 mr-1 flex-shrink-0" />
             )}
-            {action.label}
+            <span className="truncate">{action.label}</span>
         </Button>
     );
 };

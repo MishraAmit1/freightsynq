@@ -15,6 +15,7 @@ export const fetchWarehouses = async () => {
 
   return data || []
 }
+// 
 
 // Get warehouse details with consignments
 export const fetchWarehouseDetails = async (warehouseId: string) => {

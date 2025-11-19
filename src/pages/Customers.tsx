@@ -90,6 +90,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { useDropzone } from "react-dropzone";
 import { AddEditPartyDrawer } from "@/components/AddEditPartyDrawer";
+import { fetchPartiesWithMetrics } from "@/api/parties";
 
 // Types
 interface Party {
@@ -239,7 +240,7 @@ const VerifiedBadges: React.FC<{ party: Party }> = ({ party }) => {
                     </Tooltip>
                 </TooltipProvider>
             )}
-            {party.has_documents && (
+            {/* {party.has_documents && (
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger>
@@ -252,7 +253,7 @@ const VerifiedBadges: React.FC<{ party: Party }> = ({ party }) => {
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
-            )}
+            )} */}
             {!party.has_gst_verified && !party.has_pan_verified && !party.has_documents && (
                 <span className="text-xs text-muted-foreground">—</span>
             )}
@@ -978,54 +979,42 @@ export const Customers = () => {
     }, []);
 
     // Load parties from database
+    // ✅ NEW CODE - Dynamic Data
     const loadParties = async () => {
         setLoading(true);
         try {
-            let query = supabase
-                .from("parties")
-                .select("*")
-                .order("created_at", { ascending: false });
+            console.log('📊 Loading parties with real metrics...');
 
+            // ✅ Use new API function
+            let partiesWithMetrics = await fetchPartiesWithMetrics();
+
+            // ✅ Apply status filter
             if (statusFilter !== "ALL") {
-                query = query.eq("status", statusFilter);
+                partiesWithMetrics = partiesWithMetrics.filter(
+                    p => p.status === statusFilter
+                );
             }
 
-            const { data, error } = await query;
+            // ✅ Apply sorting based on selected tab
+            partiesWithMetrics = partiesWithMetrics.sort((a, b) => {
+                // Billing tab: Pending first
+                if (selectedTab === 'billing') {
+                    const aPending = a.billing_status.includes('Pending');
+                    const bPending = b.billing_status.includes('Pending');
 
-            if (error) throw error;
+                    if (aPending && !bPending) return -1;
+                    if (!aPending && bPending) return 1;
+                }
 
-            // ✅ ADD STATIC DUMMY DATA TO EACH PARTY
-            const partiesWithMetrics = (data || []).map((party, index) => ({
-                ...party,
-                // Static last booking (random dates)
-                last_booking_date: index % 3 === 0 ? null :
-                    index % 2 === 0 ? "2024-01-15" : "2024-01-10",
-
-                // Static trips (random numbers)
-                trips_this_month: Math.floor(Math.random() * 15),
-
-                // Static verification flags
-                has_gst_verified: !!party.gst_number,
-                has_pan_verified: !!party.pan_number,
-                has_documents: index % 2 === 0,
-
-                // Static billing status
-                billing_status: party.is_billing_party ?
-                    (index % 3 === 0 ? "Pending >30d" : `Last Billed ${Math.floor(Math.random() * 28) + 1} ${['Jan', 'Dec', 'Nov'][index % 3]}`)
-                    : "—",
-
-                // Static outstanding
-                outstanding_amount: party.is_billing_party ?
-                    Math.floor(Math.random() * 100000) : 0,
-
-                // Static POD rate
-                pod_confirmation_rate: party.party_type === 'CONSIGNEE' || party.party_type === 'BOTH' ?
-                    Math.floor(Math.random() * 30) + 70 : 0
-            }));
+                // Default: Last Booking DESC (most recent first)
+                const aDate = a.last_booking_date ? new Date(a.last_booking_date) : new Date(0);
+                const bDate = b.last_booking_date ? new Date(b.last_booking_date) : new Date(0);
+                return bDate.getTime() - aDate.getTime();
+            });
 
             setParties(partiesWithMetrics);
 
-            // Calculate stats
+            // ✅ Calculate stats from REAL data (no changes needed here)
             const totalParties = partiesWithMetrics?.length || 0;
             const activeParties = partiesWithMetrics?.filter(p => p.status === "ACTIVE").length || 0;
             const consignorParties = partiesWithMetrics?.filter(p =>
@@ -1044,8 +1033,14 @@ export const Customers = () => {
                 billing: billingParties
             });
 
+            console.log('✅ Parties loaded successfully:', {
+                total: totalParties,
+                active: activeParties,
+                billing: billingParties
+            });
+
         } catch (error: any) {
-            console.error("Error loading parties:", error);
+            console.error("❌ Error loading parties:", error);
             toast({
                 title: "❌ Error",
                 description: "Failed to load parties",
@@ -1058,7 +1053,7 @@ export const Customers = () => {
 
     useEffect(() => {
         loadParties();
-    }, [statusFilter]);
+    }, [statusFilter, selectedTab]);
 
     // Toggle party status
     const togglePartyStatus = async (party: Party) => {
@@ -1626,22 +1621,24 @@ export const Customers = () => {
                                                                 </Badge>
                                                             </TableCell>
                                                             <TableCell style={{ width: '8%' }}>
-                                                                {party.outstanding_amount ? (
+                                                                {party.outstanding_amount > 0 ? (
                                                                     <TooltipProvider>
                                                                         <Tooltip>
                                                                             <TooltipTrigger>
-                                                                                <span className="text-sm font-semibold text-red-600">
-                                                                                    ₹{(party.outstanding_amount / 1000).toFixed(0)}k
-                                                                                </span>
+                                                                                <Badge variant="destructive" className="text-xs font-semibold">
+                                                                                    {party.outstanding_amount} Unbilled  {/* ✅ NEW - Show count */}
+                                                                                </Badge>
                                                                             </TooltipTrigger>
                                                                             <TooltipContent>
-                                                                                <p>Outstanding: ₹{party.outstanding_amount.toLocaleString('en-IN')}</p>
-                                                                                <p className="text-xs text-muted-foreground mt-1">Last 3 bills pending</p>
+                                                                                <p className="font-semibold">{party.outstanding_amount} bookings not yet billed</p>
+                                                                                <p className="text-xs text-muted-foreground mt-1">
+                                                                                    Total trips this month: {party.trips_this_month}
+                                                                                </p>
                                                                             </TooltipContent>
                                                                         </Tooltip>
                                                                     </TooltipProvider>
                                                                 ) : (
-                                                                    <span className="text-sm text-muted-foreground">—</span>
+                                                                    <span className="text-sm text-green-600 font-medium">All Clear</span>
                                                                 )}
                                                             </TableCell>
                                                             <TableCell style={{ width: '4%' }}>

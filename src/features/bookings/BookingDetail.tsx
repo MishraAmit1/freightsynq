@@ -48,6 +48,7 @@ import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal
 import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
 import { JourneyView } from "@/components/JourneyView";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 interface BookingDetail {
   id: string;
@@ -151,7 +152,7 @@ export const BookingDetail = () => {
   const [showVehicleAssignModal, setShowVehicleAssignModal] = useState(false);
   const [bookingTimeline, setBookingTimeline] = useState<any[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
-
+  const [tollCrossings, setTollCrossings] = useState<any[]>([]);
   useEffect(() => {
     if (id) {
       loadBookingDetails(id);
@@ -211,6 +212,11 @@ export const BookingDetail = () => {
         };
 
         setBooking(convertedBooking);
+        if (hasActiveAssignment && data.vehicle_assignments[0].id) {
+          loadTollCrossings(data.vehicle_assignments[0].id);
+        } else {
+          setTollCrossings([]);
+        }
       }
     } catch (error) {
       console.error('Error loading booking details:', error);
@@ -236,7 +242,29 @@ export const BookingDetail = () => {
       setTimelineLoading(false);
     }
   };
+  const loadTollCrossings = async (assignmentId: string) => {
+    try {
+      console.log('🚛 Loading toll crossings for assignment:', assignmentId);
 
+      const { data, error } = await supabase
+        .from('vehicle_tracking')
+        .select('id, toll_name, crossed_at, location')
+        .eq('assignment_id', assignmentId)
+        .order('crossed_at', { ascending: false })
+        .limit(3);
+
+      if (error) {
+        console.error('❌ Error loading tolls:', error);
+        throw error;
+      }
+
+      console.log('✅ Toll crossings loaded:', data?.length || 0);
+      setTollCrossings(data || []);
+    } catch (error) {
+      console.error('Error loading toll crossings:', error);
+      setTollCrossings([]);
+    }
+  };
   const handleVehicleUnassign = async () => {
     try {
       const { unassignVehicle } = await import('@/api/vehicles');
@@ -695,6 +723,7 @@ export const BookingDetail = () => {
                 )}
 
                 {/* Activity Summary */}
+                {/* Activity Summary */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm flex items-center gap-2">
@@ -703,19 +732,42 @@ export const BookingDetail = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3 text-sm">
-                      {bookingTimeline.slice(0, 3).map((event, index) => (
-                        <div key={index} className="flex gap-2">
-                          <div className={cn("w-2 h-2 rounded-full mt-1.5", getEventColor(event.action))} />
-                          <div className="flex-1">
-                            <p className="font-medium text-xs">{getEventDescription(event)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDateTime(event.created_at)}
-                            </p>
+                    {booking.assignedVehicle && tollCrossings.length > 0 ? (
+                      // ✅ Show Toll Crossings
+                      <div className="space-y-3 text-sm">
+                        {tollCrossings.map((toll, index) => (
+                          <div key={toll.id} className="flex gap-2">
+                            <div className="w-2 h-2 rounded-full mt-1.5 bg-orange-500" />
+                            <div className="flex-1">
+                              <p className="font-medium text-xs">Vehicle crossed {toll.toll_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(toll.crossed_at)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      // ✅ Fallback to Timeline Events
+                      <div className="space-y-3 text-sm">
+                        {bookingTimeline.slice(0, 3).map((event, index) => (
+                          <div key={index} className="flex gap-2">
+                            <div className={cn("w-2 h-2 rounded-full mt-1.5", getEventColor(event.action))} />
+                            <div className="flex-1">
+                              <p className="font-medium text-xs">{getEventDescription(event)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDateTime(event.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                        {bookingTimeline.length === 0 && (
+                          <p className="text-xs text-muted-foreground text-center py-4">
+                            No recent activity
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>

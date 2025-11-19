@@ -489,7 +489,6 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
           .order('departure_date', { ascending: false })
           .limit(1)
           .maybeSingle();
-
         if (lastConsignment?.warehouse_id) {
           await supabase
             .from('bookings')
@@ -498,7 +497,6 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
           console.log('✅ Fallback: Warehouse restored');
         }
       }
-
       // Update status
       await supabase
         .from('bookings')
@@ -530,9 +528,45 @@ export const fetchBookingById = async (id: string) => {
     .select(`
       *,
       current_warehouse:warehouses(id, name, city),
+      branch:company_branches(
+        id,
+        branch_name,
+        branch_code,
+        city
+      ),
+      consignor:parties!bookings_consignor_id_fkey(
+        id,
+        name,
+        contact_person,
+        phone,
+        email,
+        address_line1,
+        city,
+        state,
+        pincode,
+        gst_number,
+        pan_number
+      ),
+      consignee:parties!bookings_consignee_id_fkey(
+        id,
+        name,
+        contact_person,
+        phone,
+        email,
+        address_line1,
+        city,
+        state,
+        pincode,
+        gst_number,
+        pan_number
+      ),
       vehicle_assignments!left(
+        id,
         status,
         vehicle_type,
+        created_at,
+        last_toll_crossed,
+        last_toll_time,
         owned_vehicle:owned_vehicles!owned_vehicle_id(
           id,
           vehicle_number,
@@ -549,12 +583,16 @@ export const fetchBookingById = async (id: string) => {
           id,
           name,
           phone,
-          experience
+          experience,
+          license_number
         ),
         broker:brokers(
+          id,
           name,
           contact_person,
-          phone
+          phone,
+          email,
+          city
         )
       )
     `)
@@ -567,7 +605,6 @@ export const fetchBookingById = async (id: string) => {
   }
 
   if (data) {
-    // ✅ FIXED - Only get ACTIVE assignments (like BookingList does)
     const activeAssignment = (data.vehicle_assignments || []).find(va => va.status === 'ACTIVE');
 
     if (activeAssignment) {
@@ -577,6 +614,7 @@ export const fetchBookingById = async (id: string) => {
 
       data.vehicle_assignments = vehicle ? [{
         ...activeAssignment,
+        id: activeAssignment.id,
         vehicle: {
           id: vehicle.id,
           vehicle_number: vehicle.vehicle_number,
@@ -587,9 +625,11 @@ export const fetchBookingById = async (id: string) => {
         broker: activeAssignment.broker
       }] : []
     } else {
-      // ✅ IMPORTANT - No assignment means empty array
       data.vehicle_assignments = [];
     }
+
+    data.consignor_name = data.consignor?.name || 'Unknown Consignor';
+    data.consignee_name = data.consignee?.name || 'Unknown Consignee';
   }
 
   return data
