@@ -42,7 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { formatValidityDate } from '@/api/ewayBill';
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -68,7 +68,11 @@ import {
   TrendingUp,
   FileDown,
   Building2,
-  X
+  X,
+  Receipt,
+  Zap,
+  Upload,
+  Check
 } from "lucide-react";
 import { fetchBookings, updateBookingStatus, updateBookingWarehouse, deleteBooking, updateBooking, updateBookingLR } from "@/api/bookings";
 import { fetchWarehouses } from "@/api/warehouses";
@@ -78,13 +82,14 @@ import { CreateLRModal, LRData } from "./CreateLRModal";
 import { BookingFormModal } from "./BookingFormModal";
 import { EditFullBookingModal } from "./EditFullBookingModal";
 import { WarehouseSelectionModal } from "../../components/WarehouseSelectionModal";
-import { useToast } from "@/hooks/use-toast";
+import { toast, useToast } from "@/hooks/use-toast";
 import { checkTemplateStatus, generateLRWithTemplate } from "@/api/lr-templates";
 import { LRTemplateOnboarding } from "@/components/LRTemplateOnboarding";
 import { getBookingStage, getProgressiveAction, stageConfig } from "@/lib/bookingStages";
 import { ProgressiveActionButton } from "@/components/ProgressiveActionButton";
 import { UploadPODModal } from "./UploadPODModal";
 import { BookingDetailSheet } from "./BookingDetailSheet";
+import { QuickInvoiceModal } from "@/components/QuickInvoiceModal";
 
 // Convert Supabase data to your existing interface
 interface Booking {
@@ -150,6 +155,141 @@ interface Booking {
   billed_at?: string;
   actual_delivery?: string;
 }
+const handleDownloadLR = async (booking: Booking) => {
+  if (!booking.lrNumber) {
+    toast({
+      title: "❌ Error",
+      description: "LR not found for this booking",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    // Show loading toast
+    const loadingToast = toast({
+      title: "⏳ Generating PDF...",
+      description: `Please wait while we generate LR ${booking.lrNumber}`,
+    });
+
+    // Call your LR generation API
+    await generateLRWithTemplate(booking.id);
+
+    // Success toast
+    toast({
+      title: "✅ PDF Downloaded",
+      description: `LR ${booking.lrNumber} has been downloaded successfully`,
+    });
+  } catch (error) {
+    console.error('Error generating LR:', error);
+    toast({
+      title: "❌ Download Failed",
+      description: "Failed to generate LR PDF. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+const getDocumentStatuses = (booking: Booking): {
+  lr: DocStatus;
+  pod: DocStatus;
+  eway: DocStatus;
+  invoice: DocStatus;
+} => {
+  return {
+    // LR Status
+    lr: {
+      icon: FileText,
+      label: 'LR',
+      status: booking.lrNumber ? 'done' : 'pending',
+      color: booking.lrNumber ? 'text-green-600' : 'text-gray-400',
+      bgColor: booking.lrNumber ? 'bg-green-50' : 'bg-gray-50',
+      tooltip: booking.lrNumber
+        ? `LR: ${booking.lrNumber}${booking.lrDate ? ` • ${formatDate(booking.lrDate)}` : ''}`
+        : 'LR not created',
+      value: booking.lrNumber,
+      // ✅ UPDATED: Call actual download function
+      onClick: booking.lrNumber
+        ? () => handleDownloadLR(booking)
+        : undefined
+    },
+
+    // POD Status
+    pod: {
+      icon: Upload,
+      label: 'POD',
+      status: booking.pod_uploaded_at ? 'done' : 'pending',
+      color: booking.pod_uploaded_at ? 'text-green-600' : 'text-gray-400',
+      bgColor: booking.pod_uploaded_at ? 'bg-green-50' : 'bg-gray-50',
+      tooltip: booking.pod_uploaded_at
+        ? `POD uploaded • ${formatDate(booking.pod_uploaded_at)}`
+        : 'POD not uploaded',
+      value: booking.pod_file_url,
+      onClick: booking.pod_file_url
+        ? () => window.open(booking.pod_file_url, '_blank')
+        : undefined
+    },
+
+    // E-way Bill Status
+    eway: {
+      icon: Zap,
+      label: 'E-way',
+      status: (() => {
+        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+          return 'none';
+        }
+
+        // Check if any e-way bill is expired
+        const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+          if (!ewb.valid_until) return false;
+          return new Date(ewb.valid_until) < new Date();
+        });
+
+        return hasExpired ? 'expired' : 'done';
+      })(),
+      color: (() => {
+        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+          return 'text-gray-400';
+        }
+        const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+          if (!ewb.valid_until) return false;
+          return new Date(ewb.valid_until) < new Date();
+        });
+        return hasExpired ? 'text-red-600' : 'text-green-600';
+      })(),
+      bgColor: (() => {
+        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+          return 'bg-gray-50';
+        }
+        const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+          if (!ewb.valid_until) return false;
+          return new Date(ewb.valid_until) < new Date();
+        });
+        return hasExpired ? 'bg-red-50' : 'bg-green-50';
+      })(),
+      tooltip: (() => {
+        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+          return 'No E-way bill';
+        }
+        const count = booking.eway_bill_details.length;
+        return `${count} E-way bill${count > 1 ? 's' : ''}`;
+      })(),
+      value: booking.eway_bill_details?.[0]?.number
+    },
+
+    // Invoice Status
+    invoice: {
+      icon: Receipt,
+      label: 'Invoice',
+      status: booking.billed_at ? 'done' : 'pending',
+      color: booking.billed_at ? 'text-green-600' : 'text-gray-400',
+      bgColor: booking.billed_at ? 'bg-green-50' : 'bg-gray-50',
+      tooltip: booking.billed_at
+        ? `Billed • ${formatDate(booking.billed_at)}`
+        : 'Not billed yet',
+      value: booking.invoice_number
+    }
+  };
+};
 
 interface Warehouse {
   id: string;
@@ -157,7 +297,16 @@ interface Warehouse {
   city: string;
   state: string;
 }
-
+interface DocStatus {
+  icon: any;
+  label: string;
+  status: 'done' | 'pending' | 'expired' | 'none';
+  color: string;
+  bgColor: string;
+  tooltip: string;
+  value?: string; // LR number, Invoice number, etc.
+  onClick?: () => void;
+}
 // Status color mapping with gradient
 // Add AT_WAREHOUSE to statusConfig
 const statusConfig = {
@@ -338,7 +487,6 @@ export const BookingList = () => {
     isOpen: boolean;
     bookingId: string;
   }>({ isOpen: false, bookingId: "" });
-
   const [invoiceModal, setInvoiceModal] = useState<{
     isOpen: boolean;
     bookingId: string;
@@ -625,31 +773,7 @@ export const BookingList = () => {
     }
   };
 
-  const handleDownloadLR = async (booking: Booking) => {
-    if (!booking.lrNumber) {
-      toast({
-        title: "❌ Error",
-        description: "LR not found for this booking",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    try {
-      await generateLRWithTemplate(booking.id);
-      toast({
-        title: "✅ PDF Downloaded",
-        description: `LR ${booking.lrNumber} has been downloaded`,
-      });
-    } catch (error) {
-      console.error('Error generating LR:', error);
-      toast({
-        title: "❌ Error",
-        description: "Failed to generate LR PDF",
-        variant: "destructive",
-      });
-    }
-  };
 
   if (needsTemplateSetup) {
     return <LRTemplateOnboarding onComplete={() => setNeedsTemplateSetup(false)} />;
@@ -937,10 +1061,10 @@ export const BookingList = () => {
                         Vehicle
                       </div>
                     </TableHead>
-                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[140px]">
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[160px]">
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary" />
-                        LR Status
+                        Documents
                       </div>
                     </TableHead>
                     <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[100px] text-center">
@@ -1219,62 +1343,142 @@ export const BookingList = () => {
                           </TableCell>
 
                           {/* ✅ COLUMN 6: LR Status - VERTICAL STACK */}
+                          {/* ✅ COLUMN 6: Documents - 4 Status Icons */}
                           <TableCell className="py-3">
-                            {booking.lrNumber ? (
-                              <div className="space-y-1.5">
-                                <div className="flex items-center gap-1">
-                                  <Badge className="bg-green-600 text-white text-[10px] px-2 py-0.5 border-0 flex-1">
-                                    <FileText className="w-2.5 h-2.5 mr-1" />
-                                    {booking.lrNumber}
-                                  </Badge>
+                            {(() => {
+                              const docs = getDocumentStatuses(booking);
+
+                              return (
+                                <div className="grid grid-cols-2 gap-1.5">
+                                  {/* LR */}
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => handleDownloadLR(booking)}
-                                          className="h-6 w-6 hover:bg-green-100"
+                                        <div
+                                          className={cn(
+                                            "flex items-center gap-1 px-2 py-1 rounded transition-all cursor-pointer",
+                                            docs.lr.bgColor,
+                                            docs.lr.onClick && "hover:ring-2 hover:ring-primary/20"
+                                          )}
+                                          onClick={docs.lr.onClick}
                                         >
-                                          <Download className="w-3 h-3 text-green-600" />
-                                        </Button>
+                                          {/* <docs.lr.icon className={cn("w-3 h-3", docs.lr.color)} /> */}
+                                          <span className={cn("text-[9px] font-medium", docs.lr.color)}>
+                                            {docs.lr.label}
+                                          </span>
+                                          {docs.lr.status === 'done' && (
+                                            <Check className="w-2.5 h-2.5 text-green-600 ml-auto" />
+                                          )}
+                                        </div>
                                       </TooltipTrigger>
-                                      <TooltipContent>Download PDF</TooltipContent>
+                                      <TooltipContent side="top">
+                                        <p className="text-xs">{docs.lr.tooltip}</p>
+                                        {docs.lr.value && (
+                                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                                            Click to download
+                                          </p>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+
+                                  {/* POD */}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className={cn(
+                                            "flex items-center gap-1 px-2 py-1 rounded transition-all cursor-pointer",
+                                            docs.pod.bgColor,
+                                            docs.pod.onClick && "hover:ring-2 hover:ring-primary/20"
+                                          )}
+                                          onClick={docs.pod.onClick}
+                                        >
+                                          {/* <docs.pod.icon className={cn("w-3 h-3", docs.pod.color)} /> */}
+                                          <span className={cn("text-[9px] font-medium", docs.pod.color)}>
+                                            {docs.pod.label}
+                                          </span>
+                                          {docs.pod.status === 'done' && (
+                                            <Check className="w-2.5 h-2.5 text-green-600 ml-auto" />
+                                          )}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">
+                                        <p className="text-xs">{docs.pod.tooltip}</p>
+                                        {docs.pod.value && (
+                                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                                            Click to view
+                                          </p>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+
+                                  {/* E-way Bill */}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className={cn(
+                                            "flex items-center gap-1 px-2 py-1 rounded transition-all",
+                                            docs.eway.bgColor
+                                          )}
+                                        >
+                                          {/* <docs.eway.icon className={cn("w-3 h-3", docs.eway.color)} /> */}
+                                          <span className={cn("text-[9px] font-medium", docs.eway.color)}>
+                                            {docs.eway.label}
+                                          </span>
+                                          {docs.eway.status === 'done' && (
+                                            <Check className="w-2.5 h-2.5 text-green-600 ml-auto" />
+                                          )}
+                                          {docs.eway.status === 'expired' && (
+                                            <AlertCircle className="w-2.5 h-2.5 text-red-600 ml-auto" />
+                                          )}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">
+                                        <p className="text-xs">{docs.eway.tooltip}</p>
+                                        {docs.eway.value && (
+                                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                            {docs.eway.value}
+                                          </p>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+
+                                  {/* Invoice */}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          className={cn(
+                                            "flex items-center gap-1 px-2 py-1 rounded transition-all",
+                                            docs.invoice.bgColor
+                                          )}
+                                        >
+                                          {/* <docs.invoice.icon className={cn("w-3 h-3", docs.invoice.color)} /> */}
+                                          <span className={cn("text-[9px] font-medium", docs.invoice.color)}>
+                                            {docs.invoice.label}
+                                          </span>
+                                          {docs.invoice.status === 'done' && (
+                                            <Check className="w-2.5 h-2.5 text-green-600 ml-auto" />
+                                          )}
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">
+                                        <p className="text-xs">{docs.invoice.tooltip}</p>
+                                        {docs.invoice.value && (
+                                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                                            {docs.invoice.value}
+                                          </p>
+                                        )}
+                                      </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
                                 </div>
-                                {booking.eway_bill_details && booking.eway_bill_details.length > 0 && (
-                                  <div className="flex flex-wrap gap-0.5">
-                                    {booking.eway_bill_details.slice(0, 1).map((ewb: any, idx: number) => (
-                                      <Badge key={idx} variant="secondary" className="text-[9px] px-1.5 py-0">
-                                        E: {ewb.number.slice(-4)}
-                                      </Badge>
-                                    ))}
-                                    {booking.eway_bill_details.length > 1 && (
-                                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                                        +{booking.eway_bill_details.length - 1}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-1">
-                                <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-dashed w-full justify-center">
-                                  <Clock className="w-2.5 h-2.5 mr-1" />
-                                  Pending
-                                </Badge>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
-                                  className="w-full h-6 text-[10px] border hover:border-primary hover:bg-primary/5"
-                                >
-                                  <FileText className="w-2.5 h-2.5 mr-1" />
-                                  Create
-                                </Button>
-                              </div>
-                            )}
+                              );
+                            })()}
                           </TableCell>
 
                           {/* ✅ COLUMN 7: Actions - COMPACT */}
@@ -1300,11 +1504,15 @@ export const BookingList = () => {
                                         setInvoiceModal({ isOpen: true, bookingId: booking.id });
                                         break;
                                       case 'VIEW_INVOICE':
-                                        toast({
-                                          title: "Invoice",
-                                          description: `Invoice ${booking.invoice_number}`,
-                                        });
+                                        if (booking.invoice_number) {
+                                          toast({
+                                            title: "Invoice",
+                                            description: `Invoice: ${booking.invoice_number}`,
+                                          });
+                                          // TODO: Open invoice PDF when available
+                                        }
                                         break;
+
                                       case 'REFRESH':
                                         loadData();
                                         break;
@@ -1588,11 +1796,28 @@ export const BookingList = () => {
         })()}
         onSuccess={loadData}
       />
+
       <BookingDetailSheet
         isOpen={detailSheet.isOpen}
         onClose={() => setDetailSheet({ isOpen: false, bookingId: "" })}
         bookingId={detailSheet.bookingId}
         onUpdate={loadData}
+      />
+      <QuickInvoiceModal
+        isOpen={invoiceModal.isOpen}
+        onClose={() => setInvoiceModal({ isOpen: false, bookingId: "" })}
+        booking={(() => {
+          const found = filteredBookings.find(b => b.id === invoiceModal.bookingId);
+          return found ? {
+            id: found.id,
+            bookingId: found.bookingId,
+            consignorName: found.consignorName,
+            consigneeName: found.consigneeName,
+            fromLocation: found.fromLocation,
+            toLocation: found.toLocation
+          } : null;
+        })()}
+        onSuccess={loadData}
       />
     </div>
   );

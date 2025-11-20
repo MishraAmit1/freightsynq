@@ -82,7 +82,8 @@ export const getBookingStage = (booking: any): BookingStage => {
     // Reverse order - check latest stages first
 
     // Stage 6: Billed (final stage)
-    if (booking.billed_at || booking.billedAt || booking.invoice_number || booking.invoiceNumber) {
+    // ✅ FIX: Only consider BILLED if billed_at is set
+    if (booking.billed_at || booking.billedAt) {
         return 'BILLED';
     }
 
@@ -96,7 +97,7 @@ export const getBookingStage = (booking: any): BookingStage => {
         return 'DELIVERED';
     }
 
-    // ✅ FIX: Stage 3: In Transit (LR created) - Check both formats
+    // ✅ Stage 3: In Transit (LR created)
     if (booking.lrNumber || booking.lr_number || booking.status === 'IN_TRANSIT') {
         return 'IN_TRANSIT';
     }
