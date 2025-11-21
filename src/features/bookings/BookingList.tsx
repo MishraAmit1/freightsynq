@@ -72,7 +72,8 @@ import {
   Receipt,
   Zap,
   Upload,
-  Check
+  Check,
+  MessageSquare
 } from "lucide-react";
 import { fetchBookings, updateBookingStatus, updateBookingWarehouse, deleteBooking, updateBooking, updateBookingLR } from "@/api/bookings";
 import { fetchWarehouses } from "@/api/warehouses";
@@ -90,6 +91,9 @@ import { ProgressiveActionButton } from "@/components/ProgressiveActionButton";
 import { UploadPODModal } from "./UploadPODModal";
 import { BookingDetailSheet } from "./BookingDetailSheet";
 import { QuickInvoiceModal } from "@/components/QuickInvoiceModal";
+import { formatETA, getSLAStatus } from "@/lib/etaCalculations";
+import { EditRemarksModal } from "@/components/EditRemarksModal";
+import { PODViewerModal } from "@/components/PODViewerModal";
 
 // Convert Supabase data to your existing interface
 interface Booking {
@@ -113,6 +117,8 @@ interface Booking {
   branch_code?: string;
   branch_city?: string;
   eway_bill_details?: any[];
+  estimated_arrival?: string;
+  remarks?: string;
   shipmentStatus: "AT_WAREHOUSE" | "IN_TRANSIT" | "DELIVERED";
   current_warehouse?: {
     id?: string;
@@ -147,6 +153,8 @@ interface Booking {
       name: string;
       phone: string;
     };
+
+    actual_delivery?: string;
   }>;
 
   // For stage detection (already exists but confirming)
@@ -154,142 +162,12 @@ interface Booking {
   pod_file_url?: string;
   billed_at?: string;
   actual_delivery?: string;
+  alerts?: Array<{
+    type: 'POD_PENDING' | 'EWAY_EXPIRING';
+    severity: 'warning' | 'critical';
+    message: string;
+  }>;
 }
-const handleDownloadLR = async (booking: Booking) => {
-  if (!booking.lrNumber) {
-    toast({
-      title: "❌ Error",
-      description: "LR not found for this booking",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  try {
-    // Show loading toast
-    const loadingToast = toast({
-      title: "⏳ Generating PDF...",
-      description: `Please wait while we generate LR ${booking.lrNumber}`,
-    });
-
-    // Call your LR generation API
-    await generateLRWithTemplate(booking.id);
-
-    // Success toast
-    toast({
-      title: "✅ PDF Downloaded",
-      description: `LR ${booking.lrNumber} has been downloaded successfully`,
-    });
-  } catch (error) {
-    console.error('Error generating LR:', error);
-    toast({
-      title: "❌ Download Failed",
-      description: "Failed to generate LR PDF. Please try again.",
-      variant: "destructive",
-    });
-  }
-};
-const getDocumentStatuses = (booking: Booking): {
-  lr: DocStatus;
-  pod: DocStatus;
-  eway: DocStatus;
-  invoice: DocStatus;
-} => {
-  return {
-    // LR Status
-    lr: {
-      icon: FileText,
-      label: 'LR',
-      status: booking.lrNumber ? 'done' : 'pending',
-      color: booking.lrNumber ? 'text-green-600' : 'text-gray-400',
-      bgColor: booking.lrNumber ? 'bg-green-50' : 'bg-gray-50',
-      tooltip: booking.lrNumber
-        ? `LR: ${booking.lrNumber}${booking.lrDate ? ` • ${formatDate(booking.lrDate)}` : ''}`
-        : 'LR not created',
-      value: booking.lrNumber,
-      // ✅ UPDATED: Call actual download function
-      onClick: booking.lrNumber
-        ? () => handleDownloadLR(booking)
-        : undefined
-    },
-
-    // POD Status
-    pod: {
-      icon: Upload,
-      label: 'POD',
-      status: booking.pod_uploaded_at ? 'done' : 'pending',
-      color: booking.pod_uploaded_at ? 'text-green-600' : 'text-gray-400',
-      bgColor: booking.pod_uploaded_at ? 'bg-green-50' : 'bg-gray-50',
-      tooltip: booking.pod_uploaded_at
-        ? `POD uploaded • ${formatDate(booking.pod_uploaded_at)}`
-        : 'POD not uploaded',
-      value: booking.pod_file_url,
-      onClick: booking.pod_file_url
-        ? () => window.open(booking.pod_file_url, '_blank')
-        : undefined
-    },
-
-    // E-way Bill Status
-    eway: {
-      icon: Zap,
-      label: 'E-way',
-      status: (() => {
-        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
-          return 'none';
-        }
-
-        // Check if any e-way bill is expired
-        const hasExpired = booking.eway_bill_details.some((ewb: any) => {
-          if (!ewb.valid_until) return false;
-          return new Date(ewb.valid_until) < new Date();
-        });
-
-        return hasExpired ? 'expired' : 'done';
-      })(),
-      color: (() => {
-        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
-          return 'text-gray-400';
-        }
-        const hasExpired = booking.eway_bill_details.some((ewb: any) => {
-          if (!ewb.valid_until) return false;
-          return new Date(ewb.valid_until) < new Date();
-        });
-        return hasExpired ? 'text-red-600' : 'text-green-600';
-      })(),
-      bgColor: (() => {
-        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
-          return 'bg-gray-50';
-        }
-        const hasExpired = booking.eway_bill_details.some((ewb: any) => {
-          if (!ewb.valid_until) return false;
-          return new Date(ewb.valid_until) < new Date();
-        });
-        return hasExpired ? 'bg-red-50' : 'bg-green-50';
-      })(),
-      tooltip: (() => {
-        if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
-          return 'No E-way bill';
-        }
-        const count = booking.eway_bill_details.length;
-        return `${count} E-way bill${count > 1 ? 's' : ''}`;
-      })(),
-      value: booking.eway_bill_details?.[0]?.number
-    },
-
-    // Invoice Status
-    invoice: {
-      icon: Receipt,
-      label: 'Invoice',
-      status: booking.billed_at ? 'done' : 'pending',
-      color: booking.billed_at ? 'text-green-600' : 'text-gray-400',
-      bgColor: booking.billed_at ? 'bg-green-50' : 'bg-gray-50',
-      tooltip: booking.billed_at
-        ? `Billed • ${formatDate(booking.billed_at)}`
-        : 'Not billed yet',
-      value: booking.invoice_number
-    }
-  };
-};
 
 interface Warehouse {
   id: string;
@@ -487,7 +365,12 @@ export const BookingList = () => {
     isOpen: boolean;
     bookingId: string;
   }>({ isOpen: false, bookingId: "" });
+
   const [invoiceModal, setInvoiceModal] = useState<{
+    isOpen: boolean;
+    bookingId: string;
+  }>({ isOpen: false, bookingId: "" });
+  const [remarksModal, setRemarksModal] = useState<{
     isOpen: boolean;
     bookingId: string;
   }>({ isOpen: false, bookingId: "" });
@@ -495,6 +378,150 @@ export const BookingList = () => {
     isOpen: boolean;
     bookingId: string;
   }>({ isOpen: false, bookingId: "" });
+  const [podViewer, setPodViewer] = useState<{
+    isOpen: boolean;
+    fileUrl: string | null;
+    bookingId: string;
+  }>({ isOpen: false, fileUrl: null, bookingId: "" });
+  const handleDownloadLR = async (booking: Booking) => {
+    if (!booking.lrNumber) {
+      toast({
+        title: "❌ Error",
+        description: "LR not found for this booking",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Show loading toast
+      const loadingToast = toast({
+        title: "⏳ Generating PDF...",
+        description: `Please wait while we generate LR ${booking.lrNumber}`,
+      });
+
+      // Call your LR generation API
+      await generateLRWithTemplate(booking.id);
+
+      // Success toast
+      toast({
+        title: "✅ PDF Downloaded",
+        description: `LR ${booking.lrNumber} has been downloaded successfully`,
+      });
+    } catch (error) {
+      console.error('Error generating LR:', error);
+      toast({
+        title: "❌ Download Failed",
+        description: "Failed to generate LR PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  const getDocumentStatuses = (booking: Booking): {
+    lr: DocStatus;
+    pod: DocStatus;
+    eway: DocStatus;
+    invoice: DocStatus;
+  } => {
+    return {
+      // LR Status
+      lr: {
+        icon: FileText,
+        label: 'LR',
+        status: booking.lrNumber ? 'done' : 'pending',
+        color: booking.lrNumber ? 'text-green-600' : 'text-gray-400',
+        bgColor: booking.lrNumber ? 'bg-green-50' : 'bg-gray-50',
+        tooltip: booking.lrNumber
+          ? `LR: ${booking.lrNumber}${booking.lrDate ? ` • ${formatDate(booking.lrDate)}` : ''}`
+          : 'LR not created',
+        value: booking.lrNumber,
+        // ✅ UPDATED: Call actual download function
+        onClick: booking.lrNumber
+          ? () => handleDownloadLR(booking)
+          : undefined
+      },
+
+      // POD Status
+      pod: {
+        icon: Upload,
+        label: 'POD',
+        status: booking.pod_uploaded_at ? 'done' : 'pending',
+        color: booking.pod_uploaded_at ? 'text-green-600' : 'text-gray-400',
+        bgColor: booking.pod_uploaded_at ? 'bg-green-50' : 'bg-gray-50',
+        tooltip: booking.pod_uploaded_at
+          ? `POD uploaded • ${formatDate(booking.pod_uploaded_at)}`
+          : 'POD not uploaded',
+        value: booking.pod_file_url,
+        onClick: booking.pod_file_url
+          ? () => setPodViewer({
+            isOpen: true,
+            fileUrl: booking.pod_file_url!,
+            bookingId: booking.bookingId
+          })
+          : undefined
+      },
+
+      // E-way Bill Status
+      eway: {
+        icon: Zap,
+        label: 'E-way',
+        status: (() => {
+          if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+            return 'none';
+          }
+
+          // Check if any e-way bill is expired
+          const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+            if (!ewb.valid_until) return false;
+            return new Date(ewb.valid_until) < new Date();
+          });
+
+          return hasExpired ? 'expired' : 'done';
+        })(),
+        color: (() => {
+          if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+            return 'text-gray-400';
+          }
+          const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+            if (!ewb.valid_until) return false;
+            return new Date(ewb.valid_until) < new Date();
+          });
+          return hasExpired ? 'text-red-600' : 'text-green-600';
+        })(),
+        bgColor: (() => {
+          if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+            return 'bg-gray-50';
+          }
+          const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+            if (!ewb.valid_until) return false;
+            return new Date(ewb.valid_until) < new Date();
+          });
+          return hasExpired ? 'bg-red-50' : 'bg-green-50';
+        })(),
+        tooltip: (() => {
+          if (!booking.eway_bill_details || booking.eway_bill_details.length === 0) {
+            return 'No E-way bill';
+          }
+          const count = booking.eway_bill_details.length;
+          return `${count} E-way bill${count > 1 ? 's' : ''}`;
+        })(),
+        value: booking.eway_bill_details?.[0]?.number
+      },
+
+      // Invoice Status
+      invoice: {
+        icon: Receipt,
+        label: 'Invoice',
+        status: booking.billed_at ? 'done' : 'pending',
+        color: booking.billed_at ? 'text-green-600' : 'text-gray-400',
+        bgColor: booking.billed_at ? 'bg-green-50' : 'bg-gray-50',
+        tooltip: booking.billed_at
+          ? `Billed • ${formatDate(booking.billed_at)}`
+          : 'Not billed yet',
+        value: booking.invoice_number
+      }
+    };
+  };
   // Add style to document
   useEffect(() => {
     const styleElement = document.createElement('style');
@@ -587,7 +614,45 @@ export const BookingList = () => {
             ? activeAssignment.owned_vehicle
             : activeAssignment.hired_vehicle;
         }
+        // ============================================
+        // ✅ ADD ALERT LOGIC HERE
+        // ============================================
+        const alerts: any[] = [];
+        const now = new Date();
 
+        // 1. POD Pending Alert (> 24h)
+        if (booking.status === 'DELIVERED' && !booking.pod_uploaded_at) {
+          // Use actual delivery time or updated_at
+          const deliveryTime = new Date(booking.actual_delivery || booking.updated_at);
+          const hoursSinceDelivery = (now.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60);
+
+          if (hoursSinceDelivery > 24) {
+            alerts.push({
+              type: 'POD_PENDING',
+              severity: 'critical',
+              message: `POD pending for ${Math.floor(hoursSinceDelivery)} hours`
+            });
+          }
+        }
+
+        // 2. E-way Bill Expiring Alert (< 12h)
+        if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
+          booking.eway_bill_details.forEach((ewb: any) => {
+            if (ewb.valid_until) {
+              const validUntil = new Date(ewb.valid_until);
+              const hoursLeft = (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+              // Only if active (not expired yet) and < 12h left
+              if (hoursLeft > 0 && hoursLeft < 12) {
+                alerts.push({
+                  type: 'EWAY_EXPIRING',
+                  severity: 'warning',
+                  message: `E-way bill expires in ${Math.floor(hoursLeft)}h`
+                });
+              }
+            }
+          });
+        }
         return {
           id: booking.id,
           bookingId: booking.booking_id,
@@ -630,7 +695,10 @@ export const BookingList = () => {
           pod_file_url: booking.pod_file_url,
           billed_at: booking.billed_at,
           actual_delivery: booking.actual_delivery,
-          vehicle_assignments: activeAssignment ? [activeAssignment] : []
+          estimated_arrival: booking.estimated_arrival, // ✅ THIS IS CRITICAL!
+          remarks: booking.remarks,
+          vehicle_assignments: activeAssignment ? [activeAssignment] : [],
+          alerts: alerts,
         };
       });
 
@@ -1067,6 +1135,13 @@ export const BookingList = () => {
                         Documents
                       </div>
                     </TableHead>
+                    {/* ✅ NEW COLUMN 7: ETA / SLA */}
+                    <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[140px]">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary" />
+                        ETA / SLA
+                      </div>
+                    </TableHead>
                     <TableHead className="font-bold text-gray-900 dark:text-gray-100 w-[100px] text-center">
                       Actions
                     </TableHead>
@@ -1075,7 +1150,7 @@ export const BookingList = () => {
                 <TableBody>
                   {filteredBookings.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-20">
+                      <TableCell colSpan={8} className="text-center py-20">
                         <div className="flex flex-col items-center gap-4">
                           <div className="p-5 bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl">
                             <Package className="w-16 h-16 text-primary/40" />
@@ -1120,13 +1195,43 @@ export const BookingList = () => {
                           {/* ✅ COLUMN 1: Booking ID - COMPACT */}
                           <TableCell className="font-mono py-3">
                             <div className="space-y-1">
-                              <Button
-                                variant="link"
-                                className="p-0 h-auto font-bold text-sm text-primary hover:text-primary/80"
-                                onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
-                              >
-                                {booking.bookingId}
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto font-bold text-sm text-primary hover:text-primary/80"
+                                  onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
+                                >
+                                  {booking.bookingId}
+                                </Button>
+
+                                {/* ✅ ADD ALERT ICON HERE */}
+                                {booking.alerts && booking.alerts.length > 0 && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="relative flex items-center justify-center cursor-help">
+                                          <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />
+                                          <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent className="bg-red-50 text-red-900 border-red-200 p-3 max-w-xs shadow-md">
+                                        <p className="font-bold text-xs mb-1 flex items-center gap-1">
+                                          <AlertTriangle className="w-3 h-3" />
+                                          Attention Required:
+                                        </p>
+                                        <ul className="list-disc pl-4 space-y-1">
+                                          {booking.alerts.map((alert, idx) => (
+                                            <li key={idx} className="text-xs font-medium">
+                                              {alert.message}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+
                               {booking.branch_name && (
                                 <div className="flex items-center gap-1 flex-wrap">
                                   <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
@@ -1480,7 +1585,38 @@ export const BookingList = () => {
                               );
                             })()}
                           </TableCell>
+                          {/* ✅ NEW COLUMN 7: ETA / SLA Status */}
+                          <TableCell className="py-3">
+                            {!booking.estimated_arrival ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : (
+                              <div className="space-y-1">
+                                {/* ETA Date/Time */}
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                                  <span className="text-[10px] font-medium truncate">
+                                    {formatETA(booking.estimated_arrival)}
+                                  </span>
+                                </div>
 
+                                {/* SLA Status Badge */}
+                                {(() => {
+                                  const sla = getSLAStatus(booking.estimated_arrival, booking.status);
+                                  return (
+                                    <div className={cn(
+                                      "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
+                                      sla.bgColor,
+                                      sla.color,
+                                      "border-current/20"
+                                    )}>
+                                      <span>{sla.icon}</span>
+                                      <span>{sla.label}</span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </TableCell>
                           {/* ✅ COLUMN 7: Actions - COMPACT */}
                           <TableCell className="py-3">
                             <div className="flex flex-row items-center">
@@ -1546,6 +1682,17 @@ export const BookingList = () => {
                                     <Edit className="mr-2 h-3.5 w-3.5" />
                                     <span className="text-xs">Edit Details</span>
                                   </DropdownMenuItem>
+                                  {/* ✅ ADD THIS - Remarks Menu Item */}
+                                  <DropdownMenuItem
+                                    onClick={() => setRemarksModal({ isOpen: true, bookingId: booking.id })}
+                                  >
+                                    <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                                    <span className="text-xs">
+                                      {booking.remarks ? 'Edit' : 'Add'} Remarks
+                                    </span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator />
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     className="text-destructive focus:text-destructive"
@@ -1555,6 +1702,7 @@ export const BookingList = () => {
                                     <span className="text-xs">Delete</span>
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
+
                               </DropdownMenu>
                             </div>
                           </TableCell>
@@ -1818,6 +1966,26 @@ export const BookingList = () => {
           } : null;
         })()}
         onSuccess={loadData}
+      />
+      {/* ✅ ADD THIS - Remarks Modal */}
+      <EditRemarksModal
+        isOpen={remarksModal.isOpen}
+        onClose={() => setRemarksModal({ isOpen: false, bookingId: "" })}
+        booking={(() => {
+          const found = filteredBookings.find(b => b.id === remarksModal.bookingId);
+          return found ? {
+            id: found.id,
+            bookingId: found.bookingId,
+            remarks: found.remarks
+          } : null;
+        })()}
+        onSuccess={loadData}
+      />
+      <PODViewerModal
+        isOpen={podViewer.isOpen}
+        onClose={() => setPodViewer({ isOpen: false, fileUrl: null, bookingId: "" })}
+        fileUrl={podViewer.fileUrl}
+        bookingId={podViewer.bookingId}
       />
     </div>
   );

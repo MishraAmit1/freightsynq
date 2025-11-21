@@ -1,3 +1,4 @@
+import { calculateBookingETA } from '@/lib/etaCalculations'
 import { supabase } from '@/lib/supabase'
 
 export interface OwnedVehicle {
@@ -402,6 +403,43 @@ export const assignVehicleToBooking = async (assignmentData: {
       }
     }
 
+    // ============================================
+    // ✅ ADD THIS - RECALCULATE ETA
+    // ============================================
+
+    // Get booking details to recalculate ETA
+    const { data: bookingForETA } = await supabase
+      .from('bookings')
+      .select('from_location, to_location, pickup_date')
+      .eq('id', assignmentData.booking_id)
+      .single();
+
+    if (bookingForETA) {
+      // Import ETA calculation helper
+
+      // Calculate new ETA (vehicle assigned, so more accurate)
+      const updatedETA = calculateBookingETA({
+        from_location: bookingForETA.from_location,
+        to_location: bookingForETA.to_location,
+        pickup_date: bookingForETA.pickup_date,
+        status: 'DISPATCHED'
+      });
+
+      console.log('📊 ETA recalculated on vehicle assignment:', updatedETA);
+
+      // Update booking with new ETA
+      await supabase
+        .from('bookings')
+        .update({
+          estimated_arrival: updatedETA.toISOString()
+        })
+        .eq('id', assignmentData.booking_id);
+    }
+
+    // ============================================
+    // Existing RPC call (no changes)
+    // ============================================
+
     // Call the RPC function (it creates timeline entry internally)
     const { data, error } = await supabase.rpc('assign_vehicle_to_booking_v2', {
       p_booking_id: assignmentData.booking_id,
@@ -412,15 +450,6 @@ export const assignVehicleToBooking = async (assignmentData: {
     });
 
     if (error) throw error;
-
-    // ❌ REMOVE THIS - RPC already creates timeline entry
-    // await supabase
-    //   .from('booking_timeline')
-    //   .insert({
-    //     booking_id: assignmentData.booking_id,
-    //     action: 'VEHICLE_ASSIGNED',
-    //     description: `Vehicle ${vehicleNumber} assigned with driver ${driverName}`,
-    //   });
 
     return data;
   } catch (error) {

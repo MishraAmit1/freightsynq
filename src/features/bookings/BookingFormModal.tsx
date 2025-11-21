@@ -541,7 +541,12 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   };
   const handleDateChange = (date: Date | null) => {
     if (date) {
-      const isoString = date.toISOString().split('T')[0];
+      // Use local date methods to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const isoString = `${year}-${month}-${day}`;
+
       const error = validatePickupDate(isoString);
       setDateError(error);
       setFormData({ ...formData, pickupDate: isoString });

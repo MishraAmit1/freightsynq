@@ -1,5 +1,6 @@
 // api/tracking.ts - COMPLETE FIX
 
+import { calculateBookingETA } from '@/lib/etaCalculations';
 import { supabase } from '@/lib/supabase';
 
 export interface TollCrossing {
@@ -234,6 +235,56 @@ export async function trackVehicle(
                             if (bookingUpdateError) {
                                 console.error(`   ⚠️ Booking update failed:`, bookingUpdateError.message);
                             }
+
+                            // ============================================
+                            // ✅ STEP 3.7 - ADD THIS - UPDATE ETA BASED ON CURRENT LOCATION
+                            // ============================================
+
+                            console.log(`   📊 Recalculating ETA based on toll crossing...`);
+
+                            // Get booking route details
+                            const { data: bookingForETA } = await supabase
+                                .from('bookings')
+                                .select('from_location, to_location, pickup_date')
+                                .eq('id', bookingId)
+                                .single();
+
+                            if (bookingForETA) {
+                                try {
+                                    // Import ETA helper
+
+                                    // Calculate new ETA with tracking data
+                                    const updatedETA = calculateBookingETA({
+                                        from_location: bookingForETA.from_location,
+                                        to_location: bookingForETA.to_location,
+                                        pickup_date: bookingForETA.pickup_date,
+                                        status: 'IN_TRANSIT',
+                                        vehicle_assignments: [{
+                                            last_toll_time: crossingTimeISO,
+                                            last_toll_crossed: crossing.tollPlazaName
+                                        }]
+                                    });
+
+                                    console.log(`   📊 New ETA calculated:`, updatedETA);
+
+                                    // Update booking ETA
+                                    const { error: etaUpdateError } = await supabase
+                                        .from('bookings')
+                                        .update({
+                                            estimated_arrival: updatedETA.toISOString()
+                                        })
+                                        .eq('id', bookingId);
+
+                                    if (etaUpdateError) {
+                                        console.error(`   ⚠️ ETA update failed:`, etaUpdateError.message);
+                                    } else {
+                                        console.log(`   ✅ ETA updated successfully`);
+                                    }
+                                } catch (etaError) {
+                                    console.error(`   ⚠️ ETA calculation error:`, etaError);
+                                    // Don't throw - ETA update is not critical
+                                }
+                            }
                         }
 
                         // Add timeline
@@ -250,6 +301,7 @@ export async function trackVehicle(
                             console.error(`   ⚠️ Timeline insert failed:`, timelineError.message);
                         }
                     }
+
 
                 } catch (processingError: any) {
                     console.error(`   ❌ Processing error:`, processingError.message);

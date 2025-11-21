@@ -1,3 +1,4 @@
+import { calculateBookingETA } from '@/lib/etaCalculations'
 import { supabase } from '@/lib/supabase'
 export interface BookingData {
   id: string
@@ -17,11 +18,14 @@ export interface BookingData {
   invoice_number?: string;
   eway_bill_details?: any[]
   created_at: string
+  estimated_arrival?: string
+  remarks?: string;
   current_warehouse?: {
     id?: string
     name: string
     city: string
   }
+
   vehicle_assignments?: Array<{
     status: string
     vehicle: {
@@ -187,14 +191,18 @@ export const createBooking = async (bookingData: {
     }
 
     console.log('✅ Generated booking ID:', bookingId);
-
+    const initialETA = calculateBookingETA({
+      pickup_date: bookingData.pickup_date,
+      from_location: bookingData.from_location,
+      to_location: bookingData.to_location
+    });
     // Create booking with new ID format
     const { data, error } = await supabase
       .from('bookings')
       .insert([{
         booking_id: bookingId,
         company_id: userProfile.company_id,
-        branch_id: bookingData.branch_id,  // ✅ ADDED
+        branch_id: bookingData.branch_id,
         consignor_id: bookingData.consignor_id,
         consignee_id: bookingData.consignee_id,
         from_location: bookingData.from_location,
@@ -206,6 +214,7 @@ export const createBooking = async (bookingData: {
         bilti_number: bookingData.bilti_number || null,
         invoice_number: bookingData.invoice_number || null,
         eway_bill_details: bookingData.eway_bill_details || [],
+        estimated_arrival: initialETA.toISOString(), // ✅ ADD THIS
         status: 'DRAFT',
         created_by: user.id
       }])

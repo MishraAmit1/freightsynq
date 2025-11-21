@@ -9,6 +9,8 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
     FileText,
@@ -27,6 +29,10 @@ import {
     Zap,
     MapPinned,
     Activity,
+    MessageSquare,
+    Edit,
+    Plus,
+    Save,
 } from "lucide-react";
 import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
@@ -80,7 +86,6 @@ interface BookingDetail {
         };
         assignedAt?: string;
         assignment_id?: string;
-        // ✅ NEW: Tracking data from vehicle_assignments
         last_toll_crossed?: string;
         last_toll_time?: string;
     };
@@ -94,6 +99,10 @@ interface BookingDetail {
     eway_bill_details?: Array<{
         number: string;
         valid_until?: string;
+    }>;
+    remarks?: string;
+    alerts?: Array<{
+        message: string;
     }>;
 }
 
@@ -118,6 +127,8 @@ export const BookingDetailSheet = ({
     const [booking, setBooking] = useState<BookingDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [showVehicleAssignModal, setShowVehicleAssignModal] = useState(false);
+    const [showRemarksModal, setShowRemarksModal] = useState(false);
+    const [remarksText, setRemarksText] = useState("");
 
     useEffect(() => {
         if (isOpen && bookingId) {
@@ -167,6 +178,7 @@ export const BookingDetailSheet = ({
                     branch_code: data.branch?.branch_code,
                     current_warehouse: data.current_warehouse,
                     eway_bill_details: data.eway_bill_details || [],
+                    remarks: data.remarks,
 
                     assignedVehicle: hasActiveAssignment ? {
                         id: activeAssignment.vehicle.id,
@@ -179,7 +191,6 @@ export const BookingDetailSheet = ({
                         } : undefined,
                         assignedAt: activeAssignment.created_at,
                         assignment_id: activeAssignment.id,
-                        // ✅ FIXED: Get tracking data from assignment
                         last_toll_crossed: activeAssignment.last_toll_crossed,
                         last_toll_time: activeAssignment.last_toll_time,
                     } : undefined,
@@ -193,9 +204,38 @@ export const BookingDetailSheet = ({
                     vehicleAssigned: !!convertedBooking.assignedVehicle,
                     lastTollCrossed: convertedBooking.assignedVehicle?.last_toll_crossed,
                     lastTollTime: convertedBooking.assignedVehicle?.last_toll_time,
+                    remarks: convertedBooking.remarks,
                 });
 
-                setBooking(convertedBooking);
+                // ✅ ADD ALERT CALCULATION
+                const alerts: any[] = [];
+                const now = new Date();
+
+                // 1. POD Check
+                if (data.status === 'DELIVERED' && !data.pod_uploaded_at) {
+                    const deliveryTime = new Date(data.actual_delivery || data.updated_at);
+                    const hoursSince = (now.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60);
+                    if (hoursSince > 24) {
+                        alerts.push({
+                            message: `POD pending for ${Math.floor(hoursSince)} hours`
+                        });
+                    }
+                }
+
+                // 2. E-way Check
+                if (data.eway_bill_details) {
+                    data.eway_bill_details.forEach((ewb: any) => {
+                        if (ewb.valid_until) {
+                            const hours = (new Date(ewb.valid_until).getTime() - now.getTime()) / 36e5;
+                            if (hours > 0 && hours < 12) {
+                                alerts.push({ message: `E-way expires in ${Math.floor(hours)}h` });
+                            }
+                        }
+                    });
+                }
+
+                setBooking({ ...convertedBooking, alerts });
+
             }
         } catch (error) {
             console.error('❌ Error loading booking:', error);
@@ -231,7 +271,6 @@ export const BookingDetailSheet = ({
         }
     };
 
-    // ✅ FIXED: Same freshness logic as BookingList
     const getTrackingFreshness = () => {
         if (!booking?.assignedVehicle?.last_toll_time) return null;
 
@@ -264,6 +303,40 @@ export const BookingDetailSheet = ({
             statusText: isFresh ? 'Live tracking' : isStale ? 'Recent data' : 'Old data',
             dotColor: isFresh ? 'bg-green-500' : isStale ? 'bg-yellow-500' : 'bg-gray-400',
         };
+    };
+
+    const handleSaveRemarks = async () => {
+        if (!booking) return;
+
+        try {
+            const { supabase } = await import('@/lib/supabase');
+            const trimmedRemarks = remarksText.trim();
+
+            const { error } = await supabase
+                .from('bookings')
+                .update({ remarks: trimmedRemarks || null })
+                .eq('id', booking.id);
+
+            if (error) throw error;
+
+            setBooking(prev => prev ? { ...prev, remarks: trimmedRemarks } : null);
+            setShowRemarksModal(false);
+            onUpdate?.();
+
+            toast({
+                title: "✅ Success",
+                description: trimmedRemarks
+                    ? "Remarks updated successfully"
+                    : "Remarks removed successfully",
+            });
+        } catch (error) {
+            console.error('Error updating remarks:', error);
+            toast({
+                title: "❌ Error",
+                description: "Failed to update remarks",
+                variant: "destructive",
+            });
+        }
     };
 
     if (!booking && !loading) return null;
@@ -354,7 +427,29 @@ export const BookingDetailSheet = ({
                                     </div>
                                 </div>
                             </div>
-
+                            {/* ✅ ALERT BANNER (New) */}
+                            {booking.alerts && booking.alerts.length > 0 && (
+                                <div className="bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-900 px-4 py-3 animate-in slide-in-from-top-2">
+                                    <div className="flex items-start gap-3">
+                                        <div className="p-1.5 bg-red-100 dark:bg-red-900/50 rounded-full shrink-0">
+                                            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-red-900 dark:text-red-200 mb-1">
+                                                Attention Required
+                                            </h4>
+                                            <ul className="space-y-1">
+                                                {booking.alerts.map((alert, idx) => (
+                                                    <li key={idx} className="text-xs text-red-700 dark:text-red-300 font-medium flex items-start gap-1.5">
+                                                        <span className="mt-1.5 w-1 h-1 rounded-full bg-red-500 shrink-0" />
+                                                        {alert.message}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {/* CONTENT */}
                             <div className="p-4 space-y-4">
                                 {/* Route */}
@@ -483,7 +578,7 @@ export const BookingDetailSheet = ({
                                     </div>
                                 )}
 
-                                {/* ✅ FIXED: Live Tracking - Same as BookingList */}
+                                {/* Live Tracking */}
                                 {booking.assignedVehicle && booking.assignedVehicle.last_toll_crossed && trackingInfo && (
                                     <div className={cn(
                                         "rounded-lg p-4 border",
@@ -686,6 +781,65 @@ export const BookingDetailSheet = ({
                                     </div>
                                 )}
 
+                                {/* Remarks Card */}
+                                <div className={cn(
+                                    "rounded-lg p-4 border",
+                                    booking.remarks
+                                        ? "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800"
+                                        : "bg-gray-50 dark:bg-gray-900/50 border-dashed border-2"
+                                )}>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <MessageSquare className={cn(
+                                            "w-4 h-4",
+                                            booking.remarks ? "text-orange-600" : "text-muted-foreground"
+                                        )} />
+                                        <h3 className="font-semibold text-sm">Remarks / Notes</h3>
+                                        {booking.remarks && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="ml-auto h-7 text-xs"
+                                                onClick={() => {
+                                                    setRemarksText(booking.remarks || "");
+                                                    setShowRemarksModal(true);
+                                                }}
+                                            >
+                                                <Edit className="w-3 h-3 mr-1" />
+                                                Edit
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {booking.remarks ? (
+                                        <div className="bg-white/70 dark:bg-gray-900/70 rounded-lg p-3">
+                                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                                {booking.remarks}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-6">
+                                            <MessageSquare className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                                            <p className="text-sm text-muted-foreground mb-1">
+                                                No remarks added yet
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mb-3">
+                                                Add notes or special instructions for this booking
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setRemarksText("");
+                                                    setShowRemarksModal(true);
+                                                }}
+                                            >
+                                                <Plus className="w-4 h-4 mr-2" />
+                                                Add Remarks
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {/* LR */}
                                 {booking.lrNumber && (
                                     <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
@@ -710,6 +864,7 @@ export const BookingDetailSheet = ({
                 </SheetContent>
             </Sheet>
 
+            {/* Vehicle Assignment Modal */}
             <EnhancedVehicleAssignmentModal
                 isOpen={showVehicleAssignModal}
                 onClose={() => setShowVehicleAssignModal(false)}
@@ -724,6 +879,68 @@ export const BookingDetailSheet = ({
                 }}
                 bookingId={booking?.id || ""}
             />
+
+            {/* Remarks Modal */}
+            <Sheet open={showRemarksModal} onOpenChange={setShowRemarksModal}>
+                <SheetContent className="w-full sm:max-w-md">
+                    <SheetHeader>
+                        <SheetTitle className="flex items-center gap-2">
+                            <MessageSquare className="w-5 h-5 text-orange-600" />
+                            {booking?.remarks ? 'Edit Remarks' : 'Add Remarks'}
+                        </SheetTitle>
+                        <SheetDescription>
+                            Add special notes or instructions for this booking
+                        </SheetDescription>
+                    </SheetHeader>
+
+                    <div className="space-y-4 py-6">
+                        <div>
+                            <Label className="text-sm font-medium mb-2 block">
+                                Remarks / Notes
+                            </Label>
+                            <Textarea
+                                value={remarksText}
+                                onChange={(e) => setRemarksText(e.target.value)}
+                                placeholder="Enter any special instructions, notes, or important details..."
+                                className="min-h-[200px] resize-none"
+                                maxLength={500}
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {remarksText.length}/500 characters
+                            </p>
+                        </div>
+
+                        <div className="p-3 bg-muted/50 rounded-lg border">
+                            <p className="text-xs font-semibold mb-2">💡 Examples:</p>
+                            <ul className="text-xs text-muted-foreground space-y-1">
+                                <li>• Customer requested priority delivery</li>
+                                <li>• Fragile items - handle with care</li>
+                                <li>• Vehicle delayed due to weather</li>
+                                <li>• Contact consignee before delivery</li>
+                            </ul>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4 border-t">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowRemarksModal(false);
+                                    setRemarksText("");
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSaveRemarks}
+                                disabled={!remarksText.trim() && !booking?.remarks}
+                            >
+                                <Save className="w-4 h-4 mr-2" />
+                                Save Remarks
+                            </Button>
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
         </>
     );
 };

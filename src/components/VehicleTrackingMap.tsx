@@ -17,6 +17,8 @@ import {
     Info,
     Activity,
     Lock,
+    Smartphone, // ✅ Add this
+    Signal,
     CheckCircle,
     DollarSign,
     TrendingUp,
@@ -65,6 +67,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     const [monthlyUsage, setMonthlyUsage] = useState({ used: 0, limit: 1000 });
     const [totalSaved, setTotalSaved] = useState(0);
     const [monthlyCost, setMonthlyCost] = useState(0);
+    const [trackingMode, setTrackingMode] = useState<'FASTAG' | 'SIM'>('FASTAG');
 
     // Check if tracking should be enabled
     useEffect(() => {
@@ -506,7 +509,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                 </Badge>
                             )}
                             {totalSaved > 0 && (
-                                <Badge variant="success" className="gap-1">
+                                <Badge variant="default" className="gap-1">
                                     💰 Saved ₹{totalSaved}
                                 </Badge>
                             )}
@@ -539,7 +542,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                 <Clock className="w-3 h-3" />
                                 Last updated: {lastUpdated.toLocaleTimeString()}
                                 {dataSource === 'real' && (
-                                    <Badge variant="success" className="ml-2 text-xs">LIVE</Badge>
+                                    <Badge variant="default" className="ml-2 text-xs">LIVE</Badge>
                                 )}
                                 {dataSource === 'cached' && (
                                     <Badge variant="secondary" className="ml-2 text-xs">CACHED</Badge>
@@ -584,141 +587,215 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="relative h-[500px] w-full">
-                        <MapContainer
-                            center={mapCenter}
-                            zoom={mapZoom}
-                            className="h-full w-full"
-                            scrollWheelZoom={true}
-                            key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
-                        >
-                            <TileLayer
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                            />
+                    {/* ✅ UPDATED: Map Container with Background Color */}
+                    <div className="relative h-[500px] w-full bg-gray-100 dark:bg-gray-900/50">
 
-                            {/* Plot clustered markers for same locations */}
-                            {(() => {
-                                const locationGroups = groupCrossingsByLocation();
-                                const plottedLocations = new Set();
+                        {/* ✅ TOGGLE BUTTONS - Top Right */}
+                        <div className="absolute top-4 right-4 z-[1000] bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 flex gap-1">
+                            <Button
+                                size="sm"
+                                variant={trackingMode === 'FASTAG' ? 'default' : 'ghost'}
+                                className={`h-7 text-xs font-medium transition-all ${trackingMode === 'FASTAG' ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                onClick={() => setTrackingMode('FASTAG')}
+                            >
+                                <MapPin className="w-3 h-3 mr-1.5" />
+                                FASTag
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={trackingMode === 'SIM' ? 'default' : 'ghost'}
+                                className={`h-7 text-xs font-medium transition-all ${trackingMode === 'SIM' ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm" : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                onClick={() => setTrackingMode('SIM')}
+                            >
+                                <Smartphone className="w-3 h-3 mr-1.5" />
+                                SIM Track
+                            </Button>
+                        </div>
 
-                                return tollCrossings.map((crossing, index) => {
-                                    const locationKey = `${crossing.latitude.toFixed(4)}-${crossing.longitude.toFixed(4)}`;
+                        {/* ✅ CONDITIONAL RENDERING: FASTag Map vs SIM Placeholder */}
+                        {trackingMode === 'FASTAG' ? (
+                            <>
+                                <MapContainer
+                                    center={mapCenter}
+                                    zoom={mapZoom}
+                                    className="h-full w-full"
+                                    scrollWheelZoom={true}
+                                    key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
+                                >
+                                    <TileLayer
+                                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                    />
 
-                                    if (plottedLocations.has(locationKey)) {
-                                        return null;
-                                    }
+                                    {/* Plot clustered markers for same locations */}
+                                    {(() => {
+                                        const locationGroups = groupCrossingsByLocation();
+                                        const plottedLocations = new Set();
 
-                                    plottedLocations.add(locationKey);
-                                    const crossingsAtLocation = locationGroups[locationKey];
-                                    const numbers = crossingsAtLocation.map(c =>
-                                        tollCrossings.findIndex(tc => tc.id === c.id) + 1
-                                    );
+                                        return tollCrossings.map((crossing, index) => {
+                                            const locationKey = `${crossing.latitude.toFixed(4)}-${crossing.longitude.toFixed(4)}`;
 
-                                    const hasLatestCrossing = numbers.includes(tollCrossings.length);
-
-                                    return (
-                                        <Marker
-                                            key={`cluster-${locationKey}`}
-                                            position={[crossing.latitude, crossing.longitude]}
-                                            icon={crossingsAtLocation.length > 1
-                                                ? createClusterIcon(crossingsAtLocation.length, numbers, hasLatestCrossing)
-                                                : createNumberIcon(numbers[0], numbers[0] === tollCrossings.length)
+                                            if (plottedLocations.has(locationKey)) {
+                                                return null;
                                             }
-                                        >
-                                            <Popup>
-                                                <div className="p-2 min-w-[250px] max-w-[300px]">
-                                                    <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
-                                                        <MapPinned className="w-4 h-4" />
-                                                        {crossing.toll_plaza_name}
-                                                    </h3>
-                                                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                                                        {crossingsAtLocation.map((c, i) => {
-                                                            const globalIndex = tollCrossings.findIndex(tc => tc.id === c.id);
-                                                            return (
-                                                                <div key={i} className={`border-l-2 pl-2 py-1 ${globalIndex === tollCrossings.length - 1
-                                                                    ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
-                                                                    : 'border-primary'
-                                                                    }`}>
-                                                                    <div className="flex items-center justify-between">
-                                                                        <p className="text-xs font-medium">
-                                                                            Visit #{globalIndex + 1}
-                                                                        </p>
-                                                                        {globalIndex === tollCrossings.length - 1 && (
-                                                                            <Badge variant="destructive" className="text-xs">
-                                                                                Current
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        {formatTime(c.crossing_time)}
-                                                                    </p>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <div className="mt-2 pt-2 border-t flex items-center justify-between">
-                                                        <p className="text-xs text-blue-600">
-                                                            Total: {crossingsAtLocation.length} crossing{crossingsAtLocation.length > 1 ? 's' : ''}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {crossing.vehicle_type || 'VC10'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </Popup>
-                                        </Marker>
-                                    );
-                                }).filter(Boolean);
-                            })()}
 
-                            {/* Draw route line */}
-                            {tollCrossings.length > 1 && (
-                                <>
-                                    <Polyline
-                                        positions={tollCrossings.map(c => [c.latitude, c.longitude])}
-                                        color="#3b82f6"
-                                        weight={4}
-                                        opacity={0.8}
-                                    />
-                                    <Polyline
-                                        positions={tollCrossings.map(c => [c.latitude, c.longitude])}
-                                        color="#1e40af"
-                                        weight={2}
-                                        opacity={0.6}
-                                        dashArray="10, 20"
-                                    />
-                                </>
-                            )}
-                        </MapContainer>
+                                            plottedLocations.add(locationKey);
+                                            const crossingsAtLocation = locationGroups[locationKey];
+                                            const numbers = crossingsAtLocation.map(c =>
+                                                tollCrossings.findIndex(tc => tc.id === c.id) + 1
+                                            );
 
-                        {loading && (
-                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
-                                <div className="text-center">
-                                    <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-                                    <p className="mt-2 text-sm font-medium">Fetching latest toll crossings...</p>
+                                            const hasLatestCrossing = numbers.includes(tollCrossings.length);
+
+                                            return (
+                                                <Marker
+                                                    key={`cluster-${locationKey}`}
+                                                    position={[crossing.latitude, crossing.longitude]}
+                                                    icon={crossingsAtLocation.length > 1
+                                                        ? createClusterIcon(crossingsAtLocation.length, numbers, hasLatestCrossing)
+                                                        : createNumberIcon(numbers[0], numbers[0] === tollCrossings.length)
+                                                    }
+                                                >
+                                                    <Popup>
+                                                        <div className="p-2 min-w-[250px] max-w-[300px]">
+                                                            <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
+                                                                <MapPinned className="w-4 h-4" />
+                                                                {crossing.toll_plaza_name}
+                                                            </h3>
+                                                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                                {crossingsAtLocation.map((c, i) => {
+                                                                    const globalIndex = tollCrossings.findIndex(tc => tc.id === c.id);
+                                                                    return (
+                                                                        <div key={i} className={`border-l-2 pl-2 py-1 ${globalIndex === tollCrossings.length - 1
+                                                                            ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
+                                                                            : 'border-primary'
+                                                                            }`}>
+                                                                            <div className="flex items-center justify-between">
+                                                                                <p className="text-xs font-medium">
+                                                                                    Visit #{globalIndex + 1}
+                                                                                </p>
+                                                                                {globalIndex === tollCrossings.length - 1 && (
+                                                                                    <Badge variant="destructive" className="text-xs">
+                                                                                        Current
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-xs text-muted-foreground">
+                                                                                {formatTime(c.crossing_time)}
+                                                                            </p>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            <div className="mt-2 pt-2 border-t flex items-center justify-between">
+                                                                <p className="text-xs text-blue-600">
+                                                                    Total: {crossingsAtLocation.length} crossing{crossingsAtLocation.length > 1 ? 's' : ''}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    {crossing.vehicle_type || 'VC10'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </Popup>
+                                                </Marker>
+                                            );
+                                        }).filter(Boolean);
+                                    })()}
+
+                                    {/* Draw route line */}
+                                    {tollCrossings.length > 1 && (
+                                        <>
+                                            <Polyline
+                                                positions={tollCrossings.map(c => [c.latitude, c.longitude])}
+                                                color="#3b82f6"
+                                                weight={4}
+                                                opacity={0.8}
+                                            />
+                                            <Polyline
+                                                positions={tollCrossings.map(c => [c.latitude, c.longitude])}
+                                                color="#1e40af"
+                                                weight={2}
+                                                opacity={0.6}
+                                                dashArray="10, 20"
+                                            />
+                                        </>
+                                    )}
+                                </MapContainer>
+
+                                {loading && (
+                                    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
+                                        <div className="text-center">
+                                            <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
+                                            <p className="mt-2 text-sm font-medium">Fetching latest toll crossings...</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!loading && tollCrossings.length === 0 && (
+                                    <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
+                                        <div className="text-center p-6">
+                                            <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto" />
+                                            <h3 className="mt-4 text-lg font-semibold">No Tracking Data</h3>
+                                            <p className="mt-2 text-sm text-muted-foreground">
+                                                Click "Track Now" to get toll crossing information
+                                            </p>
+                                            <Button
+                                                onClick={loadTrackingData}
+                                                className="mt-4"
+                                                size="sm"
+                                                disabled={!isTrackingEnabled}
+                                            >
+                                                <RefreshCw className="w-4 h-4 mr-2" />
+                                                Track Now
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            // ✅ SIM TRACKING PLACEHOLDER UI
+                            <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
+                                <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                                    <Smartphone className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                                 </div>
-                            </div>
-                        )}
 
-                        {!loading && tollCrossings.length === 0 && (
-                            <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
-                                <div className="text-center p-6">
-                                    <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-                                    <h3 className="mt-4 text-lg font-semibold">No Tracking Data</h3>
-                                    <p className="mt-2 text-sm text-muted-foreground">
-                                        Click "Track Now" to get toll crossing information
-                                    </p>
-                                    <Button
-                                        onClick={loadTrackingData}
-                                        className="mt-4"
-                                        size="sm"
-                                        disabled={!isTrackingEnabled}
-                                    >
-                                        <RefreshCw className="w-4 h-4 mr-2" />
-                                        Track Now
-                                    </Button>
+                                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                                    SIM-Based Tracking
+                                </h3>
+
+                                <p className="text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">
+                                    Track your vehicle's real-time location using the driver's mobile number.
+                                    This feature works even without GPS devices or FASTag.
+                                </p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mb-8">
+                                    <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
+                                        <div className="p-2 bg-green-50 rounded-lg mb-2">
+                                            <Signal className="w-5 h-5 text-green-600" />
+                                        </div>
+                                        <p className="text-xs font-semibold">Network Triangulation</p>
+                                    </div>
+                                    <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
+                                        <div className="p-2 bg-orange-50 rounded-lg mb-2">
+                                            <Clock className="w-5 h-5 text-orange-600" />
+                                        </div>
+                                        <p className="text-xs font-semibold">15-min Updates</p>
+                                    </div>
+                                    <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
+                                        <div className="p-2 bg-blue-50 rounded-lg mb-2">
+                                            <Navigation className="w-5 h-5 text-blue-600" />
+                                        </div>
+                                        <p className="text-xs font-semibold">No App Required</p>
+                                    </div>
                                 </div>
+
+                                <Button variant="outline" disabled className="bg-gray-50 border-dashed">
+                                    <span className="flex items-center gap-2 text-muted-foreground">
+                                        🚧 Integration in Progress
+                                    </span>
+                                </Button>
                             </div>
                         )}
                     </div>
