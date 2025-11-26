@@ -66,12 +66,7 @@ import {
   AlertCircle,
   TrendingUp,
   FileDown,
-  Building2,
   X,
-  Receipt,
-  Zap,
-  Upload,
-  Check,
   MessageSquare,
   ChevronsRight,
   ChevronRight,
@@ -98,7 +93,7 @@ import { formatETA, getSLAStatus } from "@/lib/etaCalculations";
 import { EditRemarksModal } from "@/components/EditRemarksModal";
 import { PODViewerModal } from "@/components/PODViewerModal";
 
-// Interfaces
+// Interfacess
 interface Booking {
   id: string;
   bookingId: string;
