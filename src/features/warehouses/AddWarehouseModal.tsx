@@ -80,203 +80,224 @@ export const AddWarehouseModal = ({ isOpen, onClose, onSave }: AddWarehouseModal
 
   return (
     <Sheet open={isOpen} onOpenChange={handleClose}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Warehouse className="w-5 h-5 text-primary" />
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto bg-card border-l border-border dark:border-border">
+        <SheetHeader className="border-b border-border dark:border-border pb-4">
+          <SheetTitle className="flex items-center gap-3 text-foreground dark:text-white">
+            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+              <Warehouse className="w-5 h-5 text-primary dark:text-primary" />
+            </div>
             Add New Warehouse
           </SheetTitle>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 py-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-6">
+
           {/* Warehouse Name */}
-          <div>
-            <Label className="text-xs">
-              Warehouse Name <span className="text-red-500">*</span>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground dark:text-white">
+              Warehouse Name <span className="text-red-600">*</span>
             </Label>
             <div className="relative">
-              <Building2 className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
               <Input
                 {...register("name")}
                 placeholder="e.g., Mumbai Central Hub"
                 disabled={isSubmitting}
-                className="pl-9 h-9 text-sm mt-1"
+                className="pl-10 h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
               />
             </div>
             {errors.name && (
-              <p className="text-xs text-destructive mt-1">{errors.name.message}</p>
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                {errors.name.message}
+              </p>
             )}
           </div>
 
-          <Separator className="my-4" />
+          <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
           {/* Location Details */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Location
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">
-                  City <span className="text-red-500">*</span>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-md">
+                <MapPin className="w-4 h-4 text-primary dark:text-primary" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground dark:text-white">
+                Location Details
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground dark:text-white">
+                  City <span className="text-red-600">*</span>
                 </Label>
                 <Input
                   {...register("city")}
                   placeholder="e.g., Mumbai"
                   disabled={isSubmitting}
-                  className="h-9 text-sm mt-1"
+                  className="h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                 />
                 {errors.city && (
-                  <p className="text-xs text-destructive mt-1">{errors.city.message}</p>
+                  <p className="text-xs text-red-600">{errors.city.message}</p>
                 )}
               </div>
 
-              <div>
-                <Label className="text-xs">
-                  State <span className="text-red-500">*</span>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground dark:text-white">
+                  State <span className="text-red-600">*</span>
                 </Label>
                 <Input
                   {...register("state")}
                   placeholder="e.g., Maharashtra"
                   disabled={isSubmitting}
-                  className="h-9 text-sm mt-1"
+                  className="h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                 />
                 {errors.state && (
-                  <p className="text-xs text-destructive mt-1">{errors.state.message}</p>
+                  <p className="text-xs text-red-600">{errors.state.message}</p>
                 )}
               </div>
 
-              <div className="md:col-span-2">
-                <Label className="text-xs">
-                  Address <span className="text-red-500">*</span>
+              <div className="md:col-span-2 space-y-2">
+                <Label className="text-sm font-medium text-foreground dark:text-white">
+                  Complete Address <span className="text-red-600">*</span>
                 </Label>
                 <Textarea
                   {...register("address")}
-                  placeholder="Enter complete warehouse address"
+                  placeholder="Enter complete warehouse address with landmark"
                   disabled={isSubmitting}
                   rows={3}
-                  className="text-sm mt-1 resize-none"
+                  className="text-sm resize-none border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                 />
                 {errors.address && (
-                  <p className="text-xs text-destructive mt-1">{errors.address.message}</p>
+                  <p className="text-xs text-red-600">{errors.address.message}</p>
                 )}
               </div>
             </div>
           </div>
 
-          <Separator className="my-4" />
+          <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
           {/* Capacity */}
-          <div>
-            <Label className="text-xs">
-              Capacity (units) <span className="text-red-500">*</span>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground dark:text-white">
+              Storage Capacity (units) <span className="text-red-600">*</span>
             </Label>
             <div className="relative">
-              <Package className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
               <Input
                 type="number"
                 {...register("capacity", { valueAsNumber: true })}
                 placeholder="e.g., 500"
                 disabled={isSubmitting}
-                className="pl-9 h-9 text-sm mt-1"
+                className="pl-10 h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
               />
             </div>
             {errors.capacity && (
-              <p className="text-xs text-destructive mt-1">{errors.capacity.message}</p>
+              <p className="text-xs text-red-600">{errors.capacity.message}</p>
             )}
-            <p className="text-[10px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               Maximum storage capacity in units
             </p>
           </div>
 
-          <Separator className="my-4" />
+          <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
           {/* Manager Details */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Manager Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">
-                  Manager Name <span className="text-red-500">*</span>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-md">
+                <User className="w-4 h-4 text-primary dark:text-primary" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground dark:text-white">
+                Manager Details
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground dark:text-white">
+                  Manager Name <span className="text-red-600">*</span>
                 </Label>
                 <div className="relative">
-                  <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                   <Input
                     {...register("manager_name")}
                     placeholder="e.g., Rahul Mehta"
                     disabled={isSubmitting}
-                    className="pl-9 h-9 text-sm mt-1"
+                    className="pl-10 h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                   />
                 </div>
                 {errors.manager_name && (
-                  <p className="text-xs text-destructive mt-1">{errors.manager_name.message}</p>
+                  <p className="text-xs text-red-600">{errors.manager_name.message}</p>
                 )}
               </div>
 
-              <div>
-                <Label className="text-xs">
-                  Phone Number <span className="text-red-500">*</span>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground dark:text-white">
+                  Phone Number <span className="text-red-600">*</span>
                 </Label>
                 <div className="relative">
-                  <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                   <Input
                     {...register("manager_phone")}
                     placeholder="e.g., +91-9876543220"
                     disabled={isSubmitting}
-                    className="pl-9 h-9 text-sm mt-1"
+                    className="pl-10 h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                   />
                 </div>
                 {errors.manager_phone && (
-                  <p className="text-xs text-destructive mt-1">{errors.manager_phone.message}</p>
+                  <p className="text-xs text-red-600">{errors.manager_phone.message}</p>
                 )}
               </div>
 
-              <div className="md:col-span-2">
-                <Label className="text-xs">
-                  Manager Email <span className="text-red-500">*</span>
+              <div className="md:col-span-2 space-y-2">
+                <Label className="text-sm font-medium text-foreground dark:text-white">
+                  Email Address <span className="text-red-600">*</span>
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-muted-foreground" />
                   <Input
                     type="email"
                     {...register("manager_email")}
                     placeholder="e.g., manager@example.com"
                     disabled={isSubmitting}
-                    className="pl-9 h-9 text-sm mt-1"
+                    className="pl-10 h-10 text-sm border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                   />
                 </div>
                 {errors.manager_email && (
-                  <p className="text-xs text-destructive mt-1">{errors.manager_email.message}</p>
+                  <p className="text-xs text-red-600">{errors.manager_email.message}</p>
                 )}
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-6 border-t border-border dark:border-border">
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={isSubmitting}
-              size="sm"
+              size="default"
+              className="bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary text-foreground dark:text-white"
             >
-              <X className="w-3.5 h-3.5 mr-2" />
+              <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} size="sm">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              size="default"
+              className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+            >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5 mr-2" />
+                  <Save className="w-4 h-4 mr-2" />
                   Save Warehouse
                 </>
               )}

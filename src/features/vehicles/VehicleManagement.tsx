@@ -106,31 +106,27 @@ interface Vehicle {
   };
 }
 
-// Status configuration with colors and icons
+// ✅ Status configuration (GREEN/RED/ORANGE allowed for status)
 const statusConfig = {
   AVAILABLE: {
     label: "Available",
-    color: "bg-green-100 text-green-700 border-green-200",
+    color: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
     icon: CheckCircle,
-    gradient: "from-green-500 to-green-600"
   },
   OCCUPIED: {
     label: "Occupied",
-    color: "bg-orange-100 text-orange-700 border-orange-200",
+    color: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800",
     icon: AlertCircle,
-    gradient: "from-orange-500 to-orange-600"
   },
   MAINTENANCE: {
     label: "Maintenance",
-    color: "bg-red-100 text-red-700 border-red-200",
+    color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
     icon: Wrench,
-    gradient: "from-red-500 to-red-600"
   },
   INACTIVE: {
     label: "Inactive",
-    color: "bg-gray-100 text-gray-700 border-gray-200",
+    color: "bg-[#F3F4F6] text-muted-foreground border-border dark:bg-secondary dark:text-muted-foreground dark:border-border",
     icon: XCircle,
-    gradient: "from-gray-500 to-gray-600"
   }
 };
 
@@ -148,22 +144,25 @@ export const VehicleManagement = () => {
   const [isAddBrokerOpen, setIsAddBrokerOpen] = useState(false);
   const [brokers, setBrokers] = useState<any[]>([]);
   const [loadingBrokers, setLoadingBrokers] = useState(false);
+
   useEffect(() => {
     loadVehicles();
-    loadBrokers();  // ✅ Load brokers initially
+    loadBrokers();
   }, []);
+
   const loadBrokers = async () => {
     try {
       setLoadingBrokers(true);
       const data = await fetchBrokers();
-      setBrokers(data || []);  // ✅ Ensure array
+      setBrokers(data || []);
     } catch (error) {
       console.error('Error loading brokers:', error);
-      setBrokers([]);  // ✅ Set empty array on error
+      setBrokers([]);
     } finally {
       setLoadingBrokers(false);
     }
   };
+
   const handleAddBroker = async (brokerData: any) => {
     try {
       const newBroker = await createBroker({
@@ -181,7 +180,7 @@ export const VehicleManagement = () => {
 
       await loadBrokers();
       setIsAddBrokerOpen(false);
-      setIsAddHiredVehicleOpen(true); // ✅ Go back to vehicle modal
+      setIsAddHiredVehicleOpen(true);
 
       return newBroker;
     } catch (error: any) {
@@ -193,6 +192,7 @@ export const VehicleManagement = () => {
       });
     }
   };
+
   // Add column hover styles
   useEffect(() => {
     const styleElement = document.createElement('style');
@@ -232,10 +232,6 @@ export const VehicleManagement = () => {
     };
   }, []);
 
-  useEffect(() => {
-    loadVehicles();
-  }, []);
-
   const loadVehicles = async () => {
     try {
       setLoading(true);
@@ -244,7 +240,6 @@ export const VehicleManagement = () => {
         fetchHiredVehicles()
       ]);
 
-      // Combine both types with is_owned flag
       const combinedVehicles = [
         ...ownedData.map(v => ({
           ...v,
@@ -273,21 +268,15 @@ export const VehicleManagement = () => {
     }
   };
 
-
-
-  // ✅ Handle "Add Hired Vehicle" button click
   const handleAddHiredVehicleClick = async () => {
     if (brokers.length === 0 && !loadingBrokers) {
       await loadBrokers();
     }
     setIsAddHiredVehicleOpen(true);
   };
+
   const handleAddHiredVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      console.log("📥 Received vehicle data:", vehicleData);
-      console.log("📄 Received documents:", documents);
-
-      // 1. Create vehicle first
       const brokerIdToSave = vehicleData.brokerId === "none" ? null : vehicleData.brokerId;
       const driverIdToSave = vehicleData.default_driver_id === "none" ? null : vehicleData.default_driver_id;
 
@@ -300,12 +289,7 @@ export const VehicleManagement = () => {
         rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
       });
 
-      console.log("✅ Vehicle created:", newVehicle);
-
-      // 2. Upload documents if any
       if (documents && documents.files.length > 0) {
-        console.log(`📤 Uploading ${documents.files.length} documents...`);
-
         let uploadedCount = 0;
         let failedCount = 0;
 
@@ -322,14 +306,12 @@ export const VehicleManagement = () => {
               expiry_date: metadata.expiry_date
             });
             uploadedCount++;
-            console.log(`✅ Uploaded: ${file.name}`);
           } catch (error) {
             failedCount++;
             console.error(`❌ Failed to upload: ${file.name}`, error);
           }
         }
 
-        // Show upload results
         if (uploadedCount > 0) {
           toast({
             title: "✅ Documents Uploaded",
@@ -347,7 +329,7 @@ export const VehicleManagement = () => {
       }
 
       await loadVehicles();
-      setIsAddHiredVehicleOpen(false); // ✅ FIXED - Correct state setter name
+      setIsAddHiredVehicleOpen(false);
 
       toast({
         title: "✅ Success",
@@ -364,17 +346,11 @@ export const VehicleManagement = () => {
     }
   };
 
-
   const allOwnedVehicles = vehicles.filter(v => v.is_owned);
   const allHiredVehicles = vehicles.filter(v => !v.is_owned);
 
-
   const handleAddVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      console.log("📥 Received owned vehicle data:", vehicleData);
-      console.log("📄 Received documents:", documents);
-
-      // Validate required fields
       if (!vehicleData.vehicle_number || !vehicleData.vehicle_type || !vehicleData.capacity) {
         toast({
           title: "❌ Missing Information",
@@ -384,57 +360,41 @@ export const VehicleManagement = () => {
         return;
       }
 
-      // 1. Create vehicle first
       const newVehicle = await createOwnedVehicle({
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
         capacity: vehicleData.capacity,
-        default_driver_id: vehicleData.default_driver_id || null,  // ✅ Handle null properly
+        default_driver_id: vehicleData.default_driver_id || null,
         registration_date: vehicleData.registration_date || null,
         insurance_expiry: vehicleData.insurance_expiry || null,
         fitness_expiry: vehicleData.fitness_expiry || null,
         permit_expiry: vehicleData.permit_expiry || null,
       });
 
-      console.log("✅ Owned vehicle created:", newVehicle);
-
-      // ✅ 2. Upload documents if any
       if (documents && documents.files && documents.files.length > 0) {
-        console.log(`📤 Uploading ${documents.files.length} documents...`);
-
         let uploadedCount = 0;
         let failedCount = 0;
 
         for (let i = 0; i < documents.files.length; i++) {
           const file = documents.files[i];
-
-          // ✅ FIX: Access metadata correctly
           const metadata = documents.metadata[i] || { document_type: 'OTHER' };
 
           try {
-            console.log(`📤 Uploading document ${i + 1}:`, {
-              fileName: file.name,
-              documentType: metadata.document_type,
-              vehicleId: newVehicle.id
-            });
-
             await uploadVehicleDocument({
               vehicle_id: newVehicle.id,
-              vehicle_type: 'OWNED',  // ✅ OWNED type
+              vehicle_type: 'OWNED',
               document_type: metadata.document_type,
               file: file,
               expiry_date: metadata.expiry_date || null
             });
 
             uploadedCount++;
-            console.log(`✅ Uploaded: ${file.name}`);
           } catch (error) {
             failedCount++;
             console.error(`❌ Failed to upload: ${file.name}`, error);
           }
         }
 
-        // Show upload results
         if (uploadedCount > 0) {
           toast({
             title: "✅ Documents Uploaded",
@@ -467,7 +427,6 @@ export const VehicleManagement = () => {
       });
     }
   };
-
 
   const handleVerifyVehicle = async (vehicleId: string, isOwned: boolean) => {
     try {
@@ -510,7 +469,6 @@ export const VehicleManagement = () => {
   const ownedVehicles = filteredVehicles.filter(v => v.is_owned);
   const hiredVehicles = filteredVehicles.filter(v => !v.is_owned);
 
-  // Statistics
   const stats = {
     total: vehicles.length,
     owned: allOwnedVehicles.length,
@@ -522,7 +480,6 @@ export const VehicleManagement = () => {
     unverified: vehicles.filter(v => !v.is_verified).length,
   };
 
-  // Export function
   const handleExport = () => {
     const headers = activeTab === 'owned'
       ? ["Vehicle Number", "Type", "Capacity", "Status", "Verified", "Assigned Booking"]
@@ -583,7 +540,7 @@ export const VehicleManagement = () => {
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
           <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
         </div>
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+        <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
           Loading vehicles...
         </p>
       </div>
@@ -592,89 +549,85 @@ export const VehicleManagement = () => {
 
   return (
     <div className="space-y-6">
-      {/* 🔥 CARD 1: Stats & Buttons */}
+      {/* ✅ CARD 1: Stats & Buttons */}
       <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
         {/* Stats - Single Card with Dividers */}
-        <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
+        <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-4 sm:p-5 shadow-sm">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 sm:gap-0 h-full">
             {/* Total */}
             <div className="sm:px-6 py-4 first:pl-0 relative">
               <div className="absolute top-1 right-2 opacity-10">
-                <Truck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                <Truck className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground font-medium">
                   Total
                 </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">
                   {stats.total}
                 </p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
             </div>
 
             {/* Owned */}
             <div className="sm:px-6 py-4 relative">
               <div className="absolute top-1 right-2 opacity-10">
-                <Shield className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                <Shield className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground font-medium">
                   Owned
                 </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">
                   {stats.owned}
                 </p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
             </div>
 
             {/* Hired */}
             <div className="sm:px-6 py-4 relative">
               <div className="absolute top-1 right-2 opacity-10">
-                <Building2 className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                <Building2 className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground font-medium">
                   Hired
                 </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">
                   {stats.hired}
                 </p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
             </div>
 
             {/* Verified */}
             <div className="sm:px-6 py-4 relative">
               <div className="absolute top-1 right-2 opacity-10">
-                <ShieldCheck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                <ShieldCheck className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground font-medium">
                   Verified
                 </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">
                   {stats.verified}
                 </p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
             </div>
 
             {/* Unverified */}
             <div className="sm:px-6 py-4 last:pr-0 relative">
               <div className="absolute top-1 right-2 opacity-10">
-                <Clock className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                <Clock className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground font-medium">
                   Unverified
                 </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
+                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">
                   {stats.unverified}
                 </p>
               </div>
@@ -683,7 +636,28 @@ export const VehicleManagement = () => {
         </div>
 
         {/* Buttons - Right Side */}
-        <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
+        {/* Buttons - Right Side */}
+        <div className="flex flex-col gap-2 w-full lg:w-auto lg:min-w-[220px]">
+          <Button
+            size="sm"
+            onClick={() => setIsAddVehicleOpen(true)}
+            className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Vehicle
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddHiredVehicleClick}
+            disabled={loadingBrokers}
+            className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white transition-all"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Hired Vehicle
+          </Button>
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -691,7 +665,7 @@ export const VehicleManagement = () => {
                   variant="outline"
                   size="sm"
                   onClick={handleExport}
-                  className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white transition-all"
                 >
                   <FileDown className="w-4 h-4 mr-2" />
                   Export
@@ -702,49 +676,27 @@ export const VehicleManagement = () => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAddHiredVehicleClick}
-            disabled={loadingBrokers}
-            className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Add Hired Vehicle</span>
-            <span className="sm:hidden">Hired</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => setIsAddVehicleOpen(true)}
-            className="flex-1 sm:flex-none"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Add Vehicle</span>
-            <span className="sm:hidden">Add</span>
-          </Button>
         </div>
       </div>
 
-      {/* 🔥 CARD 2: Tabs + Search + Table */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+      {/* ✅ CARD 2: Tabs + Search + Table */}
+      <div className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
 
         {/* Tabs Section */}
-        <div className="border-b border-gray-200 dark:border-gray-800">
+        <div className="border-b border-border dark:border-border">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="px-4 sm:px-6 overflow-x-auto">
+            <div className="px-4 sm:px-6 overflow-x-auto scrollbar-none">
               <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex min-w-max">
                 <TabsTrigger
                   value="owned"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3.5 transition-all text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                 >
                   <Shield className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Owned ({allOwnedVehicles.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="hired"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3.5 transition-all text-xs sm:text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                 >
                   <Building2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Hired ({allHiredVehicles.length})
@@ -755,25 +707,25 @@ export const VehicleManagement = () => {
         </div>
 
         {/* Search and Filters Section */}
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+        <div className="p-4 sm:p-6 border-b border-border dark:border-border">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Search Bar */}
             <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
               <Input
                 placeholder="Search vehicles, broker..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                className="pl-10 pr-10 h-10 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-sm"
               />
               {searchTerm && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-accent dark:hover:bg-secondary"
                   onClick={() => setSearchTerm("")}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
@@ -781,10 +733,10 @@ export const VehicleManagement = () => {
             {/* Status Filter */}
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px] h-10 border-border dark:border-border bg-card">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-card border-border dark:border-border">
                   <SelectItem value="ALL">All Status</SelectItem>
                   <SelectItem value="AVAILABLE">Available</SelectItem>
                   <SelectItem value="OCCUPIED">Occupied</SelectItem>
@@ -803,26 +755,26 @@ export const VehicleManagement = () => {
             <TabsContent value="owned" className="mt-0">
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
-                <Table>
+                <Table className="vehicle-mgmt-table">
                   <TableHeader>
-                    <TableRow className="hover:bg-muted/50 bg-muted/30">
-                      <TableHead className="font-semibold">
+                    <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-muted-foreground" />
+                          <Truck className="w-4 h-4" />
                           Vehicle No.
                         </div>
                       </TableHead>
-                      <TableHead className="font-semibold">Type</TableHead>
-                      <TableHead className="font-semibold">Capacity</TableHead>
-                      <TableHead className="font-semibold">Status</TableHead>
-                      <TableHead className="font-semibold">Verification</TableHead>
-                      <TableHead className="font-semibold">
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Type</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Capacity</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Status</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Verification</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Package className="w-4 h-4 text-muted-foreground" />
+                          <Package className="w-4 h-4" />
                           Booking
                         </div>
                       </TableHead>
-                      <TableHead className="font-semibold text-center">Actions</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -830,10 +782,10 @@ export const VehicleManagement = () => {
                       <TableRow>
                         <TableCell colSpan={7} className="text-center py-16">
                           <div className="flex flex-col items-center gap-4">
-                            <div className="p-4 bg-muted/30 rounded-full">
-                              <Truck className="w-12 h-12 text-muted-foreground/50" />
+                            <div className="p-4 bg-muted rounded-full">
+                              <Truck className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                             </div>
-                            <div className="text-muted-foreground">
+                            <div className="text-muted-foreground dark:text-muted-foreground">
                               <p className="text-lg font-medium">No owned vehicles found</p>
                               <p className="text-sm mt-1">Add your first vehicle to get started</p>
                             </div>
@@ -846,33 +798,33 @@ export const VehicleManagement = () => {
                         const StatusIcon = status.icon;
 
                         return (
-                          <TableRow key={vehicle.id} className="hover:bg-muted/50 transition-colors">
+                          <TableRow key={vehicle.id} className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors">
                             <TableCell>
-                              <div className="font-semibold flex items-center gap-2">
-                                <Truck className="w-4 h-4 text-muted-foreground" />
+                              <div className="font-semibold flex items-center gap-2 text-foreground dark:text-white">
+                                <Truck className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                                 {vehicle.vehicle_number}
                               </div>
                             </TableCell>
-                            <TableCell>{vehicle.vehicle_type}</TableCell>
+                            <TableCell className="text-foreground dark:text-white">{vehicle.vehicle_type}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">
+                              <Badge variant="outline" className="border-border dark:border-border">
                                 {vehicle.capacity}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge className={cn("gap-1", status.color)}>
+                              <Badge className={cn("gap-1 text-xs font-medium", status.color)}>
                                 <StatusIcon className="w-3 h-3" />
                                 {status.label}
                               </Badge>
                             </TableCell>
                             <TableCell>
                               {vehicle.is_verified ? (
-                                <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                                <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 gap-1 text-xs">
                                   <ShieldCheck className="w-3 h-3" />
                                   Verified
                                 </Badge>
                               ) : (
-                                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1">
+                                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800 gap-1 text-xs">
                                   <AlertCircle className="w-3 h-3" />
                                   Unverified
                                 </Badge>
@@ -880,11 +832,11 @@ export const VehicleManagement = () => {
                             </TableCell>
                             <TableCell>
                               {vehicle.vehicle_assignments?.length > 0 ? (
-                                <Badge variant="secondary">
+                                <Badge variant="secondary" className="bg-muted">
                                   {vehicle.vehicle_assignments[0].booking?.booking_id}
                                 </Badge>
                               ) : (
-                                <span className="text-sm text-muted-foreground">-</span>
+                                <span className="text-sm text-muted-foreground dark:text-muted-foreground">-</span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -896,7 +848,7 @@ export const VehicleManagement = () => {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => openVehicleDetail(vehicle)}
-                                        className="h-8 w-8"
+                                        className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary"
                                       >
                                         <Eye className="w-4 h-4" />
                                       </Button>
@@ -912,6 +864,7 @@ export const VehicleManagement = () => {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleVerifyVehicle(vehicle.id, vehicle.is_owned)}
+                                    className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                   >
                                     <ShieldCheck className="w-3.5 h-3.5 mr-1" />
                                     Verify
@@ -932,10 +885,10 @@ export const VehicleManagement = () => {
                 {ownedVehicles.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="flex flex-col items-center gap-4">
-                      <div className="p-4 bg-muted/30 rounded-full">
-                        <Truck className="w-12 h-12 text-muted-foreground/50" />
+                      <div className="p-4 bg-muted rounded-full">
+                        <Truck className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                       </div>
-                      <div className="text-muted-foreground">
+                      <div className="text-muted-foreground dark:text-muted-foreground">
                         <p className="text-lg font-medium">No owned vehicles found</p>
                         <p className="text-sm mt-1">Add your first vehicle to get started</p>
                       </div>
@@ -947,14 +900,14 @@ export const VehicleManagement = () => {
                     const StatusIcon = status.icon;
 
                     return (
-                      <div key={vehicle.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
+                      <div key={vehicle.id} className="bg-card border border-border dark:border-border rounded-lg p-4 space-y-3 shadow-sm">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1 flex-1">
                             <div className="flex items-center gap-2">
-                              <Truck className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-semibold text-sm">{vehicle.vehicle_number}</span>
+                              <Truck className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+                              <span className="font-semibold text-sm text-foreground dark:text-white">{vehicle.vehicle_number}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-6">
+                            <div className="text-xs text-muted-foreground dark:text-muted-foreground ml-6">
                               {vehicle.vehicle_type}
                             </div>
                           </div>
@@ -972,7 +925,7 @@ export const VehicleManagement = () => {
                                 variant="outline"
                                 size="icon"
                                 onClick={() => handleVerifyVehicle(vehicle.id, vehicle.is_owned)}
-                                className="h-8 w-8"
+                                className="h-8 w-8 border-border dark:border-border"
                               >
                                 <ShieldCheck className="h-4 w-4" />
                               </Button>
@@ -986,29 +939,29 @@ export const VehicleManagement = () => {
                             {status.label}
                           </Badge>
                           {vehicle.is_verified ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
+                            <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 gap-1 text-xs">
                               <ShieldCheck className="w-3 h-3" />
                               Verified
                             </Badge>
                           ) : (
-                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-xs">
+                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800 gap-1 text-xs">
                               <AlertCircle className="w-3 h-3" />
                               Unverified
                             </Badge>
                           )}
                         </div>
 
-                        <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                        <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
                           <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground text-xs">Capacity:</span>
-                            <Badge variant="outline" className="text-xs">
+                            <span className="text-muted-foreground dark:text-muted-foreground text-xs">Capacity:</span>
+                            <Badge variant="outline" className="text-xs border-border dark:border-border">
                               {vehicle.capacity}
                             </Badge>
                           </div>
                           {vehicle.vehicle_assignments?.length > 0 && (
                             <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground text-xs">Booking:</span>
-                              <Badge variant="secondary" className="text-xs">
+                              <span className="text-muted-foreground dark:text-muted-foreground text-xs">Booking:</span>
+                              <Badge variant="secondary" className="text-xs bg-muted">
                                 {vehicle.vehicle_assignments[0].booking?.booking_id}
                               </Badge>
                             </div>
@@ -1025,32 +978,32 @@ export const VehicleManagement = () => {
             <TabsContent value="hired" className="mt-0">
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
-                <Table>
+                <Table className="vehicle-mgmt-table">
                   <TableHeader>
-                    <TableRow className="hover:bg-muted/50 bg-muted/30">
-                      <TableHead className="font-semibold">
+                    <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Truck className="w-4 h-4 text-muted-foreground" />
+                          <Truck className="w-4 h-4" />
                           Vehicle No.
                         </div>
                       </TableHead>
-                      <TableHead className="font-semibold">Type</TableHead>
-                      <TableHead className="font-semibold">Capacity</TableHead>
-                      <TableHead className="font-semibold">Status</TableHead>
-                      <TableHead className="font-semibold">
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Type</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Capacity</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Status</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          <Building2 className="w-4 h-4" />
                           Broker
                         </div>
                       </TableHead>
-                      <TableHead className="font-semibold">Verification</TableHead>
-                      <TableHead className="font-semibold">
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Verification</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <Package className="w-4 h-4 text-muted-foreground" />
+                          <Package className="w-4 h-4" />
                           Booking
                         </div>
                       </TableHead>
-                      <TableHead className="font-semibold text-center">Actions</TableHead>
+                      <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1058,10 +1011,10 @@ export const VehicleManagement = () => {
                       <TableRow>
                         <TableCell colSpan={8} className="text-center py-16">
                           <div className="flex flex-col items-center gap-4">
-                            <div className="p-4 bg-muted/30 rounded-full">
-                              <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                            <div className="p-4 bg-muted rounded-full">
+                              <Building2 className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                             </div>
-                            <div className="text-muted-foreground">
+                            <div className="text-muted-foreground dark:text-muted-foreground">
                               <p className="text-lg font-medium">No hired vehicles found</p>
                               <p className="text-sm mt-1">Add your first hired vehicle to get started</p>
                             </div>
@@ -1074,21 +1027,21 @@ export const VehicleManagement = () => {
                         const StatusIcon = status.icon;
 
                         return (
-                          <TableRow key={vehicle.id} className="hover:bg-muted/50 transition-colors">
+                          <TableRow key={vehicle.id} className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors">
                             <TableCell>
-                              <div className="font-semibold flex items-center gap-2">
-                                <Truck className="w-4 h-4 text-muted-foreground" />
+                              <div className="font-semibold flex items-center gap-2 text-foreground dark:text-white">
+                                <Truck className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                                 {vehicle.vehicle_number}
                               </div>
                             </TableCell>
-                            <TableCell>{vehicle.vehicle_type}</TableCell>
+                            <TableCell className="text-foreground dark:text-white">{vehicle.vehicle_type}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">
+                              <Badge variant="outline" className="border-border dark:border-border">
                                 {vehicle.capacity}
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge className={cn("gap-1", status.color)}>
+                              <Badge className={cn("gap-1 text-xs font-medium", status.color)}>
                                 <StatusIcon className="w-3 h-3" />
                                 {status.label}
                               </Badge>
@@ -1096,27 +1049,27 @@ export const VehicleManagement = () => {
                             <TableCell>
                               {vehicle.broker ? (
                                 <div className="space-y-1">
-                                  <div className="font-medium text-sm flex items-center gap-1">
-                                    <Building2 className="w-3 h-3 text-muted-foreground" />
+                                  <div className="font-medium text-sm flex items-center gap-1 text-foreground dark:text-white">
+                                    <Building2 className="w-3 h-3 text-muted-foreground dark:text-muted-foreground" />
                                     {vehicle.broker.name}
                                   </div>
-                                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <div className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center gap-1">
                                     <User className="w-3 h-3" />
                                     {vehicle.broker.contact_person}
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-sm text-muted-foreground">-</span>
+                                <span className="text-sm text-muted-foreground dark:text-muted-foreground">-</span>
                               )}
                             </TableCell>
                             <TableCell>
                               {vehicle.is_verified ? (
-                                <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+                                <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 gap-1 text-xs">
                                   <ShieldCheck className="w-3 h-3" />
                                   Verified
                                 </Badge>
                               ) : (
-                                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1">
+                                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800 gap-1 text-xs">
                                   <AlertCircle className="w-3 h-3" />
                                   Unverified
                                 </Badge>
@@ -1124,11 +1077,11 @@ export const VehicleManagement = () => {
                             </TableCell>
                             <TableCell>
                               {vehicle.vehicle_assignments?.length > 0 ? (
-                                <Badge variant="secondary">
+                                <Badge variant="secondary" className="bg-muted">
                                   {vehicle.vehicle_assignments[0].booking?.booking_id}
                                 </Badge>
                               ) : (
-                                <span className="text-sm text-muted-foreground">-</span>
+                                <span className="text-sm text-muted-foreground dark:text-muted-foreground">-</span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -1140,7 +1093,7 @@ export const VehicleManagement = () => {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => openVehicleDetail(vehicle)}
-                                        className="h-8 w-8"
+                                        className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary"
                                       >
                                         <Eye className="w-4 h-4" />
                                       </Button>
@@ -1156,6 +1109,7 @@ export const VehicleManagement = () => {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleVerifyVehicle(vehicle.id, false)}
+                                    className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                   >
                                     <ShieldCheck className="w-3.5 h-3.5 mr-1" />
                                     Verify
@@ -1176,10 +1130,10 @@ export const VehicleManagement = () => {
                 {hiredVehicles.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="flex flex-col items-center gap-4">
-                      <div className="p-4 bg-muted/30 rounded-full">
-                        <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                      <div className="p-4 bg-muted rounded-full">
+                        <Building2 className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                       </div>
-                      <div className="text-muted-foreground">
+                      <div className="text-muted-foreground dark:text-muted-foreground">
                         <p className="text-lg font-medium">No hired vehicles found</p>
                         <p className="text-sm mt-1">Add your first hired vehicle to get started</p>
                       </div>
@@ -1191,14 +1145,14 @@ export const VehicleManagement = () => {
                     const StatusIcon = status.icon;
 
                     return (
-                      <div key={vehicle.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
+                      <div key={vehicle.id} className="bg-card border border-border dark:border-border rounded-lg p-4 space-y-3 shadow-sm">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1 flex-1">
                             <div className="flex items-center gap-2">
-                              <Truck className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-semibold text-sm">{vehicle.vehicle_number}</span>
+                              <Truck className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+                              <span className="font-semibold text-sm text-foreground dark:text-white">{vehicle.vehicle_number}</span>
                             </div>
-                            <div className="text-xs text-muted-foreground ml-6">
+                            <div className="text-xs text-muted-foreground dark:text-muted-foreground ml-6">
                               {vehicle.vehicle_type}
                             </div>
                           </div>
@@ -1216,7 +1170,7 @@ export const VehicleManagement = () => {
                                 variant="outline"
                                 size="icon"
                                 onClick={() => handleVerifyVehicle(vehicle.id, false)}
-                                className="h-8 w-8"
+                                className="h-8 w-8 border-border dark:border-border"
                               >
                                 <ShieldCheck className="h-4 w-4" />
                               </Button>
@@ -1225,11 +1179,11 @@ export const VehicleManagement = () => {
                         </div>
 
                         {vehicle.broker && (
-                          <div className="flex items-start gap-2 text-xs bg-muted/50 rounded p-2">
-                            <Building2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                          <div className="flex items-start gap-2 text-xs bg-muted rounded p-2">
+                            <Building2 className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground mt-0.5" />
                             <div className="flex-1">
-                              <div className="font-medium">{vehicle.broker.name}</div>
-                              <div className="text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <div className="font-medium text-foreground dark:text-white">{vehicle.broker.name}</div>
+                              <div className="text-muted-foreground dark:text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <User className="w-3 h-3" />
                                 {vehicle.broker.contact_person}
                               </div>
@@ -1243,29 +1197,29 @@ export const VehicleManagement = () => {
                             {status.label}
                           </Badge>
                           {vehicle.is_verified ? (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 gap-1 text-xs">
+                            <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800 gap-1 text-xs">
                               <ShieldCheck className="w-3 h-3" />
                               Verified
                             </Badge>
                           ) : (
-                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 gap-1 text-xs">
+                            <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800 gap-1 text-xs">
                               <AlertCircle className="w-3 h-3" />
                               Unverified
                             </Badge>
                           )}
                         </div>
 
-                        <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                        <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
                           <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground text-xs">Capacity:</span>
-                            <Badge variant="outline" className="text-xs">
+                            <span className="text-muted-foreground dark:text-muted-foreground text-xs">Capacity:</span>
+                            <Badge variant="outline" className="text-xs border-border dark:border-border">
                               {vehicle.capacity}
                             </Badge>
                           </div>
                           {vehicle.vehicle_assignments?.length > 0 && (
                             <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground text-xs">Booking:</span>
-                              <Badge variant="secondary" className="text-xs">
+                              <span className="text-muted-foreground dark:text-muted-foreground text-xs">Booking:</span>
+                              <Badge variant="secondary" className="text-xs bg-muted">
                                 {vehicle.vehicle_assignments[0].booking?.booking_id}
                               </Badge>
                             </div>

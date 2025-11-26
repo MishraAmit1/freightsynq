@@ -1,4 +1,3 @@
-// pages/CompanySettings.tsx (COMPLETE UPDATED VERSION)
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,7 +58,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-// ✅ NEW IMPORT
 import {
     fetchLRCities,
     addLRCity,
@@ -74,6 +72,7 @@ import { useNavigate } from 'react-router-dom';
 export const CompanySettings = () => {
     const { company, userProfile } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [employees, setEmployees] = useState<any[]>([]);
     const [companyCode, setCompanyCode] = useState('');
@@ -84,7 +83,7 @@ export const CompanySettings = () => {
     const [currentTemplate, setCurrentTemplate] = useState(null);
     const [showTemplateOnboarding, setShowTemplateOnboarding] = useState(false);
 
-    // ✅ NEW: LR City states
+    // LR City states
     const [lrCities, setLrCities] = useState<LRCitySequence[]>([]);
     const [lrCitiesLoading, setLrCitiesLoading] = useState(false);
     const [showAddCityModal, setShowAddCityModal] = useState(false);
@@ -97,12 +96,12 @@ export const CompanySettings = () => {
     });
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [employeeRoleFilter, setEmployeeRoleFilter] = useState<string>('all');
-    const navigate = useNavigate();
+
     useEffect(() => {
         if (company) {
             loadData();
             loadTemplateData();
-            loadLRCities(); // ✅ NEW
+            loadLRCities();
             setIsAdmin(userProfile?.role === 'admin');
         }
     }, [company, userProfile]);
@@ -110,7 +109,6 @@ export const CompanySettings = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            // Get company code
             const { data: companyData, error: companyError } = await supabase
                 .from('companies')
                 .select('company_code')
@@ -120,7 +118,6 @@ export const CompanySettings = () => {
             if (companyError) throw companyError;
             setCompanyCode(companyData.company_code || '');
 
-            // Get employees
             const { data: employeesData, error: employeesError } = await supabase
                 .from('users')
                 .select('id, name, email, phone, role, created_at')
@@ -152,7 +149,6 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Load LR Cities
     const loadLRCities = async () => {
         setLrCitiesLoading(true);
         try {
@@ -169,7 +165,6 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Add new city handler
     const handleAddCity = async () => {
         if (!newCityForm.city_name.trim()) {
             toast({
@@ -198,7 +193,6 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Set active city handler
     const handleSetActiveCity = async (cityId: string, cityName: string) => {
         try {
             await setActiveLRCity(cityId);
@@ -216,7 +210,6 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Delete city handler
     const handleDeleteCity = async (cityId: string, cityName: string) => {
         if (!confirm(`Are you sure you want to delete ${cityName}?`)) return;
 
@@ -236,7 +229,6 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Edit city number handler
     const handleEditCity = (city: LRCitySequence) => {
         setEditingCity(city);
         setShowEditModal(true);
@@ -268,10 +260,8 @@ export const CompanySettings = () => {
 
         setLoading(true);
         try {
-            // Generate a new code
             const newCode = `${company.name.substring(0, 3).toUpperCase()}${Math.floor(Math.random() * 900) + 100}`;
 
-            // Update company
             const { error } = await supabase
                 .from('companies')
                 .update({ company_code: newCode })
@@ -294,9 +284,7 @@ export const CompanySettings = () => {
             setLoading(false);
         }
     };
-    // Add these functions after generateNewCode function
 
-    // Change employee role
     const handleChangeRole = async (employeeId: string, newRole: string, employeeName: string) => {
         setLoading(true);
         try {
@@ -312,7 +300,6 @@ export const CompanySettings = () => {
                 description: `${employeeName}'s role changed to ${newRole}`,
             });
 
-            // Reload employees list
             await loadData();
         } catch (error: any) {
             toast({
@@ -325,7 +312,6 @@ export const CompanySettings = () => {
         }
     };
 
-    // Delete employee
     const handleDeleteEmployee = async (employeeId: string, employeeName: string) => {
         if (!confirm(`Are you sure you want to remove ${employeeName} from your company?\n\nThis will revoke their access immediately.`)) {
             return;
@@ -333,17 +319,10 @@ export const CompanySettings = () => {
 
         setLoading(true);
         try {
-            // Option 1: Complete delete from users table
             const { error } = await supabase
                 .from('users')
                 .delete()
                 .eq('id', employeeId);
-
-            // Option 2: Just remove company_id (keep user account but revoke access)
-            // const { error } = await supabase
-            //     .from('users')
-            //     .update({ company_id: null })
-            //     .eq('id', employeeId);
 
             if (error) throw error;
 
@@ -352,7 +331,6 @@ export const CompanySettings = () => {
                 description: `${employeeName} has been removed from your company`,
             });
 
-            // Reload employees list
             await loadData();
         } catch (error: any) {
             toast({
@@ -364,6 +342,7 @@ export const CompanySettings = () => {
             setLoading(false);
         }
     };
+
     const copyCodeToClipboard = () => {
         navigator.clipboard.writeText(companyCode);
         toast({
@@ -400,15 +379,14 @@ export const CompanySettings = () => {
             description: 'Your LR template has been updated successfully',
         });
     };
+
     const filteredEmployees = employees.filter(emp => {
         const matchesSearch = emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
             emp.email.toLowerCase().includes(employeeSearch.toLowerCase());
-
         const matchesRole = employeeRoleFilter === 'all' || emp.role === employeeRoleFilter;
-
         return matchesSearch && matchesRole;
     });
-    // If showing template onboarding, render that instead
+
     if (showTemplateOnboarding) {
         return (
             <div className="min-h-screen">
@@ -416,7 +394,7 @@ export const CompanySettings = () => {
                     <Button
                         variant="outline"
                         onClick={() => setShowTemplateOnboarding(false)}
-                        className="flex items-center gap-2 hover:bg-primary/10 hover:border-primary transition-all"
+                        className="flex items-center gap-2 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary transition-all"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         Back to Settings
@@ -433,34 +411,19 @@ export const CompanySettings = () => {
     return (
         <div className="space-y-8 -mt-1">
             {/* Header Section */}
-            <div className="space-y-4">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b">
-                    <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
-                            Company Settings
-                        </h1>
-                        <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                            Manage your company settings, templates and employees
-                        </p>
-                    </div>
-                    <div className="p-3 bg-primary/10 rounded-xl">
-                        <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                    </div>
-                </div>
-            </div>
-
             <div className="space-y-6">
                 {/* Company Code & Employees Cards */}
                 <div className="grid gap-6 md:grid-cols-2">
                     {/* Company Code Card */}
-                    <Card className="border shadow-sm">
-                        <CardHeader className="border-b">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <Shield className="w-5 h-5 text-primary" />
+                    <Card className="bg-card border border-border dark:border-border shadow-sm">
+                        <CardHeader className="border-b border-border dark:border-border">
+                            <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+                                <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                                    <Shield className="w-5 h-5 text-primary dark:text-primary" />
+                                </div>
                                 Company Code
                             </CardTitle>
-                            <CardDescription>
+                            <CardDescription className="text-muted-foreground dark:text-muted-foreground">
                                 Share this code with employees to join your company
                             </CardDescription>
                         </CardHeader>
@@ -470,13 +433,13 @@ export const CompanySettings = () => {
                                     <Input
                                         value={companyCode}
                                         readOnly
-                                        className="font-mono text-base sm:text-lg h-10 sm:h-11"
+                                        className="font-mono text-base sm:text-lg h-10 sm:h-11 border-border dark:border-border bg-muted text-foreground dark:text-white"
                                     />
                                     <Button
                                         variant="outline"
                                         size="icon"
                                         onClick={copyCodeToClipboard}
-                                        className="h-10 w-10 sm:h-11 sm:w-11 shrink-0"
+                                        className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                     >
                                         <Copy className="h-4 w-4" />
                                     </Button>
@@ -487,7 +450,7 @@ export const CompanySettings = () => {
                                         variant="outline"
                                         onClick={generateNewCode}
                                         disabled={loading}
-                                        className="w-full"
+                                        className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                     >
                                         {loading ? (
                                             <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -498,8 +461,9 @@ export const CompanySettings = () => {
                                     </Button>
                                 )}
 
-                                <Alert className="border-yellow-200 bg-yellow-50/50">
-                                    <AlertDescription className="text-yellow-700 text-xs sm:text-sm">
+                                <Alert className="border-yellow-200 dark:border-yellow-900/50 bg-yellow-50/50 dark:bg-yellow-900/10">
+                                    <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                    <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-xs sm:text-sm">
                                         Anyone with this code can join your company. Generate a new code to revoke access.
                                     </AlertDescription>
                                 </Alert>
@@ -507,7 +471,7 @@ export const CompanySettings = () => {
                                 <Button
                                     variant="outline"
                                     onClick={() => navigate('/company-profile')}
-                                    className="w-full"
+                                    className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                 >
                                     <Building2 className="h-4 w-4 mr-2" />
                                     View Company Profile
@@ -517,19 +481,21 @@ export const CompanySettings = () => {
                     </Card>
 
                     {/* Employees Card */}
-                    <Card className="border shadow-sm">
-                        <CardHeader className="border-b">
+                    <Card className="bg-card border border-border dark:border-border shadow-sm">
+                        <CardHeader className="border-b border-border dark:border-border">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                 <div className="flex-1">
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                        <Users className="w-5 h-5 text-primary" />
+                                    <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+                                        <div className="p-1.5 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                                            <Users className="w-5 h-5 text-green-600" />
+                                        </div>
                                         Team Members
                                     </CardTitle>
-                                    <CardDescription className="mt-1">
+                                    <CardDescription className="mt-1 text-muted-foreground dark:text-muted-foreground">
                                         {filteredEmployees.length} of {employees.length} employees
                                     </CardDescription>
                                 </div>
-                                <Badge variant="outline" className="text-sm shrink-0">
+                                <Badge variant="outline" className="text-sm shrink-0 border-border dark:border-border">
                                     Total: {employees.length}
                                 </Badge>
                             </div>
@@ -541,15 +507,15 @@ export const CompanySettings = () => {
                                         placeholder="Search..."
                                         value={employeeSearch}
                                         onChange={(e) => setEmployeeSearch(e.target.value)}
-                                        className="h-9 pl-9 text-sm"
+                                        className="h-9 pl-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                                     />
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                                     {employeeSearch && (
                                         <Button
                                             size="sm"
                                             variant="ghost"
                                             onClick={() => setEmployeeSearch('')}
-                                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-accent dark:hover:bg-secondary"
                                         >
                                             <XCircle className="w-3.5 h-3.5" />
                                         </Button>
@@ -557,10 +523,10 @@ export const CompanySettings = () => {
                                 </div>
 
                                 <Select value={employeeRoleFilter} onValueChange={setEmployeeRoleFilter}>
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 border-border dark:border-border bg-card">
                                         <SelectValue placeholder="Filter by role" />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-card border-border dark:border-border">
                                         <SelectItem value="all">All Roles</SelectItem>
                                         <SelectItem value="admin">👑 Admin</SelectItem>
                                         <SelectItem value="dispatcher">🚚 Dispatcher</SelectItem>
@@ -575,12 +541,17 @@ export const CompanySettings = () => {
                         <CardContent className="pt-6">
                             {loading ? (
                                 <div className="flex justify-center py-8">
-                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                    <div className="relative">
+                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                        <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                                    </div>
                                 </div>
                             ) : filteredEmployees.length === 0 ? (
                                 <div className="text-center py-8">
-                                    <Users className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-                                    <p className="text-sm text-muted-foreground">
+                                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                                        <Users className="w-6 h-6 text-muted-foreground dark:text-muted-foreground" />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                                         {employeeSearch || employeeRoleFilter !== 'all'
                                             ? 'No employees found matching your filters'
                                             : 'No employees found'}
@@ -593,7 +564,7 @@ export const CompanySettings = () => {
                                                 setEmployeeSearch('');
                                                 setEmployeeRoleFilter('all');
                                             }}
-                                            className="mt-2"
+                                            className="mt-2 text-primary dark:text-primary hover:text-primary dark:text-primary"
                                         >
                                             Clear filters
                                         </Button>
@@ -601,25 +572,24 @@ export const CompanySettings = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    {/* Employee List */}
                                     <div className="max-h-[400px] overflow-y-auto pr-2 space-y-2">
                                         {filteredEmployees.map((employee) => (
                                             <div
                                                 key={employee.id}
-                                                className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"
+                                                className="flex items-center justify-between p-3 bg-muted rounded-lg border border-border dark:border-border"
                                             >
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="font-medium text-sm truncate">
+                                                        <div className="font-medium text-sm truncate text-foreground dark:text-white">
                                                             {employee.name}
                                                         </div>
                                                         {employee.id === userProfile?.id && (
-                                                            <Badge variant="outline" className="text-xs shrink-0">
+                                                            <Badge variant="outline" className="text-xs shrink-0 bg-accent dark:bg-primary/10 text-primary dark:text-primary border-primary/30">
                                                                 You
                                                             </Badge>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                                    <div className="text-xs text-muted-foreground dark:text-muted-foreground truncate mt-0.5">
                                                         {employee.email}
                                                     </div>
                                                 </div>
@@ -630,10 +600,10 @@ export const CompanySettings = () => {
                                                             value={employee.role}
                                                             onValueChange={(newRole) => handleChangeRole(employee.id, newRole, employee.name)}
                                                         >
-                                                            <SelectTrigger className="w-28 h-7 text-xs">
+                                                            <SelectTrigger className="w-28 h-7 text-xs border-border dark:border-border bg-card">
                                                                 <SelectValue />
                                                             </SelectTrigger>
-                                                            <SelectContent>
+                                                            <SelectContent className="bg-card border-border dark:border-border">
                                                                 <SelectItem value="admin">Admin</SelectItem>
                                                                 <SelectItem value="dispatcher">Dispatcher</SelectItem>
                                                                 <SelectItem value="warehouse">Warehouse</SelectItem>
@@ -642,7 +612,15 @@ export const CompanySettings = () => {
                                                             </SelectContent>
                                                         </Select>
                                                     ) : (
-                                                        <Badge variant={employee.role === 'admin' ? 'default' : 'secondary'} className="text-xs">
+                                                        <Badge
+                                                            variant={employee.role === 'admin' ? 'default' : 'secondary'}
+                                                            className={cn(
+                                                                "text-xs",
+                                                                employee.role === 'admin'
+                                                                    ? "bg-primary text-primary-foreground border-0"
+                                                                    : "bg-muted text-muted-foreground dark:text-muted-foreground"
+                                                            )}
+                                                        >
                                                             {employee.role}
                                                         </Badge>
                                                     )}
@@ -652,7 +630,7 @@ export const CompanySettings = () => {
                                                             size="sm"
                                                             variant="ghost"
                                                             onClick={() => handleDeleteEmployee(employee.id, employee.name)}
-                                                            className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                                            className="h-7 w-7 p-0 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600"
                                                         >
                                                             <Trash2 className="w-3.5 h-3.5" />
                                                         </Button>
@@ -662,10 +640,9 @@ export const CompanySettings = () => {
                                         ))}
                                     </div>
 
-                                    {/* Copy Signup Link */}
                                     <Button
                                         variant="outline"
-                                        className="w-full"
+                                        className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                         onClick={() => {
                                             const signupUrl = `${window.location.origin}/employee-signup`;
                                             navigator.clipboard.writeText(signupUrl);
@@ -685,56 +662,66 @@ export const CompanySettings = () => {
                 </div>
 
                 {/* LR Template Card */}
-                <Card className="border shadow-sm">
-                    <CardHeader className="border-b">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <FileText className="w-5 h-5 text-primary" />
+                <Card className="bg-card border border-border dark:border-border shadow-sm">
+                    <CardHeader className="border-b border-border dark:border-border">
+                        <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+                            <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                                <FileText className="w-5 h-5 text-primary dark:text-primary" />
+                            </div>
                             LR Template Configuration
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-muted-foreground dark:text-muted-foreground">
                             Configure how your Lorry Receipts will look when generated
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
                         {templateLoading ? (
                             <div className="flex flex-col items-center justify-center py-12">
-                                <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                                <p className="text-muted-foreground mt-4">Loading template...</p>
+                                <div className="relative">
+                                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                                </div>
+                                <p className="text-muted-foreground dark:text-muted-foreground mt-4">Loading template...</p>
                             </div>
                         ) : currentTemplate ? (
                             <div className="space-y-6">
-                                {/* Template Info Grid */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted rounded-lg border border-border dark:border-border">
                                     <div className="space-y-2">
-                                        <Label className="text-sm flex items-center gap-2">
-                                            <FileSignature className="w-4 h-4 text-primary" />
+                                        <Label className="text-sm flex items-center gap-2 text-muted-foreground dark:text-muted-foreground">
+                                            <FileSignature className="w-4 h-4 text-primary dark:text-primary" />
                                             Current Template
                                         </Label>
-                                        <Badge variant="default">{currentTemplate.template_name}</Badge>
+                                        <Badge className="bg-primary text-primary-foreground border-0">{currentTemplate.template_name}</Badge>
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label className="text-sm flex items-center gap-2">
-                                            <Palette className="w-4 h-4 text-primary" />
+                                        <Label className="text-sm flex items-center gap-2 text-muted-foreground dark:text-muted-foreground">
+                                            <Palette className="w-4 h-4 text-primary dark:text-primary" />
                                             Primary Color
                                         </Label>
                                         <div className="flex items-center gap-2">
                                             <div
-                                                className="w-6 h-6 rounded-full border"
+                                                className="w-6 h-6 rounded-full border border-border dark:border-border"
                                                 style={{ backgroundColor: currentTemplate.style_config?.primary_color }}
                                             />
-                                            <span className="text-sm font-mono">{currentTemplate.style_config?.primary_color}</span>
+                                            <span className="text-sm font-mono text-foreground dark:text-white">{currentTemplate.style_config?.primary_color}</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Actions */}
                                 <div className="flex flex-wrap gap-2">
-                                    <Button onClick={handleTemplateChange} className="flex-1 sm:flex-none">
+                                    <Button
+                                        onClick={handleTemplateChange}
+                                        className="flex-1 sm:flex-none bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                                    >
                                         <Edit className="w-4 h-4 mr-2" />
                                         Change Template
                                     </Button>
-                                    <Button variant="outline" onClick={handleTemplatePreview} className="flex-1 sm:flex-none">
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleTemplatePreview}
+                                        className="flex-1 sm:flex-none bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+                                    >
                                         <Eye className="w-4 h-4 mr-2" />
                                         Preview
                                     </Button>
@@ -742,9 +729,14 @@ export const CompanySettings = () => {
                             </div>
                         ) : (
                             <div className="text-center py-12">
-                                <FileText className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium mb-2">No Template Configured</h3>
-                                <Button onClick={handleTemplateChange} className="mt-4">
+                                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                    <FileText className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-medium mb-2 text-foreground dark:text-white">No Template Configured</h3>
+                                <Button
+                                    onClick={handleTemplateChange}
+                                    className="mt-4 bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                                >
                                     <Settings className="w-4 h-4 mr-2" />
                                     Configure Template
                                 </Button>
@@ -754,15 +746,17 @@ export const CompanySettings = () => {
                 </Card>
 
                 {/* LR City Card */}
-                <Card className="border shadow-sm">
-                    <CardHeader className="border-b">
+                <Card className="bg-card border border-border dark:border-border shadow-sm">
+                    <CardHeader className="border-b border-border dark:border-border">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <div>
-                                <CardTitle className="flex items-center gap-2 text-lg">
-                                    <MapPin className="w-5 h-5 text-primary" />
+                                <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+                                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                                        <MapPin className="w-5 h-5 text-blue-600" />
+                                    </div>
                                     LR City Numbering
                                 </CardTitle>
-                                <CardDescription className="mt-1">
+                                <CardDescription className="mt-1 text-muted-foreground dark:text-muted-foreground">
                                     Manage city-wise LR number sequences
                                 </CardDescription>
                             </div>
@@ -770,7 +764,7 @@ export const CompanySettings = () => {
                                 <Button
                                     onClick={() => setShowAddCityModal(true)}
                                     size="sm"
-                                    className="w-full sm:w-auto"
+                                    className="w-full sm:w-auto bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
                                 >
                                     <Plus className="w-4 h-4 mr-2" />
                                     Add City
@@ -781,14 +775,22 @@ export const CompanySettings = () => {
                     <CardContent className="pt-6">
                         {lrCitiesLoading ? (
                             <div className="flex justify-center py-12">
-                                <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                                <div className="relative">
+                                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                                </div>
                             </div>
                         ) : lrCities.length === 0 ? (
                             <div className="text-center py-12">
-                                <MapPin className="w-16 h-16 text-muted-foreground/50 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium mb-2">No Cities Configured</h3>
+                                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                    <MapPin className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-medium mb-2 text-foreground dark:text-white">No Cities Configured</h3>
                                 {isAdmin && (
-                                    <Button onClick={() => setShowAddCityModal(true)} className="mt-4">
+                                    <Button
+                                        onClick={() => setShowAddCityModal(true)}
+                                        className="mt-4 bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                                    >
                                         <Plus className="w-4 h-4 mr-2" />
                                         Add First City
                                     </Button>
@@ -800,8 +802,10 @@ export const CompanySettings = () => {
                                     <div
                                         key={city.id}
                                         className={cn(
-                                            "p-4 rounded-lg border",
-                                            city.is_active ? "bg-primary/5 border-primary" : "bg-muted/30"
+                                            "p-4 rounded-lg border transition-all",
+                                            city.is_active
+                                                ? "bg-accent dark:bg-primary/10 border-primary"
+                                                : "bg-muted border-border dark:border-border"
                                         )}
                                     >
                                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -813,9 +817,9 @@ export const CompanySettings = () => {
                                                     )}
                                                 />
                                                 <div className="min-w-0">
-                                                    <div className="font-semibold text-base sm:text-lg truncate">{city.city_name}</div>
-                                                    <div className="text-sm text-muted-foreground">
-                                                        Current: <span className="font-mono font-medium">
+                                                    <div className="font-semibold text-base sm:text-lg truncate text-foreground dark:text-white">{city.city_name}</div>
+                                                    <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+                                                        Current: <span className="font-mono font-medium text-foreground dark:text-white">
                                                             {city.prefix}{city.current_lr_number}
                                                         </span>
                                                     </div>
@@ -824,13 +828,16 @@ export const CompanySettings = () => {
 
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 {city.is_active ? (
-                                                    <Badge className="bg-green-100 text-green-700">Active</Badge>
+                                                    <Badge className="bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50">
+                                                        Active
+                                                    </Badge>
                                                 ) : (
                                                     isAdmin && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() => handleSetActiveCity(city.id, city.city_name)}
+                                                            className="bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                                         >
                                                             Set Active
                                                         </Button>
@@ -843,6 +850,7 @@ export const CompanySettings = () => {
                                                             size="sm"
                                                             variant="ghost"
                                                             onClick={() => handleEditCity(city)}
+                                                            className="hover:bg-accent dark:hover:bg-secondary"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </Button>
@@ -852,7 +860,7 @@ export const CompanySettings = () => {
                                                                 size="sm"
                                                                 variant="ghost"
                                                                 onClick={() => handleDeleteCity(city.id, city.city_name)}
-                                                                className="hover:text-destructive"
+                                                                className="hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </Button>
@@ -873,17 +881,17 @@ export const CompanySettings = () => {
 
             {/* Add City Modal */}
             <Dialog open={showAddCityModal} onOpenChange={setShowAddCityModal}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Add New LR City</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
+                    <DialogHeader className="border-b border-border dark:border-border pb-4">
+                        <DialogTitle className="text-foreground dark:text-white">Add New LR City</DialogTitle>
+                        <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
                             Configure LR numbering for a new city
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        <div>
-                            <Label>City Name *</Label>
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">City Name *</Label>
                             <Input
                                 value={newCityForm.city_name}
                                 onChange={(e) => setNewCityForm({
@@ -891,12 +899,13 @@ export const CompanySettings = () => {
                                     city_name: e.target.value
                                 })}
                                 placeholder="e.g., Vapi, Surat"
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <Label>Prefix</Label>
+                            <div className="space-y-2">
+                                <Label className="text-foreground dark:text-white">Prefix</Label>
                                 <Input
                                     value={newCityForm.prefix}
                                     onChange={(e) => setNewCityForm({
@@ -904,11 +913,12 @@ export const CompanySettings = () => {
                                         prefix: e.target.value
                                     })}
                                     placeholder="LR"
+                                    className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                                 />
                             </div>
 
-                            <div>
-                                <Label>Starting Number *</Label>
+                            <div className="space-y-2">
+                                <Label className="text-foreground dark:text-white">Starting Number *</Label>
                                 <Input
                                     type="number"
                                     value={newCityForm.current_lr_number}
@@ -916,23 +926,24 @@ export const CompanySettings = () => {
                                         ...newCityForm,
                                         current_lr_number: parseInt(e.target.value) || 1001
                                     })}
+                                    className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 border-t border-border dark:border-border pt-4">
                         <Button
                             variant="outline"
                             onClick={() => setShowAddCityModal(false)}
-                            className="w-full sm:w-auto"
+                            className="w-full sm:w-auto bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleAddCity}
                             disabled={!newCityForm.city_name}
-                            className="w-full sm:w-auto"
+                            className="w-full sm:w-auto bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
                         >
                             Add City
                         </Button>
@@ -942,17 +953,17 @@ export const CompanySettings = () => {
 
             {/* Edit City Modal */}
             <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Edit LR Number</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
+                    <DialogHeader className="border-b border-border dark:border-border pb-4">
+                        <DialogTitle className="text-foreground dark:text-white">Edit LR Number</DialogTitle>
+                        <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
                             Update the current LR number for {editingCity?.city_name}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        <div>
-                            <Label>Current LR Number</Label>
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">Current LR Number</Label>
                             <Input
                                 type="number"
                                 value={editingCity?.current_lr_number || 1001}
@@ -960,28 +971,29 @@ export const CompanySettings = () => {
                                     ...editingCity,
                                     current_lr_number: parseInt(e.target.value) || 1001
                                 } : null)}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                             />
                         </div>
 
-                        <Alert className="border-yellow-200 bg-yellow-50/50">
+                        <Alert className="border-yellow-200 dark:border-yellow-900/50 bg-yellow-50/50 dark:bg-yellow-900/10">
                             <AlertCircle className="w-4 h-4 text-yellow-600" />
-                            <AlertDescription className="text-yellow-700 text-sm">
+                            <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-sm">
                                 Changing this will affect the next LR generated
                             </AlertDescription>
                         </Alert>
                     </div>
 
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 border-t border-border dark:border-border pt-4">
                         <Button
                             variant="outline"
                             onClick={() => setShowEditModal(false)}
-                            className="w-full sm:w-auto"
+                            className="w-full sm:w-auto bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleUpdateCityNumber}
-                            className="w-full sm:w-auto"
+                            className="w-full sm:w-auto bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
                         >
                             Update Number
                         </Button>
@@ -990,4 +1002,4 @@ export const CompanySettings = () => {
             </Dialog>
         </div>
     );
-};  
+};

@@ -18,120 +18,231 @@ body {
 
 @layer base {
   :root {
-    /* Light Mode - Black Primary Theme */
+    /* ========================================
+       🌞 LIGHT THEME - BLACK PRIMARY (Pehle wala)
+       ======================================== */
+
+    /* Backgrounds */
     --background: 0 0% 90%;
+    /* #E5E5E5 - Light Gray */
     --foreground: 0 0% 4%;
+    /* #0A0A0A - Almost Black */
     --card: 0 0% 100%;
+    /* #FFFFFF - Pure White */
     --card-foreground: 0 0% 4%;
+    /* #0A0A0A */
+    --card-hover: 0 0% 96%;
+    /* #F5F5F5 - Light Gray */
     --popover: 0 0% 100%;
+    /* #FFFFFF */
     --popover-foreground: 0 0% 4%;
+    /* #0A0A0A */
 
-    /* Primary BLACK */
+    /* Primary - BLACK (Pehle wala) */
     --primary: 0 0% 4%;
+    /* #0A0A0A - Almost Black */
     --primary-foreground: 0 0% 98%;
+    /* #FAFAFA - Off White text */
     --primary-hover: 0 0% 15%;
-    --primary-glow: 0 0% 20%;
+    /* #262626 - Dark Gray */
+    --primary-active: 0 0% 20%;
+    /* #333333 - Slightly lighter */
 
-    /* Secondary grays */
+    /* Secondary */
     --secondary: 0 0% 96%;
+    /* #F5F5F5 */
     --secondary-foreground: 0 0% 4%;
+    /* #0A0A0A */
     --secondary-hover: 0 0% 90%;
+    /* #E5E5E5 */
 
+    /* Muted */
     --muted: 0 0% 96%;
+    /* #F5F5F5 */
     --muted-foreground: 0 0% 45%;
+    /* #737373 - Medium Gray */
 
+    /* Accent */
     --accent: 0 0% 96%;
+    /* #F5F5F5 */
     --accent-foreground: 0 0% 4%;
+    /* #0A0A0A */
 
-    /* Status colors */
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 4%;
-    --destructive: 0 84% 60%;
+    /* Status Colors - Light (same as current) */
+    --success: 160 84% 30%;
+    /* #059669 */
+    --success-foreground: 156 62% 52%;
+    /* #34D399 */
+    --success-bg: 156 76% 95%;
+    /* #ECFDF5 */
+
+    --warning: 32 95% 44%;
+    /* #D97706 */
+    --warning-foreground: 45 93% 58%;
+    /* #FBBF24 */
+    --warning-bg: 48 100% 96%;
+    /* #FFFBEB */
+
+    --error: 0 84% 51%;
+    /* #DC2626 */
+    --error-foreground: 0 84% 71%;
+    /* #F87171 */
+    --error-bg: 0 86% 97%;
+    /* #FEF2F2 */
+
+    --destructive: 0 84% 51%;
+    /* #DC2626 */
     --destructive-foreground: 0 0% 98%;
-    --info: 199 89% 48%;
-    --info-foreground: 0 0% 98%;
+    /* White */
 
-    /* Borders and inputs */
+    --info: 217 91% 60%;
+    /* #2563EB */
+    --info-foreground: 213 93% 68%;
+    /* #60A5FA */
+    --info-bg: 214 100% 97%;
+    /* #EFF6FF */
+
+    /* Borders & Inputs */
     --border: 0 0% 90%;
+    /* #E5E5E5 */
     --input: 0 0% 96%;
+    /* #F5F5F5 */
     --ring: 0 0% 4%;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(0 0% 4%), hsl(0 0% 15%));
-    --gradient-secondary: linear-gradient(135deg, hsl(0 0% 96%), hsl(0 0% 90%));
+    /* #0A0A0A - Black focus ring */
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.15);
-    --shadow-glow: 0 0 20px hsl(0 0% 0% / 0.2);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.15);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 
     --radius: 0.75rem;
 
-    /* Sidebar */
+    /* Sidebar - Light */
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 4%;
+    /* #FAFAFA */
+    --sidebar-foreground: 0 0% 45%;
+    /* #737373 */
     --sidebar-primary: 0 0% 4%;
+    /* #0A0A0A - Black */
     --sidebar-primary-foreground: 0 0% 98%;
+    /* #FAFAFA */
     --sidebar-accent: 0 0% 96%;
+    /* #F5F5F5 */
     --sidebar-accent-foreground: 0 0% 4%;
+    /* #0A0A0A */
     --sidebar-border: 0 0% 90%;
+    /* #E5E5E5 */
     --sidebar-ring: 0 0% 4%;
+    /* #0A0A0A */
   }
 
   .dark {
-    /* Dark Mode - Yellow Primary Theme */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 98%;
+    /* ========================================
+       🌙 DARK THEME - YELLOW/ORANGE PRIMARY (Current wala same)
+       ======================================== */
 
-    /* Primary yellow accents */
-    --primary: 48 100% 68%;
-    --primary-foreground: 0 0% 4%;
-    --primary-hover: 48 100% 75%;
-    --primary-glow: 48 100% 75%;
+    /* Backgrounds */
+    --background: 240 11% 13%;
+    /* #1E1E24 - Raisin Black */
+    --foreground: 0 0% 100%;
+    /* #FFFFFF - White */
+    --card: 240 11% 18%;
+    /* #2A2A32 - Dark Elevated */
+    --card-foreground: 0 0% 100%;
+    /* #FFFFFF */
+    --card-hover: 240 11% 23%;
+    /* #35353F - Dark Hover */
+    --popover: 240 11% 18%;
+    /* #2A2A32 */
+    --popover-foreground: 0 0% 100%;
+    /* #FFFFFF */
 
-    /* Secondary grays */
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 80%;
-    --secondary-hover: 0 0% 20%;
+    /* Primary - Mikado Yellow (same as current) */
+    --primary: 45 97% 58%;
+    /* #FCC52C - Mikado Yellow */
+    --primary-foreground: 240 11% 13%;
+    /* #1E1E24 - Black text on yellow */
+    --primary-hover: 29 90% 51%;
+    /* #F38810 - Tangerine */
+    --primary-active: 28 93% 50%;
+    /* #F67C09 - Orange */
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 65%;
+    /* Secondary */
+    --secondary: 240 11% 23%;
+    /* #35353F */
+    --secondary-foreground: 45 97% 58%;
+    /* #FCC52C - Yellow text */
+    --secondary-hover: 42 13% 28%;
+    /* #3D3A2E */
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 48 100% 68%;
+    /* Muted */
+    --muted: 240 5% 46%;
+    /* #71717A */
+    --muted-foreground: 240 5% 65%;
+    /* #A1A1AA */
 
-    /* Borders and inputs */
-    --border: 0 0% 20%;
-    --input: 0 0% 12%;
-    --ring: 48 100% 68%;
+    /* Accent */
+    --accent: 240 11% 23%;
+    /* #35353F */
+    --accent-foreground: 45 97% 58%;
+    /* #FCC52C - Yellow */
 
-    /* Dashboard specific gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(48 100% 68%), hsl(48 100% 75%));
-    --gradient-dark: linear-gradient(135deg, hsl(0 0% 4%), hsl(0 0% 12%));
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 8%), hsl(0 0% 12%));
+    /* Status Colors - Dark (same as current) */
+    --success: 156 62% 52%;
+    /* #34D399 */
+    --success-foreground: 156 62% 52%;
+    --success-bg: 160 84% 15%;
 
-    /* Shadows with subtle glow */
-    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.3);
-    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.4);
-    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.5);
-    --shadow-yellow: 0 4px 20px hsl(48 100% 68% / 0.3);
+    --warning: 45 93% 58%;
+    /* #FBBF24 */
+    --warning-foreground: 45 93% 58%;
+    --warning-bg: 32 95% 15%;
 
-    /* Sidebar colors */
-    --sidebar-background: 0 0% 4%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 48 100% 68%;
-    --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 48 100% 68%;
+    --error: 0 84% 71%;
+    /* #F87171 */
+    --error-foreground: 0 84% 71%;
+    --error-bg: 0 84% 15%;
+
+    --destructive: 0 84% 71%;
+    /* #F87171 */
+    --destructive-foreground: 0 0% 100%;
+
+    --info: 213 93% 68%;
+    /* #60A5FA */
+    --info-foreground: 213 93% 68%;
+    --info-bg: 217 91% 15%;
+
+    /* Borders & Inputs */
+    --border: 240 11% 23%;
+    /* #35353F */
+    --input: 240 11% 17%;
+    /* #252530 */
+    --ring: 45 97% 58%;
+    /* #FCC52C - Yellow focus */
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+
+    /* Sidebar - Dark */
+    --sidebar-background: 240 11% 13%;
+    /* #1E1E24 */
+    --sidebar-foreground: 240 5% 65%;
+    /* #A1A1AA */
+    --sidebar-primary: 45 97% 58%;
+    /* #FCC52C */
+    --sidebar-primary-foreground: 45 97% 58%;
+    /* Yellow text */
+    --sidebar-accent: 240 11% 18%;
+    /* #2A2A32 - Hover */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 240 11% 23%;
+    /* #35353F */
+    --sidebar-ring: 45 97% 58%;
+    /* #FCC52C */
   }
 }
 
@@ -146,29 +257,156 @@ body {
 }
 
 @layer components {
+  /* ========================================
+     🎨 BUTTON STYLES - UPDATED
+     ======================================== */
 
-  /* Primary button - Black in light, Yellow in dark */
+  /* Primary Button - Black in Light, Yellow in Dark */
   .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary-hover transition-colors font-medium;
+    @apply bg-primary text-primary-foreground transition-all duration-200 font-medium shadow-md hover:shadow-lg;
   }
 
+  /* Light mode - Black button hover */
+  .btn-primary:hover {
+    background-color: hsl(var(--primary-hover));
+  }
+
+  .btn-primary:active {
+    background-color: hsl(var(--primary-active));
+  }
+
+  /* Dark mode - Yellow button with glow */
   .dark .btn-primary {
-    box-shadow: var(--shadow-yellow);
+    box-shadow: 0 4px 20px hsl(45 97% 58% / 0.3);
   }
 
-  /* Secondary button */
+  .dark .btn-primary:hover {
+    background-color: hsl(29 90% 51%);
+    /* Tangerine */
+  }
+
+  .dark .btn-primary:active {
+    background-color: hsl(28 93% 50%);
+    /* Orange */
+  }
+
+  /* Secondary Button */
   .btn-secondary {
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary-hover transition-colors;
+    @apply bg-transparent border-2 border-primary text-foreground hover:bg-secondary-hover transition-colors duration-200;
   }
 
-  /* Theme Toggle Button Styles */
+  .dark .btn-secondary {
+    @apply text-primary hover:text-primary dark:text-primary hover:border-[#F38810];
+  }
+
+  /* Ghost Button */
+  .btn-ghost {
+    @apply bg-transparent text-muted-foreground hover:bg-card-hover hover:text-foreground transition-colors duration-200;
+  }
+
+  /* ========================================
+     📊 DASHBOARD COMPONENTS
+     ======================================== */
+
+  /* Stats Card */
+  .stats-card {
+    @apply bg-card border border-border rounded-lg p-6 shadow-card hover:shadow-md transition-shadow duration-200;
+  }
+
+  /* Light mode - Black accent */
+  .stats-card-icon {
+    @apply w-12 h-12 rounded-lg flex items-center justify-center bg-gray-100 text-gray-800;
+  }
+
+  /* Dark mode - Yellow accent */
+  .dark .stats-card-icon {
+    @apply bg-primary/15 text-primary;
+  }
+
+  /* Data Table */
+  .table-header {
+    @apply bg-background border-b border-border;
+  }
+
+  .table-row {
+    @apply bg-card hover:bg-gray-50 border-b border-border transition-colors duration-150;
+  }
+
+  .dark .table-row {
+    @apply hover:bg-card-hover;
+  }
+
+  /* ========================================
+     🏷️ BADGES & STATUS
+     ======================================== */
+
+  /* Status Badges */
+  .badge-success {
+    @apply bg-success-bg text-success border border-green-200 dark:bg-success-bg dark:text-success-foreground dark:border-green-800/30;
+  }
+
+  .badge-warning {
+    @apply bg-warning-bg text-warning border border-yellow-200 dark:bg-warning-bg dark:text-warning-foreground dark:border-yellow-800/30;
+  }
+
+  .badge-error {
+    @apply bg-error-bg text-error border border-red-200 dark:bg-error-bg dark:text-error-foreground dark:border-red-800/30;
+  }
+
+  .badge-info {
+    @apply bg-info-bg text-info border border-blue-200 dark:bg-info-bg dark:text-info-foreground dark:border-blue-800/30;
+  }
+
+  /* Type Badges - Light mode (Black theme) */
+  .badge-consignor {
+    @apply bg-gray-100 text-gray-800 border border-gray-300 px-3 py-1 rounded-md text-sm font-medium;
+  }
+
+  .badge-consignee {
+    @apply bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1 rounded-md text-sm font-medium;
+  }
+
+  .badge-billing {
+    @apply bg-gray-200 text-gray-900 border border-gray-400 px-3 py-1 rounded-md text-sm font-medium;
+  }
+
+  /* Type Badges - Dark mode (Yellow/Orange theme) */
+  .dark .badge-consignor {
+    @apply bg-[#FFF3D6] text-primary dark:text-primary border-[#F67C09];
+  }
+
+  .dark .badge-consignee {
+    @apply bg-accent text-primary dark:text-primary border-[#F38810];
+  }
+
+  .dark .badge-billing {
+    @apply bg-[#FEF3C7] text-[#D97706] border-[#D97706];
+  }
+
+  /* ========================================
+     🎛️ SIDEBAR ACTIVE STATES
+     ======================================== */
+
+  /* Light mode - Black active state */
+  .nav-active {
+    @apply bg-primary text-primary-foreground shadow-md scale-[1.02];
+  }
+
+  /* Dark mode - Yellow accent active state */
+  .dark .nav-active {
+    @apply bg-primary/15 text-primary border-l-4 border-primary;
+  }
+
+  /* ========================================
+     🎨 THEME TOGGLE
+     ======================================== */
+
   .theme-toggle {
     @apply relative w-14 h-7 bg-muted rounded-full transition-colors duration-300 cursor-pointer;
   }
 
   .theme-toggle-slider {
-    @apply absolute top-0.5 left-0.5 w-6 h-6 bg-background rounded-full transition-transform duration-300 shadow-md;
-    @apply flex items-center justify-center;
+    @apply absolute top-0.5 left-0.5 w-6 h-6 bg-background rounded-full transition-transform duration-300 shadow-md flex items-center justify-center;
   }
 
   .theme-toggle-icon {
@@ -187,92 +425,24 @@ body {
     @apply text-primary-foreground;
   }
 
-  /* Chart colors */
-  .chart-primary {
-    fill: hsl(var(--primary));
-    stroke: hsl(var(--primary));
-  }
+  /* ========================================
+     📝 INPUT STYLING
+     ======================================== */
 
-  .chart-secondary {
-    fill: hsl(0 0% 80%);
-    stroke: hsl(0 0% 80%);
-  }
-
-  .chart-accent {
-    fill: hsl(48 100% 68%);
-    stroke: hsl(48 100% 68%);
-  }
-
-  /* Dashboard cards */
-  .dashboard-card {
-    @apply bg-card border border-border rounded-lg shadow-md p-6 text-card-foreground;
-  }
-
-  .dark .dashboard-card {
-    background: var(--gradient-card);
-  }
-
-  /* Metric cards */
-  .metric-card {
-    @apply dashboard-card relative overflow-hidden;
-  }
-
-  .metric-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: hsl(var(--primary));
-  }
-
-  .dark .metric-card::before {
-    background: var(--gradient-primary);
-  }
-
-  /* Status indicators */
-  .status-pending {
-    @apply bg-yellow-100 text-yellow-800 border-yellow-200;
-  }
-
-  .status-delivered {
-    @apply bg-green-100 text-green-800 border-green-200;
-  }
-
-  .status-cancelled {
-    @apply bg-red-100 text-red-800 border-red-200;
-  }
-
-  .dark .status-pending {
-    @apply bg-yellow-900/20 text-yellow-400 border-yellow-800/30;
-  }
-
-  .dark .status-delivered {
-    @apply bg-green-900/20 text-green-400 border-green-800/30;
-  }
-
-  .dark .status-cancelled {
-    @apply bg-red-900/20 text-red-400 border-red-800/30;
-  }
-
-  /* Navigation active state */
-  .nav-active {
-    @apply bg-primary text-primary-foreground;
-  }
-
-  /* Input styling */
   .input-dark {
-    @apply bg-input border-border text-foreground placeholder:text-muted-foreground;
+    @apply bg-input border-border text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-ring;
   }
 
-  /* TopBar specific styles */
+  /* ========================================
+     🔔 TOPBAR SPECIFIC
+     ======================================== */
+
   .topbar-search {
-    @apply bg-muted/50 border-border focus:ring-2 focus:ring-ring;
+    @apply bg-input border-border focus:ring-2 focus:ring-ring;
   }
 
   .topbar-notification-badge {
-    @apply absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-destructive rounded-full;
+    @apply absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-destructive rounded-full animate-pulse;
   }
 
   .topbar-avatar {
@@ -282,20 +452,78 @@ body {
   .topbar-avatar-text {
     @apply text-sm font-medium text-primary-foreground;
   }
+
+  /* ========================================
+     📊 CHART COLORS
+     ======================================== */
+
+  /* Light mode - Black/Gray charts */
+  .chart-primary {
+    fill: #0A0A0A;
+    stroke: #0A0A0A;
+  }
+
+  .chart-secondary {
+    fill: #6B7280;
+    stroke: #6B7280;
+  }
+
+  .chart-accent {
+    fill: #374151;
+    stroke: #374151;
+  }
+
+  /* Dark mode - Yellow/Orange charts */
+  .dark .chart-primary {
+    fill: #FCC52C;
+    stroke: #FCC52C;
+  }
+
+  .dark .chart-secondary {
+    fill: #F38810;
+    stroke: #F38810;
+  }
+
+  .dark .chart-accent {
+    fill: #F67C09;
+    stroke: #F67C09;
+  }
 }
 
+/* ========================================
+   🗺️ MAP & ANIMATIONS
+   ======================================== */
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    box-shadow: 0 0 0 0 rgba(10, 10, 10, 0.7);
   }
 
   70% {
-    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 10px rgba(10, 10, 10, 0);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 0 rgba(10, 10, 10, 0);
+  }
+}
+
+/* Dark mode pulse with yellow */
+.dark .current-location-marker>div {
+  animation: pulse-yellow 2s infinite;
+}
+
+@keyframes pulse-yellow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(252, 197, 44, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(252, 197, 44, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(252, 197, 44, 0);
   }
 }
 
@@ -309,7 +537,10 @@ body {
   border-radius: 0.5rem;
 }
 
-/* Add to src/index.css or globals.css */
+/* ========================================
+   📜 CUSTOM SCROLLBAR
+   ======================================== */
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -327,10 +558,15 @@ body {
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
+/* ========================================
+   🛰️ RADAR SCANNER
+   ======================================== */
+
+/* Light mode - Black radar */
 .radar-scanner {
   width: 300px;
   height: 300px;
-  border: 2px solid rgba(6, 182, 212, 0.2);
+  border: 2px solid rgba(10, 10, 10, 0.2);
   border-radius: 50%;
 }
 
@@ -340,9 +576,18 @@ body {
   left: 50%;
   width: 50%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #06b6d4);
+  background: linear-gradient(90deg, transparent, #0A0A0A);
   transform-origin: left center;
   animation: radar-sweep 4s linear infinite;
+}
+
+/* Dark mode - Yellow radar */
+.dark .radar-scanner {
+  border-color: rgba(252, 197, 44, 0.2);
+}
+
+.dark .radar-line {
+  background: linear-gradient(90deg, transparent, #FCC52C);
 }
 
 @keyframes radar-sweep {
@@ -376,4 +621,19 @@ body {
     transform: scale(1.1);
     opacity: 0.8;
   }
+}
+
+/* ========================================
+   🚫 SCROLLBAR NONE UTILITY
+   ======================================== */
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+  width: 0 !important;
+  height: 0 !important;
 }

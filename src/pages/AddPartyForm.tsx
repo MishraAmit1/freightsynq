@@ -175,7 +175,7 @@ const AddPartyForm = () => {
               <div className="px-8 py-6 border-b border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-[#FFCB1F] to-[#FFE066] rounded-lg">
-                    <User className="h-5 w-5 text-[#1E1E24]" />
+                    <User className="h-5 w-5 text-foreground" />
                   </div>
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900">
@@ -319,7 +319,7 @@ const AddPartyForm = () => {
               <div className="px-8 py-6 border-b border-gray-100">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-[#FFCB1F] to-[#FFE066] rounded-lg">
-                    <MapPin className="h-5 w-5 text-[#1E1E24]" />
+                    <MapPin className="h-5 w-5 text-foreground" />
                   </div>
                   <div>
                     <h2 className="text-xl font-semibold text-gray-900">
@@ -634,7 +634,7 @@ const AddPartyForm = () => {
                           type="button"
                           onClick={() => handleTagToggle(tag)}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${formData.tags.includes(tag)
-                            ? "bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-[#1E1E24] shadow-sm"
+                            ? "bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-foreground shadow-sm"
                             : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                             }`}
                         >
@@ -769,7 +769,7 @@ const AddPartyForm = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-6 py-2.5 bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-[#1E1E24] rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-6 py-2.5 bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-foreground rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>

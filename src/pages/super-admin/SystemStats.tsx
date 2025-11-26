@@ -1,4 +1,3 @@
-// src/pages/super-admin/SystemStats.tsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -17,6 +16,7 @@ import {
     Clock,
     RefreshCw
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Stats {
     totalCompanies: number;
@@ -44,7 +44,6 @@ export const SystemStats = () => {
     const loadStats = async () => {
         setLoading(true);
         try {
-            // Get companies count
             const { count: totalCompanies } = await supabase
                 .from('companies')
                 .select('*', { count: 'exact', head: true });
@@ -54,7 +53,6 @@ export const SystemStats = () => {
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'ACTIVE');
 
-            // Get invites stats
             const { count: totalInvites } = await supabase
                 .from('company_invites')
                 .select('*', { count: 'exact', head: true });
@@ -74,7 +72,6 @@ export const SystemStats = () => {
                 .select('*', { count: 'exact', head: true })
                 .eq('status', 'expired');
 
-            // Get recent invites
             const { data: invites } = await supabase
                 .from('company_invites')
                 .select('*')
@@ -102,37 +99,65 @@ export const SystemStats = () => {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'pending':
-                return { icon: Clock, color: 'text-blue-600 bg-blue-50', label: 'Pending' };
+                return {
+                    icon: Clock,
+                    color: 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50',
+                    label: 'Pending'
+                };
             case 'used':
-                return { icon: CheckCircle, color: 'text-green-600 bg-green-50', label: 'Used' };
+                return {
+                    icon: CheckCircle,
+                    color: 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900/50',
+                    label: 'Used'
+                };
             case 'expired':
-                return { icon: XCircle, color: 'text-red-600 bg-red-50', label: 'Expired' };
+                return {
+                    icon: XCircle,
+                    color: 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50',
+                    label: 'Expired'
+                };
             default:
-                return { icon: Clock, color: 'text-gray-600 bg-gray-50', label: status };
+                return {
+                    icon: Clock,
+                    color: 'bg-muted text-muted-foreground dark:text-muted-foreground border border-border dark:border-border',
+                    label: status
+                };
         }
     };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <Loader2 className="w-8 h-8 animate-spin" />
+            <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+                <div className="relative">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                </div>
+                <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
+                    Loading statistics...
+                </p>
             </div>
         );
     }
 
     return (
         <div className="container mx-auto p-6">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold flex items-center gap-2">
-                        <TrendingUp className="w-8 h-8 text-primary" />
+                    <h1 className="text-3xl font-bold flex items-center gap-2 text-foreground dark:text-white">
+                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                            <TrendingUp className="w-8 h-8 text-primary dark:text-primary" />
+                        </div>
                         System Statistics
                     </h1>
-                    <p className="text-muted-foreground mt-2">
+                    <p className="text-muted-foreground dark:text-muted-foreground mt-2">
                         Platform overview and analytics
                     </p>
                 </div>
-                <Button onClick={loadStats} variant="outline">
+                <Button
+                    onClick={loadStats}
+                    variant="outline"
+                    className="bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+                >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Refresh
                 </Button>
@@ -140,84 +165,101 @@ export const SystemStats = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {/* Companies Stats */}
-                <Card>
+                {/* Total Companies */}
+                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Total Companies</CardTitle>
-                        <Building className="w-4 h-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Total Companies</CardTitle>
+                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                            <Building className="w-4 h-4 text-primary dark:text-primary" />
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">{stats?.totalCompanies || 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <div className="text-3xl font-bold text-foreground dark:text-white">{stats?.totalCompanies || 0}</div>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                             {stats?.activeCompanies || 0} active
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Total Invites */}
+                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Total Invites</CardTitle>
-                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Total Invites</CardTitle>
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                            <Mail className="w-4 h-4 text-blue-600" />
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">{stats?.totalInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <div className="text-3xl font-bold text-foreground dark:text-white">{stats?.totalInvites || 0}</div>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                             All time generated
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Pending Invites */}
+                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Pending Invites</CardTitle>
-                        <Clock className="w-4 h-4 text-blue-600" />
+                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Pending Invites</CardTitle>
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                            <Clock className="w-4 h-4 text-blue-600" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-blue-600">{stats?.pendingInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                             Waiting to be used
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Used Invites */}
+                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Used Invites</CardTitle>
-                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Used Invites</CardTitle>
+                        <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-green-600">{stats?.usedInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                             Successfully converted
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Expired Invites */}
+                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Expired Invites</CardTitle>
-                        <XCircle className="w-4 h-4 text-red-600" />
+                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Expired Invites</CardTitle>
+                        <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                            <XCircle className="w-4 h-4 text-red-600" />
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-red-600">{stats?.expiredInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                             Not used in time
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                {/* Conversion Rate */}
+                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-                        <TrendingUp className="w-4 h-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Conversion Rate</CardTitle>
+                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                            <TrendingUp className="w-4 h-4 text-primary dark:text-primary" />
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">
+                        <div className="text-3xl font-bold text-foreground dark:text-white">
                             {stats?.totalInvites
                                 ? Math.round((stats.usedInvites / stats.totalInvites) * 100)
                                 : 0}%
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                             Invites to signups
                         </p>
                     </CardContent>
@@ -225,34 +267,49 @@ export const SystemStats = () => {
             </div>
 
             {/* Recent Invites */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recent Invites</CardTitle>
+            <Card className="bg-card border border-border dark:border-border">
+                <CardHeader className="border-b border-border dark:border-border">
+                    <CardTitle className="text-foreground dark:text-white">Recent Invites</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
+                <CardContent className="pt-6">
+                    <div className="space-y-3">
                         {recentInvites.map((invite) => {
                             const statusBadge = getStatusBadge(invite.status);
                             const StatusIcon = statusBadge.icon;
 
                             return (
-                                <div key={invite.id} className="flex items-center justify-between p-4 border rounded-lg">
-                                    <div className="flex-1">
-                                        <div className="font-semibold">{invite.company_name}</div>
-                                        <div className="text-sm text-muted-foreground">
-                                            Code: <span className="font-mono">{invite.invite_code}</span>
+                                <div
+                                    key={invite.id}
+                                    className="flex items-center justify-between p-4 bg-muted border border-border dark:border-border rounded-lg hover:bg-accent dark:hover:bg-muted transition-colors"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <div className="font-semibold text-foreground dark:text-white">{invite.company_name}</div>
+                                        <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                                            Code: <span className="font-mono bg-card px-2 py-0.5 rounded border border-border dark:border-border text-foreground dark:text-white">{invite.invite_code}</span>
                                         </div>
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Created: {new Date(invite.created_at).toLocaleString()}
+                                        <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
+                                            Created: {new Date(invite.created_at).toLocaleString('en-IN', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
                                         </div>
                                         {invite.used_at && (
-                                            <div className="text-xs text-muted-foreground">
-                                                Used: {new Date(invite.used_at).toLocaleString()}
+                                            <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                                                Used: {new Date(invite.used_at).toLocaleString('en-IN', {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
                                             </div>
                                         )}
                                     </div>
-                                    <div className={`px-3 py-1 rounded-full flex items-center gap-1 ${statusBadge.color}`}>
-                                        <StatusIcon className="w-3 h-3" />
+                                    <div className={cn("px-3 py-1.5 rounded-full flex items-center gap-1.5 flex-shrink-0 ml-4", statusBadge.color)}>
+                                        <StatusIcon className="w-3.5 h-3.5" />
                                         <span className="text-xs font-medium">{statusBadge.label}</span>
                                     </div>
                                 </div>
@@ -260,8 +317,11 @@ export const SystemStats = () => {
                         })}
 
                         {recentInvites.length === 0 && (
-                            <div className="text-center text-muted-foreground py-8">
-                                No invites generated yet
+                            <div className="text-center py-12">
+                                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                    <Mail className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                                </div>
+                                <p className="text-muted-foreground dark:text-muted-foreground">No invites generated yet</p>
                             </div>
                         )}
                     </div>

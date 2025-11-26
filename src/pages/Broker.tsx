@@ -45,8 +45,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import {
     Building2,
@@ -452,10 +450,12 @@ const ImportBrokersModal: React.FC<{
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-background via-background to-muted/5">
-                <DialogHeader className="border-b pb-4">
-                    <DialogTitle className="text-xl flex items-center gap-2">
-                        <Upload className="w-5 h-5 text-primary" />
+            <DialogContent className="max-w-4xl max-h-[90vh] bg-card border border-border dark:border-border">
+                <DialogHeader className="border-b border-border dark:border-border pb-4">
+                    <DialogTitle className="text-xl flex items-center gap-2 text-foreground dark:text-white">
+                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                            <Upload className="w-5 h-5 text-primary" />
+                        </div>
                         Import Brokers
                     </DialogTitle>
                 </DialogHeader>
@@ -463,14 +463,14 @@ const ImportBrokersModal: React.FC<{
                 {step === "upload" && (
                     <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                                 Upload CSV or Excel file with broker data
                             </p>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={downloadTemplate}
-                                className="hover:bg-primary/10 hover:border-primary transition-all"
+                                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white transition-all"
                             >
                                 <Download className="w-4 h-4 mr-2" />
                                 Download Template
@@ -482,35 +482,35 @@ const ImportBrokersModal: React.FC<{
                             className={cn(
                                 "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200",
                                 isDragActive
-                                    ? "border-primary bg-primary/5 scale-[1.02]"
-                                    : "border-border hover:border-primary/50 hover:bg-muted/30"
+                                    ? "border-primary bg-accent dark:bg-primary/5 scale-[1.02]"
+                                    : "border-border dark:border-border hover:border-primary/50 hover:bg-muted dark:hover:bg-[#252530]"
                             )}
                         >
                             <input {...getInputProps()} />
-                            <FileUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                            <FileUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground dark:text-muted-foreground" />
                             {file ? (
                                 <div>
-                                    <p className="font-medium text-lg">{file.name}</p>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="font-medium text-lg text-foreground dark:text-white">{file.name}</p>
+                                    <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                                         {(file.size / 1024).toFixed(2)} KB
                                     </p>
                                 </div>
                             ) : (
                                 <div>
-                                    <p className="font-medium">Drop your file here, or click to browse</p>
-                                    <p className="text-sm text-muted-foreground mt-1">
+                                    <p className="font-medium text-foreground dark:text-white">Drop your file here, or click to browse</p>
+                                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                                         Supports CSV and Excel files (.csv, .xlsx, .xls)
                                     </p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg border border-primary/20">
-                            <h4 className="font-medium mb-2 flex items-center gap-2">
+                        <div className="bg-accent dark:bg-primary/10 p-4 rounded-lg border border-primary/20">
+                            <h4 className="font-medium mb-2 flex items-center gap-2 text-foreground dark:text-white">
                                 <AlertCircle className="w-4 h-4 text-primary" />
                                 Required Fields:
                             </h4>
-                            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-6">
+                            <ul className="text-sm text-muted-foreground dark:text-muted-foreground space-y-1 list-disc list-inside ml-6">
                                 <li><span className="font-medium">name</span> - Company name (must be unique)</li>
                                 <li><span className="font-medium">contact_person</span> - Contact person name</li>
                                 <li><span className="font-medium">phone</span> (optional) - Phone number (minimum 10 digits if provided)</li>
@@ -523,7 +523,7 @@ const ImportBrokersModal: React.FC<{
                         {progress.status === "validating" && (
                             <div className="space-y-2">
                                 <Progress value={(progress.current / progress.total) * 100} className="h-2" />
-                                <p className="text-sm text-center text-muted-foreground animate-pulse">
+                                <p className="text-sm text-center text-muted-foreground dark:text-muted-foreground animate-pulse">
                                     {progress.message}
                                 </p>
                             </div>
@@ -534,41 +534,41 @@ const ImportBrokersModal: React.FC<{
                 {step === "preview" && preview && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-3 gap-4">
-                            <Card className="border-green-200 bg-gradient-to-br from-green-50/50 to-transparent">
+                            <Card className="border-green-200 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-900/10 dark:border-green-800/30">
                                 <CardContent className="pt-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-green-100 rounded-lg">
-                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold text-green-600">{preview.valid.length}</p>
-                                            <p className="text-sm text-muted-foreground">Valid Rows</p>
+                                            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{preview.valid.length}</p>
+                                            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Valid Rows</p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Card className="border-red-200 bg-gradient-to-br from-red-50/50 to-transparent">
+                            <Card className="border-red-200 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-900/10 dark:border-red-800/30">
                                 <CardContent className="pt-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-red-100 rounded-lg">
-                                            <XCircle className="w-5 h-5 text-red-600" />
+                                        <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                                            <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold text-red-600">{preview.invalid.length}</p>
-                                            <p className="text-sm text-muted-foreground">Invalid Rows</p>
+                                            <p className="text-2xl font-bold text-red-600 dark:text-red-400">{preview.invalid.length}</p>
+                                            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Invalid Rows</p>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
-                            <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50/50 to-transparent">
+                            <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50/50 to-transparent dark:from-yellow-900/10 dark:border-yellow-800/30">
                                 <CardContent className="pt-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-yellow-100 rounded-lg">
-                                            <AlertCircle className="w-5 h-5 text-yellow-600" />
+                                        <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                                            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                                         </div>
                                         <div>
-                                            <p className="text-2xl font-bold text-yellow-600">{preview.duplicates.length}</p>
-                                            <p className="text-sm text-muted-foreground">Duplicates</p>
+                                            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{preview.duplicates.length}</p>
+                                            <p className="text-sm text-muted-foreground dark:text-muted-foreground">Duplicates</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -576,23 +576,32 @@ const ImportBrokersModal: React.FC<{
                         </div>
 
                         <Tabs defaultValue="valid" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="valid" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
+                            <TabsList className="grid w-full grid-cols-3 bg-muted">
+                                <TabsTrigger
+                                    value="valid"
+                                    className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 dark:data-[state=active]:bg-green-900/30 dark:data-[state=active]:text-green-400"
+                                >
                                     Valid ({preview.valid.length})
                                 </TabsTrigger>
-                                <TabsTrigger value="invalid" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700">
+                                <TabsTrigger
+                                    value="invalid"
+                                    className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700 dark:data-[state=active]:bg-red-900/30 dark:data-[state=active]:text-red-400"
+                                >
                                     Invalid ({preview.invalid.length})
                                 </TabsTrigger>
-                                <TabsTrigger value="duplicates" className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700">
+                                <TabsTrigger
+                                    value="duplicates"
+                                    className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700 dark:data-[state=active]:bg-yellow-900/30 dark:data-[state=active]:text-yellow-400"
+                                >
                                     Duplicates ({preview.duplicates.length})
                                 </TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="valid">
-                                <ScrollArea className="h-[300px] w-full rounded-lg border">
+                                <ScrollArea className="h-[300px] w-full rounded-lg border border-border dark:border-border">
                                     <Table>
                                         <TableHeader>
-                                            <TableRow className="bg-muted/50">
+                                            <TableRow className="bg-muted hover:bg-muted dark:hover:bg-[#252530]">
                                                 <TableHead className="w-[50px]">#</TableHead>
                                                 <TableHead>Company Name</TableHead>
                                                 <TableHead>Contact Person</TableHead>
@@ -604,7 +613,7 @@ const ImportBrokersModal: React.FC<{
                                         </TableHeader>
                                         <TableBody>
                                             {preview.valid.map((row, index) => (
-                                                <TableRow key={index} className="hover:bg-muted/30">
+                                                <TableRow key={index} className="hover:bg-accent dark:hover:bg-muted">
                                                     <TableCell className="font-medium">{index + 1}</TableCell>
                                                     <TableCell className="font-medium">{row.name}</TableCell>
                                                     <TableCell>{row.contact_person}</TableCell>
@@ -612,8 +621,12 @@ const ImportBrokersModal: React.FC<{
                                                     <TableCell>{row.city || "-"}</TableCell>
                                                     <TableCell>{row.email || "-"}</TableCell>
                                                     <TableCell>
-                                                        <Badge variant={row.status === "ACTIVE" ? "default" : "secondary"}
-                                                            className={row.status === "ACTIVE" ? "bg-green-100 text-green-700" : ""}>
+                                                        <Badge
+                                                            variant={row.status === "ACTIVE" ? "default" : "secondary"}
+                                                            className={row.status === "ACTIVE"
+                                                                ? "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399]"
+                                                                : "bg-[#F3F4F6] text-muted-foreground dark:bg-secondary"}
+                                                        >
                                                             {row.status}
                                                         </Badge>
                                                     </TableCell>
@@ -628,13 +641,13 @@ const ImportBrokersModal: React.FC<{
                                 <ScrollArea className="h-[300px] w-full">
                                     <div className="space-y-2 p-2">
                                         {preview.invalid.map((item, index) => (
-                                            <Card key={index} className="border-red-200 bg-red-50/50">
+                                            <Card key={index} className="border-red-200 dark:border-red-800/30 bg-red-50/50 dark:bg-red-900/10">
                                                 <CardContent className="pt-4">
                                                     <div className="flex justify-between items-start">
                                                         <div>
-                                                            <p className="font-medium">Row {index + 1}: {item.row.name || "No name"}</p>
+                                                            <p className="font-medium text-foreground dark:text-white">Row {index + 1}: {item.row.name || "No name"}</p>
                                                             {item.errors.map((error, i) => (
-                                                                <p key={i} className="text-sm text-red-600 mt-1">
+                                                                <p key={i} className="text-sm text-red-600 dark:text-red-400 mt-1">
                                                                     • {error.field}: {error.message}
                                                                 </p>
                                                             ))}
@@ -648,10 +661,10 @@ const ImportBrokersModal: React.FC<{
                             </TabsContent>
 
                             <TabsContent value="duplicates">
-                                <ScrollArea className="h-[300px] w-full rounded-lg border">
+                                <ScrollArea className="h-[300px] w-full rounded-lg border border-border dark:border-border">
                                     <Table>
                                         <TableHeader>
-                                            <TableRow className="bg-muted/50">
+                                            <TableRow className="bg-muted hover:bg-muted dark:hover:bg-[#252530]">
                                                 <TableHead>Company Name</TableHead>
                                                 <TableHead>Duplicate Field</TableHead>
                                                 <TableHead>Value</TableHead>
@@ -659,7 +672,7 @@ const ImportBrokersModal: React.FC<{
                                         </TableHeader>
                                         <TableBody>
                                             {preview.duplicates.map((item, index) => (
-                                                <TableRow key={index} className="hover:bg-muted/30">
+                                                <TableRow key={index} className="hover:bg-accent dark:hover:bg-muted">
                                                     <TableCell className="font-medium">{item.row.name}</TableCell>
                                                     <TableCell>
                                                         <Badge variant="destructive">{item.field.toUpperCase()}</Badge>
@@ -689,32 +702,42 @@ const ImportBrokersModal: React.FC<{
                                     <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
                                 </div>
                             )}
-                            <p className="text-lg font-medium">{progress.message}</p>
+                            <p className="text-lg font-medium text-foreground dark:text-white">{progress.message}</p>
                         </div>
                         <Progress value={(progress.current / progress.total) * 100} className="h-2" />
-                        <p className="text-sm text-center text-muted-foreground">
+                        <p className="text-sm text-center text-muted-foreground dark:text-muted-foreground">
                             {progress.current} of {progress.total} brokers imported
                         </p>
                     </div>
                 )}
 
-                <DialogFooter>
+                <DialogFooter className="border-t border-border dark:border-border pt-4">
                     {step === "preview" && (
                         <>
-                            <Button variant="outline" onClick={() => setStep("upload")} className="hover:bg-muted">
+                            <Button
+                                variant="outline"
+                                onClick={() => setStep("upload")}
+                                className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+                            >
                                 Back
                             </Button>
                             <Button
                                 onClick={handleImport}
                                 disabled={preview?.valid.length === 0}
-                                className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg transition-all"
+                                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
                             >
                                 Import {preview?.valid.length} Valid Rows
                             </Button>
                         </>
                     )}
                     {step === "upload" && (
-                        <Button variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button
+                            variant="outline"
+                            onClick={onClose}
+                            className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+                        >
+                            Cancel
+                        </Button>
                     )}
                 </DialogFooter>
             </DialogContent>
@@ -749,7 +772,9 @@ const Broker = () => {
             .broker-table td > * { position: relative; z-index: 1; }
         `;
         document.head.appendChild(styleElement);
-        return () => document.head.removeChild(styleElement);
+        return () => {
+            document.head.removeChild(styleElement);
+        };
     }, []);
 
     useEffect(() => {
@@ -927,7 +952,7 @@ const Broker = () => {
                     <Loader2 className="w-12 h-12 animate-spin text-primary" />
                     <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
                 </div>
-                <p className="text-lg font-medium text-muted-foreground animate-pulse">Loading brokers...</p>
+                <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">Loading brokers...</p>
             </div>
         );
     }
@@ -935,120 +960,123 @@ const Broker = () => {
     return (
         <div className="space-y-6">
             {/* Stats & Buttons */}
-            <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
-                <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+
+                <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-4 sm:p-5 shadow-sm">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-0 h-full">
                         <div className="sm:px-6 py-4 first:pl-0 relative">
                             <div className="absolute top-1 right-2 opacity-10">
-                                <Users className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                                <Users className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Total Brokers</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">{stats.total}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">Total Brokers</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{stats.total}</p>
                             </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
                         </div>
 
                         <div className="sm:px-6 py-4 relative">
                             <div className="absolute top-1 right-2 opacity-10">
-                                <UserCheck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                                <UserCheck className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Active</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">{stats.active}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">Active</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{stats.active}</p>
                             </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
                         </div>
 
                         <div className="sm:px-6 py-4 relative">
                             <div className="absolute top-1 right-2 opacity-10">
-                                <Shield className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                                <Shield className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">Inactive</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">{stats.inactive}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">Inactive</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{stats.inactive}</p>
                             </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
+                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-[#E5E7EB] dark:bg-secondary"></div>
                         </div>
 
                         <div className="sm:px-6 py-4 last:pr-0 relative">
                             <div className="absolute top-1 right-2 opacity-10">
-                                <Mail className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                                <Mail className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">With Email</p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">{stats.withEmail}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground dark:text-muted-foreground">With Email</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{stats.withEmail}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowImportModal(true)}
-                                    className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                >
-                                    <Upload className="w-4 h-4 mr-2" />
-                                    Import
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Import brokers from file</p></TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleExport}
-                                    className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                >
-                                    <FileDown className="w-4 h-4 mr-2" />
-                                    Export
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent><p>Export brokers to CSV</p></TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
+                <div className="flex flex-col gap-2 md:flex-shrink-0 md:min-w-[200px]">
                     <Button
                         size="sm"
                         onClick={() => {
                             setEditingBroker(null);
                             setIsDrawerOpen(true);
                         }}
-                        className="flex-1 sm:flex-none"
+                        className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
                     >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Broker
                     </Button>
+
+                    <div className="flex gap-2">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setShowImportModal(true)}
+                                        className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                                    >
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Import
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Import brokers from file</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleExport}
+                                        className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                                    >
+                                        <FileDown className="w-4 h-4 mr-2" />
+                                        Export
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Export brokers to CSV</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
                 </div>
             </div>
 
             {/* Search + Table */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
-                <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
+            <div className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="p-4 sm:p-6 border-b border-border dark:border-border">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="relative w-full sm:w-96">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                             <Input
                                 placeholder="Search by name, contact, phone..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                                className="pl-10 pr-10 h-10 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                             />
                             {searchTerm && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 hover:bg-accent dark:hover:bg-secondary"
                                     onClick={() => setSearchTerm("")}
                                 >
                                     <X className="h-3 w-3" />
@@ -1062,39 +1090,39 @@ const Broker = () => {
                     <div className="hidden md:block overflow-x-auto">
                         <Table className="broker-table">
                             <TableHeader>
-                                <TableRow className="hover:bg-muted/50 bg-muted/30">
-                                    <TableHead className="font-semibold">
+                                <TableRow className="hover:bg-muted dark:hover:bg-[#252530] border-b border-border dark:border-border">
+                                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                                         <div className="flex items-center gap-2">
-                                            <Building2 className="w-4 h-4 text-muted-foreground" />
+                                            <Building2 className="w-4 h-4" />
                                             Company Name
                                         </div>
                                     </TableHead>
-                                    <TableHead className="font-semibold">
+                                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                                         <div className="flex items-center gap-2">
-                                            <User className="w-4 h-4 text-muted-foreground" />
+                                            <User className="w-4 h-4" />
                                             Contact Person
                                         </div>
                                     </TableHead>
-                                    <TableHead className="font-semibold">
+                                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                                         <div className="flex items-center gap-2">
-                                            <Phone className="w-4 h-4 text-muted-foreground" />
+                                            <Phone className="w-4 h-4" />
                                             Phone
                                         </div>
                                     </TableHead>
-                                    <TableHead className="font-semibold">
+                                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                                         <div className="flex items-center gap-2">
-                                            <MapPin className="w-4 h-4 text-muted-foreground" />
+                                            <MapPin className="w-4 h-4" />
                                             City
                                         </div>
                                     </TableHead>
-                                    <TableHead className="font-semibold">
+                                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                                         <div className="flex items-center gap-2">
-                                            <Mail className="w-4 h-4 text-muted-foreground" />
+                                            <Mail className="w-4 h-4" />
                                             Email
                                         </div>
                                     </TableHead>
-                                    <TableHead className="font-semibold">Status</TableHead>
-                                    <TableHead className="font-semibold text-center">Actions</TableHead>
+                                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Status</TableHead>
+                                    <TableHead className="font-semibold text-center text-muted-foreground dark:text-muted-foreground">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1102,11 +1130,11 @@ const Broker = () => {
                                     <TableRow>
                                         <TableCell colSpan={7} className="text-center py-16">
                                             <div className="flex flex-col items-center gap-4">
-                                                <div className="p-4 bg-muted/30 rounded-full">
-                                                    <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                                                <div className="p-4 bg-muted rounded-full">
+                                                    <Building2 className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                                                 </div>
-                                                <div className="text-muted-foreground">
-                                                    <p className="text-lg font-medium">No brokers found</p>
+                                                <div className="text-muted-foreground dark:text-muted-foreground">
+                                                    <p className="text-lg font-medium text-foreground dark:text-white">No brokers found</p>
                                                     <p className="text-sm mt-1">
                                                         {searchTerm ? "Try adjusting your search" : "Add your first broker to get started"}
                                                     </p>
@@ -1116,57 +1144,57 @@ const Broker = () => {
                                     </TableRow>
                                 ) : (
                                     filteredBrokers.map((broker) => (
-                                        <TableRow key={broker.id} className="hover:bg-muted/50 transition-colors">
+                                        <TableRow key={broker.id} className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors">
                                             <TableCell>
-                                                <div className="font-semibold flex items-center gap-2">
-                                                    <Building className="w-4 h-4 text-muted-foreground" />
+                                                <div className="font-semibold flex items-center gap-2 text-foreground dark:text-white">
+                                                    <Building className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                                                     {broker.name}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-2 text-sm">
-                                                    <User className="w-3.5 h-3.5 text-muted-foreground" />
+                                                <div className="flex items-center gap-2 text-sm text-foreground dark:text-white">
+                                                    <User className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                                                     <span>{broker.contact_person}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
                                                 {broker.phone ? (
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <div className="flex items-center gap-2 text-sm text-foreground dark:text-white">
+                                                        <Phone className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                                                         <span>{broker.phone}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-muted-foreground text-sm">No phone</span>
+                                                    <span className="text-muted-foreground dark:text-muted-foreground text-sm">No phone</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
                                                 {broker.city ? (
-                                                    <div className="flex items-center gap-2 text-sm">
-                                                        <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                                                    <div className="flex items-center gap-2 text-sm text-foreground dark:text-white">
+                                                        <MapPin className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                                                         <span>{broker.city}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-muted-foreground">-</span>
+                                                    <span className="text-muted-foreground dark:text-muted-foreground">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
                                                 {broker.email ? (
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
                                                         <Mail className="w-3 h-3" />
                                                         <span className="truncate max-w-[150px]">{broker.email}</span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-muted-foreground">-</span>
+                                                    <span className="text-muted-foreground dark:text-muted-foreground">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge
                                                     variant={broker.status === "ACTIVE" ? "default" : "secondary"}
                                                     className={cn(
-                                                        "cursor-pointer",
+                                                        "cursor-pointer text-xs font-medium",
                                                         broker.status === "ACTIVE"
-                                                            ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-200"
-                                                            : "bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200"
+                                                            ? "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0] hover:bg-[#D1FAE5] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30"
+                                                            : "bg-[#F3F4F6] text-muted-foreground border-border hover:bg-[#E5E7EB] dark:bg-secondary dark:text-muted-foreground dark:border-border"
                                                     )}
                                                 >
                                                     {broker.status === "ACTIVE" ? (
@@ -1181,23 +1209,24 @@ const Broker = () => {
                                                 <div className="flex items-center justify-center">
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary">
                                                                 <MoreVertical className="h-4 w-4" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-48">
+                                                        <DropdownMenuContent align="end" className="w-48 bg-card border-border dark:border-border">
                                                             <DropdownMenuItem
                                                                 onClick={() => {
                                                                     setEditingBroker(broker);
                                                                     setIsDrawerOpen(true);
                                                                 }}
+                                                                className="hover:bg-accent dark:hover:bg-secondary"
                                                             >
                                                                 <Edit className="mr-2 h-4 w-4" />
                                                                 Edit Details
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
                                                             <DropdownMenuItem
-                                                                className="text-destructive"
+                                                                className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                                 onClick={() => setDeletingBrokerId(broker.id)}
                                                             >
                                                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1219,11 +1248,11 @@ const Broker = () => {
                         {filteredBrokers.length === 0 ? (
                             <div className="text-center py-12">
                                 <div className="flex flex-col items-center gap-4">
-                                    <div className="p-4 bg-muted/30 rounded-full">
-                                        <Building2 className="w-12 h-12 text-muted-foreground/50" />
+                                    <div className="p-4 bg-muted rounded-full">
+                                        <Building2 className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                                     </div>
-                                    <div className="text-muted-foreground">
-                                        <p className="text-lg font-medium">No brokers found</p>
+                                    <div className="text-muted-foreground dark:text-muted-foreground">
+                                        <p className="text-lg font-medium text-foreground dark:text-white">No brokers found</p>
                                         <p className="text-sm mt-1">
                                             {searchTerm ? "Try adjusting your search" : "Add your first broker to get started"}
                                         </p>
@@ -1232,15 +1261,15 @@ const Broker = () => {
                             </div>
                         ) : (
                             filteredBrokers.map((broker) => (
-                                <div key={broker.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
+                                <div key={broker.id} className="bg-card border border-border dark:border-border rounded-lg p-4 space-y-3 shadow-sm hover:shadow-md transition-shadow">
                                     <div className="flex items-start justify-between">
                                         <div className="space-y-1 flex-1">
                                             <div className="flex items-center gap-2">
-                                                <Building className="w-4 h-4 text-muted-foreground" />
-                                                <span className="font-semibold text-sm">{broker.name}</span>
+                                                <Building className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+                                                <span className="font-semibold text-sm text-foreground dark:text-white">{broker.name}</span>
                                             </div>
                                             {broker.contact_person && (
-                                                <div className="flex items-center gap-1 text-xs text-muted-foreground ml-6">
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground dark:text-muted-foreground ml-6">
                                                     <User className="w-3 h-3" />
                                                     {broker.contact_person}
                                                 </div>
@@ -1248,23 +1277,24 @@ const Broker = () => {
                                         </div>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary">
                                                     <MoreVertical className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuContent align="end" className="w-48 bg-card border-border dark:border-border">
                                                 <DropdownMenuItem
                                                     onClick={() => {
                                                         setEditingBroker(broker);
                                                         setIsDrawerOpen(true);
                                                     }}
+                                                    className="hover:bg-accent dark:hover:bg-secondary"
                                                 >
                                                     <Edit className="mr-2 h-4 w-4" />
                                                     Edit Details
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
+                                                <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
                                                 <DropdownMenuItem
-                                                    className="text-destructive"
+                                                    className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                                                     onClick={() => setDeletingBrokerId(broker.id)}
                                                 >
                                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -1280,8 +1310,8 @@ const Broker = () => {
                                             className={cn(
                                                 "cursor-pointer text-xs",
                                                 broker.status === "ACTIVE"
-                                                    ? "bg-green-100 text-green-700 border-green-200"
-                                                    : "bg-gray-100 text-gray-700 border-gray-200"
+                                                    ? "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399]"
+                                                    : "bg-[#F3F4F6] text-muted-foreground border-border dark:bg-secondary dark:text-muted-foreground"
                                             )}
                                         >
                                             {broker.status === "ACTIVE" ? (
@@ -1293,22 +1323,22 @@ const Broker = () => {
                                         </Badge>
                                     </div>
 
-                                    <div className="space-y-2 text-sm">
+                                    <div className="space-y-2 text-sm border-t border-border dark:border-border pt-2">
                                         {broker.phone && (
-                                            <div className="flex items-center gap-2">
-                                                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <div className="flex items-center gap-2 text-foreground dark:text-white">
+                                                <Phone className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                                                 <span>{broker.phone}</span>
                                             </div>
                                         )}
                                         {broker.email && (
-                                            <div className="flex items-center gap-2">
-                                                <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground">
+                                                <Mail className="w-3.5 h-3.5" />
                                                 <span className="text-xs truncate">{broker.email}</span>
                                             </div>
                                         )}
                                         {broker.city && (
-                                            <div className="flex items-center gap-2">
-                                                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                                            <div className="flex items-center gap-2 text-foreground dark:text-white">
+                                                <MapPin className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                                                 <span className="text-xs">{broker.city}</span>
                                             </div>
                                         )}
@@ -1338,27 +1368,29 @@ const Broker = () => {
             />
 
             <AlertDialog open={!!deletingBrokerId} onOpenChange={() => setDeletingBrokerId(null)}>
-                <AlertDialogContent className="max-w-md">
+                <AlertDialogContent className="max-w-md bg-card border-border dark:border-border">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-destructive" />
+                        <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
                             Are you absolutely sure?
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="text-left">
+                        <AlertDialogDescription className="text-left text-muted-foreground dark:text-muted-foreground">
                             This action cannot be undone. This will permanently delete the broker.
-                            <div className="mt-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                                <p className="text-sm font-medium text-destructive">⚠️ Warning:</p>
-                                <p className="text-xs mt-1">
+                            <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800/30">
+                                <p className="text-sm font-medium text-red-600 dark:text-red-400">⚠️ Warning:</p>
+                                <p className="text-xs mt-1 text-red-600 dark:text-red-400">
                                     Make sure this broker has no associated vehicles before deletion.
                                 </p>
                             </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary">
+                            Cancel
+                        </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDeleteBroker}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
                         >
                             Delete Broker
                         </AlertDialogAction>
@@ -1370,3 +1402,5 @@ const Broker = () => {
 };
 
 export default Broker;
+
+

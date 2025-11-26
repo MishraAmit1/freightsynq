@@ -12,7 +12,9 @@ import {
   Phone,
   Mail,
   Users,
-  Loader2
+  Loader2,
+  ArrowDownToLine,
+  ArrowUpFromLine
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,12 +28,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { fetchWarehouseDetails, syncBookingConsignmentStatus } from "@/api/warehouses";
 import { AssignVehicleModal } from "./AssignVehicleModal";
 import { ConfirmActionModal } from "./ConfirmActionModal";
 import { useToast } from "@/hooks/use-toast";
-import { updateConsignmentStatus } from "@/api/warehouses";
+import { cn } from "@/lib/utils";
+
 interface Warehouse {
   id: string;
   name: string;
@@ -73,6 +75,7 @@ export const WarehouseDetails = () => {
   const [actionType, setActionType] = useState<"transit" | "delivered" | null>(null);
   const [warehouseLogs, setWarehouseLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+
   useEffect(() => {
     if (id) {
       loadWarehouseDetails(id);
@@ -89,7 +92,7 @@ export const WarehouseDetails = () => {
     } catch (error) {
       console.error('Error loading warehouse logs:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to load warehouse logs",
         variant: "destructive",
       });
@@ -97,6 +100,7 @@ export const WarehouseDetails = () => {
       setLogsLoading(false);
     }
   };
+
   const loadWarehouseDetails = async () => {
     try {
       setLoading(true);
@@ -110,7 +114,7 @@ export const WarehouseDetails = () => {
     } catch (error: any) {
       console.error('Error loading warehouse details:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: error.message || "Failed to load warehouse details",
         variant: "destructive",
       });
@@ -124,9 +128,9 @@ export const WarehouseDetails = () => {
   };
 
   const getCapacityColor = (utilization: number) => {
-    if (utilization <= 60) return "text-success";
-    if (utilization <= 85) return "text-warning";
-    return "text-destructive";
+    if (utilization <= 60) return "text-green-600";
+    if (utilization <= 85) return "text-primary dark:text-primary";
+    return "text-red-600";
   };
 
   const calculateAging = (arrivalDate: string) => {
@@ -137,20 +141,20 @@ export const WarehouseDetails = () => {
   };
 
   const getAgingColor = (days: number) => {
-    if (days <= 1) return "text-success";
-    if (days <= 3) return "text-warning";
-    return "text-destructive";
+    if (days <= 1) return "text-green-600";
+    if (days <= 3) return "text-primary dark:text-primary";
+    return "text-red-600";
   };
 
   const getStatusColor = (status: string) => {
     const colors = {
-      "IN_WAREHOUSE": "bg-info/10 text-info",
-      "PENDING_DELIVERY": "bg-warning/10 text-warning",
-      "ASSIGNED_VEHICLE": "bg-primary/10 text-primary",
-      "IN_TRANSIT": "bg-success/10 text-success",
-      "DELIVERED": "bg-muted text-muted-foreground"
+      "IN_WAREHOUSE": "bg-accent dark:bg-primary/10 text-primary dark:text-primary border-primary/30",
+      "PENDING_DELIVERY": "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/50",
+      "ASSIGNED_VEHICLE": "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/50",
+      "IN_TRANSIT": "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50",
+      "DELIVERED": "bg-muted text-muted-foreground dark:text-muted-foreground border-border dark:border-border"
     };
-    return colors[status as keyof typeof colors] || "bg-muted text-muted-foreground";
+    return colors[status as keyof typeof colors] || "bg-muted text-muted-foreground dark:text-muted-foreground";
   };
 
   const handleAssignVehicle = (consignment: any) => {
@@ -169,19 +173,19 @@ export const WarehouseDetails = () => {
     setActionType("delivered");
     setConfirmModalOpen(true);
   };
+
   const executeAction = async () => {
     if (!selectedConsignment || !actionType) return;
 
     try {
       const newStatus = actionType === "transit" ? "IN_TRANSIT" : "DELIVERED";
 
-      // Use sync function
       await syncBookingConsignmentStatus(selectedConsignment.id, newStatus);
 
       const action = actionType === "transit" ? "marked as in transit" : "marked as delivered";
 
       toast({
-        title: "Action Completed",
+        title: "✅ Action Completed",
         description: `Consignment ${selectedConsignment.consignment_id} has been ${action}. Booking status synced.`,
       });
 
@@ -193,18 +197,27 @@ export const WarehouseDetails = () => {
     } catch (error) {
       console.error('Error executing action:', error);
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "Failed to update status. Please try again.",
         variant: "destructive",
       });
     }
   };
 
+  const handleVehicleAssignSuccess = async () => {
+    await loadWarehouseDetails();
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin" />
-        <span className="ml-2">Loading warehouse details...</span>
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="relative">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+        </div>
+        <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
+          Loading warehouse details...
+        </p>
       </div>
     );
   }
@@ -213,39 +226,44 @@ export const WarehouseDetails = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Warehouse not found</h2>
-          <p className="text-muted-foreground mb-4">The requested warehouse could not be found.</p>
-          <Button onClick={() => navigate("/warehouses")}>
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2 text-foreground dark:text-white">Warehouse not found</h2>
+          <p className="text-muted-foreground dark:text-muted-foreground mb-4">The requested warehouse could not be found.</p>
+          <Button
+            onClick={() => navigate("/warehouses")}
+            className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+          >
             Back to Warehouses
           </Button>
         </div>
       </div>
     );
   }
-  const handleVehicleAssignSuccess = async () => {
-    await loadWarehouseDetails();
-  };
+
   const consignments = warehouse.consignments || [];
   const utilization = getStockUtilization(warehouse.current_stock, warehouse.capacity);
   const overdueConsignments = consignments.filter(c => calculateAging(c.arrival_date) > 3);
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
-            size="sm"
+            size="default"
             onClick={() => navigate("/warehouses")}
-            className="gap-2"
+            className="gap-2 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">{warehouse.name}</h1>
-            <div className="flex items-center gap-2 text-muted-foreground mt-1">
+            <h1 className="text-3xl font-bold text-foreground dark:text-white">{warehouse.name}</h1>
+            <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground mt-1">
               <MapPin className="w-4 h-4" />
               {warehouse.address}
             </div>
@@ -255,59 +273,59 @@ export const WarehouseDetails = () => {
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="bg-card border border-border dark:border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Package className="w-6 h-6 text-primary" />
+              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                <Package className="w-6 h-6 text-primary dark:text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{warehouse.current_stock}</p>
-                <p className="text-sm text-muted-foreground">Current Stock</p>
+                <p className="text-2xl font-bold text-foreground dark:text-white">{warehouse.current_stock}</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Current Stock</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border border-border dark:border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-info/10 rounded-lg">
-                <Calendar className="w-6 h-6 text-info" />
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Calendar className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{warehouse.capacity}</p>
-                <p className="text-sm text-muted-foreground">Total Capacity</p>
+                <p className="text-2xl font-bold text-foreground dark:text-white">{warehouse.capacity}</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Total Capacity</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border border-border dark:border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-warning" />
+              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-yellow-600" />
               </div>
               <div>
-                <p className={`text-2xl font-bold ${getCapacityColor(utilization)}`}>
+                <p className={cn("text-2xl font-bold", getCapacityColor(utilization))}>
                   {utilization.toFixed(1)}%
                 </p>
-                <p className="text-sm text-muted-foreground">Utilization</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Utilization</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card border border-border dark:border-border">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-destructive/10 rounded-lg">
-                <Clock className="w-6 h-6 text-destructive" />
+              <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                <Clock className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-destructive">{overdueConsignments.length}</p>
-                <p className="text-sm text-muted-foreground">Overdue Items</p>
+                <p className="text-2xl font-bold text-red-600">{overdueConsignments.length}</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Overdue Items</p>
               </div>
             </div>
           </CardContent>
@@ -315,26 +333,28 @@ export const WarehouseDetails = () => {
       </div>
 
       {/* Manager Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
+      <Card className="bg-card border border-border dark:border-border">
+        <CardHeader className="border-b border-border dark:border-border">
+          <CardTitle className="flex items-center gap-2 text-foreground dark:text-white">
+            <div className="p-1.5 bg-green-100 dark:bg-green-900/20 rounded-lg">
+              <Users className="w-5 h-5 text-green-600" />
+            </div>
             Warehouse Manager
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <p className="font-medium">{warehouse.manager_name}</p>
-              <p className="text-sm text-muted-foreground">Manager</p>
+              <p className="font-medium text-foreground dark:text-white">{warehouse.manager_name}</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">Manager</p>
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">{warehouse.manager_phone}</span>
+              <Phone className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+              <span className="text-sm text-foreground dark:text-white">{warehouse.manager_phone}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">{warehouse.manager_email}</span>
+              <Mail className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+              <span className="text-sm text-foreground dark:text-white">{warehouse.manager_email}</span>
             </div>
           </div>
         </CardContent>
@@ -342,18 +362,30 @@ export const WarehouseDetails = () => {
 
       {/* Tabs for Inventory and Logs */}
       <Tabs defaultValue="inventory" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="inventory">Current Inventory ({consignments.length})</TabsTrigger>
-          <TabsTrigger value="logs">Activity Logs ({warehouseLogs.length})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 bg-muted border border-border dark:border-border">
+          <TabsTrigger
+            value="inventory"
+            className="data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+          >
+            Current Inventory ({consignments.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="logs"
+            className="data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+          >
+            Activity Logs ({warehouseLogs.length})
+          </TabsTrigger>
         </TabsList>
 
         {/* Inventory Tab */}
         <TabsContent value="inventory" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+          <Card className="bg-card border border-border dark:border-border">
+            <CardHeader className="border-b border-border dark:border-border">
+              <CardTitle className="flex items-center justify-between text-foreground dark:text-white">
                 <span className="flex items-center gap-2">
-                  <Package className="w-5 h-5" />
+                  <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                    <Package className="w-5 h-5 text-primary dark:text-primary" />
+                  </div>
                   Current Inventory ({consignments.length} items)
                 </span>
                 {overdueConsignments.length > 0 && (
@@ -364,21 +396,21 @@ export const WarehouseDetails = () => {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {consignments.length > 0 ? (
-                <div className="rounded-md border">
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Booking ID</TableHead>
-                        <TableHead>Consignment ID</TableHead>
-                        <TableHead>Consignor</TableHead>
-                        <TableHead>Consignee</TableHead>
-                        <TableHead>Material</TableHead>
-                        <TableHead>Units</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Aging</TableHead>
-                        <TableHead>Actions</TableHead>
+                      <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Booking ID</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Consignment ID</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Consignor</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Consignee</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Material</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Units</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Status</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Aging</TableHead>
+                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -387,19 +419,22 @@ export const WarehouseDetails = () => {
                         const isOverdue = aging > 3;
 
                         return (
-                          <TableRow key={consignment.id}>
-                            <TableCell className="font-medium">
+                          <TableRow
+                            key={consignment.id}
+                            className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border"
+                          >
+                            <TableCell className="font-medium text-foreground dark:text-white">
                               {consignment.booking.booking_id}
                             </TableCell>
-                            <TableCell>{consignment.consignment_id}</TableCell>
-                            <TableCell>{consignment.booking.consignor_name}</TableCell>
-                            <TableCell>{consignment.booking.consignee_name}</TableCell>
-                            <TableCell className="max-w-48 truncate">
+                            <TableCell className="text-foreground dark:text-white">{consignment.consignment_id}</TableCell>
+                            <TableCell className="text-muted-foreground dark:text-muted-foreground">{consignment.booking.consignor_name}</TableCell>
+                            <TableCell className="text-muted-foreground dark:text-muted-foreground">{consignment.booking.consignee_name}</TableCell>
+                            <TableCell className="max-w-48 truncate text-muted-foreground dark:text-muted-foreground">
                               {consignment.booking.material_description}
                             </TableCell>
-                            <TableCell>{consignment.booking.cargo_units}</TableCell>
+                            <TableCell className="text-foreground dark:text-white">{consignment.booking.cargo_units}</TableCell>
                             <TableCell>
-                              <Badge className={getStatusColor(consignment.status)}>
+                              <Badge className={cn("border", getStatusColor(consignment.status))}>
                                 {consignment.status.replace('_', ' ')}
                               </Badge>
                             </TableCell>
@@ -409,7 +444,7 @@ export const WarehouseDetails = () => {
                                 <span className={getAgingColor(aging)}>
                                   {aging} day{aging !== 1 ? 's' : ''}
                                 </span>
-                                {isOverdue && <AlertTriangle className="w-3 h-3 text-destructive" />}
+                                {isOverdue && <AlertTriangle className="w-3 h-3 text-red-600" />}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -420,7 +455,7 @@ export const WarehouseDetails = () => {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleAssignVehicle(consignment)}
-                                      className="gap-1"
+                                      className="gap-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                     >
                                       <Truck className="w-3 h-3" />
                                       Assign
@@ -429,7 +464,7 @@ export const WarehouseDetails = () => {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleMarkTransit(consignment)}
-                                      className="gap-1"
+                                      className="gap-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                     >
                                       Transit
                                     </Button>
@@ -439,7 +474,7 @@ export const WarehouseDetails = () => {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => handleMarkDelivered(consignment)}
-                                  className="gap-1"
+                                  className="gap-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                 >
                                   <CheckCircle className="w-3 h-3" />
                                   Delivered
@@ -454,9 +489,11 @@ export const WarehouseDetails = () => {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No consignments in warehouse</h3>
-                  <p className="text-muted-foreground">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                    <Package className="w-6 h-6 text-muted-foreground dark:text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium mb-2 text-foreground dark:text-white">No consignments in warehouse</h3>
+                  <p className="text-muted-foreground dark:text-muted-foreground">
                     This warehouse currently has no items in stock.
                   </p>
                 </div>
@@ -467,50 +504,56 @@ export const WarehouseDetails = () => {
 
         {/* Logs Tab */}
         <TabsContent value="logs" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Warehouse Activity Logs</CardTitle>
+          <Card className="bg-card border border-border dark:border-border">
+            <CardHeader className="border-b border-border dark:border-border">
+              <CardTitle className="text-foreground dark:text-white">Warehouse Activity Logs</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               {logsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="ml-2">Loading logs...</span>
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground dark:text-muted-foreground">Loading logs...</span>
                 </div>
               ) : warehouseLogs.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No activity logs found</p>
+                  <p className="text-muted-foreground dark:text-muted-foreground">No activity logs found</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {warehouseLogs.map((log, index) => (
-                    <div key={index} className="flex items-start space-x-4 p-4 rounded-lg bg-muted/30">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${log.type === 'INCOMING' ? 'bg-success/10 text-success' : 'bg-info/10 text-info'
-                        }`}>
+                    <div
+                      key={index}
+                      className="flex items-start space-x-4 p-4 rounded-lg bg-muted border border-border dark:border-border"
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                        log.type === 'INCOMING'
+                          ? 'bg-green-100 dark:bg-green-900/20 text-green-600'
+                          : 'bg-accent dark:bg-primary/10 text-primary dark:text-primary'
+                      )}>
                         {log.type === 'INCOMING' ? (
                           <ArrowDownToLine className="w-5 h-5" />
                         ) : (
                           <ArrowUpFromLine className="w-5 h-5" />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="font-medium text-foreground dark:text-white">
                             {log.type === 'INCOMING' ? 'Goods Received' : 'Goods Dispatched'}
                           </h4>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-muted-foreground dark:text-muted-foreground">
                             {new Date(log.created_at).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-sm mt-1">
+                        <p className="text-sm text-foreground dark:text-white mt-1">
                           Consignment: {log.consignment?.consignment_id}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Booking: {log.consignment?.booking?.booking_id} -
-                          {log.consignment?.booking?.consignor_name} to {log.consignment?.booking?.consignee_name}
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                          Booking: {log.consignment?.booking?.booking_id} - {log.consignment?.booking?.consignor_name} to {log.consignment?.booking?.consignee_name}
                         </p>
                         {log.notes && (
-                          <p className="text-sm mt-2 italic">{log.notes}</p>
+                          <p className="text-sm mt-2 italic text-muted-foreground dark:text-muted-foreground">{log.notes}</p>
                         )}
                       </div>
                     </div>
@@ -531,8 +574,8 @@ export const WarehouseDetails = () => {
         }}
         consignment={selectedConsignment}
         onAssignSuccess={handleVehicleAssignSuccess}
-        title="Assign Vehicle to Consignment" // Add this
-        description="Select a vehicle and driver to assign to this consignment" // Add this
+        title="Assign Vehicle to Consignment"
+        description="Select a vehicle and driver to assign to this consignment"
       />
 
       <ConfirmActionModal
@@ -545,10 +588,9 @@ export const WarehouseDetails = () => {
         onConfirm={executeAction}
         consignment={selectedConsignment}
         actionType={actionType}
-        title={actionType === 'transit' ? 'Mark as In Transit' : 'Mark as Delivered'} // Add this
-        description="This action will update the consignment status" // Add this
+        title={actionType === 'transit' ? 'Mark as In Transit' : 'Mark as Delivered'}
+        description="This action will update the consignment status"
       />
-
     </div>
   );
 };

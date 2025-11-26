@@ -17,6 +17,8 @@ export type BookingStage =
     | 'DISPATCHED'      // Vehicle assigned
     | 'IN_TRANSIT'      // LR created, on the road
     | 'DELIVERED'       // Reached destination
+    | 'VEHICLE_ASSIGNED' // Vehicle assigned
+    | 'WAREHOUSE'       // At warehouse
     | 'POD_UPLOADED'    // Proof of delivery uploaded
     | 'BILLED';         // Invoice generated
 
@@ -28,42 +30,63 @@ export const stageConfig: Record<BookingStage, {
     color: string;
     bgColor: string;
     textColor: string;
+    borderColor: string;
 }> = {
     DRAFT: {
-        label: 'Draft',
-        color: 'gray',
-        bgColor: 'bg-gray-100',
-        textColor: 'text-gray-700'
+        label: "Draft",
+        color: "gray",
+        bgColor: "bg-gray-100 dark:bg-gray-800",
+        textColor: "text-gray-700 dark:text-gray-300",
+        borderColor: "border-gray-200 dark:border-gray-700",
+    },
+    WAREHOUSE: {
+        label: "At Warehouse",
+        color: "indigo",
+        bgColor: "bg-indigo-100 dark:bg-indigo-900/30",
+        textColor: "text-indigo-700 dark:text-indigo-300",
+        borderColor: "border-indigo-200 dark:border-indigo-800",
     },
     DISPATCHED: {
-        label: 'Dispatched',
-        color: 'orange',
-        bgColor: 'bg-orange-100',
-        textColor: 'text-orange-700'
+        label: "Dispatched",
+        color: "yellow",
+        bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
+        textColor: "text-yellow-700 dark:text-yellow-300",
+        borderColor: "border-yellow-200 dark:border-yellow-800",
+    },
+    VEHICLE_ASSIGNED: {
+        label: "Vehicle Assigned",
+        color: "blue",
+        bgColor: "bg-blue-100 dark:bg-blue-900/30",
+        textColor: "text-blue-700 dark:text-blue-300",
+        borderColor: "border-blue-200 dark:border-blue-800",
     },
     IN_TRANSIT: {
-        label: 'In Transit',
-        color: 'blue',
-        bgColor: 'bg-blue-100',
-        textColor: 'text-blue-700'
+        label: "In Transit",
+        color: "orange",
+        bgColor: "bg-orange-100 dark:bg-orange-900/30",
+        textColor: "text-orange-700 dark:text-orange-300",
+        borderColor: "border-orange-200 dark:border-orange-800",
     },
     DELIVERED: {
-        label: 'Delivered',
-        color: 'green',
-        bgColor: 'bg-green-100',
-        textColor: 'text-green-700'
+        label: "Delivered",
+        color: "green",
+        bgColor: "bg-green-100 dark:bg-green-900/30",
+        textColor: "text-green-700 dark:text-green-300",
+        borderColor: "border-green-200 dark:border-green-800",
     },
     POD_UPLOADED: {
-        label: 'POD Uploaded',
-        color: 'purple',
-        bgColor: 'bg-purple-100',
-        textColor: 'text-purple-700'
+        label: "POD Uploaded",
+        color: "emerald",
+        bgColor: "bg-emerald-100 dark:bg-emerald-900/30",
+        textColor: "text-emerald-700 dark:text-emerald-300",
+        borderColor: "border-emerald-200 dark:border-emerald-800",
     },
     BILLED: {
-        label: 'Billed',
-        color: 'emerald',
-        bgColor: 'bg-emerald-100',
-        textColor: 'text-emerald-700'
+        label: "Billed",
+        color: "purple",
+        bgColor: "bg-purple-100 dark:bg-purple-900/30",
+        textColor: "text-purple-700 dark:text-purple-300",
+        borderColor: "border-purple-200 dark:border-purple-800",
     }
 };
 
@@ -189,7 +212,9 @@ export const getProgressiveAction = (
 // ============================================
 export const getStageProgress = (stage: BookingStage): number => {
     const progress: Record<BookingStage, number> = {
-        DRAFT: 16,
+        DRAFT: 14,
+        VEHICLE_ASSIGNED: 28,
+        WAREHOUSE: 42,
         DISPATCHED: 33,
         IN_TRANSIT: 50,
         DELIVERED: 66,

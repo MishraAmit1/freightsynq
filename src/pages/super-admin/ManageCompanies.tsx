@@ -1,4 +1,3 @@
-// src/pages/super-admin/ManageCompanies.tsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -16,7 +15,8 @@ import {
     Clock,
     Search,
     CalendarPlus,
-    ChevronDown
+    ChevronDown,
+    X
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -34,6 +34,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { cn } from '@/lib/utils';
 
 interface Company {
     id: string;
@@ -53,7 +54,6 @@ export const ManageCompanies = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
 
-    // Confirmation dialog states
     const [extendDialog, setExtendDialog] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
     const [selectedDays, setSelectedDays] = useState('30');
@@ -86,7 +86,7 @@ export const ManageCompanies = () => {
 
     const openExtendDialog = (company: Company) => {
         setSelectedCompany(company);
-        setSelectedDays('30'); // Default 1 month
+        setSelectedDays('30');
         setExtendDialog(true);
     };
 
@@ -180,8 +180,14 @@ export const ManageCompanies = () => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <Loader2 className="w-8 h-8 animate-spin" />
+            <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+                <div className="relative">
+                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                </div>
+                <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
+                    Loading companies...
+                </p>
             </div>
         );
     }
@@ -189,44 +195,46 @@ export const ManageCompanies = () => {
     return (
         <div className="container mx-auto p-6">
             <div className="mb-6">
-                <h1 className="text-3xl font-bold flex items-center gap-2">
-                    <Building className="w-8 h-8 text-primary" />
+                <h1 className="text-3xl font-bold flex items-center gap-2 text-foreground dark:text-white">
+                    <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                        <Building className="w-8 h-8 text-primary dark:text-primary" />
+                    </div>
                     Manage Companies
                 </h1>
-                <p className="text-muted-foreground mt-2">
+                <p className="text-muted-foreground dark:text-muted-foreground mt-2">
                     View and manage all companies on the platform
                 </p>
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <Card>
+                <Card className="bg-card border border-border dark:border-border">
                     <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{companies.length}</div>
-                        <div className="text-sm text-muted-foreground">Total Companies</div>
+                        <div className="text-2xl font-bold text-foreground dark:text-white">{companies.length}</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Total Companies</div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-card border border-border dark:border-border">
                     <CardContent className="pt-6">
                         <div className="text-2xl font-bold text-green-600">
                             {companies.filter(c => c.status === 'ACTIVE').length}
                         </div>
-                        <div className="text-sm text-muted-foreground">Active</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Active</div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-card border border-border dark:border-border">
                     <CardContent className="pt-6">
-                        <div className="text-2xl font-bold text-orange-600">
+                        <div className="text-2xl font-bold text-primary dark:text-primary">
                             {companies.filter(c => {
                                 if (!c.access_expires_at) return false;
                                 const days = Math.ceil((new Date(c.access_expires_at).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                                 return days <= 7 && days >= 0;
                             }).length}
                         </div>
-                        <div className="text-sm text-muted-foreground">Expiring Soon</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Expiring Soon</div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="bg-card border border-border dark:border-border">
                     <CardContent className="pt-6">
                         <div className="text-2xl font-bold text-red-600">
                             {companies.filter(c => {
@@ -234,7 +242,7 @@ export const ManageCompanies = () => {
                                 return new Date(c.access_expires_at) < new Date();
                             }).length}
                         </div>
-                        <div className="text-sm text-muted-foreground">Expired</div>
+                        <div className="text-sm text-muted-foreground dark:text-muted-foreground">Expired</div>
                     </CardContent>
                 </Card>
             </div>
@@ -242,13 +250,23 @@ export const ManageCompanies = () => {
             {/* Search */}
             <div className="mb-6">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                     <Input
                         placeholder="Search companies..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-10"
+                        className="pl-10 pr-10 border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                     />
+                    {search && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-accent dark:hover:bg-secondary"
+                            onClick={() => setSearch('')}
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -259,26 +277,40 @@ export const ManageCompanies = () => {
                     const StatusIcon = status.icon;
 
                     return (
-                        <Card key={company.id} className="hover:shadow-md transition-shadow">
+                        <Card
+                            key={company.id}
+                            className="bg-card border border-border dark:border-border hover:shadow-md transition-all hover:border-primary/30"
+                        >
                             <CardContent className="p-6">
                                 <div className="flex items-start justify-between gap-4">
                                     {/* Left - Company Info */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <Building className="w-6 h-6 text-primary" />
+                                            <div className="w-12 h-12 bg-gradient-to-br from-[#FFFBF0] to-[#FCC52C]/5 dark:from-primary/10 dark:to-[#FCC52C]/5 rounded-lg flex items-center justify-center flex-shrink-0 border border-primary/20">
+                                                <Building className="w-6 h-6 text-primary dark:text-primary" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="text-lg font-semibold truncate">{company.name}</h3>
+                                                <h3 className="text-lg font-semibold truncate text-foreground dark:text-white">{company.name}</h3>
                                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                    <Badge variant={status.variant} className="text-xs">
+                                                    <Badge
+                                                        variant={status.variant}
+                                                        className={cn(
+                                                            "text-xs border",
+                                                            status.label === 'Unlimited' && "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50",
+                                                            status.label === 'Expired' && "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50",
+                                                            status.label === 'Grace Period' && "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/50",
+                                                            status.daysRemaining && status.daysRemaining <= 7 && "bg-accent dark:bg-primary/10 text-primary dark:text-primary border-primary/30"
+                                                        )}
+                                                    >
                                                         <StatusIcon className="w-3 h-3 mr-1" />
                                                         {status.label}
                                                     </Badge>
                                                     {company.is_trial && (
-                                                        <Badge variant="outline" className="text-xs">Trial</Badge>
+                                                        <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/50">
+                                                            Trial
+                                                        </Badge>
                                                     )}
-                                                    <code className="px-2 py-0.5 bg-muted rounded text-xs font-mono">
+                                                    <code className="px-2 py-0.5 bg-muted rounded text-xs font-mono text-foreground dark:text-white border border-border dark:border-border">
                                                         {company.company_code}
                                                     </code>
                                                 </div>
@@ -286,12 +318,12 @@ export const ManageCompanies = () => {
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                            <div className="flex items-center gap-2 text-muted-foreground">
-                                                <span className="font-medium text-foreground">Email:</span>
+                                            <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground">
+                                                <span className="font-medium text-foreground dark:text-white">Email:</span>
                                                 <span className="truncate">{company.email}</span>
                                             </div>
-                                            <div className="flex items-center gap-2 text-muted-foreground">
-                                                <span className="font-medium text-foreground">Created:</span>
+                                            <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground">
+                                                <span className="font-medium text-foreground dark:text-white">Created:</span>
                                                 {new Date(company.created_at).toLocaleDateString('en-IN', {
                                                     day: '2-digit',
                                                     month: 'short',
@@ -299,9 +331,9 @@ export const ManageCompanies = () => {
                                                 })}
                                             </div>
                                             {company.access_expires_at && (
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <span className="font-medium text-foreground">Expires:</span>
-                                                    <span className={status.daysRemaining && status.daysRemaining <= 7 ? 'text-orange-600 font-semibold' : 'font-medium'}>
+                                                <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground">
+                                                    <span className="font-medium text-foreground dark:text-white">Expires:</span>
+                                                    <span className={status.daysRemaining && status.daysRemaining <= 7 ? 'text-primary dark:text-primary font-semibold' : 'font-medium text-foreground dark:text-white'}>
                                                         {new Date(company.access_expires_at).toLocaleDateString('en-IN', {
                                                             day: '2-digit',
                                                             month: 'short',
@@ -312,11 +344,11 @@ export const ManageCompanies = () => {
                                             )}
                                         </div>
                                     </div>
+
                                     {/* Right - Action Button */}
                                     {userProfile?.company_id === company.id ? (
-                                        // ✅ Super Admin's Own Company
                                         <div className="flex-shrink-0">
-                                            <Badge variant="secondary" className="px-4 py-2">
+                                            <Badge className="px-4 py-2 bg-accent dark:bg-primary/10 text-primary dark:text-primary border-primary/30">
                                                 <Building className="w-4 h-4 mr-2" />
                                                 Your Company
                                             </Badge>
@@ -324,8 +356,8 @@ export const ManageCompanies = () => {
                                     ) : (
                                         <Button
                                             onClick={() => openExtendDialog(company)}
-                                            variant="outline"  // ✅ Light color
-                                            className="flex-shrink-0 border-primary/20 hover:bg-primary/5"
+                                            variant="outline"
+                                            className="flex-shrink-0 bg-card border-primary/30 hover:bg-accent dark:hover:bg-secondary text-primary dark:text-primary hover:text-primary dark:text-primary"
                                         >
                                             <CalendarPlus className="w-4 h-4 mr-2" />
                                             Extend Access
@@ -338,8 +370,8 @@ export const ManageCompanies = () => {
                 })}
 
                 {filteredCompanies.length === 0 && (
-                    <Alert>
-                        <AlertDescription>
+                    <Alert className="bg-accent dark:bg-primary/5 border-primary/30">
+                        <AlertDescription className="text-muted-foreground dark:text-muted-foreground">
                             No companies found matching your search.
                         </AlertDescription>
                     </Alert>
@@ -348,13 +380,15 @@ export const ManageCompanies = () => {
 
             {/* Extend Access Dialog */}
             <Dialog open={extendDialog} onOpenChange={setExtendDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <CalendarPlus className="w-5 h-5 text-primary" />
+                <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
+                    <DialogHeader className="border-b border-border dark:border-border pb-4">
+                        <DialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
+                            <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                                <CalendarPlus className="w-5 h-5 text-primary dark:text-primary" />
+                            </div>
                             Extend Portal Access
                         </DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
                             Choose duration to extend access for this company
                         </DialogDescription>
                     </DialogHeader>
@@ -362,14 +396,14 @@ export const ManageCompanies = () => {
                     {selectedCompany && (
                         <div className="space-y-4 py-4">
                             {/* Company Info */}
-                            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                            <div className="p-4 bg-muted rounded-lg space-y-2 border border-border dark:border-border">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-muted-foreground">Company</span>
-                                    <span className="font-semibold">{selectedCompany.name}</span>
+                                    <span className="text-sm text-muted-foreground dark:text-muted-foreground">Company</span>
+                                    <span className="font-semibold text-foreground dark:text-white">{selectedCompany.name}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-muted-foreground">Current Expiry</span>
-                                    <span className="font-medium">
+                                    <span className="text-sm text-muted-foreground dark:text-muted-foreground">Current Expiry</span>
+                                    <span className="font-medium text-foreground dark:text-white">
                                         {selectedCompany.access_expires_at
                                             ? new Date(selectedCompany.access_expires_at).toLocaleDateString('en-IN')
                                             : 'Unlimited'}
@@ -379,22 +413,22 @@ export const ManageCompanies = () => {
 
                             {/* Extension Period Selector */}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Extension Period</label>
+                                <label className="text-sm font-medium text-foreground dark:text-white">Extension Period</label>
                                 <Select value={selectedDays} onValueChange={setSelectedDays}>
-                                    <SelectTrigger>
+                                    <SelectTrigger className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
+                                    <SelectContent className="bg-card border-border dark:border-border">
                                         <SelectItem value="15">
                                             <span className="flex items-center gap-2">
                                                 <span>15 Days</span>
-                                                <Badge variant="outline" className="text-xs">Trial</Badge>
+                                                <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/50">Trial</Badge>
                                             </span>
                                         </SelectItem>
                                         <SelectItem value="30">
                                             <span className="flex items-center gap-2">
                                                 <span>1 Month (30 days)</span>
-                                                <Badge variant="outline" className="text-xs bg-blue-50">Popular</Badge>
+                                                <Badge variant="outline" className="text-xs bg-accent dark:bg-primary/10 text-primary dark:text-primary border-primary/30">Popular</Badge>
                                             </span>
                                         </SelectItem>
                                         <SelectItem value="90">
@@ -406,7 +440,7 @@ export const ManageCompanies = () => {
                                         <SelectItem value="365">
                                             <span className="flex items-center gap-2">
                                                 <span>1 Year (365 days)</span>
-                                                <Badge variant="outline" className="text-xs bg-green-50">Best Value</Badge>
+                                                <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50">Best Value</Badge>
                                             </span>
                                         </SelectItem>
                                     </SelectContent>
@@ -414,10 +448,10 @@ export const ManageCompanies = () => {
                             </div>
 
                             {/* Preview */}
-                            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                            <div className="p-4 bg-accent dark:bg-primary/10 border border-primary/30 rounded-lg">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-primary">New Expiry Date</span>
-                                    <span className="font-bold text-primary">
+                                    <span className="text-sm font-medium text-primary dark:text-primary">New Expiry Date</span>
+                                    <span className="font-bold text-primary dark:text-primary">
                                         {(() => {
                                             const current = selectedCompany.access_expires_at
                                                 ? new Date(selectedCompany.access_expires_at)
@@ -436,14 +470,18 @@ export const ManageCompanies = () => {
                         </div>
                     )}
 
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter className="gap-2 sm:gap-0 border-t border-border dark:border-border pt-4">
                         <Button
                             variant="outline"
                             onClick={() => setExtendDialog(false)}
+                            className="bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
                         >
                             Cancel
                         </Button>
-                        <Button onClick={confirmExtend}>
+                        <Button
+                            onClick={confirmExtend}
+                            className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                        >
                             <CheckCircle className="w-4 h-4 mr-2" />
                             Confirm Extension
                         </Button>

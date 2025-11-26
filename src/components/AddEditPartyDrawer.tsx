@@ -570,55 +570,73 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-                <SheetHeader>
-                    <SheetTitle className="flex items-center gap-2">
-                        <User className="w-5 h-5 text-primary" />
+            <SheetContent className="w-full sm:max-w-2xl overflow-y-auto bg-card border-l border-border dark:border-border">
+                <SheetHeader className="border-b border-border dark:border-border pb-4">
+                    <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
+                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                            <User className="w-5 h-5 text-primary" />
+                        </div>
                         {mode === "edit" ? "Edit Party" : "Add New Party"}
                     </SheetTitle>
                 </SheetHeader>
 
                 {initialLoading ? (
                     <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-                        <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground">Loading party details...</p>
+                        <div className="relative">
+                            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                            <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                        </div>
+                        <p className="text-sm text-muted-foreground dark:text-muted-foreground animate-pulse">
+                            Loading party details...
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-4 py-4">
-                        {/* ✅ Party Type + Billing Party (Single Row) */}
+                        {/* Party Type + Billing Party */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label>Party Type *</Label>
+                                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Party Type <span className="text-red-600">*</span>
+                                </Label>
                                 <Select
                                     value={formData.party_type}
                                     onValueChange={(value: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH') =>
                                         setFormData({ ...formData, party_type: value })
                                     }
                                 >
-                                    <SelectTrigger className="h-10">
+                                    <SelectTrigger className="h-10 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="CONSIGNOR">Consignor Only</SelectItem>
-                                        <SelectItem value="CONSIGNEE">Consignee Only</SelectItem>
-                                        <SelectItem value="BOTH">Both</SelectItem>
+                                    <SelectContent className="bg-card border-border dark:border-border">
+                                        <SelectItem value="CONSIGNOR" className="hover:bg-accent dark:hover:bg-secondary">
+                                            Consignor Only
+                                        </SelectItem>
+                                        <SelectItem value="CONSIGNEE" className="hover:bg-accent dark:hover:bg-secondary">
+                                            Consignee Only
+                                        </SelectItem>
+                                        <SelectItem value="BOTH" className="hover:bg-accent dark:hover:bg-secondary">
+                                            Both
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-sm">Billing Settings</Label>
-                                <div className="flex items-center space-x-2 h-10 px-3 border rounded-md bg-muted/30">
+                                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Billing Settings
+                                </Label>
+                                <div className="flex items-center space-x-2 h-10 px-3 border border-border dark:border-border rounded-lg bg-muted">
                                     <Checkbox
                                         id="is_billing_party"
                                         checked={formData.is_billing_party}
                                         onCheckedChange={(checked) =>
                                             setFormData({ ...formData, is_billing_party: checked as boolean })
                                         }
+                                        className="data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-foreground"
                                     />
                                     <Label
                                         htmlFor="is_billing_party"
-                                        className="text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                                        className="text-sm font-medium cursor-pointer flex items-center gap-1.5 text-foreground dark:text-white"
                                     >
                                         <DollarSign className="w-3.5 h-3.5 text-primary" />
                                         Billing Party
@@ -627,125 +645,137 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                             </div>
                         </div>
 
-                        <Separator />
+                        <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
                         {/* Basic Information */}
                         <div className="space-y-2.5">
-                            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                                 <Building2 className="w-4 h-4" />
                                 Basic Information
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                    <Label className="text-xs">Party Name *</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        Party Name <span className="text-red-600">*</span>
+                                    </Label>
                                     <Input
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                         placeholder="Enter party name"
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                                 <div>
-                                    <Label className="text-xs">Contact Person</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        Contact Person
+                                    </Label>
                                     <Input
                                         value={formData.contact_person}
                                         onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
                                         placeholder="Contact person"
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <Separator />
+                        <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
                         {/* Contact Information */}
                         <div className="space-y-2.5">
-                            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                                 <Phone className="w-4 h-4" />
                                 Contact
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                    <Label className="text-xs">Phone *</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        Phone <span className="text-red-600">*</span>
+                                    </Label>
                                     <Input
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                         placeholder="10-digit number"
                                         maxLength={10}
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                                 <div>
-                                    <Label className="text-xs">Email</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        Email
+                                    </Label>
                                     <Input
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                         placeholder="email@example.com"
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <Separator />
+                        <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
                         {/* Address */}
                         <div className="space-y-2.5">
-                            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                                 <MapPin className="w-4 h-4" />
                                 Address
                             </h3>
 
                             <div>
-                                <Label className="text-xs">
+                                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                                     Search Location
-                                    {hasSelected && <Check className="inline w-3 h-3 text-green-500 ml-1" />}
+                                    {hasSelected && <Check className="inline w-3 h-3 text-[#059669] ml-1" />}
                                 </Label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                <div className="relative mt-1">
+                                    <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
                                     <Input
                                         value={locationSearch}
                                         onChange={handleLocationInputChange}
                                         placeholder="Type area or city..."
-                                        className="pl-9 pr-9 h-9 text-sm"
+                                        className="pl-9 pr-9 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                         autoComplete="off"
                                     />
                                     {searchingLocation && (
-                                        <Loader2 className="absolute right-2.5 top-2.5 h-3.5 w-3.5 animate-spin" />
+                                        <Loader2 className="absolute right-2.5 top-2.5 h-3.5 w-3.5 animate-spin text-primary" />
                                     )}
                                     {locationSearch && !searchingLocation && (
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            className="absolute right-1 top-1 h-7 w-7 p-0"
+                                            className="absolute right-1 top-1 h-7 w-7 p-0 hover:bg-accent dark:hover:bg-secondary"
                                             onClick={handleClearSearch}
                                         >
-                                            <X className="h-3 w-3" />
+                                            <X className="h-3 w-3 text-muted-foreground dark:text-muted-foreground" />
                                         </Button>
                                     )}
 
                                     {showLocationSuggestions && locationSuggestions.length > 0 && !hasSelected && (
-                                        <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[200px] overflow-auto">
+                                        <div className="absolute z-50 w-full bg-card border border-border dark:border-border rounded-lg mt-1 shadow-lg max-h-[200px] overflow-auto">
                                             {locationSuggestions.map((location, index) => (
                                                 <div
                                                     key={index}
                                                     className={cn(
-                                                        "px-3 py-2 hover:bg-accent cursor-pointer border-b last:border-b-0",
-                                                        location.isActualArea && "bg-primary/5"
+                                                        "px-3 py-2 cursor-pointer border-b border-border dark:border-border last:border-b-0 transition-colors",
+                                                        "hover:bg-accent dark:hover:bg-secondary",
+                                                        location.isActualArea && "bg-accent/30 dark:bg-primary/5"
                                                     )}
                                                     onClick={() => handleLocationSelect(location)}
                                                 >
                                                     <div className="flex items-start gap-2">
-                                                        <MapPin className="h-3.5 w-3.5 mt-0.5" />
+                                                        <MapPin className={cn(
+                                                            "h-3.5 w-3.5 mt-0.5",
+                                                            location.isActualArea ? "text-primary" : "text-muted-foreground dark:text-muted-foreground"
+                                                        )} />
                                                         <div className="flex-1">
-                                                            <div className="font-medium text-xs">
+                                                            <div className="font-medium text-xs text-foreground dark:text-white">
                                                                 {location.mainText}
                                                             </div>
                                                             {location.secondaryText && (
-                                                                <div className="text-[10px] text-muted-foreground">
+                                                                <div className="text-[10px] text-muted-foreground dark:text-muted-foreground">
                                                                     {location.secondaryText}
                                                                 </div>
                                                             )}
@@ -756,89 +786,105 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                                         </div>
                                     )}
                                 </div>
+                                {/* <p className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-1">
+                                    🔍 Powered by Google Places
+                                </p> */}
                             </div>
 
                             <div>
-                                <Label className="text-xs">Street Address *</Label>
+                                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Street Address <span className="text-red-600">*</span>
+                                </Label>
                                 <Input
                                     value={formData.address_line1}
                                     onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
                                     placeholder="Building/Street"
-                                    className="h-9 text-sm"
+                                    className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                 />
                             </div>
 
                             <div className="grid grid-cols-3 gap-2">
                                 <div>
-                                    <Label className="text-xs">City *</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        City <span className="text-red-600">*</span>
+                                    </Label>
                                     <Input
                                         value={formData.city}
                                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                                         placeholder="City"
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                                 <div>
-                                    <Label className="text-xs">State *</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        State <span className="text-red-600">*</span>
+                                    </Label>
                                     <Input
                                         value={formData.state}
                                         onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                                         placeholder="State"
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                                 <div>
-                                    <Label className="text-xs">Pincode *</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        Pincode <span className="text-red-600">*</span>
+                                    </Label>
                                     <Input
                                         value={formData.pincode}
                                         onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
                                         placeholder="6-digit"
                                         maxLength={6}
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                             </div>
                         </div>
 
-                        <Separator />
+                        <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
                         {/* Tax Info */}
                         <div className="space-y-2.5">
-                            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                            <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                                 <FileText className="w-4 h-4" />
                                 Tax Info (Optional)
                             </h3>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <Label className="text-xs">GST</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        GST Number
+                                    </Label>
                                     <Input
                                         value={formData.gst_number}
                                         onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
-                                        placeholder="15 chars"
+                                        placeholder="15 characters"
                                         maxLength={15}
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                                 <div>
-                                    <Label className="text-xs">PAN</Label>
+                                    <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                        PAN Number
+                                    </Label>
                                     <Input
                                         value={formData.pan_number}
                                         onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase() })}
-                                        placeholder="10 chars"
+                                        placeholder="10 characters"
                                         maxLength={10}
-                                        className="h-9 text-sm"
+                                        className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                     />
                                 </div>
                             </div>
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex justify-end gap-2 pt-3 border-t">
+                        <div className="flex justify-end gap-2 pt-3 border-t border-border dark:border-border">
                             <Button
                                 variant="outline"
                                 onClick={onClose}
                                 disabled={loading}
                                 size="sm"
+                                className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary text-foreground dark:text-white"
                             >
                                 Cancel
                             </Button>
@@ -846,6 +892,7 @@ export const AddEditPartyDrawer = ({ isOpen, onClose, partyId, onSuccess }: AddE
                                 onClick={handleSubmit}
                                 disabled={loading}
                                 size="sm"
+                                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
                             >
                                 {loading && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
                                 <Save className="w-3.5 h-3.5 mr-2" />

@@ -304,10 +304,12 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
   return (
     <>
       <Sheet open={isOpen} onOpenChange={handleClose}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-primary" />
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto bg-card border-l border-border dark:border-border">
+          <SheetHeader className="border-b border-border dark:border-border pb-4">
+            <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
+              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                <Truck className="w-5 h-5 text-primary" />
+              </div>
               Add Owned Vehicle
             </SheetTitle>
           </SheetHeader>
@@ -315,110 +317,187 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 py-6">
             {/* Basic Information */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <Truck className="w-4 h-4" />
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <Truck className="w-4 h-4 text-primary" />
                 Basic Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
                     Vehicle Number *
-                    {isValidatingVehicle && <Loader2 className="w-3 h-3 ml-2 inline animate-spin text-primary" />}
+                    {isValidatingVehicle && (
+                      <Loader2 className="w-3 h-3 ml-2 inline animate-spin text-primary" />
+                    )}
                   </Label>
                   <Input
                     {...register("vehicle_number")}
                     placeholder="e.g., MH-12-AB-1234"
                     disabled={isSubmitting}
-                    className={cn("uppercase h-9 text-sm mt-1", vehicleNumberError && "border-destructive")}
+                    className={cn(
+                      "uppercase h-9 text-sm mt-1",
+                      "border-border dark:border-border",
+                      "bg-card",
+                      "text-foreground dark:text-white",
+                      "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
+                      "focus:ring-2 focus:ring-ring focus:border-primary",
+                      vehicleNumberError && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    )}
                   />
                   {vehicleNumberError && (
-                    <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {vehicleNumberError}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted-foreground mt-1">Format: XX-00-XX-0000</p>
+                  <p className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-1">
+                    Format: XX-00-XX-0000
+                  </p>
                 </div>
 
                 <div>
-                  <Label className="text-xs">Vehicle Type *</Label>
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Vehicle Type *
+                  </Label>
                   <Select onValueChange={(val) => setValue("vehicle_type", val)} disabled={isSubmitting}>
-                    <SelectTrigger className="h-9 text-sm mt-1">
+                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
                       <SelectValue placeholder="Select Type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-card border-border dark:border-border">
                       {vehicleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                        <SelectItem
+                          key={type}
+                          value={type}
+                          className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                        >
+                          {type}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.vehicle_type && <p className="text-xs text-destructive mt-1">{errors.vehicle_type.message}</p>}
+                  {errors.vehicle_type && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {errors.vehicle_type.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label className="text-xs">Capacity *</Label>
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Capacity *
+                  </Label>
                   <Select onValueChange={(val) => setValue("capacity", val)} disabled={isSubmitting}>
-                    <SelectTrigger className="h-9 text-sm mt-1">
+                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
                       <SelectValue placeholder="Select Capacity" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-card border-border dark:border-border">
                       {capacities.map((capacity) => (
-                        <SelectItem key={capacity} value={capacity}>{capacity}</SelectItem>
+                        <SelectItem
+                          key={capacity}
+                          value={capacity}
+                          className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                        >
+                          {capacity}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.capacity && <p className="text-xs text-destructive mt-1">{errors.capacity.message}</p>}
+                  {errors.capacity && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {errors.capacity.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Compliance Dates */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">Compliance (Optional)</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground">
+                Compliance (Optional)
+              </h3>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label className="text-xs">Registration Date</Label>
-                  <Input type="date" {...register("registration_date")} disabled={isSubmitting} className="h-9 text-sm mt-1" />
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Registration Date
+                  </Label>
+                  <Input
+                    type="date"
+                    {...register("registration_date")}
+                    disabled={isSubmitting}
+                    className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
+                  />
                 </div>
                 <div>
-                  <Label className="text-xs">Insurance Expiry</Label>
-                  <Input type="date" {...register("insurance_expiry")} disabled={isSubmitting} className="h-9 text-sm mt-1" />
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Insurance Expiry
+                  </Label>
+                  <Input
+                    type="date"
+                    {...register("insurance_expiry")}
+                    disabled={isSubmitting}
+                    className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
+                  />
                 </div>
                 <div>
-                  <Label className="text-xs">Fitness Expiry</Label>
-                  <Input type="date" {...register("fitness_expiry")} disabled={isSubmitting} className="h-9 text-sm mt-1" />
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Fitness Expiry
+                  </Label>
+                  <Input
+                    type="date"
+                    {...register("fitness_expiry")}
+                    disabled={isSubmitting}
+                    className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
+                  />
                 </div>
                 <div>
-                  <Label className="text-xs">Permit Expiry</Label>
-                  <Input type="date" {...register("permit_expiry")} disabled={isSubmitting} className="h-9 text-sm mt-1" />
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Permit Expiry
+                  </Label>
+                  <Input
+                    type="date"
+                    {...register("permit_expiry")}
+                    disabled={isSubmitting}
+                    className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
+                  />
                 </div>
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Default Driver */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <User className="w-4 h-4" />
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
                 Default Driver (Optional)
               </h3>
               <div>
-                <Label className="text-xs">Assign Default Driver</Label>
+                <Label className="text-xs font-medium text-foreground dark:text-white">
+                  Assign Default Driver
+                </Label>
                 <Select
                   value={watch("default_driver_id") || "none"}
                   onValueChange={(val) => setValue("default_driver_id", val)}
                   disabled={isSubmitting || loadingDrivers}
                 >
-                  <SelectTrigger className="h-9 text-sm mt-1">
+                  <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
                     <SelectValue placeholder={loadingDrivers ? "Loading..." : "Select driver"} />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Default Driver</SelectItem>
+                  <SelectContent className="bg-card border-border dark:border-border">
+                    <SelectItem
+                      value="none"
+                      className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                    >
+                      No Default Driver
+                    </SelectItem>
                     {unassignedDrivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
+                      <SelectItem
+                        key={driver.id}
+                        value={driver.id}
+                        className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                      >
                         {driver.name} - {driver.phone}
                       </SelectItem>
                     ))}
@@ -428,7 +507,7 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-2 w-full h-8 text-xs"
+                  className="mt-2 w-full h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                   onClick={() => setIsAddDriverOpen(true)}
                   disabled={isSubmitting}
                 >
@@ -438,12 +517,12 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Documents */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
                 Documents (Optional)
               </h3>
 
@@ -456,14 +535,16 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                 className="hidden"
               />
 
-              <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-                <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground mb-2">Upload RC, Insurance & Documents</p>
+              <div className="border-2 border-dashed border-border dark:border-border rounded-lg p-4 text-center hover:border-primary dark:hover:border-primary hover:bg-accent dark:hover:bg-primary/5 transition-colors">
+                <Upload className="w-8 h-8 mx-auto text-muted-foreground dark:text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground mb-2">
+                  Upload RC, Insurance & Documents
+                </p>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs"
+                  className="h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                   onClick={() => document.getElementById('owned-document-upload')?.click()}
                   disabled={isSubmitting}
                 >
@@ -475,51 +556,68 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
               {selectedFiles.length > 0 && (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {selectedFiles.map((file, index) => (
-                    <div key={index} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                    <div
+                      key={index}
+                      className="border border-border dark:border-border rounded-lg p-3 space-y-2 bg-muted"
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <File className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{file.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
+                            <p className="text-xs font-medium truncate text-foreground dark:text-white">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
+                              {formatFileSize(file.size)}
+                            </p>
                           </div>
                         </div>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 flex-shrink-0"
+                          className="h-7 w-7 flex-shrink-0 hover:bg-red-50 dark:hover:bg-red-900/20"
                           onClick={() => handleRemoveFile(index)}
                           disabled={isSubmitting}
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
                         </Button>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-[10px]">Document Type *</Label>
+                          <Label className="text-[10px] font-medium text-foreground dark:text-white">
+                            Document Type *
+                          </Label>
                           <Select
                             value={documentMetadata[index]?.document_type || 'OTHER'}
                             onValueChange={(value: any) => updateDocumentMetadata(index, 'document_type', value)}
                             disabled={isSubmitting}
                           >
-                            <SelectTrigger className="h-7 text-[10px]">
+                            <SelectTrigger className="h-7 text-[10px] border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-card border-border dark:border-border">
                               {documentTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                <SelectItem
+                                  key={type.value}
+                                  value={type.value}
+                                  className="text-[10px] text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                                >
+                                  {type.label}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div>
-                          <Label className="text-[10px]">Expiry Date (Optional)</Label>
+                          <Label className="text-[10px] font-medium text-foreground dark:text-white">
+                            Expiry Date (Optional)
+                          </Label>
                           <Input
                             type="date"
-                            className="h-7 text-[10px]"
+                            className="h-7 text-[10px] border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
                             value={documentMetadata[index]?.expiry_date || ''}
                             onChange={(e) => updateDocumentMetadata(index, 'expiry_date', e.target.value)}
                             disabled={isSubmitting}
@@ -533,12 +631,24 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting} size="sm">
+            <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isSubmitting}
+                size="sm"
+                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+              >
                 <X className="w-3.5 h-3.5 mr-2" />
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting} size="sm">
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                size="sm"
+                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+              >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />

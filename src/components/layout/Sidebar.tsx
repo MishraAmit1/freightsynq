@@ -1,4 +1,4 @@
-// src/components/layout/Sidebar.tsx - SMOOTH COLLAPSE
+// src/components/layout/Sidebar.tsx - NO CARD VERSION (EXPERIMENT)
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -98,29 +98,35 @@ export const Sidebar = ({
         className={cn(
           "flex items-center rounded-lg text-sm font-medium transition-all duration-200 relative group",
           !isMobile && isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
-          isActive
-            ? "bg-primary text-primary-foreground shadow-md scale-[1.02]"
-            : "text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-[1.02]",
-          hoveredItem === item.name && !isActive && "bg-muted/50"
+          // Active state - Theme consistent
+          isActive && "bg-primary text-primary-foreground shadow-md dark:bg-primary/15 dark:text-primary dark:border-l-4 dark:border-primary",
+          // Default state
+          !isActive && "text-muted-foreground dark:text-muted-foreground",
+          // Hover state
+          !isActive && "hover:bg-accent hover:text-foreground dark:hover:bg-[#2A2A32] dark:hover:text-white",
+          hoveredItem === item.name && !isActive && "scale-[1.02]"
         )}
         style={{
           animationDelay: `${index * 50}ms`
         }}
       >
+        {/* Active Indicator */}
         {isActive && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-r-full animate-in slide-in-from-left duration-300" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground dark:bg-transparent rounded-r-full animate-in slide-in-from-left duration-300" />
         )}
 
         <item.icon className={cn(
           "w-5 h-5 flex-shrink-0 transition-transform duration-200",
           hoveredItem === item.name && "rotate-6 scale-110"
         )} />
+
         {(!isCollapsed || isMobile) && (
           <span className="animate-in slide-in-from-left-2 duration-300">
             {item.name}
           </span>
         )}
 
+        {/* Hover Pulse Indicator */}
         {!isActive && hoveredItem === item.name && (
           <div className="absolute right-2 w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
         )}
@@ -165,13 +171,14 @@ export const Sidebar = ({
           onClick={onClose}
         />
 
-        {/* Sidebar Container - Smooth Transition */}
+        {/* Sidebar Container - NO CARD VERSION */}
         <div
           className={cn(
             "fixed lg:relative inset-y-0 left-0 z-50 flex flex-col",
             "transition-all duration-500 ease-in-out",
+            "bg-card dark:bg-card border-r border-border dark:border-border",
             isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-            !isMobile && isCollapsed ? "lg:w-[125px]" : "w-72"
+            !isMobile && isCollapsed ? "lg:w-[80px]" : "w-60"
           )}
           style={{
             transitionProperty: 'width, transform',
@@ -180,57 +187,13 @@ export const Sidebar = ({
           }}
         >
 
-          {/* Collapse Button */}
-          <Button
-            variant="outline"
-            size="icon"
-            className={cn(
-              "hidden lg:flex absolute right-6 top-32 z-50 h-6 w-6 rounded-full border-2 bg-white dark:bg-gray-900 shadow-md",
-              "transition-all duration-300 ease-in-out",
-              "hover:shadow-lg hover:scale-110 hover:rotate-180 active:scale-95"
-            )}
-            onClick={onToggleCollapse}
-          >
-            <div className="transition-transform duration-300">
-              {isCollapsed ? (
-                <ChevronsRight className="w-3 h-3" />
-              ) : (
-                <ChevronsLeft className="w-3 h-3" />
-              )}
-            </div>
-          </Button>
-          {/* 🔥 Company Header - Aligned with TopBar */}
-          <div className="bg-background border-b border-gray-200 dark:border-gray-800 px-4 py-4 transition-all duration-500 ease-in-out">
-            <div className={cn(
-              "flex items-center transition-all duration-500 ease-in-out",
-              !isMobile && isCollapsed ? "justify-center" : "space-x-3"
-            )}>
-              <img
-                src={companyLogoSmall}
-                alt="Company Logo"
-                className={cn(
-                  "object-contain transition-all duration-500 ease-in-out group-hover:scale-105",
-                  isCollapsed
-                    ? "w-10 h-10"
-                    : "h-12 w-auto max-w-[200px]"
-                )}
-              />
-              <div className={cn(
-                "overflow-hidden transition-all duration-500 ease-in-out",
-                isCollapsed && !isMobile ? "w-0 opacity-0" : "w-auto opacity-100"
-              )}>
-                <h1 className="text-lg font-bold text-foreground truncate max-w-[180px] whitespace-nowrap">
-                  FreightSynQ
-                </h1>
-                <p className="text-xs capitalize font-medium font-sans whitespace-nowrap">
-                  Smarter Way to Move Freight
-                </p>
-              </div>
-
+          {/* Mobile Close Button Header */}
+          <div className="border-b border-border dark:border-border px-4 py-4 transition-all duration-500 ease-in-out lg:hidden">
+            <div className="flex items-center justify-end">
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden ml-auto hover:rotate-90 transition-transform duration-200"
+                className="hover:bg-accent dark:hover:bg-[#2A2A32] hover:rotate-90 transition-all duration-200"
                 onClick={onClose}
               >
                 <X className="w-5 h-5" />
@@ -238,53 +201,92 @@ export const Sidebar = ({
             </div>
           </div>
 
-          {/* 🔥 Navigation Card - Exact same level as Main Content */}
-          <div className="flex-1 bg-background overflow-hidden transition-all duration-500 ease-in-out">
-            {/* Exact same padding as main content */}
-            <div className="p-4 sm:p-6 pt-4 sm:pt-6 h-full transition-all duration-500 ease-in-out">
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm h-full flex flex-col overflow-hidden">
-                <nav
-                  className={cn(
-                    "flex-1 py-4 space-y-2 overflow-y-auto transition-all duration-500 ease-in-out ",
-                    !isMobile && isCollapsed ? "px-3" : "px-4"
-                  )}
-                  style={{
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none'
-                  }}
-                >
-                  <style>{`
-                    nav::-webkit-scrollbar {
-                      display: none;
-                    }
-                  `}</style>
+          {/* Collapse Button - Positioned on border between header and nav */}
+          <Button
+            variant="outline"
+            size="icon"
+            className={cn(
+              "hidden lg:flex absolute h-6 w-6 rounded-full border-2",
+              "bg-card dark:bg-card border-border dark:border-border",
+              "transition-all duration-300 ease-in-out",
+              "hover:bg-primary hover:border-primary hover:shadow-xl hover:scale-110 active:scale-95",
+              "group",
+              "z-[100]",
+              // Position: Right corner, on the border line after header
+              "-right-3 top-[62px]"
+            )}
+            onClick={onToggleCollapse}
+          >
+            <div className="transition-transform duration-300">
+              {isCollapsed ? (
+                <ChevronsRight className="w-3 h-3 text-foreground group-hover:text-primary-foreground transition-colors duration-300" />
+              ) : (
+                <ChevronsLeft className="w-3 h-3 text-foreground group-hover:text-primary-foreground transition-colors duration-300" />
+              )}
+            </div>
+          </Button>
 
-                  {/* Regular Navigation */}
-                  {filteredNavigation.map((item, index) => renderNavLink(item, index))}
-
-                  {/* Super Admin Section */}
-                  {isSuperAdmin && (
-                    <>
-                      <Separator className="my-4" />
-
-                      {(!isCollapsed || isMobile) && (
-                        <div className="px-4 py-2 flex items-center gap-2 transition-all duration-500 ease-in-out">
-                          <Shield className="w-4 h-4 text-orange-500" />
-                          <span className="text-xs font-semibold text-orange-500 uppercase tracking-wider">
-                            Super Admin
-                          </span>
-                        </div>
-                      )}
-
-                      {superAdminNavigation.map((item, index) =>
-                        renderNavLink(item, filteredNavigation.length + index)
-                      )}
-                    </>
-                  )}
-                </nav>
+          {/* Branding Section - Direct, No Card Wrapper */}
+          <div className={cn(
+            "border-b border-border dark:border-border transition-all duration-500 ease-in-out",
+            "flex items-center",
+            !isMobile && isCollapsed ? "px-3 h-[73px]" : "px-4 h-[73px]"
+          )}>
+            <div className={cn(
+              "flex items-center gap-3 transition-all duration-500 ease-in-out w-full",
+              !isMobile && isCollapsed && "flex-col justify-center"
+            )}>
+              <img
+                src={companyLogoSmall}
+                alt="FreightSynQ Logo"
+                className={cn(
+                  "object-contain transition-all duration-500 ease-in-out",
+                  isCollapsed && !isMobile
+                    ? "w-10 h-10"
+                    : "h-12 w-auto"
+                )}
+              />
+              <div className={cn(
+                "overflow-hidden transition-all duration-500 ease-in-out",
+                isCollapsed && !isMobile ? "w-0 h-0 opacity-0" : "w-auto opacity-100"
+              )}>
+                <h1 className="text-lg font-bold text-foreground dark:text-white truncate whitespace-nowrap leading-tight">
+                  FreightSynQ
+                </h1>
               </div>
             </div>
           </div>
+
+          {/* Navigation Links - Direct, No Card Wrapper */}
+          <nav
+            className={cn(
+              "flex-1 py-4 space-y-2 overflow-y-auto transition-all duration-500 ease-in-out scrollbar-none",
+              !isMobile && isCollapsed ? "px-3" : "px-4"
+            )}
+          >
+            {/* Regular Navigation */}
+            {filteredNavigation.map((item, index) => renderNavLink(item, index))}
+
+            {/* Super Admin Section */}
+            {isSuperAdmin && (
+              <>
+                <Separator className="my-4 bg-border dark:bg-border" />
+
+                {(!isCollapsed || isMobile) && (
+                  <div className="px-4 py-2 flex items-center gap-2 transition-all duration-500 ease-in-out">
+                    <Shield className="w-4 h-4 text-primary dark:text-primary" />
+                    <span className="text-xs font-semibold text-primary dark:text-primary uppercase tracking-wider">
+                      Super Admin
+                    </span>
+                  </div>
+                )}
+
+                {superAdminNavigation.map((item, index) =>
+                  renderNavLink(item, filteredNavigation.length + index)
+                )}
+              </>
+            )}
+          </nav>
         </div>
       </TooltipProvider>
     </>

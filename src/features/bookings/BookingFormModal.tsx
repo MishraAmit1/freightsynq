@@ -7,15 +7,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Loader2, Check, ChevronsUpDown, Plus, User, MapPin, Save, Package, Badge, AlertCircle, Calendar, Truck } from "lucide-react";
+import { X, Loader2, Check, ChevronsUpDown, Plus, User, MapPin, Save, Package, Badge as BadgeIcon, AlertCircle, Calendar, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { cn } from "@/lib/utils";
 import { supabase } from '@/lib/supabase';
 import { CompanyBranch, fetchCompanyBranches } from "@/api/bookings";
 
-// Custom hook for debouncing
+// ============================================
+// CUSTOM HOOKS
+// ============================================
+
 const useDebounce = (value: string, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -25,20 +29,50 @@ const useDebounce = (value: string, delay: number) => {
   return debouncedValue;
 };
 
-// Interfaces
+// ============================================
+// INTERFACES
+// ============================================
+
 interface Party {
-  id: string; name: string; contact_person?: string; phone: string; email?: string;
-  address_line1: string; city: string; state: string; pincode: string;
-  gst_number?: string; pan_number?: string; party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH'; status: 'ACTIVE' | 'INACTIVE';
+  id: string;
+  name: string;
+  contact_person?: string;
+  phone: string;
+  email?: string;
+  address_line1: string;
+  city: string;
+  state: string;
+  pincode: string;
+  gst_number?: string;
+  pan_number?: string;
+  party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
+  status: 'ACTIVE' | 'INACTIVE';
 }
+
+// ✅ UPDATED INTERFACE
 interface BookingFormData {
-  consignor_id: string; consignee_id: string; consignorName?: string; consigneeName?: string;
-  fromLocation: string; toLocation: string; serviceType: "FTL" | "PTL"; pickupDate?: string;
+  consignor_id: string;
+  consignee_id: string;
+  consignorName?: string;
+  consigneeName?: string;
+  fromCity: string;      // ✅ NEW
+  fromState: string;     // ✅ NEW
+  toCity: string;        // ✅ NEW
+  toState: string;       // ✅ NEW
+  serviceType: "FTL" | "PTL";
+  pickupDate?: string;
   branch_id?: string;
 }
+
 interface BookingFormModalProps {
-  isOpen: boolean; onClose: () => void; onSave: (data: any) => void;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: any) => void;
 }
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
 const validatePickupDate = (dateString: string | undefined): string | null => {
   if (!dateString) return null;
@@ -56,11 +90,18 @@ const validatePickupDate = (dateString: string | undefined): string | null => {
   return null;
 };
 
+// ============================================
+// LOCATION SEARCH INPUT COMPONENT
+// ============================================
+
 const LocationSearchInput = ({
   value, onChange, placeholder, disabled = false, onLocationSelect
 }: {
-  value: string; onChange: (value: string) => void; placeholder: string;
-  disabled?: boolean; onLocationSelect?: (location: any) => void;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+  onLocationSelect?: (location: any) => void;
 }) => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState(value);
@@ -255,39 +296,78 @@ const LocationSearchInput = ({
   return (
     <div className="relative">
       <div className="relative">
-        <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
         <Input
-          value={searchTerm} onChange={(e) => handleInputChange(e.target.value)}
-          placeholder={placeholder} className="pl-9 pr-9 h-9 text-sm mt-1" disabled={disabled} autoComplete="off"
+          value={searchTerm}
+          onChange={(e) => handleInputChange(e.target.value)}
+          placeholder={placeholder}
+          className="pl-9 pr-9 h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+          disabled={disabled}
+          autoComplete="off"
         />
-        {searching && <Loader2 className="absolute right-9 top-2.5 h-3.5 w-3.5 animate-spin" />}
+        {searching && <Loader2 className="absolute right-9 top-2.5 h-3.5 w-3.5 animate-spin text-primary" />}
         {searchTerm && !searching && (
-          <Button type="button" variant="ghost" size="sm" className="absolute right-1 top-1 h-7 w-7 p-0" onClick={handleClear}>
-            <X className="h-3 w-3" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="absolute right-1 top-1 h-7 w-7 p-0 hover:bg-accent dark:hover:bg-secondary"
+            onClick={handleClear}
+          >
+            <X className="h-3 w-3 text-muted-foreground dark:text-muted-foreground" />
           </Button>
         )}
       </div>
       {showSuggestions && suggestions.length > 0 && !hasSelected && (
-        <div className="absolute z-50 w-full bg-background border rounded-md mt-1 shadow-lg max-h-[200px] overflow-auto">
+        <div className="absolute z-50 w-full bg-card border border-border dark:border-border rounded-lg mt-1 shadow-lg max-h-[200px] overflow-auto">
           {suggestions.map((location, index) => (
-            <div key={index} className={cn("px-3 py-2 hover:bg-accent cursor-pointer border-b", location.isActualArea && "bg-primary/5")} onClick={() => handleSelect(location)}>
+            <div
+              key={index}
+              className={cn(
+                "px-3 py-2 cursor-pointer border-b border-border dark:border-border last:border-0 transition-colors",
+                "hover:bg-accent dark:hover:bg-secondary",
+                location.isActualArea && "bg-accent/30 dark:bg-primary/5"
+              )}
+              onClick={() => handleSelect(location)}
+            >
               <div className="flex items-start gap-2">
-                <MapPin className={cn("h-4 w-4 mt-0.5 shrink-0", location.isActualArea ? "text-primary" : "text-muted-foreground")} />
+                <MapPin className={cn(
+                  "h-4 w-4 mt-0.5 shrink-0",
+                  location.isActualArea ? "text-primary" : "text-muted-foreground dark:text-muted-foreground"
+                )} />
                 <div className="flex-1">
                   <div className="font-medium text-sm">
                     {location.area && location.city && location.area !== location.city ? (
-                      <><span className="text-primary font-semibold">{location.area}</span><span className="text-muted-foreground font-normal"> • {location.city}</span></>
+                      <>
+                        <span className="text-primary font-semibold">{location.area}</span>
+                        <span className="text-muted-foreground dark:text-muted-foreground font-normal"> • {location.city}</span>
+                      </>
                     ) : (
-                      <span className="text-foreground">{location.city || location.mainText}</span>
+                      <span className="text-foreground dark:text-white">{location.city || location.mainText}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-muted-foreground">{location.state}{location.postcode && ` • PIN: ${location.postcode}`}</span>
-                    <span className={cn("text-xs px-1.5 py-0.5 rounded font-medium", location.isActualArea ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground")}>
+                    <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                      {location.state}{location.postcode && ` • PIN: ${location.postcode}`}
+                    </span>
+                    <span className={cn(
+                      "text-xs px-1.5 py-0.5 rounded font-medium",
+                      location.isActualArea
+                        ? "bg-primary/20 text-primary dark:text-primary border border-primary/30"
+                        : "bg-muted dark:bg-secondary text-muted-foreground dark:text-muted-foreground"
+                    )}>
                       {location.isActualArea ? 'Area' : 'City'}
                     </span>
-                    {location.isGoogle && <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">✓ Google</span>}
-                    {location.isNominatim && <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">Backup</span>}
+                    {location.isGoogle && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] font-medium">
+                        ✓ Google
+                      </span>
+                    )}
+                    {location.isNominatim && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#D97706] border border-[#FCD34D]">
+                        Backup
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -296,7 +376,7 @@ const LocationSearchInput = ({
         </div>
       )}
       {hasSelected && (
-        <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+        <p className="text-xs text-[#059669] mt-1 flex items-center gap-1">
           <Check className="w-3 h-3" /> Location selected
         </p>
       )}
@@ -304,11 +384,19 @@ const LocationSearchInput = ({
   );
 };
 
+// ============================================
+// PARTY SELECT COMPONENT
+// ============================================
+
 const PartySelect = ({
   value, onValueChange, type, placeholder = "Select party...", disabled = false, onAddNew
 }: {
-  value?: string; onValueChange: (value: string, party: Party) => void; type: 'CONSIGNOR' | 'CONSIGNEE';
-  placeholder?: string; disabled?: boolean; onAddNew?: () => void;
+  value?: string;
+  onValueChange: (value: string, party: Party) => void;
+  type: 'CONSIGNOR' | 'CONSIGNEE';
+  placeholder?: string;
+  disabled?: boolean;
+  onAddNew?: () => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [parties, setParties] = useState<Party[]>([]);
@@ -330,7 +418,10 @@ const PartySelect = ({
         const { data, error } = await query;
         if (error) throw error;
         setParties(data || []);
-      } catch (error) { console.error('Error searching parties:', error); setParties([]); }
+      } catch (error) {
+        console.error('Error searching parties:', error);
+        setParties([]);
+      }
       finally { setLoading(false); }
     };
     const debounceTimer = setTimeout(loadParties, 300);
@@ -342,32 +433,65 @@ const PartySelect = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-9 text-sm" disabled={disabled}>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+          disabled={disabled}
+        >
           <span className="truncate">{selectedParty ? selectedParty.name : placeholder}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground dark:text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0">
-        <Command shouldFilter={false}>
-          <CommandInput placeholder={`Search ${type?.toLowerCase() || 'party'}...`} value={searchTerm} onValueChange={setSearchTerm} />
+      <PopoverContent className="w-[400px] p-0 bg-card border-border dark:border-border shadow-lg">
+        <Command shouldFilter={false} className="bg-transparent">
+          <CommandInput
+            placeholder={`Search ${type?.toLowerCase() || 'party'}...`}
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+            className="border-b border-border dark:border-border text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+          />
           <CommandEmpty>
             <div className="p-4 text-center">
-              <p className="text-sm text-muted-foreground mb-2">No party found.</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">No party found.</p>
               {onAddNew && (
-                <Button variant="outline" size="sm" onClick={() => { setOpen(false); onAddNew(); }}>
-                  <Plus className="mr-2 h-4 w-4" /> Add New {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setOpen(false); onAddNew(); }}
+                  className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
                 </Button>
               )}
             </div>
           </CommandEmpty>
           <CommandGroup className="max-h-[300px] overflow-auto">
-            {loading && <div className="p-2 text-center text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin inline mr-2" /> Loading...</div>}
+            {loading && (
+              <div className="p-2 text-center text-sm text-muted-foreground dark:text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin inline mr-2 text-primary" />
+                Loading...
+              </div>
+            )}
             {!loading && parties.map((party) => (
-              <CommandItem key={party.id} value={party.name} onSelect={() => { onValueChange(party.id, party); setOpen(false); setSearchTerm(""); }} className="cursor-pointer">
-                <Check className={cn("mr-2 h-4 w-4", value === party.id ? "opacity-100" : "opacity-0")} />
+              <CommandItem
+                key={party.id}
+                value={party.name}
+                onSelect={() => { onValueChange(party.id, party); setOpen(false); setSearchTerm(""); }}
+                className="cursor-pointer hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+              >
+                <Check className={cn("mr-2 h-4 w-4 text-primary", value === party.id ? "opacity-100" : "opacity-0")} />
                 <div className="flex-1">
-                  <div className="font-medium flex items-center gap-2"><User className="w-3 h-3" />{party.name}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" />{party.city}, {party.state} • 📞 {party.phone}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    <User className="w-3 h-3 text-muted-foreground dark:text-muted-foreground" />
+                    {party.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center gap-1 mt-1">
+                    <MapPin className="w-3 h-3" />
+                    {party.city}, {party.state} • 📞 {party.phone}
+                  </div>
                 </div>
               </CommandItem>
             ))}
@@ -378,15 +502,25 @@ const PartySelect = ({
   );
 };
 
+// ============================================
+// QUICK ADD PARTY DRAWER
+// ============================================
+
 const QuickAddPartyDrawer = ({
   isOpen, onClose, onSave, type
 }: {
-  isOpen: boolean; onClose: () => void; onSave: (party: Party) => void; type: 'CONSIGNOR' | 'CONSIGNEE';
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (party: Party) => void;
+  type: 'CONSIGNOR' | 'CONSIGNEE';
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [locationSearch, setLocationSearch] = useState("");
-  const [formData, setFormData] = useState({ name: '', contact_person: '', phone: '', email: '', address_line1: '', city: '', state: '', pincode: '', gst_number: '', pan_number: '' });
+  const [formData, setFormData] = useState({
+    name: '', contact_person: '', phone: '', email: '', address_line1: '',
+    city: '', state: '', pincode: '', gst_number: '', pan_number: ''
+  });
 
   useEffect(() => {
     if (!isOpen) {
@@ -417,33 +551,61 @@ const QuickAddPartyDrawer = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <User className="w-5 h-5 text-primary" />
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto bg-card border-l border-border dark:border-border">
+        <SheetHeader className="border-b border-border dark:border-border pb-4">
+          <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
+            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+              <User className="w-5 h-5 text-primary" />
+            </div>
             Add New {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
           </SheetTitle>
         </SheetHeader>
         <div className="space-y-4 py-6">
           <div>
-            <Label className="text-xs">Name <span className="text-red-500">*</span></Label>
-            <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Party name" className="h-9 text-sm mt-1" />
+            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              Name <span className="text-red-600">*</span>
+            </Label>
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Party name"
+              className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Phone <span className="text-red-500">*</span></Label>
-              <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Phone number" maxLength={10} className="h-9 text-sm mt-1" />
+              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                Phone <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="Phone number"
+                maxLength={10}
+                className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+              />
             </div>
             <div>
-              <Label className="text-xs">Contact Person</Label>
-              <Input value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} placeholder="Contact person" className="h-9 text-sm mt-1" />
+              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                Contact Person
+              </Label>
+              <Input
+                value={formData.contact_person}
+                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                placeholder="Contact person"
+                className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+              />
             </div>
           </div>
-          <Separator className="my-4" />
+          <Separator className="bg-[#E5E7EB] dark:bg-secondary my-4" />
           <div>
-            <Label className="text-xs">Search Area/City {locationSearch && <Check className="inline w-3 h-3 text-green-500 ml-1" />}</Label>
+            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              Search Area/City {locationSearch && <Check className="inline w-3 h-3 text-[#059669] ml-1" />}
+            </Label>
             <LocationSearchInput
-              value={locationSearch} onChange={(value) => setLocationSearch(value)} placeholder="Search area/city to auto-fill..."
+              value={locationSearch}
+              onChange={(value) => setLocationSearch(value)}
+              placeholder="Search area/city to auto-fill..."
               disabled={loading}
               onLocationSelect={(location) => {
                 const addressLine = location.area && location.area !== location.city ? location.area : '';
@@ -451,35 +613,96 @@ const QuickAddPartyDrawer = ({
                 setLocationSearch(location.displayText);
               }}
             />
-            <p className="text-[10px] text-muted-foreground mt-1">🔍 Powered by Google Places</p>
+            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-1">🔍 Powered by Google Places</p>
           </div>
           <div>
-            <Label className="text-xs">Address Line 1 <span className="text-red-500">*</span></Label>
-            <Input value={formData.address_line1} onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })} placeholder="Building/Street address" className="h-9 text-sm mt-1" />
+            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              Address Line 1 <span className="text-red-600">*</span>
+            </Label>
+            <Input
+              value={formData.address_line1}
+              onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+              placeholder="Building/Street address"
+              className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">City <span className="text-red-500">*</span> {formData.city && <Check className="inline w-3 h-3 text-green-500 ml-1" />}</Label>
-              <Input value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} placeholder="City" className={cn("h-9 text-sm mt-1", formData.city && "border-green-500/50")} />
+              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                City <span className="text-red-600">*</span> {formData.city && <Check className="inline w-3 h-3 text-[#059669] ml-1" />}
+              </Label>
+              <Input
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="City"
+                className={cn(
+                  "h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white",
+                  formData.city ? "border-[#A7F3D0] dark:border-[#059669]/30" : "border-border dark:border-border"
+                )}
+              />
             </div>
             <div>
-              <Label className="text-xs">State <span className="text-red-500">*</span> {formData.state && <Check className="inline w-3 h-3 text-green-500 ml-1" />}</Label>
-              <Input value={formData.state} onChange={(e) => setFormData({ ...formData, state: e.target.value })} placeholder="State" className={cn("h-9 text-sm mt-1", formData.state && "border-green-500/50")} />
+              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                State <span className="text-red-600">*</span> {formData.state && <Check className="inline w-3 h-3 text-[#059669] ml-1" />}
+              </Label>
+              <Input
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                placeholder="State"
+                className={cn(
+                  "h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white",
+                  formData.state ? "border-[#A7F3D0] dark:border-[#059669]/30" : "border-border dark:border-border"
+                )}
+              />
             </div>
           </div>
           <div>
-            <Label className="text-xs">Pincode <span className="text-red-500">*</span> {formData.pincode && formData.pincode.length === 6 && <Check className="inline w-3 h-3 text-green-500 ml-1" />}</Label>
-            <Input value={formData.pincode} onChange={(e) => setFormData({ ...formData, pincode: e.target.value })} placeholder="6-digit pincode" maxLength={6} className={cn("h-9 text-sm mt-1", formData.pincode.length === 6 && "border-green-500/50")} />
+            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              Pincode <span className="text-red-600">*</span> {formData.pincode && formData.pincode.length === 6 && <Check className="inline w-3 h-3 text-[#059669] ml-1" />}
+            </Label>
+            <Input
+              value={formData.pincode}
+              onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+              placeholder="6-digit pincode"
+              maxLength={6}
+              className={cn(
+                "h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white",
+                formData.pincode.length === 6 ? "border-[#A7F3D0] dark:border-[#059669]/30" : "border-border dark:border-border"
+              )}
+            />
           </div>
           <div>
-            <Label className="text-xs">GST Number</Label>
-            <Input value={formData.gst_number} onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })} placeholder="GST Number (optional)" maxLength={15} className="h-9 text-sm mt-1" />
+            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              GST Number
+            </Label>
+            <Input
+              value={formData.gst_number}
+              onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
+              placeholder="GST Number (optional)"
+              maxLength={15}
+              className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+            />
           </div>
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} disabled={loading} size="sm"><X className="w-3.5 h-3.5 mr-2" />Cancel</Button>
-            <Button onClick={handleSubmit} disabled={loading} size="sm">
+          <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+              size="sm"
+              className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+            >
+              <X className="w-3.5 h-3.5 mr-2" />
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              size="sm"
+              className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+            >
               {loading && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
-              <Save className="w-3.5 h-3.5 mr-2" />Add {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
+              <Save className="w-3.5 h-3.5 mr-2" />
+              Add {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
             </Button>
           </div>
         </div>
@@ -488,6 +711,10 @@ const QuickAddPartyDrawer = ({
   );
 };
 
+// ============================================
+// MAIN BOOKING FORM MODAL COMPONENT
+// ============================================
+
 export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalProps) => {
   const { toast } = useToast();
   const [dateError, setDateError] = useState<string | null>(null);
@@ -495,19 +722,38 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   const [loadingBranches, setLoadingBranches] = useState(true);
   const [loading, setLoading] = useState(false);
   const [addPartyModal, setAddPartyModal] = useState<{ isOpen: boolean; type: 'CONSIGNOR' | 'CONSIGNEE' }>({ isOpen: false, type: 'CONSIGNOR' });
+
+  // ✅ UPDATED INITIAL STATE
   const [formData, setFormData] = useState<BookingFormData>({
-    consignor_id: "", consignee_id: "", consignorName: "", consigneeName: "",
-    fromLocation: "", toLocation: "", serviceType: "FTL", pickupDate: undefined,
+    consignor_id: "",
+    consignee_id: "",
+    consignorName: "",
+    consigneeName: "",
+    fromCity: "",      // ✅ NEW
+    fromState: "",     // ✅ NEW
+    toCity: "",        // ✅ NEW
+    toState: "",       // ✅ NEW
+    serviceType: "FTL",
+    pickupDate: undefined,
     branch_id: ""
   });
 
   useEffect(() => {
     if (isOpen) {
       setFormData({
-        consignor_id: "", consignee_id: "", consignorName: "", consigneeName: "",
-        fromLocation: "", toLocation: "", serviceType: "FTL", pickupDate: undefined,
+        consignor_id: "",
+        consignee_id: "",
+        consignorName: "",
+        consigneeName: "",
+        fromCity: "",      // ✅ RESET
+        fromState: "",     // ✅ RESET
+        toCity: "",        // ✅ RESET
+        toState: "",       // ✅ RESET
+        serviceType: "FTL",
+        pickupDate: undefined,
       });
       setDateError(null);
+
       const loadBranches = async () => {
         setLoadingBranches(true);
         try {
@@ -529,19 +775,29 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
     }
   }, [isOpen]);
 
-
-
+  // ✅ UPDATED HANDLERS - Extract city/state from party
   const handleConsignorSelect = (partyId: string, party: Party) => {
-    const fullAddress = `${party.address_line1}, ${party.city}, ${party.state} - ${party.pincode}`;
-    setFormData({ ...formData, consignor_id: partyId, consignorName: party.name, fromLocation: fullAddress });
+    setFormData({
+      ...formData,
+      consignor_id: partyId,
+      consignorName: party.name,
+      fromCity: party.city,
+      fromState: party.state
+    });
   };
+
   const handleConsigneeSelect = (partyId: string, party: Party) => {
-    const fullAddress = `${party.address_line1}, ${party.city}, ${party.state} - ${party.pincode}`;
-    setFormData({ ...formData, consignee_id: partyId, consigneeName: party.name, toLocation: fullAddress });
+    setFormData({
+      ...formData,
+      consignee_id: partyId,
+      consigneeName: party.name,
+      toCity: party.city,
+      toState: party.state
+    });
   };
+
   const handleDateChange = (date: Date | null) => {
     if (date) {
-      // Use local date methods to avoid timezone issues
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -555,6 +811,8 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
       setDateError(null);
     }
   };
+
+  // ✅ UPDATED SUBMIT - Combine city/state for database storage
   const handleSubmit = async () => {
     if (!formData.consignor_id || !formData.consignee_id) {
       toast({ title: "Validation Error", description: "Please select both Consignor and Consignee", variant: "destructive" });
@@ -568,14 +826,21 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
       toast({ title: "Validation Error", description: "Please select a branch", variant: "destructive" });
       return;
     }
+
     try {
       setLoading(true);
+
+      // ✅ Combine city and state for database storage
       const bookingData = {
-        consignor_id: formData.consignor_id, consignee_id: formData.consignee_id,
-        from_location: formData.fromLocation, to_location: formData.toLocation,
-        service_type: formData.serviceType, pickup_date: formData.pickupDate,
+        consignor_id: formData.consignor_id,
+        consignee_id: formData.consignee_id,
+        from_location: `${formData.fromCity}, ${formData.fromState}`,  // ✅ CHANGED
+        to_location: `${formData.toCity}, ${formData.toState}`,        // ✅ CHANGED
+        service_type: formData.serviceType,
+        pickup_date: formData.pickupDate,
         branch_id: formData.branch_id
       };
+
       await onSave(bookingData);
       onClose();
     } catch (error) {
@@ -587,9 +852,13 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   };
 
   const handleNewPartyAdded = (party: Party) => {
-    if (addPartyModal.type === 'CONSIGNOR') { handleConsignorSelect(party.id, party); }
-    else { handleConsigneeSelect(party.id, party); }
+    if (addPartyModal.type === 'CONSIGNOR') {
+      handleConsignorSelect(party.id, party);
+    } else {
+      handleConsigneeSelect(party.id, party);
+    }
   };
+
   const getMinDate = () => {
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
@@ -600,23 +869,26 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" />
-              Create New Booking
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto bg-card border-l border-border dark:border-border">
+          <SheetHeader className="border-b border-border dark:border-border pb-4">
+            <SheetTitle className="flex items-center gap-3 text-foreground dark:text-white">
+              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                <Package className="w-5 h-5 text-primary" />
+              </div>
+              <span className="text-xl font-semibold">Create New Booking</span>
             </SheetTitle>
           </SheetHeader>
+
           <div className="space-y-5 py-6">
             {/* Branch Selection */}
             <div className="space-y-2">
-              <Label className="text-xs font-medium">
-                Branch <span className="text-red-500">*</span>
+              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                Branch <span className="text-red-600">*</span>
               </Label>
               {loadingBranches ? (
-                <div className="flex items-center gap-2 h-9 px-3 border border-input rounded-md bg-muted/50">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Loading branches...</span>
+                <div className="flex items-center gap-2 h-9 px-3 border border-border dark:border-border rounded-lg bg-muted">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground dark:text-muted-foreground">Loading branches...</span>
                 </div>
               ) : (
                 <Select
@@ -624,13 +896,13 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                   onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
                   disabled={loading}
                 >
-                  <SelectTrigger className="h-9 text-sm">
+                  <SelectTrigger className="h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                     <SelectValue placeholder="Select branch">
                       {formData.branch_id && (
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className="h-5 px-1.5 font-mono text-xs"
+                            className="h-5 px-1.5 font-mono text-xs bg-muted dark:bg-secondary text-foreground dark:text-white border-border dark:border-border"
                           >
                             {branches.find(b => b.id === formData.branch_id)?.branch_code}
                           </Badge>
@@ -641,19 +913,23 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                       )}
                     </SelectValue>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-card border-border dark:border-border">
                     {branches.map(branch => (
-                      <SelectItem key={branch.id} value={branch.id}>
+                      <SelectItem
+                        key={branch.id}
+                        value={branch.id}
+                        className="hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                      >
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className="h-5 px-1.5 font-mono text-xs"
+                            className="h-5 px-1.5 font-mono text-xs bg-muted dark:bg-secondary border-0"
                           >
                             {branch.branch_code}
                           </Badge>
                           <span>{branch.branch_name}</span>
                           {branch.city && (
-                            <span className="text-xs text-muted-foreground ml-auto">
+                            <span className="text-xs text-muted-foreground dark:text-muted-foreground ml-auto">
                               {branch.city}
                             </span>
                           )}
@@ -668,8 +944,8 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
             {/* Party Selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Consignor <span className="text-red-500">*</span>
+                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                  Consignor <span className="text-red-600">*</span>
                 </Label>
                 <PartySelect
                   value={formData.consignor_id}
@@ -682,8 +958,8 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Consignee <span className="text-red-500">*</span>
+                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                  Consignee <span className="text-red-600">*</span>
                 </Label>
                 <PartySelect
                   value={formData.consignee_id}
@@ -696,38 +972,39 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               </div>
             </div>
 
-            <Separator />
+            <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
-            {/* Location Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Pickup Location <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            {/* ✅ UPDATED SECTION - City/State Fields */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground dark:text-white flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                Pickup Location
+              </Label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                    City <span className="text-red-600">*</span>
+                  </Label>
                   <Input
-                    value={formData.fromLocation}
-                    onChange={(e) => setFormData({ ...formData, fromLocation: e.target.value })}
+                    value={formData.fromCity}
+                    onChange={(e) => setFormData({ ...formData, fromCity: e.target.value })}
                     placeholder="Auto-filled from consignor"
-                    className="pl-9 h-9 text-sm bg-muted/50"
+                    className="h-9 text-sm bg-muted border-border dark:border-border text-muted-foreground dark:text-muted-foreground"
                     disabled={loading}
                     readOnly
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Drop Location <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                    State <span className="text-red-600">*</span>
+                  </Label>
                   <Input
-                    value={formData.toLocation}
-                    onChange={(e) => setFormData({ ...formData, toLocation: e.target.value })}
-                    placeholder="Auto-filled from consignee"
-                    className="pl-9 h-9 text-sm bg-muted/50"
+                    value={formData.fromState}
+                    onChange={(e) => setFormData({ ...formData, fromState: e.target.value })}
+                    placeholder="Auto-filled from consignor"
+                    className="h-9 text-sm bg-muted border-border dark:border-border text-muted-foreground dark:text-muted-foreground"
                     disabled={loading}
                     readOnly
                   />
@@ -735,32 +1012,69 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               </div>
             </div>
 
-            <Separator />
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground dark:text-white flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-primary" />
+                Drop Location
+              </Label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                    City <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    value={formData.toCity}
+                    onChange={(e) => setFormData({ ...formData, toCity: e.target.value })}
+                    placeholder="Auto-filled from consignee"
+                    className="h-9 text-sm bg-muted border-border dark:border-border text-muted-foreground dark:text-muted-foreground"
+                    disabled={loading}
+                    readOnly
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                    State <span className="text-red-600">*</span>
+                  </Label>
+                  <Input
+                    value={formData.toState}
+                    onChange={(e) => setFormData({ ...formData, toState: e.target.value })}
+                    placeholder="Auto-filled from consignee"
+                    className="h-9 text-sm bg-muted border-border dark:border-border text-muted-foreground dark:text-muted-foreground"
+                    disabled={loading}
+                    readOnly
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Service Type & Date */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">
-                  Service Type <span className="text-red-500">*</span>
+                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                  Service Type <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={formData.serviceType}
                   onValueChange={(value: "FTL" | "PTL") => setFormData({ ...formData, serviceType: value })}
                   disabled={loading}
                 >
-                  <SelectTrigger className="h-9 text-sm">
+                  <SelectTrigger className="h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="FTL">
+                  <SelectContent className="bg-card border-border dark:border-border">
+                    <SelectItem value="FTL" className="hover:bg-accent dark:hover:bg-secondary">
                       <div className="flex items-center gap-2">
-                        <Truck className="w-3.5 h-3.5" />
+                        <Truck className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                         Full Truck Load (FTL)
                       </div>
                     </SelectItem>
-                    <SelectItem value="PTL">
+                    <SelectItem value="PTL" className="hover:bg-accent dark:hover:bg-secondary">
                       <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5" />
+                        <Package className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
                         Part Truck Load (PTL)
                       </div>
                     </SelectItem>
@@ -769,12 +1083,12 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-medium">
+                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   Pickup Date
-                  <span className="text-muted-foreground font-normal ml-1">(Optional)</span>
+                  <span className="text-muted-foreground dark:text-muted-foreground font-normal ml-1">(Optional)</span>
                 </Label>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground pointer-events-none z-10" />
                   <DatePicker
                     selected={formData.pickupDate ? new Date(formData.pickupDate + 'T00:00:00') : null}
                     onChange={handleDateChange}
@@ -783,17 +1097,17 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                     minDate={getMinDate()}
                     maxDate={new Date(new Date().setFullYear(new Date().getFullYear() + 1))}
                     className={cn(
-                      "flex h-9 w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm",
-                      "placeholder:text-muted-foreground",
-                      "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                      "flex h-9 w-full rounded-lg border bg-card pl-9 pr-3 py-2 text-sm text-foreground dark:text-white",
+                      "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
+                      "focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary",
                       "disabled:cursor-not-allowed disabled:opacity-50",
-                      dateError ? "border-destructive focus:ring-destructive" : "border-input"
+                      dateError ? "border-red-600 focus:ring-red-600" : "border-border dark:border-border"
                     )}
                     disabled={loading}
                   />
                 </div>
                 {dateError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
                     <AlertCircle className="w-3 h-3" />
                     {dateError}
                   </p>
@@ -802,14 +1116,14 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
                 disabled={loading}
                 size="sm"
-                className="gap-2"
+                className="gap-2 border-border dark:border-border hover:bg-muted dark:hover:bg-secondary text-foreground dark:text-white"
               >
                 <X className="w-3.5 h-3.5" />
                 Cancel
@@ -819,7 +1133,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                 onClick={handleSubmit}
                 disabled={loading || !formData.consignor_id || !formData.consignee_id || !formData.branch_id}
                 size="sm"
-                className="gap-2"
+                className="gap-2 bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -837,6 +1151,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
           </div>
         </SheetContent>
       </Sheet>
+
       <QuickAddPartyDrawer
         isOpen={addPartyModal.isOpen}
         onClose={() => setAddPartyModal({ ...addPartyModal, isOpen: false })}

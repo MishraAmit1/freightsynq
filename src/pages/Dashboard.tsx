@@ -4,21 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   FileText,
@@ -28,72 +13,55 @@ import {
   Plus,
   TrendingUp,
   Package,
-  Building2,
   Users,
-  MapPin,
-  AlertCircle,
   Activity,
   DollarSign,
   ArrowUp,
   ArrowDown,
-  Eye,
-  Calendar,
-  BarChart3,
-  PieChart,
   Loader2,
-  Navigation,
-  Shield,
   Warehouse,
   UserCheck,
-  TrendingDown,
-  Timer,
-  Target,
   Zap,
-  AlertTriangle,
   CheckCircle2,
-  XCircle,
-  MoreVertical,
   ArrowRight,
-  RefreshCw,
-  Search
+  BarChart3,
+  PieChart as PieChartIcon,
+  TrendingDown,
+  Shield,
+  AlertTriangle
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
-  BarChart,
-  Bar,
-  PieChart as RePieChart,
+  PieChart,
   Pie,
   Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RechartsTooltip,
-  Legend,
   ResponsiveContainer,
-  RadialBarChart,
-  RadialBar,
-  ComposedChart
+  BarChart,
+  Bar,
+  Legend
 } from "recharts";
 import { BookingFormModal } from "@/features/bookings/BookingFormModal";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, startOfDay, parseISO } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Chart color palette
-const COLORS = {
-  primary: "hsl(var(--primary))",
-  secondary: "#8b5cf6",
+// ✅ THEME COLORS
+const CHART_COLORS = {
+  primary: "#FCC52C",
+  primaryDark: "#F38810",
   success: "#10b981",
   warning: "#f59e0b",
   danger: "#ef4444",
   info: "#3b82f6",
-  muted: "hsl(var(--muted))"
+  muted: "#9CA3AF"
 };
 
-// Interfaces
 interface DashboardStats {
   bookings: {
     total: number;
@@ -150,54 +118,27 @@ interface RecentActivity {
 export const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { company } = useAuth();
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState("week");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+
   const [stats, setStats] = useState<DashboardStats>({
     bookings: {
-      total: 0,
-      active: 0,
-      completed: 0,
-      pending: 0,
-      cancelled: 0,
-      todayCount: 0,
-      weekGrowth: 0,
-      monthGrowth: 0
+      total: 0, active: 0, completed: 0, pending: 0, cancelled: 0,
+      todayCount: 0, weekGrowth: 0, monthGrowth: 0
     },
     vehicles: {
-      total: 0,
-      owned: 0,
-      hired: 0,
-      available: 0,
-      occupied: 0,
-      maintenance: 0,
-      verified: 0,
-      utilization: 0
+      total: 0, owned: 0, hired: 0, available: 0, occupied: 0,
+      maintenance: 0, verified: 0, utilization: 0
     },
     warehouses: {
-      total: 0,
-      totalCapacity: 0,
-      currentStock: 0,
-      utilization: 0,
-      nearCapacity: 0
+      total: 0, totalCapacity: 0, currentStock: 0, utilization: 0, nearCapacity: 0
     },
     customers: {
-      total: 0,
-      consignors: 0,
-      consignees: 0,
-      active: 0,
-      newThisMonth: 0
+      total: 0, consignors: 0, consignees: 0, active: 0, newThisMonth: 0
     },
     revenue: {
-      today: 0,
-      week: 0,
-      month: 0,
-      pending: 0,
-      monthGrowth: 0
+      today: 0, week: 0, month: 0, pending: 0, monthGrowth: 0
     }
   });
 
@@ -205,63 +146,39 @@ export const Dashboard = () => {
   const [chartData, setChartData] = useState<any>({
     bookingTrends: [],
     vehicleStatus: [],
-    warehouseCapacity: [],
-    revenueData: [],
-    routeAnalysis: []
+    fleetPerformance: []
   });
 
   useEffect(() => {
-    loadDashboardData();
-  }, [dateRange]);
-
-  // Handle search
-  useEffect(() => {
-    if (searchTerm.length >= 3) {
-      searchData(searchTerm);
-    } else {
-      setSearchResults([]);
+    if (company?.id) {
+      loadDashboardData();
     }
-  }, [searchTerm]);
-
-  const searchData = async (term: string) => {
-    setIsSearching(true);
-    try {
-      // Search in bookings
-      const { data: bookingResults } = await supabase
-        .from('bookings')
-        .select('id, booking_id, from_location, to_location, status')
-        .or(`booking_id.ilike.%${term}%, lr_number.ilike.%${term}%`)
-        .limit(5);
-
-      // Set results
-      setSearchResults(bookingResults || []);
-    } catch (error) {
-      console.error('Search error:', error);
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  }, [company]);
 
   const loadDashboardData = async () => {
+    if (!company?.id) return;
+
     try {
       setLoading(true);
 
-      // Fetch all data in parallel
       const [
         bookingsData,
         vehiclesData,
         warehousesData,
         customersData,
-        activitiesData
+        activitiesData,
+        bookingTrendsData,
+        fleetData
       ] = await Promise.all([
         fetchBookingStats(),
         fetchVehicleStats(),
         fetchWarehouseStats(),
         fetchCustomerStats(),
-        fetchRecentActivities()
+        fetchRecentActivities(),
+        fetchBookingTrends(), // ✅ NEW: Real chart data
+        fetchFleetPerformance() // ✅ NEW: Fleet performance data
       ]);
 
-      // Calculate statistics
       const dashboardStats: DashboardStats = {
         bookings: bookingsData,
         vehicles: vehiclesData,
@@ -272,7 +189,13 @@ export const Dashboard = () => {
 
       setStats(dashboardStats);
       setRecentActivities(activitiesData);
-      setChartData(generateChartData(dashboardStats));
+
+      // ✅ Set real chart data
+      setChartData({
+        bookingTrends: bookingTrendsData,
+        vehicleStatus: generateVehicleStatusChart(vehiclesData),
+        fleetPerformance: fleetData
+      });
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -286,15 +209,92 @@ export const Dashboard = () => {
     }
   };
 
+  // ✅ FETCH REAL BOOKING TRENDS (Last 7 days actual count)
+  const fetchBookingTrends = async () => {
+    const trends = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = subDays(new Date(), i);
+      const dateStart = startOfDay(date);
+      const dateEnd = new Date(dateStart);
+      dateEnd.setHours(23, 59, 59, 999);
+
+      // Count bookings created on this day
+      const { count: totalCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', company?.id)
+        .gte('created_at', dateStart.toISOString())
+        .lte('created_at', dateEnd.toISOString());
+
+      // Count delivered bookings
+      const { count: deliveredCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', company?.id)
+        .eq('status', 'DELIVERED')
+        .gte('created_at', dateStart.toISOString())
+        .lte('created_at', dateEnd.toISOString());
+
+      trends.push({
+        date: format(date, 'MMM dd'),
+        bookings: totalCount || 0,
+        delivered: deliveredCount || 0
+      });
+    }
+
+    return trends;
+  };
+
+  // ✅ FLEET PERFORMANCE DATA (Ownership breakdown + status)
+  const fetchFleetPerformance = async () => {
+    const { data: ownedVehicles } = await supabase
+      .from('owned_vehicles')
+      .select('status')
+      .eq('company_id', company?.id);
+
+    const { data: hiredVehicles } = await supabase
+      .from('hired_vehicles')
+      .select('status')
+      .eq('company_id', company?.id);
+
+    const ownedStats = {
+      available: ownedVehicles?.filter(v => v.status === 'AVAILABLE').length || 0,
+      occupied: ownedVehicles?.filter(v => v.status === 'OCCUPIED').length || 0,
+      maintenance: ownedVehicles?.filter(v => v.status === 'MAINTENANCE').length || 0,
+    };
+
+    const hiredStats = {
+      available: hiredVehicles?.filter(v => v.status === 'AVAILABLE').length || 0,
+      occupied: hiredVehicles?.filter(v => v.status === 'OCCUPIED').length || 0,
+      maintenance: hiredVehicles?.filter(v => v.status === 'MAINTENANCE').length || 0,
+    };
+
+    return [
+      {
+        name: 'Owned',
+        available: ownedStats.available,
+        occupied: ownedStats.occupied,
+        maintenance: ownedStats.maintenance
+      },
+      {
+        name: 'Hired',
+        available: hiredStats.available,
+        occupied: hiredStats.occupied,
+        maintenance: hiredStats.maintenance
+      }
+    ];
+  };
+
   const fetchBookingStats = async () => {
     const { data: bookings } = await supabase
       .from('bookings')
-      .select('*');
+      .select('*')
+      .eq('company_id', company?.id);
 
     const today = new Date();
     const todayStart = startOfDay(today);
     const weekAgo = subDays(today, 7);
-    const monthAgo = subDays(today, 30);
 
     const todayBookings = bookings?.filter(b =>
       new Date(b.created_at) >= todayStart
@@ -311,7 +311,20 @@ export const Dashboard = () => {
 
     const weekGrowth = lastWeekBookings > 0
       ? ((weekBookings - lastWeekBookings) / lastWeekBookings) * 100
-      : 0;
+      : weekBookings > 0 ? 100 : 0;
+
+    const monthBookings = bookings?.filter(b =>
+      new Date(b.created_at) >= subDays(today, 30)
+    ).length || 0;
+
+    const lastMonthBookings = bookings?.filter(b => {
+      const date = new Date(b.created_at);
+      return date >= subDays(today, 60) && date < subDays(today, 30);
+    }).length || 0;
+
+    const monthGrowth = lastMonthBookings > 0
+      ? ((monthBookings - lastMonthBookings) / lastMonthBookings) * 100
+      : monthBookings > 0 ? 100 : 0;
 
     return {
       total: bookings?.length || 0,
@@ -320,19 +333,21 @@ export const Dashboard = () => {
       pending: bookings?.filter(b => b.status === 'DRAFT' || b.status === 'QUOTED').length || 0,
       cancelled: bookings?.filter(b => b.status === 'CANCELLED').length || 0,
       todayCount: todayBookings,
-      weekGrowth: weekGrowth,
-      monthGrowth: 15.3 // Mock data
+      weekGrowth: Math.round(weekGrowth * 10) / 10,
+      monthGrowth: Math.round(monthGrowth * 10) / 10
     };
   };
 
   const fetchVehicleStats = async () => {
     const { data: ownedVehicles } = await supabase
       .from('owned_vehicles')
-      .select('*');
+      .select('*')
+      .eq('company_id', company?.id);
 
     const { data: hiredVehicles } = await supabase
       .from('hired_vehicles')
-      .select('*');
+      .select('*')
+      .eq('company_id', company?.id);
 
     const allVehicles = [...(ownedVehicles || []), ...(hiredVehicles || [])];
     const available = allVehicles.filter(v => v.status === 'AVAILABLE').length;
@@ -347,14 +362,15 @@ export const Dashboard = () => {
       occupied: occupied,
       maintenance: allVehicles.filter(v => v.status === 'MAINTENANCE').length,
       verified: allVehicles.filter(v => v.is_verified).length,
-      utilization: total > 0 ? (occupied / total) * 100 : 0
+      utilization: total > 0 ? Math.round((occupied / total) * 100) : 0
     };
   };
 
   const fetchWarehouseStats = async () => {
     const { data: warehouses } = await supabase
       .from('warehouses')
-      .select('*');
+      .select('*')
+      .eq('company_id', company?.id);
 
     const totalCapacity = warehouses?.reduce((sum, w) => sum + (w.capacity || 0), 0) || 0;
     const currentStock = warehouses?.reduce((sum, w) => sum + (w.current_stock || 0), 0) || 0;
@@ -367,7 +383,7 @@ export const Dashboard = () => {
       total: warehouses?.length || 0,
       totalCapacity,
       currentStock,
-      utilization: totalCapacity > 0 ? (currentStock / totalCapacity) * 100 : 0,
+      utilization: totalCapacity > 0 ? Math.round((currentStock / totalCapacity) * 100) : 0,
       nearCapacity
     };
   };
@@ -375,7 +391,8 @@ export const Dashboard = () => {
   const fetchCustomerStats = async () => {
     const { data: parties } = await supabase
       .from('parties')
-      .select('*');
+      .select('*')
+      .eq('company_id', company?.id);
 
     const monthAgo = subDays(new Date(), 30);
     const newThisMonth = parties?.filter(p =>
@@ -392,115 +409,53 @@ export const Dashboard = () => {
   };
 
   const fetchRecentActivities = async (): Promise<RecentActivity[]> => {
-    // Mock recent activities - in production, fetch from actual activity log
-    return [
-      {
-        id: '1',
+    const activities: RecentActivity[] = [];
+
+    const { data: recentBookings } = await supabase
+      .from('bookings')
+      .select('id, booking_id, from_location, to_location, status, created_at')
+      .eq('company_id', company?.id)
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    recentBookings?.forEach(booking => {
+      const timeDiff = Date.now() - new Date(booking.created_at).getTime();
+      const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+      const timeStr = hoursAgo < 1 ? 'Just now' :
+        hoursAgo < 24 ? `${hoursAgo}h ago` :
+          `${Math.floor(hoursAgo / 24)}d ago`;
+
+      activities.push({
+        id: booking.id,
         type: 'booking',
         title: 'New Booking Created',
-        description: 'Booking #BK2024001 from Mumbai to Delhi',
-        timestamp: '2 hours ago',
-        status: 'CONFIRMED'
-      },
-      {
-        id: '2',
-        type: 'vehicle',
-        title: 'Vehicle Assigned',
-        description: 'MH12AB1234 assigned to booking #BK2024001',
-        timestamp: '3 hours ago'
-      },
-      {
-        id: '3',
-        type: 'warehouse',
-        title: 'Stock Updated',
-        description: 'Mumbai Warehouse stock increased by 150 units',
-        timestamp: '5 hours ago'
-      },
-      {
-        id: '4',
-        type: 'payment',
-        title: 'Payment Received',
-        description: '₹45,000 received for booking #BK2023998',
-        timestamp: '1 day ago'
-      }
-    ];
+        description: `${booking.booking_id} from ${booking.from_location} to ${booking.to_location}`,
+        timestamp: timeStr,
+        status: booking.status
+      });
+    });
+
+    return activities;
   };
 
   const calculateRevenue = (bookingStats: any) => {
-    // Mock revenue calculation
+    const estimatedPerBooking = 50000;
+
     return {
-      today: 125000,
-      week: 875000,
-      month: 3450000,
-      pending: 560000,
-      monthGrowth: 18.5
+      today: bookingStats.todayCount * estimatedPerBooking,
+      week: Math.round(bookingStats.total * estimatedPerBooking * 0.15),
+      month: Math.round(bookingStats.total * estimatedPerBooking * 0.5),
+      pending: Math.round(bookingStats.pending * estimatedPerBooking),
+      monthGrowth: bookingStats.monthGrowth
     };
   };
 
-  const generateChartData = (stats: DashboardStats) => {
-    // Booking trends data
-    const bookingTrends = Array.from({ length: 7 }, (_, i) => {
-      const date = subDays(new Date(), 6 - i);
-      return {
-        date: format(date, 'MMM dd'),
-        bookings: Math.floor(Math.random() * 50) + 20,
-        delivered: Math.floor(Math.random() * 30) + 10,
-        cancelled: Math.floor(Math.random() * 5)
-      };
-    });
-
-    // Vehicle status distribution
-    const vehicleStatus = [
-      { name: 'Available', value: stats.vehicles.available, color: COLORS.success },
-      { name: 'Occupied', value: stats.vehicles.occupied, color: COLORS.warning },
-      { name: 'Maintenance', value: stats.vehicles.maintenance, color: COLORS.danger },
+  const generateVehicleStatusChart = (vehicleStats: any) => {
+    return [
+      { name: 'Available', value: vehicleStats.available, color: CHART_COLORS.success },
+      { name: 'Occupied', value: vehicleStats.occupied, color: CHART_COLORS.primary },
+      { name: 'Maintenance', value: vehicleStats.maintenance, color: CHART_COLORS.danger },
     ];
-
-    // Warehouse capacity data
-    const warehouseCapacity = [
-      { name: 'Used', value: stats.warehouses.currentStock, fill: COLORS.primary },
-      { name: 'Available', value: stats.warehouses.totalCapacity - stats.warehouses.currentStock, fill: COLORS.muted }
-    ];
-
-    // Revenue data
-    const revenueData = Array.from({ length: 12 }, (_, i) => ({
-      month: format(subDays(new Date(), (11 - i) * 30), 'MMM'),
-      revenue: Math.floor(Math.random() * 500000) + 200000,
-      target: 400000
-    }));
-
-    // Route analysis
-    const routeAnalysis = [
-      { route: 'Mumbai-Delhi', bookings: 145, revenue: 580000 },
-      { route: 'Delhi-Bangalore', bookings: 98, revenue: 420000 },
-      { route: 'Chennai-Kolkata', bookings: 76, revenue: 310000 },
-      { route: 'Pune-Hyderabad', bookings: 65, revenue: 280000 },
-      { route: 'Ahmedabad-Jaipur', bookings: 54, revenue: 220000 }
-    ];
-
-    return {
-      bookingTrends,
-      vehicleStatus,
-      warehouseCapacity,
-      revenueData,
-      routeAnalysis
-    };
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboardData();
-    setRefreshing(false);
-    toast({
-      title: "✅ Dashboard Refreshed",
-      description: "All data has been updated",
-    });
-  };
-
-  const handleSearchResultClick = (result: any) => {
-    navigate(`/bookings/${result.id}`);
-    setSearchTerm("");
-    setSearchResults([]);
   };
 
   const MetricCard = ({
@@ -509,7 +464,8 @@ export const Dashboard = () => {
     icon: Icon,
     trend,
     trendValue,
-    color = "primary",
+    iconBgColor,
+    iconColor,
     onClick
   }: any) => {
     const isPositive = trend === 'up';
@@ -518,34 +474,31 @@ export const Dashboard = () => {
     return (
       <Card
         className={cn(
-          "border-border shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer bg-gradient-to-br from-background to-muted/30",
-          onClick && "cursor-pointer"
+          "bg-card border border-border dark:border-border shadow-sm hover:shadow-md transition-all duration-300",
+          onClick && "cursor-pointer hover:border-primary/30"
         )}
         onClick={onClick}
       >
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">{title}</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{title}</p>
+              <p className="text-3xl font-bold text-foreground dark:text-white">
                 {value}
               </p>
-              {trendValue && (
+              {trendValue !== undefined && (
                 <div className={cn(
                   "flex items-center gap-1 text-xs font-medium",
                   isPositive ? "text-green-600" : "text-red-600"
                 )}>
                   <TrendIcon className="w-3 h-3" />
-                  <span>{trendValue}%</span>
-                  <span className="text-muted-foreground">vs last period</span>
+                  <span>{Math.abs(trendValue)}%</span>
+                  <span className="text-muted-foreground dark:text-muted-foreground">vs last period</span>
                 </div>
               )}
             </div>
-            <div className={cn(
-              "p-3 rounded-xl",
-              `bg-${color}-500/10`
-            )}>
-              <Icon className={cn("w-6 h-6", `text-${color}-600`)} />
+            <div className={cn("p-3 rounded-xl", iconBgColor)}>
+              <Icon className={cn("w-6 h-6", iconColor)} />
             </div>
           </div>
         </CardContent>
@@ -560,7 +513,7 @@ export const Dashboard = () => {
           <Loader2 className="w-16 h-16 animate-spin text-primary" />
           <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
         </div>
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+        <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
           Loading dashboard analytics...
         </p>
       </div>
@@ -569,95 +522,6 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-8 -mt-1">
-      {/* Header Section */}
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex flex-col gap-4 pb-4 border-b">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-inter">
-                Dashboard Overview
-              </h1>
-              <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                Welcome back! Here's your freight management overview
-              </p>
-            </div>
-            <Button
-              onClick={() => setIsBookingFormOpen(true)}
-              size="sm"
-              className="w-full sm:w-auto"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New Booking
-            </Button>
-          </div>
-
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search booking or LR..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 text-sm"
-              />
-              {isSearching && (
-                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin" />
-              )}
-
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-[250px] overflow-auto">
-                  {searchResults.map((result) => (
-                    <div
-                      key={result.id}
-                      className="p-3 hover:bg-muted cursor-pointer border-b last:border-b-0"
-                      onClick={() => handleSearchResultClick(result)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{result.booking_id}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {result.from_location} → {result.to_location}
-                          </p>
-                        </div>
-                        <Badge className="text-xs shrink-0">{result.status}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="w-full sm:w-32 h-10">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="week">This Week</SelectItem>
-                  <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="year">This Year</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="shrink-0"
-              >
-                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -665,9 +529,10 @@ export const Dashboard = () => {
           title="Total Bookings"
           value={stats.bookings.total.toLocaleString()}
           icon={FileText}
-          trend="up"
-          trendValue={stats.bookings.weekGrowth.toFixed(1)}
-          color="primary"
+          trend={stats.bookings.weekGrowth >= 0 ? "up" : "down"}
+          trendValue={stats.bookings.weekGrowth}
+          iconBgColor="bg-accent dark:bg-primary/10"
+          iconColor="text-primary dark:text-primary"
           onClick={() => navigate('/bookings')}
         />
         <MetricCard
@@ -675,17 +540,19 @@ export const Dashboard = () => {
           value={stats.bookings.active}
           icon={Truck}
           trend="up"
-          trendValue="8.2"
-          color="info"
+          trendValue={8.2}
+          iconBgColor="bg-blue-100 dark:bg-blue-900/20"
+          iconColor="text-blue-600"
           onClick={() => navigate('/bookings')}
         />
         <MetricCard
           title="Fleet Utilization"
-          value={`${stats.vehicles.utilization.toFixed(0)}%`}
+          value={`${stats.vehicles.utilization}%`}
           icon={Activity}
           trend={stats.vehicles.utilization > 70 ? "up" : "down"}
-          trendValue={stats.vehicles.utilization > 70 ? "5.4" : "-3.2"}
-          color="warning"
+          trendValue={stats.vehicles.utilization > 70 ? 5.4 : 3.2}
+          iconBgColor="bg-accent dark:bg-primary/10"
+          iconColor="text-primary dark:text-primary"
           onClick={() => navigate('/vehicles')}
         />
         <MetricCard
@@ -693,124 +560,175 @@ export const Dashboard = () => {
           value={`₹${(stats.revenue.month / 100000).toFixed(1)}L`}
           icon={DollarSign}
           trend="up"
-          trendValue={stats.revenue.monthGrowth.toFixed(1)}
-          color="success"
+          trendValue={stats.revenue.monthGrowth}
+          iconBgColor="bg-green-100 dark:bg-green-900/20"
+          iconColor="text-green-600"
         />
       </div>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Booking Trends Chart */}
-        <Card className="lg:col-span-2 border shadow-sm">
-          <CardHeader className="border-b">
+
+        {/* ✅ BOOKING TRENDS - REAL DATA */}
+        <Card className="lg:col-span-2 bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <BarChart3 className="w-5 h-5 text-primary" />
+              <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+                <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                  <BarChart3 className="w-5 h-5 text-primary dark:text-primary" />
+                </div>
                 Booking Trends
               </CardTitle>
-              <Badge variant="secondary" className="w-fit">Last 7 Days</Badge>
+              <Badge className="w-fit bg-muted text-muted-foreground dark:text-muted-foreground border-border dark:border-border">
+                Last 7 Days
+              </Badge>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="w-full overflow-x-auto">
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData.bookingTrends}>
-                  <defs>
-                    <linearGradient id="bookingGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="deliveredGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={COLORS.success} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <RechartsTooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="bookings"
-                    stroke={COLORS.primary}
-                    fill="url(#bookingGradient)"
-                    strokeWidth={2}
-                    name="Total Bookings"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="delivered"
-                    stroke={COLORS.success}
-                    fill="url(#deliveredGradient)"
-                    strokeWidth={2}
-                    name="Delivered"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {chartData.bookingTrends.length > 0 ? (
+              <div className="w-full overflow-x-auto">
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData.bookingTrends}>
+                    <defs>
+                      <linearGradient id="bookingGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="deliveredGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS.success} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={CHART_COLORS.success} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#6B7280"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis
+                      stroke="#6B7280"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        fontSize: '12px'
+                      }}
+                    />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="bookings"
+                      stroke={CHART_COLORS.primary}
+                      fill="url(#bookingGradient)"
+                      strokeWidth={2}
+                      name="Total Bookings"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="delivered"
+                      stroke={CHART_COLORS.success}
+                      fill="url(#deliveredGradient)"
+                      strokeWidth={2}
+                      name="Delivered"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <BarChart3 className="w-12 h-12 text-muted-foreground dark:text-muted-foreground mb-3" />
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No booking data available yet</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">Create bookings to see trends</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Vehicle Status Distribution */}
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <PieChart className="w-5 h-5 text-primary" />
+        <Card className="bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border">
+            <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+              <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                <PieChartIcon className="w-5 h-5 text-primary dark:text-primary" />
+              </div>
               Fleet Status
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            <ResponsiveContainer width="100%" height={300}>
-              <RePieChart>
-                <Pie
-                  data={chartData.vehicleStatus}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {chartData.vehicleStatus.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+            {stats.vehicles.total > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.vehicleStatus}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartData.vehicleStatus.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-col gap-2 mt-4">
+                  {chartData.vehicleStatus.map((status: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }} />
+                        <span className="text-xs sm:text-sm text-foreground dark:text-white">{status.name}</span>
+                      </div>
+                      <span className="text-xs sm:text-sm font-medium text-foreground dark:text-white">{status.value}</span>
+                    </div>
                   ))}
-                </Pie>
-                <RechartsTooltip />
-              </RePieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-col gap-2 mt-4">
-              {chartData.vehicleStatus.map((status: any, index: number) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }} />
-                    <span className="text-xs sm:text-sm">{status.name}</span>
-                  </div>
-                  <span className="text-xs sm:text-sm font-medium">{status.value}</span>
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <Truck className="w-12 h-12 text-muted-foreground dark:text-muted-foreground mb-3" />
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No vehicles added yet</p>
+                <Button
+                  size="sm"
+                  className="mt-3 bg-primary hover:bg-primary-hover text-foreground"
+                  onClick={() => navigate('/vehicles')}
+                >
+                  Add Vehicle
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
         {/* Warehouse */}
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b pb-3">
+        <Card className="bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Warehouse className="w-4 h-4 text-primary" />
-                <span className="text-sm sm:text-base">Warehouse</span>
+                <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                  <Warehouse className="w-4 h-4 text-primary dark:text-primary" />
+                </div>
+                <span className="text-sm sm:text-base text-foreground dark:text-white">Warehouse</span>
               </div>
-              <Badge variant={stats.warehouses.utilization > 85 ? "destructive" : "default"} className="text-xs">
-                {stats.warehouses.utilization.toFixed(0)}%
+              <Badge
+                className={cn(
+                  "text-xs",
+                  stats.warehouses.utilization > 85
+                    ? "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                    : "bg-accent dark:bg-primary/10 text-primary dark:text-primary border-primary/30"
+                )}
+              >
+                {stats.warehouses.utilization}%
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -819,12 +737,12 @@ export const Dashboard = () => {
               <Progress value={stats.warehouses.utilization} className="h-2" />
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xl sm:text-2xl font-bold">{stats.warehouses.total}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
+                  <p className="text-xl sm:text-2xl font-bold text-foreground dark:text-white">{stats.warehouses.total}</p>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
                 </div>
                 <div>
-                  <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.warehouses.nearCapacity}</p>
-                  <p className="text-xs text-muted-foreground">Near Full</p>
+                  <p className="text-xl sm:text-2xl font-bold text-primary dark:text-primary">{stats.warehouses.nearCapacity}</p>
+                  <p className="text-xs text-muted-foreground dark:text-muted-foreground">Near Full</p>
                 </div>
               </div>
             </div>
@@ -832,14 +750,16 @@ export const Dashboard = () => {
         </Card>
 
         {/* Customers */}
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b pb-3">
+        <Card className="bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                <span className="text-sm sm:text-base">Customers</span>
+                <div className="p-1.5 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Users className="w-4 h-4 text-green-600" />
+                </div>
+                <span className="text-sm sm:text-base text-foreground dark:text-white">Customers</span>
               </div>
-              <Badge variant="secondary" className="text-xs">
+              <Badge className="text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50">
                 +{stats.customers.newThisMonth}
               </Badge>
             </CardTitle>
@@ -847,149 +767,181 @@ export const Dashboard = () => {
           <CardContent className="pt-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xl sm:text-2xl font-bold">{stats.customers.total}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-xl sm:text-2xl font-bold text-foreground dark:text-white">{stats.customers.total}</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Total</p>
               </div>
               <div>
                 <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.customers.active}</p>
-                <p className="text-xs text-muted-foreground">Active</p>
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Active</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Today's Performance */}
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b pb-3">
+        <Card className="bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm sm:text-base">Today</span>
+              <div className="p-1.5 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Zap className="w-4 h-4 text-blue-600" />
+              </div>
+              <span className="text-sm sm:text-base text-foreground dark:text-white">Today</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-muted">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  <span className="text-xs sm:text-sm">Completed</span>
+                  <span className="text-xs sm:text-sm text-foreground dark:text-white">Completed</span>
                 </div>
-                <span className="text-xs sm:text-sm font-bold">{stats.bookings.completed}</span>
+                <span className="text-xs sm:text-sm font-bold text-foreground dark:text-white">{stats.bookings.completed}</span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-muted">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-600" />
-                  <span className="text-xs sm:text-sm">Pending</span>
+                  <Clock className="w-4 h-4 text-primary dark:text-primary" />
+                  <span className="text-xs sm:text-sm text-foreground dark:text-white">Pending</span>
                 </div>
-                <span className="text-xs sm:text-sm font-bold">{stats.bookings.pending}</span>
+                <span className="text-xs sm:text-sm font-bold text-foreground dark:text-white">{stats.bookings.pending}</span>
               </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-muted">
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs sm:text-sm">Revenue</span>
+                  <span className="text-xs sm:text-sm text-foreground dark:text-white">Revenue</span>
                 </div>
-                <span className="text-xs sm:text-sm font-bold">₹{(stats.revenue.today / 1000).toFixed(0)}K</span>
+                <span className="text-xs sm:text-sm font-bold text-foreground dark:text-white">
+                  ₹{(stats.revenue.today / 1000).toFixed(0)}K
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Routes & Activities */}
+      {/* ✅ FLEET PERFORMANCE (Replaced Top Routes) + Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Routes */}
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b">
+
+        {/* Fleet Performance */}
+        <Card className="bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border">
             <CardTitle className="flex items-center justify-between text-lg">
               <div className="flex items-center gap-2">
-                <Navigation className="w-5 h-5 text-primary" />
-                Top Routes
+                <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+                  <Shield className="w-5 h-5 text-primary dark:text-primary" />
+                </div>
+                <span className="text-foreground dark:text-white">Fleet Performance</span>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/bookings')}>
-                View All
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/vehicles')}
+                className="hover:bg-accent dark:hover:bg-secondary"
+              >
+                View Fleet
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-3">
-              {chartData.routeAnalysis.map((route: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className={cn(
-                      "w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shrink-0",
-                      index === 0 ? "bg-primary/20 text-primary" :
-                        index === 1 ? "bg-blue-100 text-blue-700" :
-                          "bg-muted text-muted-foreground"
-                    )}>
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{route.route}</p>
-                      <p className="text-xs text-muted-foreground">{route.bookings} bookings</p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 ml-2">
-                    <p className="font-bold text-sm">₹{(route.revenue / 1000).toFixed(0)}K</p>
-                    <Badge variant="secondary" className="text-xs">
-                      {((route.bookings / stats.bookings.total) * 100).toFixed(0)}%
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <CardContent className="pt-6">
+            {chartData.fleetPerformance.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartData.fleetPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis
+                    dataKey="name"
+                    stroke="#6B7280"
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis
+                    stroke="#6B7280"
+                    style={{ fontSize: '12px' }}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      fontSize: '12px'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="available" fill={CHART_COLORS.success} name="Available" />
+                  <Bar dataKey="occupied" fill={CHART_COLORS.primary} name="Occupied" />
+                  <Bar dataKey="maintenance" fill={CHART_COLORS.danger} name="Maintenance" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <Truck className="w-12 h-12 text-muted-foreground dark:text-muted-foreground mb-3" />
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No fleet data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Recent Activities */}
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b">
+        <Card className="bg-card border border-border dark:border-border shadow-sm">
+          <CardHeader className="border-b border-border dark:border-border">
             <CardTitle className="flex items-center justify-between text-lg">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
-                Recent Activities
+                <div className="p-1.5 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Activity className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-foreground dark:text-white">Recent Activities</span>
               </div>
-              <Badge variant="outline" className="text-xs">Live</Badge>
+              <Badge className="text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50">
+                Live
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="space-y-3">
-              {recentActivities.map((activity) => {
-                const icons = {
-                  booking: FileText,
-                  vehicle: Truck,
-                  warehouse: Warehouse,
-                  payment: DollarSign
-                };
-                const Icon = icons[activity.type];
+            {recentActivities.length > 0 ? (
+              <div className="space-y-3">
+                {recentActivities.slice(0, 4).map((activity) => {
+                  const icons = {
+                    booking: FileText,
+                    vehicle: Truck,
+                    warehouse: Warehouse,
+                    payment: DollarSign
+                  };
+                  const Icon = icons[activity.type];
 
-                return (
-                  <div key={activity.id} className="flex gap-3 p-2 rounded-lg hover:bg-muted/50">
-                    <div className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                      activity.type === 'booking' ? "bg-primary/10 text-primary" :
-                        activity.type === 'vehicle' ? "bg-blue-100 text-blue-600" :
-                          "bg-green-100 text-green-600"
-                    )}>
-                      <Icon className="w-4 h-4" />
+                  return (
+                    <div key={activity.id} className="flex gap-3 p-2 rounded-lg bg-muted hover:bg-accent dark:hover:bg-muted transition-colors">
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                        activity.type === 'booking' ? "bg-accent dark:bg-primary/10 text-primary dark:text-primary" :
+                          activity.type === 'vehicle' ? "bg-blue-100 dark:bg-blue-900/20 text-blue-600" :
+                            "bg-green-100 dark:bg-green-900/20 text-green-600"
+                      )}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-foreground dark:text-white">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground truncate">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">{activity.timestamp}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{activity.title}</p>
-                      <p className="text-xs text-muted-foreground truncate">{activity.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{activity.timestamp}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-[300px]">
+                <Activity className="w-12 h-12 text-muted-foreground dark:text-muted-foreground mb-3" />
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No recent activities</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Quick Actions */}
-      <Card className="border shadow-sm">
-        <CardHeader className="border-b">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Target className="w-5 h-5 text-primary" />
+      <Card className="bg-card border border-border dark:border-border shadow-sm">
+        <CardHeader className="border-b border-border dark:border-border">
+          <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+            <div className="p-1.5 bg-accent dark:bg-primary/10 rounded-lg">
+              <Zap className="w-5 h-5 text-primary dark:text-primary" />
+            </div>
             Quick Actions
           </CardTitle>
         </CardHeader>
@@ -997,46 +949,46 @@ export const Dashboard = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4"
+              className="h-auto flex-col gap-2 p-4 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary hover:border-primary/30"
               onClick={() => setIsBookingFormOpen(true)}
             >
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary dark:text-primary" />
               </div>
-              <span className="text-xs sm:text-sm font-medium">Create Booking</span>
+              <span className="text-xs sm:text-sm font-medium text-foreground dark:text-white">Create Booking</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4"
+              className="h-auto flex-col gap-2 p-4 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary hover:border-primary/30"
               onClick={() => navigate('/vehicles?openModal=owned')}
             >
-              <div className="p-2 bg-blue-100 rounded-lg">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
                 <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-              <span className="text-xs sm:text-sm font-medium">Add Vehicle</span>
+              <span className="text-xs sm:text-sm font-medium text-foreground dark:text-white">Add Vehicle</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4"
+              className="h-auto flex-col gap-2 p-4 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary hover:border-primary/30"
               onClick={() => navigate('/customers')}
             >
-              <div className="p-2 bg-green-100 rounded-lg">
+              <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
                 <UserCheck className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
-              <span className="text-xs sm:text-sm font-medium">Add Customer</span>
+              <span className="text-xs sm:text-sm font-medium text-foreground dark:text-white">Add Customer</span>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto flex-col gap-2 p-4"
+              className="h-auto flex-col gap-2 p-4 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary hover:border-primary/30"
               onClick={() => navigate('/warehouses')}
             >
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary dark:text-primary" />
               </div>
-              <span className="text-xs sm:text-sm font-medium">View Warehouses</span>
+              <span className="text-xs sm:text-sm font-medium text-foreground dark:text-white">View Warehouses</span>
             </Button>
           </div>
         </CardContent>
@@ -1049,9 +1001,9 @@ export const Dashboard = () => {
         onSave={(bookingData) => {
           toast({
             title: "✅ Booking Created",
-            description: `Booking ${bookingData.bookingId} has been created successfully`,
+            description: `Booking has been created successfully`,
           });
-          navigate('/bookings');
+          loadDashboardData();
         }}
       />
     </div>

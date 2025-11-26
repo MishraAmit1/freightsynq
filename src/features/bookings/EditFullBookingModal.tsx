@@ -27,6 +27,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { fetchEwayBillDetails, formatValidityDate } from '@/api/ewayBill';
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+
 // Update the LRData interface
 export interface LRData {
     lrNumber?: string;
@@ -146,6 +147,8 @@ interface EditFullBookingModalProps {
         bookingId: string;
         consignor_id?: string;  // Add this
         consignee_id?: string;
+        consignorName: string;
+        consigneeName: string;
         fromLocation: string;
         toLocation: string;
         serviceType: "FTL" | "PTL";
@@ -596,33 +599,54 @@ export const EditFullBookingModal = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Edit Booking Details - {editingBooking.bookingId}</DialogTitle>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-card border border-border dark:border-border">
+                <DialogHeader className="border-b border-border dark:border-border pb-4">
+                    <DialogTitle className="text-xl font-semibold text-foreground dark:text-white flex items-center gap-2">
+                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                            <Package className="w-5 h-5 text-primary" />
+                        </div>
+                        Edit Booking Details - {editingBooking.bookingId}
+                    </DialogTitle>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-4">
                     {/* General Booking Details */}
-                    <div className="space-y-4 border p-4 rounded-lg bg-secondary/50">
-                        <h3 className="font-semibold text-lg flex items-center gap-2">General Booking Information</h3>
+                    <div className="space-y-4 border border-border dark:border-border p-4 rounded-lg bg-muted">
+                        <h3 className="font-semibold text-base text-foreground dark:text-white flex items-center gap-2">
+                            General Booking Information
+                        </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="bookingId">Booking ID</Label>
-                                <Input id="bookingId" {...register("bookingId")} readOnly disabled />
+                                <Label htmlFor="bookingId" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Booking ID
+                                </Label>
+                                <Input
+                                    id="bookingId"
+                                    {...register("bookingId")}
+                                    readOnly
+                                    disabled
+                                    className="mt-1 h-9 text-sm border-border dark:border-border bg-muted dark:bg-secondary text-muted-foreground dark:text-muted-foreground"
+                                />
                             </div>
                             <div>
-                                <Label htmlFor="service">Service Type *</Label>
+                                <Label htmlFor="service" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Service Type <span className="text-red-600">*</span>
+                                </Label>
                                 <Select
                                     value={watch("serviceType")}
                                     onValueChange={(value: "FTL" | "PTL") => setValue("serviceType", value)}
                                     disabled={isSubmitting}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="mt-1 h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="FTL">Full Truck Load (FTL)</SelectItem>
-                                        <SelectItem value="PTL">Part Truck Load (PTL)</SelectItem>
+                                    <SelectContent className="bg-card border-border dark:border-border">
+                                        <SelectItem value="FTL" className="hover:bg-accent dark:hover:bg-secondary">
+                                            Full Truck Load (FTL)
+                                        </SelectItem>
+                                        <SelectItem value="PTL" className="hover:bg-accent dark:hover:bg-secondary">
+                                            Part Truck Load (PTL)
+                                        </SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -630,60 +654,74 @@ export const EditFullBookingModal = ({
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="consignor">Consignor Name *</Label>
+                                <Label htmlFor="consignor" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Consignor Name <span className="text-red-600">*</span>
+                                </Label>
                                 <Input
                                     id="consignor"
                                     {...register("consignorName")}
                                     placeholder="Enter consignor name"
                                     disabled={isSubmitting}
+                                    className="mt-1 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                 />
                                 {errors.consignorName && (
-                                    <p className="text-sm text-destructive mt-1">{errors.consignorName.message}</p>
+                                    <p className="text-xs text-red-600 mt-1">{errors.consignorName.message}</p>
                                 )}
                             </div>
                             <div>
-                                <Label htmlFor="consignee">Consignee Name *</Label>
+                                <Label htmlFor="consignee" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Consignee Name <span className="text-red-600">*</span>
+                                </Label>
                                 <Input
                                     id="consignee"
                                     {...register("consigneeName")}
                                     placeholder="Enter consignee name"
                                     disabled={isSubmitting}
+                                    className="mt-1 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                 />
                                 {errors.consigneeName && (
-                                    <p className="text-sm text-destructive mt-1">{errors.consigneeName.message}</p>
+                                    <p className="text-xs text-red-600 mt-1">{errors.consigneeName.message}</p>
                                 )}
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="from">Pickup Location *</Label>
+                                <Label htmlFor="from" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Pickup Location <span className="text-red-600">*</span>
+                                </Label>
                                 <Input
                                     id="from"
                                     {...register("fromLocation")}
                                     placeholder="Enter pickup location"
                                     disabled={isSubmitting}
+                                    className="mt-1 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                 />
                                 {errors.fromLocation && (
-                                    <p className="text-sm text-destructive mt-1">{errors.fromLocation.message}</p>
+                                    <p className="text-xs text-red-600 mt-1">{errors.fromLocation.message}</p>
                                 )}
                             </div>
                             <div>
-                                <Label htmlFor="to">Drop Location *</Label>
+                                <Label htmlFor="to" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    Drop Location <span className="text-red-600">*</span>
+                                </Label>
                                 <Input
                                     id="to"
                                     {...register("toLocation")}
                                     placeholder="Enter drop location"
                                     disabled={isSubmitting}
+                                    className="mt-1 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                 />
                                 {errors.toLocation && (
-                                    <p className="text-sm text-destructive mt-1">{errors.toLocation.message}</p>
+                                    <p className="text-xs text-red-600 mt-1">{errors.toLocation.message}</p>
                                 )}
                             </div>
                         </div>
 
                         <div>
-                            <Label htmlFor="pickup">Pickup Date</Label>
+                            <Label htmlFor="pickup" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                Pickup Date
+                            </Label>
                             <DatePicker
                                 selected={watch("pickupDate") ? new Date(watch("pickupDate")!) : null}
                                 onChange={handlePickupDateChange}
@@ -691,12 +729,19 @@ export const EditFullBookingModal = ({
                                 placeholderText="DD/MM/YYYY"
                                 minDate={new Date()}
                                 maxDate={new Date(new Date().setFullYear(new Date().getFullYear() + 1))}
-                                className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${(errors.pickupDate || pickupDateError) ? 'border-destructive' : 'border-input'
-                                    }`}
+                                className={cn(
+                                    "flex h-9 w-full rounded-lg border px-3 py-2 text-sm mt-1",
+                                    "bg-card text-foreground dark:text-white",
+                                    "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
+                                    "focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary",
+                                    (errors.pickupDate || pickupDateError)
+                                        ? 'border-red-600'
+                                        : 'border-border dark:border-border'
+                                )}
                                 disabled={isSubmitting}
                             />
                             {(errors.pickupDate || pickupDateError) && (
-                                <p className="text-sm text-destructive mt-1">
+                                <p className="text-xs text-red-600 mt-1">
                                     {errors.pickupDate?.message || pickupDateError}
                                 </p>
                             )}
@@ -704,30 +749,42 @@ export const EditFullBookingModal = ({
                     </div>
 
                     {/* LR Details Section */}
-                    <div className="space-y-4 border p-4 rounded-lg bg-info/10">
-                        <h3 className="font-semibold text-lg flex items-center gap-2">Lorry Receipt (LR) Details</h3>
+                    <div className="space-y-4 border border-border dark:border-border p-4 rounded-lg bg-card">
+                        <h3 className="font-semibold text-base text-foreground dark:text-white flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-primary" />
+                            Lorry Receipt (LR) Details
+                        </h3>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <Label htmlFor="lrNumber">LR Number</Label>
-                                <Input {...register("lrNumber")} placeholder="Optional / Generate" disabled={isSubmitting} />
+                                <Label htmlFor="lrNumber" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    LR Number
+                                </Label>
+                                <Input
+                                    {...register("lrNumber")}
+                                    placeholder="Optional / Generate"
+                                    disabled={isSubmitting}
+                                    className="mt-1 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+                                />
                                 {!watchedLrNumber && !isSubmitting && (
                                     <Button
                                         type="button"
-                                        variant="secondary"
+                                        variant="outline"
                                         size="sm"
                                         onClick={loadNewLRNumber}
-                                        className="mt-2"
+                                        className="mt-2 border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                                         disabled={isSubmitting}
                                     >
                                         Generate LR Number
                                     </Button>
                                 )}
                                 {errors.lrNumber && (
-                                    <p className="text-sm text-destructive mt-1">{errors.lrNumber.message}</p>
+                                    <p className="text-xs text-red-600 mt-1">{errors.lrNumber.message}</p>
                                 )}
                             </div>
                             <div>
-                                <Label htmlFor="lrDate">LR Date</Label>
+                                <Label htmlFor="lrDate" className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                                    LR Date
+                                </Label>
                                 <DatePicker
                                     selected={watch("lrDate") ? new Date(watch("lrDate")!) : null}
                                     onChange={handleLRDateChange}
@@ -735,12 +792,19 @@ export const EditFullBookingModal = ({
                                     placeholderText="DD/MM/YYYY"
                                     minDate={new Date()}
                                     maxDate={new Date(new Date().setDate(new Date().getDate() + 90))}
-                                    className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${(errors.lrDate || lrDateError) ? 'border-destructive' : 'border-input'
-                                        }`}
+                                    className={cn(
+                                        "flex h-9 w-full rounded-lg border px-3 py-2 text-sm mt-1",
+                                        "bg-card text-foreground dark:text-white",
+                                        "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
+                                        "focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary",
+                                        (errors.lrDate || lrDateError)
+                                            ? 'border-red-600'
+                                            : 'border-border dark:border-border'
+                                    )}
                                     disabled={isSubmitting}
                                 />
                                 {(errors.lrDate || lrDateError) && (
-                                    <p className="text-sm text-destructive mt-1">
+                                    <p className="text-xs text-red-600 mt-1">
                                         {errors.lrDate?.message || lrDateError}
                                     </p>
                                 )}
@@ -748,10 +812,9 @@ export const EditFullBookingModal = ({
                         </div>
 
                         {/* E-way Bills and Invoices */}
-                        {/* E-way Bills and Invoices - UPDATED WITH VALIDATION */}
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
-                                <Label className="flex items-center gap-2">
+                                <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                                     <FileText className="w-4 h-4" />
                                     E-way Bills & Invoice Numbers
                                 </Label>
@@ -761,6 +824,7 @@ export const EditFullBookingModal = ({
                                     size="sm"
                                     onClick={handleAddDocument}
                                     disabled={documentFields.length >= 10 || isSubmitting}
+                                    className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                                 >
                                     <Plus className="w-3 h-3 mr-1" />
                                     Add Row
@@ -769,26 +833,28 @@ export const EditFullBookingModal = ({
 
                             <div className="space-y-2">
                                 {documentFields.map((field, index) => {
-                                    const validation = ewayBillValidations[index]; // ✅ NEW
+                                    const validation = ewayBillValidations[index];
 
                                     return (
-                                        <div key={field.id} className="space-y-2"> {/* ✅ CHANGED */}
+                                        <div key={field.id} className="space-y-2">
                                             <div className="flex gap-2">
                                                 <div className="flex-1">
-                                                    <div className="relative"> {/* ✅ NEW WRAPPER */}
+                                                    <div className="relative">
                                                         <Input
                                                             {...register(`documents.${index}.ewayBill`)}
                                                             placeholder="12-digit E-way bill (optional)"
                                                             maxLength={12}
                                                             className={cn(
-                                                                "pr-10", // ✅ PADDING FOR ICON
-                                                                validation?.error && "border-destructive"
+                                                                "pr-10 h-9 text-sm bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
+                                                                validation?.error
+                                                                    ? "border-red-600"
+                                                                    : "border-border dark:border-border"
                                                             )}
                                                             onChange={(e) => {
                                                                 const value = e.target.value.replace(/\D/g, '');
                                                                 setValue(`documents.${index}.ewayBill`, value);
                                                             }}
-                                                            onBlur={(e) => { // ✅ NEW
+                                                            onBlur={(e) => {
                                                                 const value = e.target.value;
                                                                 if (value && value.length === 12) {
                                                                     validateEwayBill(value, index);
@@ -797,28 +863,28 @@ export const EditFullBookingModal = ({
                                                             disabled={isSubmitting}
                                                         />
 
-                                                        {/* ✅ VALIDATION ICONS */}
+                                                        {/* Validation Icons */}
                                                         {validation?.loading && (
                                                             <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
                                                             </div>
                                                         )}
 
                                                         {!validation?.loading && validation?.valid && (
                                                             <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                                <CheckCircle2 className="w-4 h-4 text-[#059669]" />
                                                             </div>
                                                         )}
 
                                                         {!validation?.loading && validation?.error && (
                                                             <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                                <XCircle className="w-4 h-4 text-destructive" />
+                                                                <XCircle className="w-4 h-4 text-red-600" />
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     {errors.documents?.[index]?.ewayBill && (
-                                                        <p className="text-xs text-destructive mt-1">
+                                                        <p className="text-xs text-red-600 mt-1">
                                                             {errors.documents[index]?.ewayBill?.message}
                                                         </p>
                                                     )}
@@ -829,6 +895,7 @@ export const EditFullBookingModal = ({
                                                         {...register(`documents.${index}.invoice`)}
                                                         placeholder="Invoice number (optional)"
                                                         disabled={isSubmitting}
+                                                        className="h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                                     />
                                                 </div>
 
@@ -838,7 +905,6 @@ export const EditFullBookingModal = ({
                                                     size="sm"
                                                     onClick={() => {
                                                         removeDocument(index);
-                                                        // ✅ CLEAR VALIDATION
                                                         setEwayBillValidations(prev => {
                                                             const updated = { ...prev };
                                                             delete updated[index];
@@ -846,17 +912,23 @@ export const EditFullBookingModal = ({
                                                         });
                                                     }}
                                                     disabled={documentFields.length === 1 || isSubmitting}
+                                                    className="hover:bg-accent dark:hover:bg-secondary"
                                                 >
-                                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
                                                 </Button>
                                             </div>
 
-                                            {/* ✅ VALIDITY BADGE */}
+                                            {/* Validity Badge */}
                                             {validation?.validUntil && (
                                                 <div className="flex items-center gap-2 px-2">
                                                     <Badge
                                                         variant={validation.valid ? "default" : "destructive"}
-                                                        className="text-xs"
+                                                        className={cn(
+                                                            "text-xs",
+                                                            validation.valid
+                                                                ? "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30"
+                                                                : "bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5] dark:bg-[#DC2626]/15 dark:text-[#F87171] dark:border-[#DC2626]/30"
+                                                        )}
                                                     >
                                                         {validation.valid ? (
                                                             <>
@@ -872,7 +944,10 @@ export const EditFullBookingModal = ({
                                                     </Badge>
 
                                                     {validation.details?.is_mock && (
-                                                        <Badge variant="outline" className="text-xs">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="text-xs border-[#FCD34D] text-[#D97706] bg-[#FEF3C7] dark:bg-[#D97706]/15 dark:text-[#FCD34D] dark:border-[#D97706]/30"
+                                                        >
                                                             <AlertTriangle className="w-3 h-3 mr-1" />
                                                             Test Data
                                                         </Badge>
@@ -888,7 +963,7 @@ export const EditFullBookingModal = ({
                         {/* Cargo Items */}
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <Label className="flex items-center gap-2">
+                                <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                                     <Package className="w-4 h-4" />
                                     Cargo Items & Materials
                                 </Label>
@@ -902,6 +977,7 @@ export const EditFullBookingModal = ({
                                         material_description: ""
                                     })}
                                     disabled={itemFields.length >= 5 || isSubmitting}
+                                    className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                                 >
                                     <Plus className="w-3 h-3 mr-1" />
                                     Add Item
@@ -913,14 +989,14 @@ export const EditFullBookingModal = ({
                                     const itemType = watch(`items.${index}.unit_type`);
 
                                     return (
-                                        <div key={field.id} className="p-3 border rounded-lg bg-background">
+                                        <div key={field.id} className="p-3 border border-border dark:border-border rounded-lg bg-muted">
                                             <div className="flex gap-2 mb-2">
                                                 <Input
                                                     type="number"
                                                     min="1"
                                                     {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                                                     placeholder="Qty"
-                                                    className="w-20"
+                                                    className="w-20 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
                                                     disabled={isSubmitting}
                                                 />
 
@@ -931,13 +1007,13 @@ export const EditFullBookingModal = ({
                                                     }
                                                     disabled={isSubmitting}
                                                 >
-                                                    <SelectTrigger className="w-32">
+                                                    <SelectTrigger className="w-32 h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                                                         <SelectValue />
                                                     </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="BOX">Box</SelectItem>
-                                                        <SelectItem value="CARTOON">Cartoon</SelectItem>
-                                                        <SelectItem value="OTHERS">Others</SelectItem>
+                                                    <SelectContent className="bg-card border-border dark:border-border">
+                                                        <SelectItem value="BOX" className="hover:bg-accent dark:hover:bg-secondary">Box</SelectItem>
+                                                        <SelectItem value="CARTOON" className="hover:bg-accent dark:hover:bg-secondary">Cartoon</SelectItem>
+                                                        <SelectItem value="OTHERS" className="hover:bg-accent dark:hover:bg-secondary">Others</SelectItem>
                                                     </SelectContent>
                                                 </Select>
 
@@ -945,7 +1021,7 @@ export const EditFullBookingModal = ({
                                                     <Input
                                                         {...register(`items.${index}.custom_unit_type`)}
                                                         placeholder="Specify type"
-                                                        className="flex-1"
+                                                        className="flex-1 h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                                         disabled={isSubmitting}
                                                     />
                                                 )}
@@ -956,19 +1032,20 @@ export const EditFullBookingModal = ({
                                                     size="sm"
                                                     onClick={() => itemFields.length > 1 && removeItem(index)}
                                                     disabled={itemFields.length === 1 || isSubmitting}
+                                                    className="hover:bg-accent dark:hover:bg-secondary"
                                                 >
-                                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                                    <Trash2 className="w-4 h-4 text-red-600" />
                                                 </Button>
                                             </div>
 
                                             <Input
                                                 {...register(`items.${index}.material_description`)}
                                                 placeholder="Material description (e.g., Rice Bags 50kg)"
-                                                className="w-full"
+                                                className="w-full h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
                                                 disabled={isSubmitting}
                                             />
                                             {errors.items?.[index]?.material_description && (
-                                                <p className="text-xs text-destructive mt-1">
+                                                <p className="text-xs text-red-600 mt-1">
                                                     {errors.items[index]?.material_description?.message}
                                                 </p>
                                             )}
@@ -978,19 +1055,19 @@ export const EditFullBookingModal = ({
                             </div>
 
                             {/* Preview */}
-                            <div className="p-3 bg-muted rounded-lg">
-                                <p className="text-sm text-muted-foreground mb-2">Preview (LR Format):</p>
-                                <pre className="text-sm font-medium whitespace-pre-wrap">
+                            <div className="p-3 bg-muted rounded-lg border border-border dark:border-border">
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2 font-medium">Preview (LR Format):</p>
+                                <pre className="text-sm font-medium text-foreground dark:text-white whitespace-pre-wrap">
                                     {generateDisplayFormat(watchedItems)}
                                 </pre>
 
                                 {/* Documents Preview */}
                                 {watchedDocuments.some(doc => doc.ewayBill || doc.invoice) && (
-                                    <div className="mt-3 space-y-2">
+                                    <div className="mt-3 space-y-2 pt-3 border-t border-border dark:border-border">
                                         {watchedDocuments.some(doc => doc.ewayBill) && (
                                             <div>
-                                                <p className="text-sm text-muted-foreground">E-way Bills:</p>
-                                                <p className="text-sm">
+                                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">E-way Bills:</p>
+                                                <p className="text-sm text-foreground dark:text-white font-medium">
                                                     {watchedDocuments
                                                         .map(doc => doc.ewayBill)
                                                         .filter(eb => eb)
@@ -1001,8 +1078,8 @@ export const EditFullBookingModal = ({
 
                                         {watchedDocuments.some(doc => doc.invoice) && (
                                             <div>
-                                                <p className="text-sm text-muted-foreground">Invoice Numbers:</p>
-                                                <p className="text-sm">
+                                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Invoice Numbers:</p>
+                                                <p className="text-sm text-foreground dark:text-white font-medium">
                                                     {watchedDocuments
                                                         .map(doc => doc.invoice)
                                                         .filter(inv => inv)
@@ -1016,12 +1093,22 @@ export const EditFullBookingModal = ({
                         </div>
                     </div>
 
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
+                    <DialogFooter className="border-t border-border dark:border-border pt-4">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleClose}
+                            disabled={isSubmitting}
+                            className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary text-foreground dark:text-white"
+                        >
                             <X className="w-4 h-4 mr-2" />
                             Cancel
                         </Button>
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+                        >
                             {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             <Save className="w-4 h-4 mr-2" />
                             Save Changes

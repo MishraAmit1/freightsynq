@@ -309,10 +309,12 @@ export const AddHiredVehicleModal = ({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={handleClose}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-primary" />
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto bg-card border-l border-border dark:border-border">
+          <SheetHeader className="border-b border-border dark:border-border pb-4">
+            <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
+              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+                <Truck className="w-5 h-5 text-primary" />
+              </div>
               Add Hired Vehicle
             </SheetTitle>
           </SheetHeader>
@@ -320,60 +322,88 @@ export const AddHiredVehicleModal = ({
           <div className="space-y-5 py-6">
             {/* Vehicle Details */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <Truck className="w-4 h-4" />
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <Truck className="w-4 h-4 text-primary" />
                 Vehicle Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
                     Vehicle Number *
-                    {isValidatingVehicle && <Loader2 className="w-3 h-3 ml-2 inline animate-spin text-primary" />}
+                    {isValidatingVehicle && (
+                      <Loader2 className="w-3 h-3 ml-2 inline animate-spin text-primary" />
+                    )}
                   </Label>
                   <Input
                     value={vehicleData.vehicleNumber}
                     onChange={(e) => handleVehicleNumberChange(e.target.value)}
                     placeholder="GJ-01-AB-1234"
-                    className={cn("h-9 text-sm mt-1", vehicleNumberError && "border-destructive")}
+                    className={cn(
+                      "h-9 text-sm mt-1 uppercase",
+                      "border-border dark:border-border",
+                      "bg-card",
+                      "text-foreground dark:text-white",
+                      "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
+                      "focus:ring-2 focus:ring-ring focus:border-primary",
+                      vehicleNumberError && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    )}
                   />
                   {vehicleNumberError && (
-                    <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {vehicleNumberError}
                     </p>
                   )}
-                  <p className="text-[10px] text-muted-foreground mt-1">Format: XX-00-XX-0000</p>
+                  <p className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-1">
+                    Format: XX-00-XX-0000
+                  </p>
                 </div>
 
                 <div>
-                  <Label className="text-xs">Vehicle Type *</Label>
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Vehicle Type *
+                  </Label>
                   <Select
                     value={vehicleData.vehicleType}
                     onValueChange={(value) => setVehicleData({ ...vehicleData, vehicleType: value })}
                   >
-                    <SelectTrigger className="h-9 text-sm mt-1">
+                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-card border-border dark:border-border">
                       {vehicleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                        <SelectItem
+                          key={type}
+                          value={type}
+                          className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                        >
+                          {type}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="md:col-span-2">
-                  <Label className="text-xs">Capacity *</Label>
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Capacity *
+                  </Label>
                   <Select
                     value={vehicleData.capacity}
                     onValueChange={(value) => setVehicleData({ ...vehicleData, capacity: value })}
                   >
-                    <SelectTrigger className="h-9 text-sm mt-1">
+                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
                       <SelectValue placeholder="Select capacity" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-card border-border dark:border-border">
                       {capacities.map((capacity) => (
-                        <SelectItem key={capacity} value={capacity}>{capacity}</SelectItem>
+                        <SelectItem
+                          key={capacity}
+                          value={capacity}
+                          className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                        >
+                          {capacity}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -381,34 +411,45 @@ export const AddHiredVehicleModal = ({
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Default Driver */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <User className="w-4 h-4" />
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
                 Default Driver (Optional)
               </h3>
               <div>
-                <Label className="text-xs">Assign Default Driver</Label>
+                <Label className="text-xs font-medium text-foreground dark:text-white">
+                  Assign Default Driver
+                </Label>
                 <Select
                   value={vehicleData.default_driver_id || "none"}
                   onValueChange={(value) => setVehicleData({ ...vehicleData, default_driver_id: value })}
                   disabled={loadingDrivers}
                 >
-                  <SelectTrigger className="h-9 text-sm mt-1">
+                  <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
                     <SelectValue placeholder={loadingDrivers ? "Loading drivers..." : "Select driver (optional)"} />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Default Driver</SelectItem>
+                  <SelectContent className="bg-card border-border dark:border-border">
+                    <SelectItem
+                      value="none"
+                      className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                    >
+                      No Default Driver
+                    </SelectItem>
                     {unassignedDrivers.map((driver) => (
-                      <SelectItem key={driver.id} value={driver.id}>
+                      <SelectItem
+                        key={driver.id}
+                        value={driver.id}
+                        className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                      >
                         {driver.name} - {driver.phone}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[10px] text-muted-foreground dark:text-muted-foreground mt-1">
                   This driver will be auto-selected for this vehicle
                 </p>
 
@@ -416,7 +457,7 @@ export const AddHiredVehicleModal = ({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-2 w-full h-8 text-xs"
+                  className="mt-2 w-full h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                   onClick={() => setIsAddDriverOpen(true)}
                 >
                   <Plus className="w-3 h-3 mr-2" />
@@ -425,12 +466,12 @@ export const AddHiredVehicleModal = ({
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-4 bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Document Upload */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+              <h3 className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
                 Documents (Optional)
               </h3>
 
@@ -443,15 +484,19 @@ export const AddHiredVehicleModal = ({
                 className="hidden"
               />
 
-              <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-                <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-xs text-muted-foreground mb-2">Upload Vehicle RC & Agreement</p>
-                <p className="text-[10px] text-muted-foreground mb-3">Supported: PDF, JPG, PNG (Max 5MB)</p>
+              <div className="border-2 border-dashed border-border dark:border-border rounded-lg p-4 text-center hover:border-primary dark:hover:border-primary hover:bg-accent dark:hover:bg-primary/5 transition-colors">
+                <Upload className="w-8 h-8 mx-auto text-muted-foreground dark:text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground mb-2">
+                  Upload Vehicle RC & Agreement
+                </p>
+                <p className="text-[10px] text-muted-foreground dark:text-muted-foreground mb-3">
+                  Supported: PDF, JPG, PNG (Max 5MB)
+                </p>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs"
+                  className="h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                   onClick={() => document.getElementById('document-upload')?.click()}
                 >
                   <Plus className="w-3 h-3 mr-2" />
@@ -462,58 +507,78 @@ export const AddHiredVehicleModal = ({
               {selectedFiles.length > 0 && (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-medium">
+                    <Label className="text-xs font-medium text-foreground dark:text-white">
                       Selected Files ({selectedFiles.length})
                     </Label>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] bg-muted text-foreground dark:text-white border-0"
+                    >
                       {formatFileSize(selectedFiles.reduce((acc, file) => acc + file.size, 0))}
                     </Badge>
                   </div>
 
                   {selectedFiles.map((file, index) => (
-                    <div key={index} className="border rounded-lg p-3 space-y-2 bg-muted/30">
+                    <div
+                      key={index}
+                      className="border border-border dark:border-border rounded-lg p-3 space-y-2 bg-muted"
+                    >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <File className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{file.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{formatFileSize(file.size)}</p>
+                            <p className="text-xs font-medium truncate text-foreground dark:text-white">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
+                              {formatFileSize(file.size)}
+                            </p>
                           </div>
                         </div>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 flex-shrink-0"
+                          className="h-7 w-7 flex-shrink-0 hover:bg-red-50 dark:hover:bg-red-900/20"
                           onClick={() => handleRemoveFile(index)}
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
                         </Button>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-[10px]">Document Type *</Label>
+                          <Label className="text-[10px] font-medium text-foreground dark:text-white">
+                            Document Type *
+                          </Label>
                           <Select
                             value={documentMetadata[index]?.document_type || 'OTHER'}
                             onValueChange={(value: any) => updateDocumentMetadata(index, 'document_type', value)}
                           >
-                            <SelectTrigger className="h-7 text-[10px]">
+                            <SelectTrigger className="h-7 text-[10px] border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="bg-card border-border dark:border-border">
                               {documentTypes.map((type) => (
-                                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                <SelectItem
+                                  key={type.value}
+                                  value={type.value}
+                                  className="text-[10px] text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                                >
+                                  {type.label}
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
 
                         <div>
-                          <Label className="text-[10px]">Expiry Date (Optional)</Label>
+                          <Label className="text-[10px] font-medium text-foreground dark:text-white">
+                            Expiry Date (Optional)
+                          </Label>
                           <Input
                             type="date"
-                            className="h-7 text-[10px]"
+                            className="h-7 text-[10px] border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
                             value={documentMetadata[index]?.expiry_date || ''}
                             onChange={(e) => updateDocumentMetadata(index, 'expiry_date', e.target.value)}
                           />
@@ -526,11 +591,12 @@ export const AddHiredVehicleModal = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
               <Button
                 variant="outline"
                 onClick={handleClose}
                 size="sm"
+                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
               >
                 <X className="w-3.5 h-3.5 mr-2" />
                 Cancel
@@ -538,6 +604,7 @@ export const AddHiredVehicleModal = ({
               <Button
                 onClick={handleSubmit}
                 size="sm"
+                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
               >
                 <Save className="w-3.5 h-3.5 mr-2" />
                 Add Hired Vehicle

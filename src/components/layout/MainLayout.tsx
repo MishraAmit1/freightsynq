@@ -31,8 +31,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 overflow-auto">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 bg-background -mt-[11px]">
-          <div className="h-full pl-2 sm:pl-2 pr-4 sm:pr-6 pt-4 sm:pt-6 pb-4 sm:pb-6">
+        <main className="flex-1 bg-background -mt-[6px]">
+          <div className="h-full pl-2 sm:pl-4 pr-4 sm:pr-4 pt-4 sm:pt-6 pb-4 sm:pb-6">
             {children}
           </div>
         </main>

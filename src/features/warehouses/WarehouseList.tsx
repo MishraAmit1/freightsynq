@@ -22,7 +22,8 @@ import {
   Shield,
   BarChart3,
   Phone,
-  Mail
+  Mail,
+  X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,7 +116,7 @@ interface Warehouse {
   status: string;
 }
 
-// Import Modal Component with Enhanced Styling
+// ✅ IMPORT MODAL - THEME APPLIED
 const ImportWarehousesModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -132,7 +133,6 @@ const ImportWarehousesModal: React.FC<{
   });
   const [step, setStep] = useState<'upload' | 'preview' | 'importing'>('upload');
 
-  // Reset modal state when closed
   useEffect(() => {
     if (!isOpen) {
       setFile(null);
@@ -142,7 +142,6 @@ const ImportWarehousesModal: React.FC<{
     }
   }, [isOpen]);
 
-  // File drop handler
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
@@ -161,7 +160,6 @@ const ImportWarehousesModal: React.FC<{
     maxFiles: 1
   });
 
-  // Process uploaded file
   const processFile = async (file: File) => {
     setProgress({ current: 0, total: 0, status: 'validating', message: 'Reading file...' });
 
@@ -169,7 +167,6 @@ const ImportWarehousesModal: React.FC<{
       let data: any[] = [];
 
       if (file.name.endsWith('.csv')) {
-        // Parse CSV
         const text = await file.text();
         const result = Papa.parse(text, {
           header: true,
@@ -178,7 +175,6 @@ const ImportWarehousesModal: React.FC<{
         });
         data = result.data;
       } else {
-        // Parse Excel
         const buffer = await file.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -187,9 +183,8 @@ const ImportWarehousesModal: React.FC<{
           defval: ''
         });
 
-        // Convert to object format with headers
         if (data.length > 0) {
-          const headers = data[0].map((h: string) =>
+          const headers = (data[0] as any[]).map((h: string) =>
             h.toString().trim().toLowerCase().replace(/\s+/g, '_')
           );
           data = data.slice(1).map((row: any[]) => {
@@ -202,7 +197,6 @@ const ImportWarehousesModal: React.FC<{
         }
       }
 
-      // Validate and check duplicates
       await validateData(data);
     } catch (error) {
       console.error('Error processing file:', error);
@@ -215,7 +209,6 @@ const ImportWarehousesModal: React.FC<{
     }
   };
 
-  // Validate data
   const validateData = async (data: any[]) => {
     setProgress({
       current: 0,
@@ -228,7 +221,6 @@ const ImportWarehousesModal: React.FC<{
     const invalid: { row: ImportWarehouseRow; errors: ValidationError[] }[] = [];
     const duplicates: { row: ImportWarehouseRow; field: string; value: string }[] = [];
 
-    // Get existing warehouses for duplicate check
     const { data: existingWarehouses } = await supabase
       .from('warehouses')
       .select('name, manager_email');
@@ -236,7 +228,6 @@ const ImportWarehousesModal: React.FC<{
     const existingNames = existingWarehouses?.map(w => w.name.toLowerCase()) || [];
     const existingEmails = existingWarehouses?.map(w => w.manager_email.toLowerCase()) || [];
 
-    // Validate each row
     data.forEach((row, index) => {
       const errors: ValidationError[] = [];
       const processedRow: ImportWarehouseRow = {
@@ -251,33 +242,16 @@ const ImportWarehousesModal: React.FC<{
         status: (row.status?.toString().trim().toUpperCase() as any) || 'ACTIVE'
       };
 
-      // Required field validation
-      if (!processedRow.name) {
-        errors.push({ row: index + 1, field: 'name', message: 'Warehouse name is required' });
-      }
-      if (!processedRow.city) {
-        errors.push({ row: index + 1, field: 'city', message: 'City is required' });
-      }
-      if (!processedRow.state) {
-        errors.push({ row: index + 1, field: 'state', message: 'State is required' });
-      }
-      if (!processedRow.address) {
-        errors.push({ row: index + 1, field: 'address', message: 'Address is required' });
-      }
-      if (!processedRow.capacity) {
-        errors.push({ row: index + 1, field: 'capacity', message: 'Capacity is required' });
-      }
-      if (!processedRow.manager_name) {
-        errors.push({ row: index + 1, field: 'manager_name', message: 'Manager name is required' });
-      }
-      if (!processedRow.manager_phone) {
-        errors.push({ row: index + 1, field: 'manager_phone', message: 'Manager phone is required' });
-      }
-      if (!processedRow.manager_email) {
-        errors.push({ row: index + 1, field: 'manager_email', message: 'Manager email is required' });
-      }
+      // Validation
+      if (!processedRow.name) errors.push({ row: index + 1, field: 'name', message: 'Warehouse name is required' });
+      if (!processedRow.city) errors.push({ row: index + 1, field: 'city', message: 'City is required' });
+      if (!processedRow.state) errors.push({ row: index + 1, field: 'state', message: 'State is required' });
+      if (!processedRow.address) errors.push({ row: index + 1, field: 'address', message: 'Address is required' });
+      if (!processedRow.capacity) errors.push({ row: index + 1, field: 'capacity', message: 'Capacity is required' });
+      if (!processedRow.manager_name) errors.push({ row: index + 1, field: 'manager_name', message: 'Manager name is required' });
+      if (!processedRow.manager_phone) errors.push({ row: index + 1, field: 'manager_phone', message: 'Manager phone is required' });
+      if (!processedRow.manager_email) errors.push({ row: index + 1, field: 'manager_email', message: 'Manager email is required' });
 
-      // Format validation
       if (processedRow.capacity && isNaN(Number(processedRow.capacity))) {
         errors.push({ row: index + 1, field: 'capacity', message: 'Capacity must be a number' });
       }
@@ -288,24 +262,15 @@ const ImportWarehousesModal: React.FC<{
         errors.push({ row: index + 1, field: 'manager_email', message: 'Invalid email format' });
       }
 
-      // Status validation
       if (!['ACTIVE', 'INACTIVE'].includes(processedRow.status || '')) {
         processedRow.status = 'ACTIVE';
       }
 
-      // Check duplicates
+      // Duplicates
       if (existingNames.includes(processedRow.name.toLowerCase())) {
-        duplicates.push({
-          row: processedRow,
-          field: 'name',
-          value: processedRow.name
-        });
+        duplicates.push({ row: processedRow, field: 'name', value: processedRow.name });
       } else if (existingEmails.includes(processedRow.manager_email.toLowerCase())) {
-        duplicates.push({
-          row: processedRow,
-          field: 'manager_email',
-          value: processedRow.manager_email
-        });
+        duplicates.push({ row: processedRow, field: 'manager_email', value: processedRow.manager_email });
       } else if (errors.length > 0) {
         invalid.push({ row: processedRow, errors });
       } else {
@@ -329,7 +294,6 @@ const ImportWarehousesModal: React.FC<{
     });
   };
 
-  // Import data to database
   const handleImport = async () => {
     if (!preview || preview.valid.length === 0) {
       toast({
@@ -362,15 +326,14 @@ const ImportWarehousesModal: React.FC<{
       const batch = batches[i];
 
       try {
-        // Prepare data for insert
         const dataToInsert = batch.map(row => ({
           name: row.name,
-          code: `W${Date.now().toString().slice(-6)}${Math.random().toString(36).substr(2, 3).toUpperCase()}`, // Generate unique code
+          code: `W${Date.now().toString().slice(-6)}${Math.random().toString(36).substr(2, 3).toUpperCase()}`,
           city: row.city,
           state: row.state,
           address: row.address,
           capacity: Number(row.capacity),
-          current_stock: 0, // New warehouses start with 0 stock
+          current_stock: 0,
           manager_name: row.manager_name,
           manager_phone: row.manager_phone,
           manager_email: row.manager_email,
@@ -416,7 +379,6 @@ const ImportWarehousesModal: React.FC<{
     }, 2000);
   };
 
-  // Download template
   const downloadTemplate = () => {
     const template = [
       ['name', 'city', 'state', 'address', 'capacity', 'manager_name', 'manager_phone', 'manager_email', 'status'],
@@ -437,10 +399,12 @@ const ImportWarehousesModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-background via-background to-muted/5">
-        <DialogHeader className="border-b pb-4">
-          <DialogTitle className="text-xl flex items-center gap-2">
-            <Upload className="w-5 h-5 text-primary" />
+      <DialogContent className="max-w-4xl max-h-[90vh] bg-card border border-border dark:border-border">
+        <DialogHeader className="border-b border-border dark:border-border pb-4">
+          <DialogTitle className="text-xl flex items-center gap-2 text-foreground dark:text-white">
+            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
+              <Upload className="w-5 h-5 text-primary dark:text-primary" />
+            </div>
             Import Warehouses
           </DialogTitle>
         </DialogHeader>
@@ -448,14 +412,14 @@ const ImportWarehousesModal: React.FC<{
         {step === 'upload' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 Upload CSV or Excel file with warehouse data
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={downloadTemplate}
-                className="hover:bg-primary/10 hover:border-primary transition-all"
+                className="bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary transition-all"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download Template
@@ -467,35 +431,35 @@ const ImportWarehousesModal: React.FC<{
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200",
                 isDragActive
-                  ? "border-primary bg-primary/5 scale-[1.02]"
-                  : "border-border hover:border-primary/50 hover:bg-muted/30"
+                  ? "border-primary bg-accent dark:bg-primary/10 scale-[1.02]"
+                  : "border-border dark:border-border hover:border-primary/50 hover:bg-accent/50 dark:hover:bg-muted"
               )}
             >
               <input {...getInputProps()} />
-              <FileUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <FileUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground dark:text-muted-foreground" />
               {file ? (
                 <div>
-                  <p className="font-medium text-lg">{file.name}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-medium text-lg text-foreground dark:text-white">{file.name}</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                     {(file.size / 1024).toFixed(2)} KB
                   </p>
                 </div>
               ) : (
                 <div>
-                  <p className="font-medium">Drop your file here, or click to browse</p>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="font-medium text-foreground dark:text-white">Drop your file here, or click to browse</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                     Supports CSV and Excel files (.csv, .xlsx, .xls)
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="bg-gradient-to-r from-primary/10 to-transparent p-4 rounded-lg border border-primary/20">
-              <h4 className="font-medium mb-2 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-primary" />
+            <div className="bg-accent dark:bg-primary/10 p-4 rounded-lg border border-primary/30">
+              <h4 className="font-medium mb-2 flex items-center gap-2 text-foreground dark:text-white">
+                <AlertCircle className="w-4 h-4 text-primary dark:text-primary" />
                 Required Fields:
               </h4>
-              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside ml-6">
+              <ul className="text-sm text-muted-foreground dark:text-muted-foreground space-y-1 list-disc list-inside ml-6">
                 <li><span className="font-medium">Name</span> - Warehouse name (must be unique)</li>
                 <li><span className="font-medium">City & State</span> - Location details</li>
                 <li><span className="font-medium">Address</span> - Complete address</li>
@@ -508,7 +472,7 @@ const ImportWarehousesModal: React.FC<{
             {progress.status === 'validating' && (
               <div className="space-y-2">
                 <Progress value={(progress.current / progress.total) * 100} className="h-2" />
-                <p className="text-sm text-center text-muted-foreground animate-pulse">
+                <p className="text-sm text-center text-muted-foreground dark:text-muted-foreground animate-pulse">
                   {progress.message}
                 </p>
               </div>
@@ -519,41 +483,41 @@ const ImportWarehousesModal: React.FC<{
         {step === 'preview' && preview && (
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              <Card className="border-green-200 bg-gradient-to-br from-green-50/50 to-transparent">
+              <Card className="border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-900/10">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-green-600">{preview.valid.length}</p>
-                      <p className="text-sm text-muted-foreground">Valid Rows</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Valid Rows</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-red-200 bg-gradient-to-br from-red-50/50 to-transparent">
+              <Card className="border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-900/10">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-lg">
+                    <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
                       <XCircle className="w-5 h-5 text-red-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-red-600">{preview.invalid.length}</p>
-                      <p className="text-sm text-muted-foreground">Invalid Rows</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Invalid Rows</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50/50 to-transparent">
+              <Card className="border-yellow-200 dark:border-yellow-900/50 bg-gradient-to-br from-yellow-50/50 to-transparent dark:from-yellow-900/10">
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
+                    <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
                       <AlertCircle className="w-5 h-5 text-yellow-600" />
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-yellow-600">{preview.duplicates.length}</p>
-                      <p className="text-sm text-muted-foreground">Duplicates</p>
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Duplicates</p>
                     </div>
                   </div>
                 </CardContent>
@@ -561,23 +525,32 @@ const ImportWarehousesModal: React.FC<{
             </div>
 
             <Tabs defaultValue="valid" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="valid" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">
+              <TabsList className="grid w-full grid-cols-3 bg-muted">
+                <TabsTrigger
+                  value="valid"
+                  className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 dark:data-[state=active]:bg-green-900/30"
+                >
                   Valid ({preview.valid.length})
                 </TabsTrigger>
-                <TabsTrigger value="invalid" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700">
+                <TabsTrigger
+                  value="invalid"
+                  className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700 dark:data-[state=active]:bg-red-900/30"
+                >
                   Invalid ({preview.invalid.length})
                 </TabsTrigger>
-                <TabsTrigger value="duplicates" className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700">
+                <TabsTrigger
+                  value="duplicates"
+                  className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700 dark:data-[state=active]:bg-yellow-900/30"
+                >
                   Duplicates ({preview.duplicates.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="valid">
-                <ScrollArea className="h-[300px] w-full rounded-lg border">
+                <ScrollArea className="h-[300px] w-full rounded-lg border border-border dark:border-border">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/50">
+                      <TableRow className="bg-muted hover:bg-muted dark:hover:bg-[#252530]">
                         <TableHead className="w-[50px]">#</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Location</TableHead>
@@ -587,12 +560,12 @@ const ImportWarehousesModal: React.FC<{
                     </TableHeader>
                     <TableBody>
                       {preview.valid.map((row, index) => (
-                        <TableRow key={index} className="hover:bg-muted/30">
+                        <TableRow key={index} className="hover:bg-accent dark:hover:bg-muted">
                           <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell className="font-medium">{row.name}</TableCell>
-                          <TableCell>{row.city}, {row.state}</TableCell>
-                          <TableCell>{row.capacity}</TableCell>
-                          <TableCell>{row.manager_name}</TableCell>
+                          <TableCell className="font-medium text-foreground dark:text-white">{row.name}</TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{row.city}, {row.state}</TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{row.capacity}</TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{row.manager_name}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -604,11 +577,11 @@ const ImportWarehousesModal: React.FC<{
                 <ScrollArea className="h-[300px] w-full">
                   <div className="space-y-2 p-2">
                     {preview.invalid.map((item, index) => (
-                      <Card key={index} className="border-red-200 bg-red-50/50">
+                      <Card key={index} className="border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10">
                         <CardContent className="pt-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-medium">
+                              <p className="font-medium text-foreground dark:text-white">
                                 Row {index + 1}: {item.row.name || 'No name'}
                               </p>
                               {item.errors.map((error, i) => (
@@ -626,10 +599,10 @@ const ImportWarehousesModal: React.FC<{
               </TabsContent>
 
               <TabsContent value="duplicates">
-                <ScrollArea className="h-[300px] w-full rounded-lg border">
+                <ScrollArea className="h-[300px] w-full rounded-lg border border-border dark:border-border">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/50">
+                      <TableRow className="bg-muted hover:bg-muted dark:hover:bg-[#252530]">
                         <TableHead>Warehouse Name</TableHead>
                         <TableHead>Duplicate Field</TableHead>
                         <TableHead>Value</TableHead>
@@ -637,14 +610,14 @@ const ImportWarehousesModal: React.FC<{
                     </TableHeader>
                     <TableBody>
                       {preview.duplicates.map((item, index) => (
-                        <TableRow key={index} className="hover:bg-muted/30">
-                          <TableCell className="font-medium">{item.row.name}</TableCell>
+                        <TableRow key={index} className="hover:bg-accent dark:hover:bg-muted">
+                          <TableCell className="font-medium text-foreground dark:text-white">{item.row.name}</TableCell>
                           <TableCell>
                             <Badge variant="destructive">
                               {item.field.toUpperCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell>{item.value}</TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{item.value}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -669,36 +642,40 @@ const ImportWarehousesModal: React.FC<{
                   <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
                 </div>
               )}
-              <p className="text-lg font-medium">{progress.message}</p>
+              <p className="text-lg font-medium text-foreground dark:text-white">{progress.message}</p>
             </div>
             <Progress value={(progress.current / progress.total) * 100} className="h-2" />
-            <p className="text-sm text-center text-muted-foreground">
+            <p className="text-sm text-center text-muted-foreground dark:text-muted-foreground">
               {progress.current} of {progress.total} warehouses imported
             </p>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="border-t border-border dark:border-border pt-4">
           {step === 'preview' && (
             <>
               <Button
                 variant="outline"
                 onClick={() => setStep('upload')}
-                className="hover:bg-muted"
+                className="bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
               >
                 Back
               </Button>
               <Button
                 onClick={handleImport}
                 disabled={preview?.valid.length === 0}
-                className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-lg transition-all"
+                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
               >
                 Import {preview?.valid.length} Valid Rows
               </Button>
             </>
           )}
           {step === 'upload' && (
-            <Button variant="outline" onClick={onClose}>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+            >
               Cancel
             </Button>
           )}
@@ -708,7 +685,7 @@ const ImportWarehousesModal: React.FC<{
   );
 };
 
-// Main WarehouseList Component with Enhanced Styling
+// ✅ MAIN WAREHOUSE LIST - THEME APPLIED
 export const WarehouseList = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -748,17 +725,16 @@ export const WarehouseList = () => {
 
   const getCapacityColor = (utilization: number) => {
     if (utilization <= 60) return "text-green-600";
-    if (utilization <= 85) return "text-orange-600";
+    if (utilization <= 85) return "text-primary dark:text-primary";
     return "text-red-600";
   };
 
   const getCapacityBgColor = (utilization: number) => {
     if (utilization <= 60) return "bg-green-500";
-    if (utilization <= 85) return "bg-orange-500";
+    if (utilization <= 85) return "bg-[#F38810]";
     return "bg-red-500";
   };
 
-  // Filter and sort warehouses
   const filteredWarehouses = warehouses
     .filter(warehouse => {
       const matchesSearch = warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -784,7 +760,6 @@ export const WarehouseList = () => {
 
   const uniqueStates = [...new Set(warehouses.map(w => w.state))];
 
-  // Statistics
   const stats = {
     total: warehouses.length,
     totalCapacity: warehouses.reduce((sum, w) => sum + w.capacity, 0),
@@ -821,7 +796,6 @@ export const WarehouseList = () => {
     }
   };
 
-  // Export to CSV function
   const handleExport = () => {
     const headers = [
       "Warehouse Name",
@@ -884,7 +858,7 @@ export const WarehouseList = () => {
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
           <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
         </div>
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+        <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
           Loading warehouses...
         </p>
       </div>
@@ -893,164 +867,143 @@ export const WarehouseList = () => {
 
   return (
     <div className="space-y-6">
-      {/* 🔥 CARD 1: Stats & Buttons */}
-      <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
-        {/* Stats - Single Card with Dividers */}
-        <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-0 h-full">
+      {/* STATS CARD */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+        <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-6 shadow-sm">
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#E5E7EB] dark:divide-[#35353F]">
             {/* Total Warehouses */}
-            <div className="sm:px-6 py-4 first:pl-0 relative">
-              <div className="absolute top-1 right-2 opacity-10">
-                <WarehouseIcon className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            <div className="px-6 py-3 first:pl-0 relative">
+              <div className="absolute top-2 right-2 opacity-10">
+                <WarehouseIcon className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Total Warehouses
-                </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {stats.total}
-                </p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Total Warehouses</p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.total}</p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
             </div>
 
             {/* Total Capacity */}
-            <div className="sm:px-6 py-4 relative">
-              <div className="absolute top-1 right-2 opacity-10">
-                <Package className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            <div className="px-6 py-3 relative">
+              <div className="absolute top-2 right-2 opacity-10">
+                <Package className="w-8 h-8 text-primary dark:text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Total Capacity
-                </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {stats.totalCapacity.toLocaleString()}
-                </p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Total Capacity</p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.totalCapacity.toLocaleString()}</p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
             </div>
 
             {/* Current Stock */}
-            <div className="sm:px-6 py-4 relative">
-              <div className="absolute top-1 right-2 opacity-10">
-                <Activity className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            <div className="px-6 py-3 relative">
+              <div className="absolute top-2 right-2 opacity-10">
+                <Activity className="w-8 h-8 text-primary dark:text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Current Stock
-                </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {stats.totalStock.toLocaleString()}
-                </p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Current Stock</p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.totalStock.toLocaleString()}</p>
               </div>
-              {/* Custom Full Height Divider */}
-              <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
             </div>
 
             {/* Near Capacity */}
-            <div className="sm:px-6 py-4 last:pr-0 relative">
-              <div className="absolute top-1 right-2 opacity-10">
-                <AlertTriangle className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            <div className="px-6 py-3 last:pr-0 relative">
+              <div className="absolute top-2 right-2 opacity-10">
+                <AlertTriangle className="w-8 h-8 text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Near Capacity
-                </p>
-                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {stats.nearCapacity}
-                </p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Near Capacity</p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.nearCapacity}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Buttons - Right Side */}
-        <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowImportModal(true)}
-                  className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Import warehouses from file</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExport}
-                  className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                >
-                  <FileDown className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Export warehouses to CSV</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
+        {/* Action Buttons */}
+        <div className="flex flex-col gap-2 w-full lg:w-auto lg:min-w-[220px]">
           <Button
-            size="sm"
+            size="default"
             onClick={() => setIsAddModalOpen(true)}
-            className="flex-1 sm:flex-none"
+            className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Warehouse
           </Button>
+
+          <div className="flex gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={() => setShowImportModal(true)}
+                    className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Import
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Import warehouses from CSV/Excel</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    onClick={handleExport}
+                    className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                  >
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Export to CSV</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
 
-      {/* 🔥 CARD 2: Search + Filters + Warehouse Grid */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+      {/* MAIN CONTENT CARD */}
+      <div className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
 
-        {/* Search and Filters Section */}
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Search & Filters */}
+        <div className="p-6 border-b border-border dark:border-border">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             {/* Search Bar */}
-            <div className="relative w-full sm:flex-1 sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
               <Input
                 placeholder="Search by name, city, or state..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                className="pl-10 pr-10 h-10 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-sm"
               />
               {searchTerm && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-accent dark:hover:bg-secondary"
                   onClick={() => setSearchTerm("")}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="flex gap-3 w-full sm:w-auto">
               <Select value={filterState} onValueChange={setFilterState}>
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px] h-10 border-border dark:border-border bg-card text-sm">
                   <SelectValue placeholder="Filter by state" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-card border-border dark:border-border">
                   <SelectItem value="all">All States</SelectItem>
                   {uniqueStates.map(state => (
                     <SelectItem key={state} value={state}>{state}</SelectItem>
@@ -1059,10 +1012,10 @@ export const WarehouseList = () => {
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px] h-10 border-border dark:border-border bg-card text-sm">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-card border-border dark:border-border">
                   <SelectItem value="name">Name</SelectItem>
                   <SelectItem value="capacity">Capacity</SelectItem>
                   <SelectItem value="stock">Current Stock</SelectItem>
@@ -1073,17 +1026,17 @@ export const WarehouseList = () => {
           </div>
         </div>
 
-        {/* Warehouse Grid Section */}
-        <div className="p-4 sm:p-6">
+        {/* Warehouse Grid */}
+        <div className="p-6">
           {filteredWarehouses.length === 0 ? (
             <div className="text-center py-16">
               <div className="flex flex-col items-center gap-4">
-                <div className="p-4 bg-muted/30 rounded-full">
-                  <Package className="w-12 h-12 text-muted-foreground/50" />
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                 </div>
-                <div className="text-muted-foreground">
-                  <p className="text-lg font-medium">No warehouses found</p>
-                  <p className="text-sm mt-1">
+                <div>
+                  <p className="text-base font-medium text-foreground dark:text-white">No warehouses found</p>
+                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                     {searchTerm || filterState !== "all"
                       ? "Try adjusting your search or filter criteria"
                       : "Get started by adding your first warehouse"}
@@ -1092,7 +1045,7 @@ export const WarehouseList = () => {
                 {(!searchTerm && filterState === "all") && (
                   <Button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="mt-2"
+                    className="mt-2 bg-primary hover:bg-primary-hover text-foreground"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Your First Warehouse
@@ -1101,7 +1054,7 @@ export const WarehouseList = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredWarehouses.map((warehouse) => {
                 const utilization = getStockUtilization(warehouse.current_stock, warehouse.capacity);
                 const isNearCapacity = utilization > 85;
@@ -1109,19 +1062,19 @@ export const WarehouseList = () => {
                 return (
                   <Card
                     key={warehouse.id}
-                    className="hover:shadow-lg transition-all duration-300 cursor-pointer hover:scale-[1.02] border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
+                    className="hover:shadow-lg transition-all duration-300 cursor-pointer hover:scale-[1.02] border border-border dark:border-border bg-card"
                     onClick={() => handleWarehouseClick(warehouse.id)}
                   >
                     <CardHeader className="pb-4">
                       <div className="flex justify-between items-start gap-2">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
-                            <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                              <WarehouseIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg flex-shrink-0">
+                              <WarehouseIcon className="w-4 h-4 text-primary dark:text-primary" />
                             </div>
-                            <span className="truncate">{warehouse.name}</span>
+                            <span className="truncate text-foreground dark:text-white">{warehouse.name}</span>
                           </CardTitle>
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mt-2 ml-8 sm:ml-9">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground mt-2 ml-9">
                             <MapPin className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{warehouse.city}, {warehouse.state}</span>
                           </div>
@@ -1129,7 +1082,7 @@ export const WarehouseList = () => {
                         {isNearCapacity && (
                           <Badge variant="destructive" className="gap-1 text-xs flex-shrink-0">
                             <AlertTriangle className="w-3 h-3" />
-                            <span className="hidden sm:inline">Near Full</span>
+                            Near Full
                           </Badge>
                         )}
                       </div>
@@ -1139,16 +1092,16 @@ export const WarehouseList = () => {
                       <div className="space-y-4">
                         {/* Capacity Bar */}
                         <div>
-                          <div className="flex justify-between text-xs sm:text-sm mb-2">
-                            <span className="text-muted-foreground font-medium">Stock Utilization</span>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-muted-foreground dark:text-muted-foreground font-medium">Stock Utilization</span>
                             <span className={cn("font-bold", getCapacityColor(utilization))}>
                               {warehouse.current_stock}/{warehouse.capacity} ({utilization.toFixed(1)}%)
                             </span>
                           </div>
-                          <div className="w-full bg-muted rounded-full h-2.5 sm:h-3 overflow-hidden">
+                          <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                             <div
                               className={cn(
-                                "h-2.5 sm:h-3 rounded-full transition-all duration-500",
+                                "h-3 rounded-full transition-all duration-500",
                                 getCapacityBgColor(utilization)
                               )}
                               style={{ width: `${Math.min(utilization, 100)}%` }}
@@ -1157,34 +1110,34 @@ export const WarehouseList = () => {
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-                              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg flex-shrink-0">
+                              <Package className="w-4 h-4 text-primary dark:text-primary" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs sm:text-sm font-bold">{warehouse.current_stock}</p>
-                              <p className="text-xs text-muted-foreground">In Stock</p>
+                              <p className="text-sm font-bold text-foreground dark:text-white">{warehouse.current_stock}</p>
+                              <p className="text-xs text-muted-foreground dark:text-muted-foreground">In Stock</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="p-1.5 sm:p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
-                              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
+                              <Users className="w-4 h-4 text-green-600" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs sm:text-sm font-bold truncate">{warehouse.manager_name}</p>
-                              <p className="text-xs text-muted-foreground">Manager</p>
+                              <p className="text-sm font-bold text-foreground dark:text-white truncate">{warehouse.manager_name}</p>
+                              <p className="text-xs text-muted-foreground dark:text-muted-foreground">Manager</p>
                             </div>
                           </div>
                         </div>
 
                         {/* Contact Info */}
-                        <div className="pt-3 border-t border-gray-200 dark:border-gray-800 space-y-2">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="pt-3 border-t border-border dark:border-border space-y-2">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
                             <Phone className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{warehouse.manager_phone}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
                             <Mail className="w-3 h-3 flex-shrink-0" />
                             <span className="truncate">{warehouse.manager_email}</span>
                           </div>
@@ -1193,7 +1146,7 @@ export const WarehouseList = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full text-xs sm:text-sm"
+                          className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleWarehouseClick(warehouse.id);

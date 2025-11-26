@@ -53,38 +53,6 @@ import { AddHiredVehicleModal } from "./AddHiredVehicleModal";
 import { AddBrokerModal } from "./AddBrokerModal";
 import { useToast } from "@/hooks/use-toast";
 
-// Add custom styles for column hover
-const tableStyles = `
-  <style>
-    .vehicles-table td {
-      position: relative;
-    }
-    .vehicles-table td::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: -1px;
-      bottom: -1px;
-      background: transparent;
-      pointer-events: none;
-      transition: background-color 0.2s ease;
-      z-index: 0;
-    }
-    .vehicles-table tr:hover td:nth-child(1)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table tr:hover td:nth-child(2)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table tr:hover td:nth-child(3)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table tr:hover td:nth-child(4)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table tr:hover td:nth-child(5)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table tr:hover td:nth-child(6)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table tr:hover td:nth-child(7)::before { background: hsl(var(--primary) / 0.03); }
-    .vehicles-table td > * {
-      position: relative;
-      z-index: 1;
-    }
-  </style>
-`;
-
 interface OwnedVehicle {
   id: string;
   vehicle_number: string;
@@ -145,37 +113,32 @@ interface HiredVehicle {
   }>;
 }
 
-// Status configuration with colors and icons
+// ✅ Status configuration (GREEN/RED/ORANGE allowed for status)
 const statusConfig = {
   AVAILABLE: {
     label: "Available",
-    color: "bg-green-100 text-green-700 border-green-200",
+    color: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
     icon: CheckCircle,
-    gradient: "from-green-500 to-green-600"
   },
   OCCUPIED: {
     label: "Occupied",
-    color: "bg-orange-100 text-orange-700 border-orange-200",
+    color: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800",
     icon: AlertCircle,
-    gradient: "from-orange-500 to-orange-600"
   },
   MAINTENANCE: {
     label: "Maintenance",
-    color: "bg-red-100 text-red-700 border-red-200",
+    color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
     icon: Wrench,
-    gradient: "from-red-500 to-red-600"
   },
   INACTIVE: {
     label: "Inactive",
-    color: "bg-gray-100 text-gray-700 border-gray-200",
+    color: "bg-[#F3F4F6] text-muted-foreground border-border dark:bg-secondary dark:text-muted-foreground dark:border-border",
     icon: XCircle,
-    gradient: "from-gray-500 to-gray-600"
   },
   RELEASED: {
     label: "Released",
-    color: "bg-blue-100 text-blue-700 border-blue-200",
+    color: "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-primary/10 dark:text-primary dark:border-primary/30",
     icon: Clock,
-    gradient: "from-blue-500 to-blue-600"
   }
 };
 
@@ -236,8 +199,6 @@ export const VehiclesList = () => {
     const modalType = searchParams.get('openModal');
 
     if (modalType) {
-      console.log('Opening modal from URL param:', modalType);
-
       if (modalType === 'broker') {
         setIsAddBrokerModalOpen(true);
       } else if (modalType === 'hired') {
@@ -257,8 +218,6 @@ export const VehiclesList = () => {
   // Separate effect for location state
   useEffect(() => {
     if (location.state?.openModal) {
-      console.log('Opening modal from location state:', location.state.openModal);
-
       if (location.state.openModal === 'broker') {
         setIsAddBrokerModalOpen(true);
       } else if (location.state.openModal === 'owned') {
@@ -300,10 +259,6 @@ export const VehiclesList = () => {
   // Handler for owned vehicles
   const handleAddOwnedVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      console.log("📥 Received vehicle data:", vehicleData);
-      console.log("📄 Received documents:", documents);
-
-      // 1. Create vehicle first
       const newVehicle = await createOwnedVehicle({
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
@@ -315,12 +270,7 @@ export const VehiclesList = () => {
         permit_expiry: vehicleData.permit_expiry,
       });
 
-      console.log("✅ Vehicle created:", newVehicle);
-
-      // 2. Upload documents if any
       if (documents && documents.files.length > 0) {
-        console.log(`📤 Uploading ${documents.files.length} documents...`);
-
         const { uploadVehicleDocument } = await import('@/api/vehicleDocument');
 
         let uploadedCount = 0;
@@ -333,13 +283,12 @@ export const VehiclesList = () => {
           try {
             await uploadVehicleDocument({
               vehicle_id: newVehicle.id,
-              vehicle_type: 'OWNED',  // ✅ OWNED
+              vehicle_type: 'OWNED',
               document_type: metadata.document_type,
               file: file,
               expiry_date: metadata.expiry_date
             });
             uploadedCount++;
-            console.log(`✅ Uploaded: ${file.name}`);
           } catch (error) {
             failedCount++;
             console.error(`❌ Failed to upload: ${file.name}`, error);
@@ -386,7 +335,6 @@ export const VehiclesList = () => {
         vehicle_type: vehicleData.vehicleType,
         capacity: vehicleData.capacity,
         broker_id: vehicleData.brokerId,
-        // ✅ ADD THIS LINE:
         default_driver_id: vehicleData.default_driver_id,
         rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
       });
@@ -415,7 +363,7 @@ export const VehiclesList = () => {
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
         email: brokerData.email || undefined,
-        city: brokerData.city || undefined // ✅ NEW
+        city: brokerData.city || undefined
       });
 
       toast({
@@ -557,7 +505,7 @@ export const VehiclesList = () => {
           <Loader2 className="w-12 h-12 animate-spin text-primary" />
           <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
         </div>
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+        <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
           Loading vehicles...
         </p>
       </div>
@@ -565,165 +513,175 @@ export const VehiclesList = () => {
   }
 
   return (
-    <div className="space-y-8 p-2">
-      {/* Header Section with Gradient */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-8 border border-primary/20">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="relative flex items-center justify-between">
+    <div className="space-y-6">
+      {/* ✅ HEADER: Brand gradient with theme colors */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#FFFBF0] via-[#FFFBF0]/50 to-transparent dark:from-primary/10 dark:via-primary/5 dark:to-transparent p-8 border border-primary/20 dark:border-border">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 dark:bg-primary/10 rounded-full blur-3xl" />
+        <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold text-foreground dark:text-white">
               Fleet Management
             </h1>
-            <p className="text-muted-foreground mt-2 text-lg">
+            <p className="text-muted-foreground dark:text-muted-foreground mt-2 text-lg">
               Manage your fleet of {totalVehicles} vehicles ({ownedVehicles.length} owned, {hiredVehicles.length} hired)
             </p>
           </div>
-          <div className="flex gap-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    onClick={handleExport}
-                    className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Export vehicles to CSV</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
+          <div className="flex flex-col gap-2 w-full lg:w-auto lg:min-w-[220px]">
             {activeTab === 'hired' && (
               <>
                 <Button
-                  variant="outline"
-                  onClick={() => setIsAddBrokerModalOpen(true)}
-                  className="border-primary/20 hover:bg-primary/10 transition-all duration-200"
-                >
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Add Broker
-                </Button>
-                <Button
                   onClick={() => setIsAddHiredModalOpen(true)}
-                  className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                  className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Hired Vehicle
                 </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white transition-all"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddBrokerModalOpen(true)}
+                  className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white transition-all"
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  Add Broker
+                </Button>
               </>
             )}
+
             {activeTab === 'owned' && (
-              <Button
-                onClick={() => {
-                  setAddModalType('owned');
-                  setIsAddModalOpen(true);
-                }}
-                className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Owned Vehicle
-              </Button>
+              <>
+                <Button
+                  onClick={() => {
+                    setAddModalType('owned');
+                    setIsAddModalOpen(true);
+                  }}
+                  className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Owned Vehicle
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white transition-all"
+                >
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* ✅ STATS CARDS: Using brand colors + status colors */}
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+        {/* Total Fleet - Primary Brand Color */}
+        <Card className="bg-card border border-border dark:border-border hover:shadow-lg transition-all">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Fleet</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Total Fleet</p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">
                   {stats.total}
                 </p>
               </div>
-              <div className="p-3 bg-primary/10 rounded-xl">
+              <div className="p-3 bg-accent dark:bg-primary/10 rounded-xl">
                 <Truck className="w-6 h-6 text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+        {/* Owned - Secondary Brand Color */}
+        <Card className="bg-card border border-border dark:border-border hover:shadow-lg transition-all">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Owned</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Owned</p>
+                <p className="text-3xl font-bold text-primary dark:text-primary">
                   {stats.owned}
                 </p>
               </div>
-              <div className="p-3 bg-blue-500/10 rounded-xl">
-                <Shield className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-[#F38810]/10 rounded-xl">
+                <Shield className="w-6 h-6 text-primary dark:text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+        {/* Hired - Tertiary Brand Color */}
+        <Card className="bg-card border border-border dark:border-border hover:shadow-lg transition-all">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Hired</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Hired</p>
+                <p className="text-3xl font-bold text-primary dark:text-primary">
                   {stats.hired}
                 </p>
               </div>
-              <div className="p-3 bg-purple-500/10 rounded-xl">
-                <Building2 className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-[#F67C09]/10 rounded-xl">
+                <Building2 className="w-6 h-6 text-primary dark:text-primary" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+        {/* ✅ Status colors (GREEN allowed for success) */}
+        <Card className="bg-card border border-border dark:border-border hover:shadow-lg transition-all">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Available</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-500 bg-clip-text text-transparent">
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Available</p>
+                <p className="text-3xl font-bold text-green-600">
                   {stats.available}
                 </p>
               </div>
-              <div className="p-3 bg-green-500/10 rounded-xl">
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-xl">
                 <CheckCircle className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+        {/* ✅ Orange for occupied (status color) */}
+        <Card className="bg-card border border-border dark:border-border hover:shadow-lg transition-all">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Occupied</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Occupied</p>
+                <p className="text-3xl font-bold text-orange-600">
                   {stats.occupied}
                 </p>
               </div>
-              <div className="p-3 bg-orange-500/10 rounded-xl">
+              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-xl">
                 <AlertCircle className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-primary/20 hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer bg-gradient-to-br from-background to-muted/30">
+        {/* ✅ Red for maintenance (status color) */}
+        <Card className="bg-card border border-border dark:border-border hover:shadow-lg transition-all">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Maintenance</p>
-                <p className="text-3xl font-bold bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent">
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Maintenance</p>
+                <p className="text-3xl font-bold text-red-600">
                   {stats.maintenance}
                 </p>
               </div>
-              <div className="p-3 bg-red-500/10 rounded-xl">
+              <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-xl">
                 <Wrench className="w-6 h-6 text-red-600" />
               </div>
             </div>
@@ -731,46 +689,44 @@ export const VehiclesList = () => {
         </Card>
       </div>
 
-      {/* Search Section */}
-      <Card className="border-border shadow-xl bg-gradient-to-br from-background via-background to-muted/10">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+      {/* ✅ SEARCH CARD */}
+      <Card className="bg-card border border-border dark:border-border shadow-sm">
+        <CardHeader className="border-b border-border dark:border-border">
+          <CardTitle className="text-lg flex items-center gap-2 text-foreground dark:text-white">
             <Search className="w-5 h-5 text-primary" />
             Search Vehicles
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-4">
-            <div className="relative flex-1 group">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <Input
-                placeholder={activeTab === 'owned'
-                  ? "Search by vehicle number, driver name, or type..."
-                  : "Search by vehicle number, driver name, type, or broker..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 border-muted-foreground/20 focus:border-primary transition-all duration-200 bg-background/50 backdrop-blur-sm"
-              />
-            </div>
+        <CardContent className="p-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+            <Input
+              placeholder={activeTab === 'owned'
+                ? "Search by vehicle number, driver name, or type..."
+                : "Search by vehicle number, driver name, type, or broker..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-11 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Vehicles Table with Tabs */}
-      <Card className="border-border shadow-xl overflow-hidden bg-gradient-to-br from-background via-background to-muted/5">
-        <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent border-b">
+      {/* ✅ TABLE CARD */}
+      <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
+        <CardHeader className="border-b border-border dark:border-border bg-muted">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'owned' | 'hired')}>
-            <TabsList className="grid w-full grid-cols-2 bg-muted/50">
+            <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex">
               <TabsTrigger
                 value="owned"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3.5 transition-all text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
               >
                 <Shield className="w-4 h-4 mr-2" />
                 Owned Vehicles ({ownedVehicles.length})
               </TabsTrigger>
               <TabsTrigger
                 value="hired"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3.5 transition-all text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
               >
                 <Building2 className="w-4 h-4 mr-2" />
                 Hired Vehicles ({hiredVehicles.length})
@@ -782,43 +738,43 @@ export const VehiclesList = () => {
           <div className="overflow-x-auto">
             <Table className="vehicles-table">
               <TableHeader>
-                <TableRow className="border-border hover:bg-muted/30 bg-muted/10">
-                  <TableHead className="font-semibold">
+                <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-muted-foreground" />
+                      <Truck className="w-4 h-4" />
                       Vehicle
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold">
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-muted-foreground" />
+                      <User className="w-4 h-4" />
                       Driver
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Status</TableHead>
                   {activeTab === 'owned' ? (
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <Calendar className="w-4 h-4" />
                         Insurance
                       </div>
                     </TableHead>
                   ) : (
-                    <TableHead className="font-semibold">
+                    <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-muted-foreground" />
+                        <Building2 className="w-4 h-4" />
                         Broker
                       </div>
                     </TableHead>
                   )}
-                  <TableHead className="font-semibold">
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground" />
+                      <MapPin className="w-4 h-4" />
                       Location
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold">Verified</TableHead>
-                  <TableHead className="font-semibold text-center">Actions</TableHead>
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Verified</TableHead>
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -826,10 +782,10 @@ export const VehiclesList = () => {
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-16">
                       <div className="flex flex-col items-center gap-4">
-                        <div className="p-4 bg-muted/30 rounded-full">
-                          <Truck className="w-12 h-12 text-muted-foreground/50" />
+                        <div className="p-4 bg-muted rounded-full">
+                          <Truck className="w-12 h-12 text-muted-foreground dark:text-muted-foreground" />
                         </div>
-                        <div className="text-muted-foreground">
+                        <div className="text-muted-foreground dark:text-muted-foreground">
                           <p className="text-lg font-medium">
                             {searchQuery ? "No vehicles found" : `No ${activeTab} vehicles added yet`}
                           </p>
@@ -846,7 +802,7 @@ export const VehiclesList = () => {
                                   setAddModalType('owned');
                                   setIsAddModalOpen(true);
                                 }}
-                                className="hover:bg-primary/10 hover:border-primary transition-all"
+                                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                               >
                                 <Plus className="w-4 h-4 mr-2" />
                                 Add Owned Vehicle
@@ -856,7 +812,7 @@ export const VehiclesList = () => {
                                 <Button
                                   variant="outline"
                                   onClick={() => setIsAddBrokerModalOpen(true)}
-                                  className="hover:bg-primary/10 hover:border-primary transition-all"
+                                  className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                 >
                                   <Building2 className="w-4 h-4 mr-2" />
                                   Add Broker
@@ -864,7 +820,7 @@ export const VehiclesList = () => {
                                 <Button
                                   variant="outline"
                                   onClick={() => setIsAddHiredModalOpen(true)}
-                                  className="hover:bg-primary/10 hover:border-primary transition-all"
+                                  className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                 >
                                   <Plus className="w-4 h-4 mr-2" />
                                   Add Hired Vehicle
@@ -888,16 +844,16 @@ export const VehiclesList = () => {
                     return (
                       <TableRow
                         key={vehicle.id}
-                        className="border-border hover:bg-muted/20 transition-all duration-200 group"
+                        className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors"
                       >
                         <TableCell>
                           <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/20 transition-all">
+                            <div className="w-10 h-10 bg-accent dark:bg-primary/10 rounded-lg flex items-center justify-center">
                               <Truck className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <p className="font-semibold text-foreground">{vehicle.vehicle_number}</p>
-                              <p className="text-sm text-muted-foreground">
+                              <p className="font-semibold text-foreground dark:text-white">{vehicle.vehicle_number}</p>
+                              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                                 {vehicle.vehicle_type} • {vehicle.capacity}
                               </p>
                             </div>
@@ -906,23 +862,23 @@ export const VehiclesList = () => {
                         <TableCell>
                           {driver ? (
                             <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                              <div className="w-8 h-8 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
                                 <User className="w-4 h-4 text-green-600" />
                               </div>
                               <div>
-                                <p className="font-medium text-foreground">{driver.name}</p>
-                                <p className="text-xs text-muted-foreground">{driver.experience || 'Experience N/A'}</p>
+                                <p className="font-medium text-foreground dark:text-white">{driver.name}</p>
+                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">{driver.experience || 'Experience N/A'}</p>
                               </div>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground flex items-center gap-2">
+                            <span className="text-muted-foreground dark:text-muted-foreground flex items-center gap-2">
                               <User className="w-4 h-4" />
                               No driver assigned
                             </span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge className={cn("gap-1.5 font-medium", status.color)}>
+                          <Badge className={cn("gap-1.5 font-medium text-xs", status.color)}>
                             <StatusIcon className="w-3.5 h-3.5" />
                             {status.label}
                           </Badge>
@@ -932,16 +888,18 @@ export const VehiclesList = () => {
                             <div>
                               {(vehicle as OwnedVehicle).insurance_expiry ? (
                                 <div className="flex items-center gap-2">
-                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <Calendar className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                                   <div>
-                                    <p className="text-sm font-medium">
+                                    <p className="text-sm font-medium text-foreground dark:text-white">
                                       {format(new Date((vehicle as OwnedVehicle).insurance_expiry!), 'dd MMM yyyy')}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">Expires in {formatDistanceToNow(new Date((vehicle as OwnedVehicle).insurance_expiry!))}</p>
+                                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                      Expires in {formatDistanceToNow(new Date((vehicle as OwnedVehicle).insurance_expiry!))}
+                                    </p>
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground">Not set</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">Not set</span>
                               )}
                             </div>
                           ) : (
@@ -949,22 +907,24 @@ export const VehiclesList = () => {
                               {(vehicle as HiredVehicle).broker ? (
                                 <div className="space-y-1">
                                   <div className="flex items-center gap-2">
-                                    <Building2 className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-sm">{(vehicle as HiredVehicle).broker.name}</span>
+                                    <Building2 className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+                                    <span className="font-medium text-sm text-foreground dark:text-white">
+                                      {(vehicle as HiredVehicle).broker.name}
+                                    </span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
                                     <Phone className="w-3 h-3" />
                                     {(vehicle as HiredVehicle).broker.phone}
                                   </div>
                                   {(vehicle as HiredVehicle).rate_per_trip && (
-                                    <Badge variant="secondary" className="text-xs">
+                                    <Badge variant="outline" className="text-xs border-primary/30 text-primary dark:text-primary">
                                       <DollarSign className="w-3 h-3 mr-1" />
                                       ₹{(vehicle as HiredVehicle).rate_per_trip}/trip
                                     </Badge>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground">No broker</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">No broker</span>
                               )}
                             </div>
                           )}
@@ -972,16 +932,16 @@ export const VehiclesList = () => {
                         <TableCell>
                           {booking ? (
                             <div className="space-y-1">
-                              <Badge variant="outline" className="gap-1">
+                              <Badge variant="outline" className="gap-1 border-primary/30 text-primary dark:text-primary">
                                 <Navigation className="w-3 h-3" />
                                 En Route
                               </Badge>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                                 {booking.from_location} → {booking.to_location}
                               </p>
                             </div>
                           ) : (
-                            <Badge variant="secondary" className="gap-1">
+                            <Badge variant="outline" className="gap-1 border-border dark:border-border">
                               <MapPin className="w-3 h-3" />
                               At Depot
                             </Badge>
@@ -995,7 +955,7 @@ export const VehiclesList = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleVerifyVehicle(vehicle.id, activeTab === 'owned', vehicle.is_verified || false)}
-                                  className="flex items-center space-x-2 hover:bg-primary/10"
+                                  className="flex items-center space-x-2 hover:bg-accent dark:hover:bg-secondary"
                                 >
                                   {vehicle.is_verified ? (
                                     <>
@@ -1004,8 +964,8 @@ export const VehiclesList = () => {
                                     </>
                                   ) : (
                                     <>
-                                      <Shield className="w-4 h-4 text-muted-foreground" />
-                                      <span className="text-sm">Verify</span>
+                                      <Shield className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+                                      <span className="text-sm text-muted-foreground dark:text-muted-foreground">Verify</span>
                                     </>
                                   )}
                                 </Button>
@@ -1025,7 +985,7 @@ export const VehiclesList = () => {
                                     <Button
                                       variant="outline"
                                       size="icon"
-                                      className="h-8 w-8 hover:bg-primary/10 hover:border-primary"
+                                      className="h-8 w-8 border-border dark:border-border hover:bg-accent dark:hover:bg-secondary hover:border-primary"
                                       asChild
                                     >
                                       <a href={`tel:${driver.phone}`}>
@@ -1045,7 +1005,7 @@ export const VehiclesList = () => {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 hover:bg-primary/10"
+                                    className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                   </Button>
@@ -1067,7 +1027,7 @@ export const VehiclesList = () => {
         </CardContent>
       </Card>
 
-      {/* Add Owned Vehicle Modal */}
+      {/* Modals */}
       <AddVehicleModal
         isOpen={isAddModalOpen}
         onClose={() => {
@@ -1078,7 +1038,6 @@ export const VehiclesList = () => {
         defaultType="owned"
       />
 
-      {/* Add Hired Vehicle Modal */}
       <AddHiredVehicleModal
         isOpen={isAddHiredModalOpen}
         onClose={() => setIsAddHiredModalOpen(false)}
@@ -1089,7 +1048,6 @@ export const VehiclesList = () => {
         }}
       />
 
-      {/* Add Broker Modal */}
       <AddBrokerModal
         isOpen={isAddBrokerModalOpen}
         onClose={() => setIsAddBrokerModalOpen(false)}

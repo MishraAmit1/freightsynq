@@ -18,14 +18,11 @@ import {
     Shield,
     Zap,
     XCircle,
-    AlertTriangle
+    AlertTriangle,
+    Users,
+    Clock,
+    Headphones
 } from 'lucide-react';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -452,304 +449,440 @@ export const Signup = () => {
             </div>
         );
     }
-
     return (
         <div className="h-screen w-full flex overflow-hidden">
-            {/* 🔥 Left Panel - Centered like right panel */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-background">
+            {/* ✅ GLOBAL SCROLLBAR HIDE CSS */}
+            <style>{`
+            html, body, #root {
+                height: 100%;
+                overflow: hidden;
+                margin: 0;
+                padding: 0;
+            }
+            
+            .custom-scrollbar {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            .custom-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+        `}</style>
+
+
+            {/* ✅ LEFT PANEL - SIGNUP FORM */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-white dark:bg-[#1E1E24] overflow-hidden">
                 <div className="w-full max-w-lg h-full max-h-[90vh] flex flex-col">
-                    {/* Header */}
+                    {/* ✅ Header - CLEAN TEXT-BASED */}
                     <div className="mb-6 flex-shrink-0">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center">
-                                <Truck className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                            <h1 className="text-xl font-bold">Create Company Account</h1>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Join FreightSynQ logistics platform</p>
+                        <p className="text-sm font-medium text-primary dark:text-primary mb-2">Get started</p>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-foreground dark:text-white">
+                            Create your account
+                        </h1>
                     </div>
 
-                    {/* Scrollable Form - Hidden scrollbar */}
-                    <div className="flex-1 overflow-y-auto pr-2 -mr-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <style>{`
-                        .flex-1.overflow-y-auto::-webkit-scrollbar {
-                            display: none;
-                        }
-                    `}</style>
+                    {/* ✅ Scrollable Form - NO SCROLLBAR */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <Card className="border border-border dark:border-border shadow-lg bg-card">
+                            <CardContent className="p-6">
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    {/* Error Alert */}
+                                    {error && (
+                                        <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/50">
+                                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                                            <AlertDescription className="text-red-700 dark:text-red-400 text-xs">{error}</AlertDescription>
+                                        </Alert>
+                                    )}
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Error Alert */}
-                            {error && (
-                                <Alert variant="destructive" className="py-2">
-                                    <AlertDescription className="text-xs">{error}</AlertDescription>
-                                </Alert>
-                            )}
+                                    {/* Company Info */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <Building2 className="w-4 h-4 text-primary dark:text-primary" />
+                                            <span className="text-sm font-semibold text-foreground dark:text-white">Company Information</span>
+                                        </div>
 
-                            {/* Company Info */}
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <Building2 className="w-3 h-3 text-muted-foreground" />
-                                    <span className="text-xs font-medium text-muted-foreground">Company Information</span>
-                                </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-foreground dark:text-white">GST Number*</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        name="gstNumber"
+                                                        placeholder="15-digit GST"
+                                                        value={formData.gstNumber}
+                                                        onChange={handleInputChange}
+                                                        required
+                                                        className={cn(
+                                                            "h-11 text-sm pr-10 uppercase border-border dark:border-border bg-card",
+                                                            gstValid === true && "border-green-500",
+                                                            gstValid === false && "border-red-500"
+                                                        )}
+                                                        maxLength={15}
+                                                    />
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                        {gstLookupLoading && <Loader2 className="w-4 h-4 animate-spin text-primary dark:text-primary" />}
+                                                        {!gstLookupLoading && gstValid === true && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                                        {!gstLookupLoading && gstValid === false && formData.gstNumber && <XCircle className="w-4 h-4 text-red-500" />}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-foreground dark:text-white">Company Name*</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        name="companyName"
+                                                        placeholder="Company name"
+                                                        value={formData.companyName}
+                                                        onChange={handleInputChange}
+                                                        required
+                                                        className={cn(
+                                                            "h-11 text-sm border-border dark:border-border bg-card",
+                                                            gstData && "bg-green-50 dark:bg-green-900/20 border-green-300"
+                                                        )}
+                                                    />
+                                                    {gstData && (
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <Sparkles className="w-4 h-4 text-green-600" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <Label className="text-xs">GST Number*</Label>
-                                        <div className="relative">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-foreground dark:text-white">PAN Number</Label>
                                             <Input
-                                                name="gstNumber"
-                                                placeholder="15-digit GST"
-                                                value={formData.gstNumber}
+                                                name="panNumber"
+                                                placeholder="10-digit PAN"
+                                                value={formData.panNumber}
+                                                onChange={handleInputChange}
+                                                className={cn(
+                                                    "h-11 text-sm uppercase border-border dark:border-border bg-card",
+                                                    formData.panNumber && "bg-green-50 dark:bg-green-900/20 border-green-300"
+                                                )}
+                                                maxLength={10}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Admin Details */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-1.5">
+                                            <User className="w-4 h-4 text-primary dark:text-primary" />
+                                            <span className="text-sm font-semibold text-foreground dark:text-white">Admin User Details</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-foreground dark:text-white">Full Name*</Label>
+                                                <div className="relative">
+                                                    <Input
+                                                        name="userName"
+                                                        placeholder="Your name"
+                                                        value={formData.userName}
+                                                        onChange={handleInputChange}
+                                                        required
+                                                        className={cn(
+                                                            "h-11 text-sm border-border dark:border-border bg-card",
+                                                            gstData && "bg-green-50 dark:bg-green-900/20 border-green-300"
+                                                        )}
+                                                    />
+                                                    {gstData && (
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                            <Sparkles className="w-4 h-4 text-green-600" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-foreground dark:text-white">Phone</Label>
+                                                <Input
+                                                    name="userPhone"
+                                                    placeholder="10-digit number"
+                                                    value={formData.userPhone}
+                                                    onChange={handleInputChange}
+                                                    className="h-11 text-sm border-border dark:border-border bg-card"
+                                                    maxLength={10}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-foreground dark:text-white">Email Address*</Label>
+                                            <Input
+                                                name="email"
+                                                type="email"
+                                                placeholder="admin@company.com"
+                                                value={formData.email}
                                                 onChange={handleInputChange}
                                                 required
-                                                className={cn(
-                                                    "h-9 text-xs pr-8 uppercase",
-                                                    gstValid === true && "border-green-500",
-                                                    gstValid === false && "border-red-500"
-                                                )}
-                                                maxLength={15}
+                                                className="h-11 text-sm border-border dark:border-border bg-card"
                                             />
-                                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                {gstLookupLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-                                                {!gstLookupLoading && gstValid === true && <CheckCircle className="w-3 h-3 text-green-500" />}
-                                                {!gstLookupLoading && gstValid === false && formData.gstNumber && <XCircle className="w-3 h-3 text-red-500" />}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-foreground dark:text-white">Username* (for login)</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    name="username"
+                                                    placeholder="Unique username"
+                                                    value={formData.username}
+                                                    onChange={handleInputChange}
+                                                    onBlur={(e) => {
+                                                        if (e.target.value.length >= 3) {
+                                                            checkUsernameAvailability(e.target.value);
+                                                        }
+                                                    }}
+                                                    required
+                                                    className={cn(
+                                                        "h-11 text-sm border-border dark:border-border bg-card",
+                                                        usernameAvailable === true && "border-green-500",
+                                                        usernameAvailable === false && "border-red-500"
+                                                    )}
+                                                    minLength={3}
+                                                    disabled={loading}
+                                                />
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    {checkingUsername && <Loader2 className="w-4 h-4 animate-spin text-primary dark:text-primary" />}
+                                                    {!checkingUsername && usernameAvailable === true && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                                    {!checkingUsername && usernameAvailable === false && formData.username && <XCircle className="w-4 h-4 text-red-500" />}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-foreground dark:text-white">Password*</Label>
+                                                <Input
+                                                    name="password"
+                                                    type="password"
+                                                    placeholder="Min 6 characters"
+                                                    value={formData.password}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    className="h-11 text-sm border-border dark:border-border bg-card"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-sm font-medium text-foreground dark:text-white">Confirm Password*</Label>
+                                                <Input
+                                                    name="confirmPassword"
+                                                    type="password"
+                                                    placeholder="Re-enter password"
+                                                    value={formData.confirmPassword}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    className="h-11 text-sm border-border dark:border-border bg-card"
+                                                />
                                             </div>
                                         </div>
                                     </div>
-                                    <div>
-                                        <Label className="text-xs">Company Name*</Label>
-                                        <div className="relative">
-                                            <Input
-                                                name="companyName"
-                                                placeholder="Company name"
-                                                value={formData.companyName}
-                                                onChange={handleInputChange}
-                                                required
-                                                className={cn(
-                                                    "h-9 text-xs",
-                                                    gstData && "bg-green-50 border-green-300"
-                                                )}
+
+                                    {/* Terms & Submit */}
+                                    <div className="space-y-4 pt-2">
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id="terms"
+                                                checked={formData.termsAccepted}
+                                                onCheckedChange={(checked) => setFormData({ ...formData, termsAccepted: !!checked })}
                                             />
-                                            {gstData && (
-                                                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                    <Sparkles className="w-3 h-3 text-green-600" />
-                                                </div>
-                                            )}
+                                            <Label htmlFor="terms" className="text-sm font-normal text-muted-foreground dark:text-muted-foreground cursor-pointer">
+                                                I agree to the Terms & Conditions
+                                            </Label>
                                         </div>
-                                    </div>
-                                </div>
 
-                                <div>
-                                    <Label className="text-xs">PAN Number</Label>
-                                    <Input
-                                        name="panNumber"
-                                        placeholder="10-digit PAN"
-                                        value={formData.panNumber}
-                                        onChange={handleInputChange}
-                                        className={cn(
-                                            "h-9 text-xs uppercase",
-                                            formData.panNumber && "bg-green-50 border-green-300"
-                                        )}
-                                        maxLength={10}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Admin Details */}
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <User className="w-3 h-3 text-muted-foreground" />
-                                    <span className="text-xs font-medium text-muted-foreground">Admin User Details</span>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <Label className="text-xs">Full Name*</Label>
-                                        <div className="relative">
-                                            <Input
-                                                name="userName"
-                                                placeholder="Your name"
-                                                value={formData.userName}
-                                                onChange={handleInputChange}
-                                                required
-                                                className={cn("h-9 text-xs", gstData && "bg-green-50 border-green-300")}
-                                            />
-                                            {gstData && (
-                                                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                    <Sparkles className="w-3 h-3 text-green-600" />
-                                                </div>
+                                        <Button
+                                            type="submit"
+                                            className="w-full h-11 text-base bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-semibold shadow-md hover:shadow-lg transition-all"
+                                            disabled={loading || !formData.termsAccepted || usernameAvailable === false || gstValid !== true}
+                                        >
+                                            {loading ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Creating Account...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    Create Account
+                                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                                </>
                                             )}
-                                        </div>
+                                        </Button>
+
+                                        <p className="text-center text-sm text-muted-foreground dark:text-muted-foreground">
+                                            Already have an account?{' '}
+                                            <Link to="/login" className="text-primary dark:text-primary hover:underline font-medium">Sign in</Link>
+                                        </p>
                                     </div>
-                                    <div>
-                                        <Label className="text-xs">Phone</Label>
-                                        <Input
-                                            name="userPhone"
-                                            placeholder="10-digit number"
-                                            value={formData.userPhone}
-                                            onChange={handleInputChange}
-                                            className="h-9 text-xs"
-                                            maxLength={10}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <Label className="text-xs">Email Address*</Label>
-                                    <Input
-                                        name="email"
-                                        type="email"
-                                        placeholder="admin@company.com"
-                                        value={formData.email}
-                                        onChange={handleInputChange}
-                                        required
-                                        className="h-9 text-xs"
-                                    />
-                                </div>
-
-                                <div>
-                                    <Label className="text-xs">Username* (for login)</Label>
-                                    <div className="relative">
-                                        <Input
-                                            name="username"
-                                            placeholder="Unique username"
-                                            value={formData.username}
-                                            onChange={handleInputChange}
-                                            onBlur={(e) => {
-                                                if (e.target.value.length >= 3) {
-                                                    checkUsernameAvailability(e.target.value);
-                                                }
-                                            }}
-                                            required
-                                            className={cn(
-                                                "h-9 text-xs",
-                                                usernameAvailable === true && "border-green-500",
-                                                usernameAvailable === false && "border-red-500"
-                                            )}
-                                            minLength={3}
-                                            disabled={loading}
-                                        />
-                                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                            {checkingUsername && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                                            {!checkingUsername && usernameAvailable === true && <CheckCircle className="w-3 h-3 text-green-500" />}
-                                            {!checkingUsername && usernameAvailable === false && formData.username && <XCircle className="w-3 h-3 text-red-500" />}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <Label className="text-xs">Password*</Label>
-                                        <Input
-                                            name="password"
-                                            type="password"
-                                            placeholder="Min 6 characters"
-                                            value={formData.password}
-                                            onChange={handleInputChange}
-                                            required
-                                            className="h-9 text-xs"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="text-xs">Confirm Password*</Label>
-                                        <Input
-                                            name="confirmPassword"
-                                            type="password"
-                                            placeholder="Re-enter password"
-                                            value={formData.confirmPassword}
-                                            onChange={handleInputChange}
-                                            required
-                                            className="h-9 text-xs"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Terms & Submit */}
-                            <div className="space-y-3 pt-2">
-                                <div className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id="terms"
-                                        checked={formData.termsAccepted}
-                                        onCheckedChange={(checked) => setFormData({ ...formData, termsAccepted: !!checked })}
-                                        className="w-3.5 h-3.5"
-                                    />
-                                    <Label htmlFor="terms" className="text-xs text-muted-foreground cursor-pointer">
-                                        I agree to the Terms & Conditions
-                                    </Label>
-                                </div>
-
-                                <Button
-                                    type="submit"
-                                    className="w-full h-9"
-                                    disabled={loading || !formData.termsAccepted || usernameAvailable === false || gstValid !== true}
-                                >
-                                    {loading ? (
-                                        <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Creating Account...</>
-                                    ) : (
-                                        <>Create Account <Sparkles className="ml-2 h-3.5 w-3.5" /></>
-                                    )}
-                                </Button>
-
-                                <p className="text-center text-xs text-muted-foreground">
-                                    Already have an account?{' '}
-                                    <Link to="/login" className="text-primary hover:underline font-medium">Sign in</Link>
-                                </p>
-                            </div>
-                        </form>
+                                </form>
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
             </div>
 
-            {/* 🔥 Right Panel - Original centered version (PERFECT) */}
-            <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-primary/80 relative overflow-hidden">
-                <div className="absolute inset-0 bg-grid-white/5" />
-                <div className="absolute top-1/4 -left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-                <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
+            {/* RIGHT PANEL - SAME AS BEFORE */}
+            <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
 
-                <div className="flex items-center justify-center w-full h-full relative z-10 px-12">
-                    <div className="w-full max-w-md">
-                        <div className="mb-12 text-center">
-                            <div className="inline-flex w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl items-center justify-center mb-4">
-                                <Truck className="w-8 h-8 text-white" />
+                {/* Animated Border CSS */}
+                <style>{`
+                    @keyframes borderFlow {
+                        0%, 100% { background-position: 0% 50%; }
+                        50% { background-position: 100% 50%; }
+                    }
+                    
+                    @keyframes glow {
+                        0%, 100% { opacity: 0.5; transform: scale(1); }
+                        50% { opacity: 1; transform: scale(1.2); }
+                    }
+                    
+                    .animated-corner-tl::before {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 150px;
+                        height: 3px;
+                        background: linear-gradient(90deg, #FCC52C, #F38810, #FCC52C, #F38810);
+                        background-size: 300% 100%;
+                        animation: borderFlow 2s ease-in-out infinite;
+                        border-radius: 0 4px 4px 0;
+                    }
+                    
+                    .animated-corner-tl::after {
+                        content: '';
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 3px;
+                        height: 150px;
+                        background: linear-gradient(180deg, #FCC52C, #F38810, #FCC52C, #F38810);
+                        background-size: 100% 300%;
+                        animation: borderFlow 2s ease-in-out infinite;
+                        border-radius: 0 0 4px 4px;
+                    }
+                    
+                    .animated-corner-br::before {
+                        content: '';
+                        position: absolute;
+                        bottom: 0;
+                        right: 0;
+                        width: 150px;
+                        height: 3px;
+                        background: linear-gradient(90deg, #F38810, #FCC52C, #F38810, #FCC52C);
+                        background-size: 300% 100%;
+                        animation: borderFlow 2s ease-in-out infinite;
+                        border-radius: 4px 0 0 4px;
+                    }
+                    
+                    .animated-corner-br::after {
+                        content: '';
+                        position: absolute;
+                        bottom: 0;
+                        right: 0;
+                        width: 3px;
+                        height: 150px;
+                        background: linear-gradient(180deg, #F38810, #FCC52C, #F38810, #FCC52C);
+                        background-size: 100% 300%;
+                        animation: borderFlow 2s ease-in-out infinite;
+                        border-radius: 4px 4px 0 0;
+                    }
+                    
+                    .glow-dot {
+                        animation: glow 2s ease-in-out infinite;
+                    }
+                `}</style>
+
+                {/* Animated Corners */}
+                <div className="animated-corner-tl absolute inset-0 pointer-events-none z-20" />
+                <div className="animated-corner-br absolute inset-0 pointer-events-none z-20" />
+
+                {/* Corner Glow Dots */}
+                <div className="absolute top-0 left-0 w-2.5 h-2.5 bg-primary rounded-full glow-dot shadow-lg shadow-[#FCC52C]/60 z-20" />
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#F38810] rounded-full glow-dot shadow-lg shadow-[#F38810]/60 z-20" style={{ animationDelay: '1s' }} />
+
+                {/* Background Elements */}
+                <div className="absolute inset-0">
+                    <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-primary/8 rounded-full blur-[120px]" />
+                    <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-[#F38810]/8 rounded-full blur-[120px]" />
+
+                    <div
+                        className="absolute inset-0 opacity-[0.02]"
+                        style={{
+                            backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+                            backgroundSize: '32px 32px'
+                        }}
+                    />
+                </div>
+
+                {/* Main Content */}
+                <div className="relative z-10 text-center px-12 flex flex-col items-center">
+                    {/* Logo */}
+                    <div className="relative mb-8">
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl blur-2xl opacity-40" />
+                        <div className="relative flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl shadow-2xl">
+                            <Truck className="w-10 h-10 text-foreground" />
+                        </div>
+                    </div>
+
+                    {/* Brand Name */}
+                    <h2 className="text-4xl font-bold text-white mb-2">
+                        Freight<span className="text-primary">SynQ</span>
+                    </h2>
+                    <p className="text-gray-400 text-lg mb-10">
+                        Complete logistics management platform
+                    </p>
+
+                    {/* Feature Pills */}
+                    <div className="flex flex-wrap justify-center gap-3 mb-14">
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
+                            <Package className="w-4 h-4 text-primary" />
+                            <span className="text-sm text-gray-300">Smart Booking</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
+                            <Shield className="w-4 h-4 text-primary" />
+                            <span className="text-sm text-gray-300">Secure</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
+                            <Zap className="w-4 h-4 text-primary" />
+                            <span className="text-sm text-gray-300">Real-time</span>
+                        </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-6 w-full max-w-md">
+                        {/* Stat 1 */}
+                        <div className="group relative">
+                            <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-primary/30 transition-all duration-300">
+                                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
+                                    <Users className="w-5 h-5 text-primary" />
+                                </div>
+                                <p className="text-2xl font-bold text-white">500<span className="text-primary">+</span></p>
+                                <p className="text-xs text-gray-500 mt-1">Active Clients</p>
                             </div>
-                            <h2 className="text-3xl font-bold text-white mb-2">
-                                Welcome to FreightSynQ
-                            </h2>
-                            <p className="text-white/90 text-sm">
-                                Complete logistics management platform
-                            </p>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-start gap-4">
-                                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Package className="w-5 h-5 text-white" />
+                        {/* Stat 2 */}
+                        <div className="group relative">
+                            <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-primary/30 transition-all duration-300">
+                                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
+                                    <Clock className="w-5 h-5 text-primary" />
                                 </div>
-                                <div>
-                                    <p className="text-white font-semibold text-sm">Smart Booking System</p>
-                                    <p className="text-white/80 text-xs mt-0.5">Manage shipments efficiently with real-time updates</p>
-                                </div>
+                                <p className="text-2xl font-bold text-white">99.9<span className="text-primary">%</span></p>
+                                <p className="text-xs text-gray-500 mt-1">Uptime SLA</p>
                             </div>
+                        </div>
 
-                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-start gap-4">
-                                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Shield className="w-5 h-5 text-white" />
+                        {/* Stat 3 */}
+                        <div className="group relative">
+                            <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-primary/30 transition-all duration-300">
+                                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
+                                    <Headphones className="w-5 h-5 text-primary" />
                                 </div>
-                                <div>
-                                    <p className="text-white font-semibold text-sm">Secure Platform</p>
-                                    <p className="text-white/80 text-xs mt-0.5">Enterprise-grade security for your data</p>
-                                </div>
-                            </div>
-
-                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-start gap-4">
-                                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <Zap className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <p className="text-white font-semibold text-sm">Real-time Tracking</p>
-                                    <p className="text-white/80 text-xs mt-0.5">Live shipment tracking and notifications</p>
-                                </div>
+                                <p className="text-2xl font-bold text-white">24<span className="text-primary">/7</span></p>
+                                <p className="text-xs text-gray-500 mt-1">Support</p>
                             </div>
                         </div>
                     </div>

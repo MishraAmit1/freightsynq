@@ -38,6 +38,7 @@ import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
 import { useToast } from "@/hooks/use-toast";
+import { MiniTrackingMap } from "@/components/MiniTrackingMap";
 
 interface BookingDetailSheetProps {
     isOpen: boolean;
@@ -109,12 +110,12 @@ interface BookingDetail {
 const statusConfig = {
     DRAFT: { label: "Draft", color: "bg-gray-100 text-gray-700 border-gray-300" },
     QUOTED: { label: "Quoted", color: "bg-blue-100 text-blue-700 border-blue-300" },
-    CONFIRMED: { label: "Confirmed", color: "bg-green-100 text-green-700 border-green-300" },
-    AT_WAREHOUSE: { label: "At Warehouse", color: "bg-indigo-100 text-indigo-700 border-indigo-300" },
-    DISPATCHED: { label: "Dispatched", color: "bg-purple-100 text-purple-700 border-purple-300" },
-    IN_TRANSIT: { label: "In Transit", color: "bg-orange-100 text-orange-700 border-orange-300" },
-    DELIVERED: { label: "Delivered", color: "bg-emerald-100 text-emerald-700 border-emerald-300" },
-    CANCELLED: { label: "Cancelled", color: "bg-red-100 text-red-700 border-red-300" },
+    CONFIRMED: { label: "Confirmed", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800" },
+    AT_WAREHOUSE: { label: "At Warehouse", color: "bg-accent text-primary dark:text-primary border-primary/40 dark:bg-primary/15 dark:text-primary dark:border-primary/40" },
+    DISPATCHED: { label: "Dispatched", color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800" },
+    IN_TRANSIT: { label: "In Transit", color: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800" },
+    DELIVERED: { label: "Delivered", color: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800" },
+    CANCELLED: { label: "Cancelled", color: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800" },
 };
 
 export const BookingDetailSheet = ({
@@ -140,8 +141,6 @@ export const BookingDetailSheet = ({
         try {
             setLoading(true);
             const data = await fetchBookingById(bookingId);
-
-            console.log('📦 Raw API Data:', data);
 
             if (data) {
                 const hasActiveAssignment = data.vehicle_assignments &&
@@ -198,20 +197,10 @@ export const BookingDetailSheet = ({
                     broker: activeAssignment?.broker,
                 };
 
-                console.log('✅ Converted Booking:', {
-                    consignorName: convertedBooking.consignorName,
-                    consigneeName: convertedBooking.consigneeName,
-                    vehicleAssigned: !!convertedBooking.assignedVehicle,
-                    lastTollCrossed: convertedBooking.assignedVehicle?.last_toll_crossed,
-                    lastTollTime: convertedBooking.assignedVehicle?.last_toll_time,
-                    remarks: convertedBooking.remarks,
-                });
-
-                // ✅ ADD ALERT CALCULATION
+                // Alert calculation
                 const alerts: any[] = [];
                 const now = new Date();
 
-                // 1. POD Check
                 if (data.status === 'DELIVERED' && !data.pod_uploaded_at) {
                     const deliveryTime = new Date(data.actual_delivery || data.updated_at);
                     const hoursSince = (now.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60);
@@ -222,7 +211,6 @@ export const BookingDetailSheet = ({
                     }
                 }
 
-                // 2. E-way Check
                 if (data.eway_bill_details) {
                     data.eway_bill_details.forEach((ewb: any) => {
                         if (ewb.valid_until) {
@@ -235,7 +223,6 @@ export const BookingDetailSheet = ({
                 }
 
                 setBooking({ ...convertedBooking, alerts });
-
             }
         } catch (error) {
             console.error('❌ Error loading booking:', error);
@@ -347,7 +334,7 @@ export const BookingDetailSheet = ({
     return (
         <>
             <Sheet open={isOpen} onOpenChange={onClose}>
-                <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
+                <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 bg-card border-l border-border dark:border-border">
                     <VisuallyHidden>
                         <SheetHeader>
                             <SheetTitle>Booking Details - {booking?.bookingId || 'Loading'}</SheetTitle>
@@ -356,25 +343,28 @@ export const BookingDetailSheet = ({
                             </SheetDescription>
                         </SheetHeader>
                     </VisuallyHidden>
+
                     {loading ? (
                         <div className="flex items-center justify-center h-screen">
                             <div className="text-center space-y-3">
                                 <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-                                <p className="text-sm text-muted-foreground">Loading...</p>
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground">Loading...</p>
                             </div>
                         </div>
                     ) : booking ? (
                         <>
                             {/* HEADER */}
-                            <div className="sticky top-0 z-10 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b backdrop-blur-sm">
+                            <div className="sticky top-0 z-10 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 dark:to-transparent border-b border-border dark:border-border backdrop-blur-sm">
                                 <div className="p-4">
                                     <div className="flex items-start justify-between gap-3 mb-3">
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <Package className="w-5 h-5 text-primary shrink-0" />
-                                                <h2 className="text-xl font-bold truncate">{booking.bookingId}</h2>
+                                                <h2 className="text-xl font-bold truncate text-foreground dark:text-white">
+                                                    {booking.bookingId}
+                                                </h2>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="w-3 h-3" />
                                                     {formatDate(booking.bookingDateTime)}
@@ -382,7 +372,7 @@ export const BookingDetailSheet = ({
                                                 {booking.branch_name && (
                                                     <>
                                                         <span>•</span>
-                                                        <Badge variant="outline" className="text-xs h-5">
+                                                        <Badge variant="outline" className="text-xs h-5 border-border dark:border-border">
                                                             {booking.branch_code}
                                                         </Badge>
                                                     </>
@@ -390,10 +380,15 @@ export const BookingDetailSheet = ({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <Badge className={cn("text-xs", status.color)}>
+                                            <Badge className={cn("text-xs font-medium", status.color)}>
                                                 {status.label}
                                             </Badge>
-                                            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={onClose}
+                                                className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary"
+                                            >
                                                 <X className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -403,31 +398,36 @@ export const BookingDetailSheet = ({
                                     <div className="grid grid-cols-3 gap-2">
                                         <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-2 text-center border">
                                             <div className="flex items-center justify-center gap-1 mb-1">
-                                                <Package className="w-3 h-3 text-blue-600" />
-                                                <p className="text-xs text-muted-foreground">Cargo</p>
+                                                <Package className="w-3 h-3 text-primary dark:text-primary" />
+                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Cargo</p>
                                             </div>
-                                            <p className="text-sm font-bold">{booking.cargoUnits}</p>
+                                            <p className="text-sm font-bold text-foreground dark:text-white">
+                                                {booking.cargoUnits}
+                                            </p>
                                         </div>
                                         <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-2 text-center border">
                                             <div className="flex items-center justify-center gap-1 mb-1">
                                                 <Navigation className="w-3 h-3 text-green-600" />
-                                                <p className="text-xs text-muted-foreground">Service</p>
+                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Service</p>
                                             </div>
-                                            <p className="text-sm font-bold">{booking.serviceType}</p>
+                                            <p className="text-sm font-bold text-foreground dark:text-white">
+                                                {booking.serviceType}
+                                            </p>
                                         </div>
                                         <div className="bg-white/50 dark:bg-gray-900/50 rounded-lg p-2 text-center border">
                                             <div className="flex items-center justify-center gap-1 mb-1">
                                                 <FileText className="w-3 h-3 text-orange-600" />
-                                                <p className="text-xs text-muted-foreground">LR</p>
+                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">LR</p>
                                             </div>
-                                            <p className="text-xs font-bold truncate">
+                                            <p className="text-xs font-bold truncate text-foreground dark:text-white">
                                                 {booking.lrNumber || 'Pending'}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            {/* ✅ ALERT BANNER (New) */}
+
+                            {/* ALERT BANNER */}
                             {booking.alerts && booking.alerts.length > 0 && (
                                 <div className="bg-red-50 dark:bg-red-950/30 border-b border-red-200 dark:border-red-900 px-4 py-3 animate-in slide-in-from-top-2">
                                     <div className="flex items-start gap-3">
@@ -450,13 +450,14 @@ export const BookingDetailSheet = ({
                                     </div>
                                 </div>
                             )}
+
                             {/* CONTENT */}
                             <div className="p-4 space-y-4">
                                 {/* Route */}
-                                <div className="bg-gradient-to-r from-green-50 to-red-50 dark:from-green-950/20 dark:to-red-950/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                                <div className="bg-gradient-to-r from-green-50 to-red-50 dark:from-green-950/20 dark:to-red-950/20 rounded-lg p-4 border border-border dark:border-border">
                                     <div className="flex items-center gap-2 mb-3">
                                         <Navigation className="w-4 h-4 text-primary" />
-                                        <h3 className="font-semibold text-sm">Route</h3>
+                                        <h3 className="font-semibold text-sm text-foreground dark:text-white">Route</h3>
                                     </div>
                                     <div className="space-y-2">
                                         <div className="flex items-start gap-2">
@@ -464,18 +465,22 @@ export const BookingDetailSheet = ({
                                                 <MapPin className="w-3 h-3 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs text-muted-foreground">Pickup from</p>
-                                                <p className="font-semibold text-sm truncate">{booking.fromLocation}</p>
+                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pickup from</p>
+                                                <p className="font-semibold text-sm truncate text-foreground dark:text-white">
+                                                    {booking.fromLocation}
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="ml-3 border-l-2 border-dashed border-gray-300 h-4"></div>
+                                        <div className="ml-3 border-l-2 border-dashed border-border dark:border-border h-4"></div>
                                         <div className="flex items-start gap-2">
                                             <div className="mt-1 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
                                                 <MapPin className="w-3 h-3 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-xs text-muted-foreground">Deliver to</p>
-                                                <p className="font-semibold text-sm truncate">{booking.toLocation}</p>
+                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Deliver to</p>
+                                                <p className="font-semibold text-sm truncate text-foreground dark:text-white">
+                                                    {booking.toLocation}
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -483,23 +488,27 @@ export const BookingDetailSheet = ({
 
                                 {/* Parties */}
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                                    <div className="bg-accent dark:bg-primary/10 rounded-lg p-3 border border-primary/20 dark:border-primary/30">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <div className="w-7 h-7 rounded-full bg-primary/20 dark:bg-primary/30 flex items-center justify-center">
                                                 <User className="w-3.5 h-3.5 text-primary" />
                                             </div>
-                                            <p className="text-xs text-muted-foreground">Consignor</p>
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Consignor</p>
                                         </div>
-                                        <p className="font-semibold text-sm truncate" title={booking.consignorName}>
+                                        <p className="font-semibold text-sm truncate text-foreground dark:text-white" title={booking.consignorName}>
                                             {booking.consignorName}
                                         </p>
                                         {booking.consignorAddress && (
-                                            <p className="text-xs text-muted-foreground mt-1 truncate" title={booking.consignorAddress}>
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1 truncate" title={booking.consignorAddress}>
                                                 {booking.consignorAddress}
                                             </p>
                                         )}
                                         {booking.consignorPhone && (
-                                            <Button variant="link" className="h-auto p-0 text-xs mt-1" asChild>
+                                            <Button
+                                                variant="link"
+                                                className="h-auto p-0 text-xs mt-1 text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                asChild
+                                            >
                                                 <a href={`tel:${booking.consignorPhone}`}>
                                                     <Phone className="w-2.5 h-2.5 mr-1" />
                                                     {booking.consignorPhone}
@@ -508,23 +517,27 @@ export const BookingDetailSheet = ({
                                         )}
                                     </div>
 
-                                    <div className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/20">
+                                    <div className="bg-accent dark:bg-primary/10 rounded-lg p-3 border border-primary/20 dark:border-primary/30">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center">
-                                                <User className="w-3.5 h-3.5 text-blue-600" />
+                                            <div className="w-7 h-7 rounded-full bg-[#F38810]/20 dark:bg-[#F38810]/30 flex items-center justify-center">
+                                                <User className="w-3.5 h-3.5 text-primary dark:text-primary" />
                                             </div>
-                                            <p className="text-xs text-muted-foreground">Consignee</p>
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Consignee</p>
                                         </div>
-                                        <p className="font-semibold text-sm truncate" title={booking.consigneeName}>
+                                        <p className="font-semibold text-sm truncate text-foreground dark:text-white" title={booking.consigneeName}>
                                             {booking.consigneeName}
                                         </p>
                                         {booking.consigneeAddress && (
-                                            <p className="text-xs text-muted-foreground mt-1 truncate" title={booking.consigneeAddress}>
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1 truncate" title={booking.consigneeAddress}>
                                                 {booking.consigneeAddress}
                                             </p>
                                         )}
                                         {booking.consigneePhone && (
-                                            <Button variant="link" className="h-auto p-0 text-xs mt-1" asChild>
+                                            <Button
+                                                variant="link"
+                                                className="h-auto p-0 text-xs mt-1 text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                asChild
+                                            >
                                                 <a href={`tel:${booking.consigneePhone}`}>
                                                     <Phone className="w-2.5 h-2.5 mr-1" />
                                                     {booking.consigneePhone}
@@ -538,22 +551,26 @@ export const BookingDetailSheet = ({
                                 <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Package className="w-4 h-4 text-orange-600" />
-                                        <h3 className="font-semibold text-sm">Cargo Details</h3>
+                                        <h3 className="font-semibold text-sm text-foreground dark:text-white">
+                                            Cargo Details
+                                        </h3>
                                     </div>
                                     <div className="grid grid-cols-3 gap-3 text-sm">
                                         <div>
-                                            <p className="text-xs text-muted-foreground">Material</p>
-                                            <p className="font-medium text-xs truncate" title={booking.materialDescription}>
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Material</p>
+                                            <p className="font-medium text-xs truncate text-foreground dark:text-white" title={booking.materialDescription}>
                                                 {booking.materialDescription}
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-muted-foreground">Units</p>
-                                            <p className="font-bold text-base">{booking.cargoUnits}</p>
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Units</p>
+                                            <p className="font-bold text-base text-foreground dark:text-white">
+                                                {booking.cargoUnits}
+                                            </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs text-muted-foreground">Pickup</p>
-                                            <p className="font-medium text-xs">
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">Pickup</p>
+                                            <p className="font-medium text-xs text-foreground dark:text-white">
                                                 {booking.pickupDate ? formatDate(booking.pickupDate) : 'TBD'}
                                             </p>
                                         </div>
@@ -562,86 +579,120 @@ export const BookingDetailSheet = ({
 
                                 {/* Warehouse */}
                                 {booking.current_warehouse && (
-                                    <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg p-3 border border-indigo-200 dark:border-indigo-800">
+                                    <div className="bg-accent dark:bg-primary/10 rounded-lg p-3 border border-primary/30 dark:border-primary/40">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <Building2 className="w-4 h-4 text-indigo-600" />
-                                            <h3 className="font-semibold text-sm">Current Location</h3>
-                                            <Badge className="ml-auto bg-indigo-600 text-white text-xs">
+                                            <Building2 className="w-4 h-4 text-primary dark:text-primary" />
+                                            <h3 className="font-semibold text-sm text-foreground dark:text-white">
+                                                Current Location
+                                            </h3>
+                                            <Badge className="ml-auto bg-primary text-primary-foreground text-xs border-0">
                                                 At Warehouse
                                             </Badge>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <MapPinned className="w-3 h-3 text-muted-foreground" />
-                                            <p className="font-medium text-sm">{booking.current_warehouse.name}</p>
-                                            <span className="text-xs text-muted-foreground">• {booking.current_warehouse.city}</span>
+                                            <MapPinned className="w-3 h-3 text-muted-foreground dark:text-muted-foreground" />
+                                            <p className="font-medium text-sm text-foreground dark:text-white">
+                                                {booking.current_warehouse.name}
+                                            </p>
+                                            <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                • {booking.current_warehouse.city}
+                                            </span>
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Live Tracking */}
-                                {booking.assignedVehicle && booking.assignedVehicle.last_toll_crossed && trackingInfo && (
+                                {/* Live Tracking with Mini Map */}
+                                {booking.assignedVehicle && (
                                     <div className={cn(
                                         "rounded-lg p-4 border",
-                                        trackingInfo.isFresh && "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800",
-                                        trackingInfo.isStale && "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
-                                        trackingInfo.isOld && "bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                                        trackingInfo?.isFresh && "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800",
+                                        trackingInfo?.isStale && "bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800",
+                                        (!trackingInfo || trackingInfo?.isOld) && "bg-muted border-border dark:border-border"
                                     )}>
                                         <div className="flex items-center gap-2 mb-3">
                                             <Activity className={cn(
                                                 "w-5 h-5",
-                                                trackingInfo.isFresh && "text-orange-600",
-                                                trackingInfo.isStale && "text-yellow-600",
-                                                trackingInfo.isOld && "text-gray-500"
+                                                trackingInfo?.isFresh && "text-orange-600",
+                                                trackingInfo?.isStale && "text-yellow-600",
+                                                (!trackingInfo) && "text-muted-foreground dark:text-muted-foreground"
                                             )} />
-                                            <h3 className="font-semibold">Live Tracking</h3>
-                                            <Badge variant="outline" className="ml-auto">
-                                                En Route
-                                            </Badge>
+                                            <h3 className="font-semibold text-foreground dark:text-white">
+                                                Live Tracking
+                                            </h3>
+                                            {booking.assignedVehicle.last_toll_crossed && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="ml-auto border-border dark:border-border"
+                                                >
+                                                    En Route
+                                                </Badge>
+                                            )}
                                         </div>
 
-                                        <div className="space-y-3">
-                                            <div className="flex items-start gap-3 p-3 bg-white/70 dark:bg-gray-900/70 rounded-lg">
-                                                <div className="relative">
-                                                    <MapPin className={cn(
-                                                        "w-5 h-5",
-                                                        trackingInfo.isFresh && "text-orange-600",
-                                                        trackingInfo.isStale && "text-yellow-600",
-                                                        trackingInfo.isOld && "text-gray-500"
-                                                    )} />
-                                                    <span className={cn(
-                                                        "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white",
-                                                        trackingInfo.dotColor
-                                                    )} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs text-muted-foreground">Last Location</p>
-                                                    <p className="font-semibold">{booking.assignedVehicle.last_toll_crossed}</p>
-                                                </div>
-                                            </div>
+                                        {/* 🗺️ MINI MAP - NEW! */}
+                                        <MiniTrackingMap
+                                            bookingId={booking.id}
+                                            vehicleNumber={booking.assignedVehicle.regNumber}
+                                            className="mb-4"
+                                        />
 
-                                            <div className="grid grid-cols-2 gap-3 text-sm">
-                                                <div className="p-2 bg-white/50 dark:bg-gray-900/50 rounded">
-                                                    <p className="text-xs text-muted-foreground">Crossed</p>
-                                                    <p className="font-medium text-xs">
-                                                        {formatDateTime(booking.assignedVehicle.last_toll_time!)}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                                        ({trackingInfo.timeAgo})
-                                                    </p>
+                                        {/* Last Location Details (only if tracking data exists) */}
+                                        {booking.assignedVehicle.last_toll_crossed && trackingInfo && (
+                                            <div className="space-y-3">
+                                                <div className="flex items-start gap-3 p-3 bg-card rounded-lg border border-border dark:border-border">
+                                                    <div className="relative">
+                                                        <MapPin className={cn(
+                                                            "w-5 h-5",
+                                                            trackingInfo.isFresh && "text-orange-600",
+                                                            trackingInfo.isStale && "text-yellow-600",
+                                                            trackingInfo.isOld && "text-muted-foreground"
+                                                        )} />
+                                                        <span className={cn(
+                                                            "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-white",
+                                                            trackingInfo.dotColor
+                                                        )} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                            Last Location
+                                                        </p>
+                                                        <p className="font-semibold text-foreground dark:text-white">
+                                                            {booking.assignedVehicle.last_toll_crossed}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="p-2 bg-white/50 dark:bg-gray-900/50 rounded">
-                                                    <p className="text-xs text-muted-foreground">Status</p>
-                                                    <p className="font-medium text-sm">
-                                                        {trackingInfo.statusEmoji} {trackingInfo.statusText}
-                                                    </p>
-                                                </div>
-                                            </div>
 
-                                            <div className="p-2 bg-white/50 dark:bg-gray-900/50 rounded">
-                                                <p className="text-xs text-muted-foreground">Vehicle</p>
-                                                <p className="font-bold">{booking.assignedVehicle.regNumber}</p>
+                                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                                    <div className="p-2 bg-card rounded border border-border dark:border-border">
+                                                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                            Crossed
+                                                        </p>
+                                                        <p className="font-medium text-xs text-foreground dark:text-white">
+                                                            {formatDateTime(booking.assignedVehicle.last_toll_time!)}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">
+                                                            ({trackingInfo.timeAgo})
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-2 bg-card rounded border border-border dark:border-border">
+                                                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                            Status
+                                                        </p>
+                                                        <p className="font-medium text-sm text-foreground dark:text-white">
+                                                            {trackingInfo.statusEmoji} {trackingInfo.statusText}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
+
+                                        {/* No tracking data yet message */}
+                                        {!booking.assignedVehicle.last_toll_crossed && (
+                                            <p className="text-xs text-muted-foreground text-center py-2">
+                                                Tracking data will appear once vehicle crosses FASTag tolls
+                                            </p>
+                                        )}
                                     </div>
                                 )}
 
@@ -650,14 +701,16 @@ export const BookingDetailSheet = ({
                                     "rounded-lg p-3 border",
                                     booking.assignedVehicle
                                         ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800"
-                                        : "bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800"
+                                        : "bg-muted border-border dark:border-border"
                                 )}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <Truck className={cn(
                                             "w-4 h-4",
-                                            booking.assignedVehicle ? "text-green-600" : "text-gray-500"
+                                            booking.assignedVehicle ? "text-green-600" : "text-muted-foreground dark:text-muted-foreground"
                                         )} />
-                                        <h3 className="font-semibold text-sm">Vehicle Assignment</h3>
+                                        <h3 className="font-semibold text-sm text-foreground dark:text-white">
+                                            Vehicle Assignment
+                                        </h3>
                                         {booking.assignedVehicle && (
                                             <CheckCircle2 className="w-4 h-4 text-green-600 ml-auto" />
                                         )}
@@ -667,26 +720,42 @@ export const BookingDetailSheet = ({
                                         <div className="space-y-3">
                                             <div className="grid grid-cols-2 gap-3 text-sm">
                                                 <div>
-                                                    <p className="text-xs text-muted-foreground">Vehicle No.</p>
-                                                    <p className="font-bold">{booking.assignedVehicle.regNumber}</p>
+                                                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                        Vehicle No.
+                                                    </p>
+                                                    <p className="font-bold text-foreground dark:text-white">
+                                                        {booking.assignedVehicle.regNumber}
+                                                    </p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs text-muted-foreground">Type</p>
-                                                    <p className="font-medium text-xs">{booking.assignedVehicle.type}</p>
+                                                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">Type</p>
+                                                    <p className="font-medium text-xs text-foreground dark:text-white">
+                                                        {booking.assignedVehicle.type}
+                                                    </p>
                                                 </div>
                                             </div>
 
                                             {booking.assignedVehicle.driver && (
                                                 <>
-                                                    <Separator />
+                                                    <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
                                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                                         <div>
-                                                            <p className="text-xs text-muted-foreground">Driver</p>
-                                                            <p className="font-semibold text-sm">{booking.assignedVehicle.driver.name}</p>
+                                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                                Driver
+                                                            </p>
+                                                            <p className="font-semibold text-sm text-foreground dark:text-white">
+                                                                {booking.assignedVehicle.driver.name}
+                                                            </p>
                                                         </div>
                                                         <div>
-                                                            <p className="text-xs text-muted-foreground">Phone</p>
-                                                            <Button variant="link" className="h-auto p-0 text-sm font-semibold" asChild>
+                                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                                                Phone
+                                                            </p>
+                                                            <Button
+                                                                variant="link"
+                                                                className="h-auto p-0 text-sm font-semibold text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                                asChild
+                                                            >
                                                                 <a href={`tel:${booking.assignedVehicle.driver.phone}`}>
                                                                     <Phone className="w-3 h-3 mr-1" />
                                                                     Call
@@ -699,18 +768,26 @@ export const BookingDetailSheet = ({
 
                                             {booking.broker && (
                                                 <>
-                                                    <Separator />
+                                                    <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
                                                     <div className="space-y-2">
-                                                        <p className="text-xs text-muted-foreground font-medium">Broker Details</p>
+                                                        <p className="text-xs text-muted-foreground dark:text-muted-foreground font-medium">
+                                                            Broker Details
+                                                        </p>
                                                         <div className="text-sm space-y-1">
-                                                            <p className="font-medium">{booking.broker.name}</p>
+                                                            <p className="font-medium text-foreground dark:text-white">
+                                                                {booking.broker.name}
+                                                            </p>
                                                             {booking.broker.contact_person && (
-                                                                <p className="text-xs text-muted-foreground">
+                                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                                                                     Contact: {booking.broker.contact_person}
                                                                 </p>
                                                             )}
                                                             {booking.broker.phone && (
-                                                                <Button variant="link" className="h-auto p-0 text-xs" asChild>
+                                                                <Button
+                                                                    variant="link"
+                                                                    className="h-auto p-0 text-xs text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                                    asChild
+                                                                >
                                                                     <a href={`tel:${booking.broker.phone}`}>
                                                                         <Phone className="w-2.5 h-2.5 mr-1" />
                                                                         {booking.broker.phone}
@@ -726,7 +803,7 @@ export const BookingDetailSheet = ({
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="flex-1 text-xs h-8"
+                                                    className="flex-1 text-xs h-8 border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                                     onClick={() => setShowVehicleAssignModal(true)}
                                                 >
                                                     Replace
@@ -734,7 +811,7 @@ export const BookingDetailSheet = ({
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="flex-1 text-xs h-8"
+                                                    className="flex-1 text-xs h-8 border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                                     onClick={handleVehicleUnassign}
                                                 >
                                                     Unassign
@@ -743,10 +820,12 @@ export const BookingDetailSheet = ({
                                         </div>
                                     ) : (
                                         <div className="text-center py-4">
-                                            <p className="text-sm text-muted-foreground mb-3">No vehicle assigned</p>
+                                            <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-3">
+                                                No vehicle assigned
+                                            </p>
                                             <Button
                                                 size="sm"
-                                                className="w-full"
+                                                className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
                                                 onClick={() => setShowVehicleAssignModal(true)}
                                             >
                                                 <Truck className="w-4 h-4 mr-2" />
@@ -761,17 +840,27 @@ export const BookingDetailSheet = ({
                                     <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
                                         <div className="flex items-center gap-2 mb-2">
                                             <Zap className="w-4 h-4 text-yellow-600" />
-                                            <h3 className="font-semibold text-sm">E-way Bills</h3>
-                                            <Badge variant="secondary" className="ml-auto text-xs">
+                                            <h3 className="font-semibold text-sm text-foreground dark:text-white">
+                                                E-way Bills
+                                            </h3>
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-auto text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-0"
+                                            >
                                                 {booking.eway_bill_details.length}
                                             </Badge>
                                         </div>
                                         <div className="space-y-1.5">
                                             {booking.eway_bill_details.map((ewb: any, index: number) => (
-                                                <div key={index} className="flex items-center justify-between text-sm bg-white/50 dark:bg-gray-900/50 rounded px-2 py-1.5">
-                                                    <span className="font-mono font-semibold text-xs">{ewb.number}</span>
+                                                <div
+                                                    key={index}
+                                                    className="flex items-center justify-between text-sm bg-card rounded px-2 py-1.5 border border-border dark:border-border"
+                                                >
+                                                    <span className="font-mono font-semibold text-xs text-foreground dark:text-white">
+                                                        {ewb.number}
+                                                    </span>
                                                     {ewb.valid_until && (
-                                                        <span className="text-xs text-muted-foreground">
+                                                        <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                                                             Until {formatDate(ewb.valid_until)}
                                                         </span>
                                                     )}
@@ -786,19 +875,21 @@ export const BookingDetailSheet = ({
                                     "rounded-lg p-4 border",
                                     booking.remarks
                                         ? "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800"
-                                        : "bg-gray-50 dark:bg-gray-900/50 border-dashed border-2"
+                                        : "bg-muted border-dashed border-2 border-border dark:border-border"
                                 )}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <MessageSquare className={cn(
                                             "w-4 h-4",
-                                            booking.remarks ? "text-orange-600" : "text-muted-foreground"
+                                            booking.remarks ? "text-orange-600" : "text-muted-foreground dark:text-muted-foreground"
                                         )} />
-                                        <h3 className="font-semibold text-sm">Remarks / Notes</h3>
+                                        <h3 className="font-semibold text-sm text-foreground dark:text-white">
+                                            Remarks / Notes
+                                        </h3>
                                         {booking.remarks && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="ml-auto h-7 text-xs"
+                                                className="ml-auto h-7 text-xs hover:bg-accent dark:hover:bg-secondary"
                                                 onClick={() => {
                                                     setRemarksText(booking.remarks || "");
                                                     setShowRemarksModal(true);
@@ -811,18 +902,18 @@ export const BookingDetailSheet = ({
                                     </div>
 
                                     {booking.remarks ? (
-                                        <div className="bg-white/70 dark:bg-gray-900/70 rounded-lg p-3">
-                                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                                        <div className="bg-card rounded-lg p-3 border border-border dark:border-border">
+                                            <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground dark:text-white">
                                                 {booking.remarks}
                                             </p>
                                         </div>
                                     ) : (
                                         <div className="text-center py-6">
-                                            <MessageSquare className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                                            <p className="text-sm text-muted-foreground mb-1">
+                                            <MessageSquare className="w-10 h-10 text-muted-foreground dark:text-muted-foreground mx-auto mb-2 opacity-30" />
+                                            <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-1">
                                                 No remarks added yet
                                             </p>
-                                            <p className="text-xs text-muted-foreground mb-3">
+                                            <p className="text-xs text-muted-foreground dark:text-muted-foreground mb-3">
                                                 Add notes or special instructions for this booking
                                             </p>
                                             <Button
@@ -832,6 +923,7 @@ export const BookingDetailSheet = ({
                                                     setRemarksText("");
                                                     setShowRemarksModal(true);
                                                 }}
+                                                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                             >
                                                 <Plus className="w-4 h-4 mr-2" />
                                                 Add Remarks
@@ -842,19 +934,29 @@ export const BookingDetailSheet = ({
 
                                 {/* LR */}
                                 {booking.lrNumber && (
-                                    <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                                    <div className="bg-accent dark:bg-primary/10 rounded-lg p-3 border border-primary/30 dark:border-primary/40">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="w-4 h-4 text-blue-600" />
-                                            <h3 className="font-semibold text-sm">Lorry Receipt</h3>
+                                            <FileText className="w-4 h-4 text-primary dark:text-primary" />
+                                            <h3 className="font-semibold text-sm text-foreground dark:text-white">
+                                                Lorry Receipt
+                                            </h3>
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <div>
-                                                <p className="font-bold">{booking.lrNumber}</p>
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="font-bold text-foreground dark:text-white">
+                                                    {booking.lrNumber}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                                                     {booking.lrDate && formatDate(booking.lrDate)}
                                                 </p>
                                             </div>
-                                            <Button variant="outline" size="sm">Download</Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+                                            >
+                                                Download
+                                            </Button>
                                         </div>
                                     </div>
                                 )}
@@ -882,37 +984,39 @@ export const BookingDetailSheet = ({
 
             {/* Remarks Modal */}
             <Sheet open={showRemarksModal} onOpenChange={setShowRemarksModal}>
-                <SheetContent className="w-full sm:max-w-md">
-                    <SheetHeader>
-                        <SheetTitle className="flex items-center gap-2">
+                <SheetContent className="w-full sm:max-w-md bg-card border-l border-border dark:border-border">
+                    <SheetHeader className="border-b border-border dark:border-border pb-4">
+                        <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
                             <MessageSquare className="w-5 h-5 text-orange-600" />
                             {booking?.remarks ? 'Edit Remarks' : 'Add Remarks'}
                         </SheetTitle>
-                        <SheetDescription>
+                        <SheetDescription className="text-muted-foreground dark:text-muted-foreground">
                             Add special notes or instructions for this booking
                         </SheetDescription>
                     </SheetHeader>
 
                     <div className="space-y-4 py-6">
                         <div>
-                            <Label className="text-sm font-medium mb-2 block">
+                            <Label className="text-sm font-medium mb-2 block text-foreground dark:text-white">
                                 Remarks / Notes
                             </Label>
                             <Textarea
                                 value={remarksText}
                                 onChange={(e) => setRemarksText(e.target.value)}
                                 placeholder="Enter any special instructions, notes, or important details..."
-                                className="min-h-[200px] resize-none"
+                                className="min-h-[200px] resize-none border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
                                 maxLength={500}
                             />
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                                 {remarksText.length}/500 characters
                             </p>
                         </div>
 
-                        <div className="p-3 bg-muted/50 rounded-lg border">
-                            <p className="text-xs font-semibold mb-2">💡 Examples:</p>
-                            <ul className="text-xs text-muted-foreground space-y-1">
+                        <div className="p-3 bg-accent dark:bg-primary/10 rounded-lg border border-primary/20 dark:border-primary/30">
+                            <p className="text-xs font-semibold mb-2 text-foreground dark:text-white">
+                                💡 Examples:
+                            </p>
+                            <ul className="text-xs text-muted-foreground dark:text-muted-foreground space-y-1">
                                 <li>• Customer requested priority delivery</li>
                                 <li>• Fragile items - handle with care</li>
                                 <li>• Vehicle delayed due to weather</li>
@@ -920,19 +1024,21 @@ export const BookingDetailSheet = ({
                             </ul>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4 border-t">
+                        <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
                             <Button
                                 variant="outline"
                                 onClick={() => {
                                     setShowRemarksModal(false);
                                     setRemarksText("");
                                 }}
+                                className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 onClick={handleSaveRemarks}
                                 disabled={!remarksText.trim() && !booking?.remarks}
+                                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium disabled:opacity-50"
                             >
                                 <Save className="w-4 h-4 mr-2" />
                                 Save Remarks

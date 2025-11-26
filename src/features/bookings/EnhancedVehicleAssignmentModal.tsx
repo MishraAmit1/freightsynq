@@ -43,7 +43,7 @@ import { AddDriverModal } from "./AddDriverModal";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-// Simple Custom Dropdown - No focus issues
+// ✅ THEMED: Simple Custom Dropdown
 const SimpleSearchSelect = ({
   items = [],
   value,
@@ -123,7 +123,7 @@ const SimpleSearchSelect = ({
           onChange={(e) => setSearch(e.target.value)}
           onClick={handleInputClick}
           placeholder={placeholder}
-          className="pr-8"
+          className="pr-8 h-10 border-border dark:border-border bg-card text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-primary"
         />
 
         {/* Icons */}
@@ -132,13 +132,13 @@ const SimpleSearchSelect = ({
             <button
               type="button"
               onClick={handleClear}
-              className="hover:bg-accent rounded p-0.5"
+              className="hover:bg-accent dark:hover:bg-secondary rounded p-0.5 transition-colors"
             >
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
+              <X className="h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
             </button>
           )}
           <ChevronDown className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform",
+            "h-4 w-4 text-muted-foreground dark:text-muted-foreground transition-transform",
             isOpen && "rotate-180"
           )} />
         </div>
@@ -146,17 +146,17 @@ const SimpleSearchSelect = ({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-card border border-border dark:border-border rounded-md shadow-lg overflow-hidden">
           <div className="max-h-[280px] overflow-y-auto">
             {filteredItems.length === 0 ? (
               <div className="p-3 text-center">
-                <p className="text-sm text-muted-foreground">No results found</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No results found</p>
                 {onAddNew && (
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="mt-2 w-full"
+                    className="mt-2 w-full hover:bg-accent dark:hover:bg-secondary"
                     onClick={() => {
                       setIsOpen(false);
                       onAddNew();
@@ -174,13 +174,15 @@ const SimpleSearchSelect = ({
                     key={item.id}
                     onClick={() => handleItemClick(item)}
                     className={cn(
-                      "px-3 py-2 cursor-pointer hover:bg-accent transition-colors",
-                      value === item.id && "bg-accent"
+                      "px-3 py-2 cursor-pointer hover:bg-accent dark:hover:bg-secondary transition-colors",
+                      value === item.id && "bg-accent dark:bg-secondary"
                     )}
                   >
                     {renderItem ? renderItem(item, value === item.id) : (
                       <div className="flex items-center justify-between">
-                        <span>{item.name || item.vehicle_number}</span>
+                        <span className="text-foreground dark:text-white">
+                          {item.name || item.vehicle_number}
+                        </span>
                         {value === item.id && (
                           <Check className="h-4 w-4 text-primary" />
                         )}
@@ -190,16 +192,16 @@ const SimpleSearchSelect = ({
                 ))}
 
                 {onAddNew && (
-                  <div className="border-t">
+                  <div className="border-t border-border dark:border-border">
                     <button
                       type="button"
-                      className="w-full px-3 py-2 text-left hover:bg-accent transition-colors flex items-center text-sm"
+                      className="w-full px-3 py-2 text-left hover:bg-accent dark:hover:bg-secondary transition-colors flex items-center text-sm text-foreground dark:text-white"
                       onClick={() => {
                         setIsOpen(false);
                         onAddNew();
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
+                      <Plus className="h-4 w-4 mr-2 text-primary" />
                       {addNewText}
                     </button>
                   </div>
@@ -257,12 +259,10 @@ export const EnhancedVehicleAssignmentModal = ({
   }, [isOpen]);
 
   useEffect(() => {
-    // Reset vehicle when broker changes
     setSelectedVehicleId("");
   }, [selectedBrokerId]);
 
   useEffect(() => {
-    // Reset selections when tab changes
     setSelectedVehicleId("");
     setSelectedBrokerId("");
   }, [activeTab]);
@@ -292,6 +292,7 @@ export const EnhancedVehicleAssignmentModal = ({
       setDataLoading(false);
     }
   };
+
   useEffect(() => {
     if (selectedVehicleId) {
       const allVehicles = [...ownedVehicles, ...hiredVehicles];
@@ -335,12 +336,11 @@ export const EnhancedVehicleAssignmentModal = ({
     try {
       setIsLoading(true);
 
-      // ✅ FIX: Update hired vehicle's broker_id before assignment
       if (activeTab === "hired") {
         const { error: updateError } = await supabase
           .from('hired_vehicles')
           .update({
-            broker_id: selectedBrokerId,  // ✅ Update broker
+            broker_id: selectedBrokerId,
             status: 'OCCUPIED'
           })
           .eq('id', selectedVehicleId);
@@ -355,14 +355,12 @@ export const EnhancedVehicleAssignmentModal = ({
           description: "Vehicle broker information updated",
         });
       } else {
-        // Update owned vehicle status
         await supabase
           .from('owned_vehicles')
           .update({ status: 'OCCUPIED' })
           .eq('id', selectedVehicleId);
       }
 
-      // Assign vehicle to booking
       await assignVehicleToBooking({
         booking_id: bookingId,
         vehicle_type: activeTab === 'owned' ? 'OWNED' : 'HIRED',
@@ -412,12 +410,8 @@ export const EnhancedVehicleAssignmentModal = ({
     }
   };
 
-  // Add handlers
   const handleAddOwnedVehicle = async (vehicleData: any, documents?: any) => {
     try {
-      console.log("📥 Received vehicle data in handler:", vehicleData);
-      console.log("📄 Received documents:", documents);
-
       const vehiclePayload = {
         vehicle_number: vehicleData.vehicle_number,
         vehicle_type: vehicleData.vehicle_type,
@@ -431,7 +425,6 @@ export const EnhancedVehicleAssignmentModal = ({
 
       const newVehicle = await createOwnedVehicle(vehiclePayload);
 
-      // ✅ Upload documents if provided
       if (documents && documents.files.length > 0) {
         const { uploadVehicleDocument } = await import('@/api/vehicleDocument');
 
@@ -475,21 +468,17 @@ export const EnhancedVehicleAssignmentModal = ({
       });
     }
   };
+
   const handleAddHiredVehicle = async (vehicleData: any) => {
     try {
-      console.log("📥 Received hired vehicle data:", vehicleData);
-      console.log("🚗 Driver ID received:", vehicleData.default_driver_id);
-
       const newVehicle = await createHiredVehicle({
         vehicle_number: vehicleData.vehicleNumber,
         vehicle_type: vehicleData.vehicleType,
         capacity: vehicleData.capacity,
-        broker_id: vehicleData.brokerId === "none" ? null : vehicleData.brokerId, // Only convert broker
-        default_driver_id: vehicleData.default_driver_id === "none" ? null : vehicleData.default_driver_id, // ✅ Proper check
+        broker_id: vehicleData.brokerId === "none" ? null : vehicleData.brokerId,
+        default_driver_id: vehicleData.default_driver_id === "none" ? null : vehicleData.default_driver_id,
         rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
       });
-
-      console.log("✅ Hired vehicle created:", newVehicle);
 
       await loadData();
       if (vehicleData.brokerId !== "none") setSelectedBrokerId(vehicleData.brokerId);
@@ -522,7 +511,7 @@ export const EnhancedVehicleAssignmentModal = ({
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
         email: brokerData.email || undefined,
-        city: brokerData.city || undefined // ✅ NEW
+        city: brokerData.city || undefined
       });
 
       await loadData();
@@ -572,10 +561,10 @@ export const EnhancedVehicleAssignmentModal = ({
   if (dataLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl bg-card border-border dark:border-border">
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin" />
-            <span className="ml-2">Loading...</span>
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="ml-2 text-foreground dark:text-white">Loading...</span>
           </div>
         </DialogContent>
       </Dialog>
@@ -586,31 +575,42 @@ export const EnhancedVehicleAssignmentModal = ({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose} >
-        <DialogContent className="sm:max-w-2xl" style={{
-          zIndex: 50,  // ✅ Lower than default
-        }}>
-          <DialogHeader>
-            <DialogTitle>Assign Vehicle</DialogTitle>
-            <p className="text-sm text-muted-foreground">
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent
+          className="sm:max-w-2xl bg-card border-border dark:border-border"
+          style={{ zIndex: 50 }}
+        >
+          <DialogHeader className="border-b border-border dark:border-border pb-4">
+            <DialogTitle className="text-foreground dark:text-white">
+              Assign Vehicle
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground">
               Booking ID: {bookingId}
             </p>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="owned">
+              <TabsList className="grid w-full grid-cols-2 bg-muted">
+                <TabsTrigger
+                  value="owned"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-foreground text-muted-foreground dark:text-muted-foreground"
+                >
                   Owned Vehicles ({ownedVehicles.length})
                 </TabsTrigger>
-                <TabsTrigger value="hired">
+                <TabsTrigger
+                  value="hired"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-foreground text-muted-foreground dark:text-muted-foreground"
+                >
                   Hired Vehicles ({hiredVehicles.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="owned" className="space-y-4">
                 <div>
-                  <Label className="mb-2 block">Select Vehicle</Label>
+                  <Label className="mb-2 block text-xs font-medium text-foreground dark:text-white">
+                    Select Vehicle
+                  </Label>
                   <SimpleSearchSelect
                     items={ownedVehicles}
                     value={selectedVehicleId}
@@ -623,10 +623,10 @@ export const EnhancedVehicleAssignmentModal = ({
                       <div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-medium">
+                            <div className="font-medium text-foreground dark:text-white">
                               {vehicle.vehicle_number}
                             </div>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                               {vehicle.vehicle_type} • {vehicle.capacity}
                             </div>
                           </div>
@@ -640,7 +640,9 @@ export const EnhancedVehicleAssignmentModal = ({
 
               <TabsContent value="hired" className="space-y-4">
                 <div>
-                  <Label className="mb-2 block">Select Broker</Label>
+                  <Label className="mb-2 block text-xs font-medium text-foreground dark:text-white">
+                    Select Broker
+                  </Label>
                   <SimpleSearchSelect
                     items={brokers}
                     value={selectedBrokerId}
@@ -653,8 +655,10 @@ export const EnhancedVehicleAssignmentModal = ({
                       <div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-medium">{broker.name}</div>
-                            <div className="text-sm text-muted-foreground">
+                            <div className="font-medium text-foreground dark:text-white">
+                              {broker.name}
+                            </div>
+                            <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                               {broker.contact_person} • {broker.phone}
                             </div>
                           </div>
@@ -667,7 +671,9 @@ export const EnhancedVehicleAssignmentModal = ({
 
                 {selectedBrokerId && (
                   <div>
-                    <Label className="mb-2 block">Select Vehicle</Label>
+                    <Label className="mb-2 block text-xs font-medium text-foreground dark:text-white">
+                      Select Vehicle
+                    </Label>
                     <SimpleSearchSelect
                       items={hiredVehicles}
                       value={selectedVehicleId}
@@ -680,10 +686,10 @@ export const EnhancedVehicleAssignmentModal = ({
                         <div>
                           <div className="flex items-center justify-between">
                             <div>
-                              <div className="font-medium">
+                              <div className="font-medium text-foreground dark:text-white">
                                 {vehicle.vehicle_number}
                               </div>
-                              <div className="text-sm text-muted-foreground">
+                              <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                                 {vehicle.vehicle_type} • {vehicle.capacity}
                               </div>
                             </div>
@@ -700,7 +706,9 @@ export const EnhancedVehicleAssignmentModal = ({
             {/* Driver Selection */}
             {selectedVehicleId && (
               <div>
-                <Label className="mb-2 block">Select Driver</Label>
+                <Label className="mb-2 block text-xs font-medium text-foreground dark:text-white">
+                  Select Driver
+                </Label>
                 <SimpleSearchSelect
                   items={drivers}
                   value={selectedDriverId}
@@ -713,8 +721,10 @@ export const EnhancedVehicleAssignmentModal = ({
                     <div>
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium">{driver.name}</div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="font-medium text-foreground dark:text-white">
+                            {driver.name}
+                          </div>
+                          <div className="text-sm text-muted-foreground dark:text-muted-foreground">
                             {driver.phone} • {driver.experience || 'No experience'}
                           </div>
                         </div>
@@ -727,13 +737,19 @@ export const EnhancedVehicleAssignmentModal = ({
             )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <DialogFooter className="border-t border-border dark:border-border pt-4">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+              className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+            >
               Cancel
             </Button>
             <Button
               onClick={handleAssign}
               disabled={!selectedVehicleId || !selectedDriverId || isLoading}
+              className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
@@ -747,8 +763,8 @@ export const EnhancedVehicleAssignmentModal = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <div className="relative z-50">
 
+      <div className="relative z-50">
         {/* Sub-Modals */}
         <AddVehicleModal
           isOpen={isAddOwnedVehicleModalOpen}

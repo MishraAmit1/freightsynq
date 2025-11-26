@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ ADD THIS
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
     Plus,
@@ -82,7 +83,11 @@ import {
     FileDown,
     Building,
     Hash,
-    DollarSign
+    DollarSign,
+    ChevronRight,
+    ChevronLeft,
+    ChevronsLeft,
+    ChevronsRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -111,16 +116,17 @@ interface Party {
     created_at?: string;
     updated_at?: string;
 
-    // ✅ STATIC DUMMY FIELDS - Just for UI preview
-    last_booking_date?: string | null;      // "2024-01-15" or null
-    trips_this_month?: number;               // 5, 12, 0, etc.
-    has_gst_verified?: boolean;              // true/false
-    has_pan_verified?: boolean;              // true/false
-    has_documents?: boolean;                 // true/false
-    billing_status?: string;                 // "Last Billed 03 Nov" or "Pending >30d"
-    outstanding_amount?: number;             // 45000, 0, etc.
-    pod_confirmation_rate?: number;          // 85, 92, 100, etc. (percentage)
+    // Metrics fields
+    last_booking_date?: string | null;
+    trips_this_month?: number;
+    has_gst_verified?: boolean;
+    has_pan_verified?: boolean;
+    has_documents?: boolean;
+    billing_status?: string;
+    outstanding_amount?: number;
+    pod_confirmation_rate?: number;
 }
+
 interface Stats {
     total: number;
     consignors: number;
@@ -182,7 +188,8 @@ const partyTypeConfig = {
         icon: Users
     }
 };
-// ✅ STATIC UI HELPERS - Just for preview
+
+// UI Helpers
 const getLastBookingDisplay = (date: string | null) => {
     if (!date) return "—";
     const bookingDate = new Date(date);
@@ -194,19 +201,6 @@ const getLastBookingDisplay = (date: string | null) => {
     if (diffDays < 7) return `${diffDays}d ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
     return bookingDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-};
-
-const getBillingStatusConfig = (status: string) => {
-    if (status.includes("Pending")) {
-        return {
-            color: "bg-red-100 text-red-700 border-red-200",
-            icon: "⚠️"
-        };
-    }
-    return {
-        color: "bg-green-100 text-green-700 border-green-200",
-        icon: "✓"
-    };
 };
 
 const VerifiedBadges: React.FC<{ party: Party }> = ({ party }) => {
@@ -240,30 +234,16 @@ const VerifiedBadges: React.FC<{ party: Party }> = ({ party }) => {
                     </Tooltip>
                 </TooltipProvider>
             )}
-            {/* {party.has_documents && (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger>
-                            <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
-                                <FileText className="w-3 h-3 text-purple-600" />
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p className="text-xs">Documents uploaded</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            )} */}
             {!party.has_gst_verified && !party.has_pan_verified && !party.has_documents && (
                 <span className="text-xs text-muted-foreground">—</span>
             )}
         </div>
     );
 };
-// Email validation with proper domains
-const validateEmail = (email: string): boolean => {
-    if (!email) return true; // Email is optional
 
+// Email validation
+const validateEmail = (email: string): boolean => {
+    if (!email) return true;
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email)) return false;
 
@@ -285,7 +265,7 @@ const validateEmail = (email: string): boolean => {
         domain?.endsWith('.edu');
 };
 
-// Import Modal Component
+// 🔥 FULL IMPORT MODAL COMPONENT
 const ImportModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
@@ -438,7 +418,7 @@ const ImportModal: React.FC<{
                 pan_number: row.pan_number?.toString().trim().toUpperCase() || '',
                 party_type: (row.party_type?.toString().trim().toUpperCase() as any) || 'BOTH',
                 status: (row.status?.toString().trim().toUpperCase() as any) || 'ACTIVE',
-                is_billing_party: row.is_billing_party?.toString().trim().toUpperCase() === 'TRUE' // ✅ ADDED - Converts 'TRUE'/'FALSE' to boolean
+                is_billing_party: row.is_billing_party?.toString().trim().toUpperCase() === 'TRUE'
             };
 
             // Required field validation
@@ -576,7 +556,7 @@ const ImportModal: React.FC<{
                     pan_number: row.pan_number || null,
                     party_type: row.party_type || 'BOTH',
                     status: row.status || 'ACTIVE',
-                    is_billing_party: row.is_billing_party || false // ✅ ADDED
+                    is_billing_party: row.is_billing_party || false
                 }));
 
                 const { error } = await supabase
@@ -619,13 +599,12 @@ const ImportModal: React.FC<{
     };
 
     // Download template
-    // Download template
     const downloadTemplate = () => {
         const template = [
-            ['name', 'contact_person', 'phone', 'email', 'address_line1', 'city', 'state', 'pincode', 'gst_number', 'pan_number', 'party_type', 'status', 'is_billing_party'], // ✅ ADDED is_billing_party
-            ['ABC Traders', 'John Doe', '9876543210', 'abc@gmail.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', '27AABCU9603R1ZM', 'AABCU9603R', 'CONSIGNOR', 'ACTIVE', 'TRUE'], // ✅ ADDED TRUE
-            ['XYZ Logistics', '', '8765432109', '', '456 Park Avenue', 'Delhi', 'Delhi', '110001', '', '', 'CONSIGNEE', 'ACTIVE', 'FALSE'], // ✅ ADDED FALSE
-            ['Quick Transport', 'Rahul Kumar', '7654321098', 'quick@gmail.com', '789 Ring Road', 'Bangalore', 'Karnataka', '560001', '29AABCU9603R1ZM', 'AABCU9603R', 'BOTH', 'ACTIVE', 'TRUE'] // ✅ ADDED example with billing
+            ['name', 'contact_person', 'phone', 'email', 'address_line1', 'city', 'state', 'pincode', 'gst_number', 'pan_number', 'party_type', 'status', 'is_billing_party'],
+            ['ABC Traders', 'John Doe', '9876543210', 'abc@gmail.com', '123 Main Street', 'Mumbai', 'Maharashtra', '400001', '27AABCU9603R1ZM', 'AABCU9603R', 'CONSIGNOR', 'ACTIVE', 'TRUE'],
+            ['XYZ Logistics', '', '8765432109', '', '456 Park Avenue', 'Delhi', 'Delhi', '110001', '', '', 'CONSIGNEE', 'ACTIVE', 'FALSE'],
+            ['Quick Transport', 'Rahul Kumar', '7654321098', 'quick@gmail.com', '789 Ring Road', 'Bangalore', 'Karnataka', '560001', '29AABCU9603R1ZM', 'AABCU9603R', 'BOTH', 'ACTIVE', 'TRUE']
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(template);
@@ -901,44 +880,35 @@ const ImportModal: React.FC<{
     );
 };
 
-// ✅ MAIN CUSTOMERS COMPONENT
+// 🔥 MAIN COMPONENT WITH PERFORMANCE FIXES
 export const Customers = () => {
     const { toast } = useToast();
-    const navigate = useNavigate(); // ✅ ADD THIS
+    const navigate = useNavigate();
+
+    // States
     const [parties, setParties] = useState<Party[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [typeFilter, setTypeFilter] = useState("ALL");
     const [statusFilter, setStatusFilter] = useState("ACTIVE");
     const [selectedTab, setSelectedTab] = useState("all");
+
+    // ✅ Pagination states
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Modal states
     const [showImportModal, setShowImportModal] = useState(false);
     const [deletePartyId, setDeletePartyId] = useState<string | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
-    const handleAddParty = () => {
-        setSelectedPartyId(null);
-        setIsDrawerOpen(true);
-    };
 
-    const handleEditParty = (partyId: string) => {
-        setSelectedPartyId(partyId);
-        setIsDrawerOpen(true);
-    };
-
-    const handleDrawerClose = () => {
-        setIsDrawerOpen(false);
-        setSelectedPartyId(null);
-    };
-
-    const handleDrawerSuccess = () => {
-        loadParties(); // Refresh list
-    };
     const [stats, setStats] = useState<Stats>({
         total: 0,
         consignors: 0,
         consignees: 0,
         active: 0,
-        billing: 0 // ✅ ADDED
+        billing: 0
     });
 
     // Add column hover styles
@@ -978,43 +948,15 @@ export const Customers = () => {
         };
     }, []);
 
-    // Load parties from database
-    // ✅ NEW CODE - Dynamic Data
+    // ✅ Load parties ONLY ONCE
     const loadParties = async () => {
-        setLoading(true);
+        if (!initialLoading) return;
+
         try {
-            console.log('📊 Loading parties with real metrics...');
-
-            // ✅ Use new API function
-            let partiesWithMetrics = await fetchPartiesWithMetrics();
-
-            // ✅ Apply status filter
-            if (statusFilter !== "ALL") {
-                partiesWithMetrics = partiesWithMetrics.filter(
-                    p => p.status === statusFilter
-                );
-            }
-
-            // ✅ Apply sorting based on selected tab
-            partiesWithMetrics = partiesWithMetrics.sort((a, b) => {
-                // Billing tab: Pending first
-                if (selectedTab === 'billing') {
-                    const aPending = a.billing_status.includes('Pending');
-                    const bPending = b.billing_status.includes('Pending');
-
-                    if (aPending && !bPending) return -1;
-                    if (!aPending && bPending) return 1;
-                }
-
-                // Default: Last Booking DESC (most recent first)
-                const aDate = a.last_booking_date ? new Date(a.last_booking_date) : new Date(0);
-                const bDate = b.last_booking_date ? new Date(b.last_booking_date) : new Date(0);
-                return bDate.getTime() - aDate.getTime();
-            });
-
+            const partiesWithMetrics = await fetchPartiesWithMetrics();
             setParties(partiesWithMetrics);
 
-            // ✅ Calculate stats from REAL data (no changes needed here)
+            // Calculate stats
             const totalParties = partiesWithMetrics?.length || 0;
             const activeParties = partiesWithMetrics?.filter(p => p.status === "ACTIVE").length || 0;
             const consignorParties = partiesWithMetrics?.filter(p =>
@@ -1033,31 +975,113 @@ export const Customers = () => {
                 billing: billingParties
             });
 
-            console.log('✅ Parties loaded successfully:', {
-                total: totalParties,
-                active: activeParties,
-                billing: billingParties
-            });
-
-        } catch (error: any) {
-            console.error("❌ Error loading parties:", error);
+        } catch (error) {
             toast({
                 title: "❌ Error",
                 description: "Failed to load parties",
                 variant: "destructive"
             });
         } finally {
-            setLoading(false);
+            setInitialLoading(false);
         }
     };
 
     useEffect(() => {
         loadParties();
-    }, [statusFilter, selectedTab]);
+    }, []);
 
-    // Toggle party status
+    // ✅ CLIENT-SIDE FILTERING
+    const filteredParties = useMemo(() => {
+        return parties.filter(party => {
+            const matchesSearch =
+                party.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                party.phone.includes(searchTerm) ||
+                party.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (party.gst_number && party.gst_number.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            const matchesType =
+                typeFilter === "ALL" ||
+                (typeFilter === "CONSIGNOR" && (party.party_type === "CONSIGNOR" || party.party_type === "BOTH")) ||
+                (typeFilter === "CONSIGNEE" && (party.party_type === "CONSIGNEE" || party.party_type === "BOTH")) ||
+                (typeFilter === party.party_type);
+
+            const matchesStatus =
+                statusFilter === "ALL" || party.status === statusFilter;
+
+            const matchesTab =
+                selectedTab === "all" ||
+                (selectedTab === "consignors" && (party.party_type === "CONSIGNOR" || party.party_type === "BOTH")) ||
+                (selectedTab === "consignees" && (party.party_type === "CONSIGNEE" || party.party_type === "BOTH")) ||
+                (selectedTab === "billing" && party.is_billing_party === true);
+
+            return matchesSearch && matchesType && matchesStatus && matchesTab;
+        });
+    }, [parties, searchTerm, typeFilter, statusFilter, selectedTab]);
+
+    // ✅ PAGINATION LOGIC
+    const totalPages = Math.ceil(filteredParties.length / itemsPerPage);
+
+    const paginatedParties = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return filteredParties.slice(startIndex, endIndex);
+    }, [filteredParties, currentPage, itemsPerPage]);
+
+    // ✅ Reset page on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, typeFilter, statusFilter, selectedTab]);
+
+    // ✅ Smart pagination buttons
+    const getPaginationButtons = () => {
+        const pages: (number | string)[] = [];
+
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            if (currentPage <= 3) {
+                pages.push(1, 2, 3, 4, '...', totalPages);
+            } else if (currentPage >= totalPages - 2) {
+                pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+            } else {
+                pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+            }
+        }
+
+        return pages;
+    };
+
+    // Handlers
+    const handleAddParty = () => {
+        setSelectedPartyId(null);
+        setIsDrawerOpen(true);
+    };
+
+    const handleEditParty = (partyId: string) => {
+        setSelectedPartyId(partyId);
+        setIsDrawerOpen(true);
+    };
+
+    const handleDrawerClose = () => {
+        setIsDrawerOpen(false);
+        setSelectedPartyId(null);
+    };
+
+    const handleDrawerSuccess = () => {
+        setInitialLoading(true);
+        loadParties();
+    };
+
+    // ✅ OPTIMISTIC STATUS UPDATE
     const togglePartyStatus = async (party: Party) => {
         const newStatus = party.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+        // Optimistic update
+        setParties(prev => prev.map(p =>
+            p.id === party.id ? { ...p, status: newStatus } : p
+        ));
 
         try {
             const { error } = await supabase
@@ -1072,9 +1096,12 @@ export const Customers = () => {
                 description: `Party is now ${newStatus.toLowerCase()}`,
             });
 
-            loadParties();
-        } catch (error: any) {
-            console.error("Error updating status:", error);
+        } catch (error) {
+            // Revert on error
+            setParties(prev => prev.map(p =>
+                p.id === party.id ? { ...p, status: party.status } : p
+            ));
+
             toast({
                 title: "❌ Error",
                 description: "Failed to update status",
@@ -1083,31 +1110,16 @@ export const Customers = () => {
         }
     };
 
-    // Delete party
+    // ✅ OPTIMISTIC DELETE
     const handleDeleteParty = async () => {
         if (!deletePartyId) return;
 
+        const partyToDelete = parties.find(p => p.id === deletePartyId);
+
+        // Optimistic removal
+        setParties(prev => prev.filter(p => p.id !== deletePartyId));
+
         try {
-            // Check if party has any bookings
-            const { data: bookings, error: checkError } = await supabase
-                .from("bookings")
-                .select("id")
-                .or(`consignor_id.eq.${deletePartyId},consignee_id.eq.${deletePartyId}`)
-                .limit(1);
-
-            if (checkError) throw checkError;
-
-            if (bookings && bookings.length > 0) {
-                toast({
-                    title: "❌ Cannot Delete",
-                    description: "This party has associated bookings",
-                    variant: "destructive"
-                });
-                setDeletePartyId(null);
-                return;
-            }
-
-            // Delete party
             const { error } = await supabase
                 .from("parties")
                 .delete()
@@ -1120,9 +1132,12 @@ export const Customers = () => {
                 description: "Party deleted successfully",
             });
 
-            loadParties();
-        } catch (error: any) {
-            console.error("Error deleting party:", error);
+        } catch (error) {
+            // Revert on error
+            if (partyToDelete) {
+                setParties(prev => [...prev, partyToDelete]);
+            }
+
             toast({
                 title: "❌ Error",
                 description: "Failed to delete party",
@@ -1133,34 +1148,9 @@ export const Customers = () => {
         }
     };
 
-    // Filter parties based on search and filters
-    const filteredParties = parties.filter(party => {
-        const matchesSearch =
-            party.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            party.phone.includes(searchTerm) ||
-            party.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (party.gst_number && party.gst_number.toLowerCase().includes(searchTerm.toLowerCase()));
-
-        const matchesType =
-            typeFilter === "ALL" ||
-            (typeFilter === "CONSIGNOR" && (party.party_type === "CONSIGNOR" || party.party_type === "BOTH")) ||
-            (typeFilter === "CONSIGNEE" && (party.party_type === "CONSIGNEE" || party.party_type === "BOTH")) ||
-            (typeFilter === party.party_type);
-
-        const matchesTab =
-            selectedTab === "all" ||
-            (selectedTab === "consignors" && (party.party_type === "CONSIGNOR" || party.party_type === "BOTH")) ||
-            (selectedTab === "consignees" && (party.party_type === "CONSIGNEE" || party.party_type === "BOTH")) ||
-            (selectedTab === "billing" && party.is_billing_party === true); // ✅ ADDED
-
-        return matchesSearch && matchesType && matchesTab;
-    });
-
-    // Export to CSV
-    // ✅ UPDATED Export to CSV - Added is_billing_party column
     const handleExport = () => {
         const csvContent = [
-            ["Name", "Type", "Phone", "Email", "Address", "City", "State", "Pincode", "GST", "PAN", "Status", "Billing Party"], // ✅ ADDED "Billing Party"
+            ["Name", "Type", "Phone", "Email", "Address", "City", "State", "Pincode", "GST", "PAN", "Status", "Billing Party"],
             ...filteredParties.map(party => [
                 party.name,
                 party.party_type,
@@ -1173,7 +1163,7 @@ export const Customers = () => {
                 party.gst_number || "",
                 party.pan_number || "",
                 party.status,
-                party.is_billing_party ? "TRUE" : "FALSE" // ✅ ADDED - Shows TRUE/FALSE
+                party.is_billing_party ? "TRUE" : "FALSE"
             ])
         ].map(row => row.join(",")).join("\n");
 
@@ -1190,12 +1180,14 @@ export const Customers = () => {
         });
     };
 
-    // Handle import complete
     const handleImportComplete = () => {
         setSearchTerm("");
+        setInitialLoading(true);
         loadParties();
     };
-    if (loading) {
+
+    // ✅ SKELETON LOADER
+    if (initialLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
                 <div className="relative">
@@ -1208,177 +1200,138 @@ export const Customers = () => {
             </div>
         );
     }
+
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-stretch md:justify-between gap-4">
-                {/* Stats - Single Card with Dividers */}
-                <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-xl flex-1 p-4 sm:p-5">
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-6 sm:gap-0 h-full"> {/* ✅ Changed from grid-cols-4 to grid-cols-5 */}
-
-                        {/* Total Parties */}
-                        <div className="sm:px-6 py-4 first:pl-0 relative">
-                            <div className="absolute top-1 right-2 opacity-10">
-                                <Building2 className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            {/* HEADER: Stats + Buttons */}
+            <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+                <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-6 shadow-sm">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#E5E7EB] dark:divide-[#35353F]">
+                        <div className="px-6 py-3 first:pl-0 relative">
+                            <div className="absolute top-2 right-2 opacity-10">
+                                <Building2 className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                    Total Parties
-                                </p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                    {stats.total}
-                                </p>
+                                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Total Parties</p>
+                                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.total}</p>
                             </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
                         </div>
 
-                        {/* Consignors */}
-                        <div className="sm:px-6 py-4 relative">
-                            <div className="absolute top-1 right-2 opacity-10">
-                                <Package className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                        <div className="px-6 py-3 relative">
+                            <div className="absolute top-2 right-2 opacity-10">
+                                <Package className="w-8 h-8 text-primary dark:text-primary" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                    Consignors
-                                </p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                    {stats.consignors}
-                                </p>
+                                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Consignors</p>
+                                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.consignors}</p>
                             </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
                         </div>
 
-                        {/* Consignees */}
-                        <div className="sm:px-6 py-4 relative">
-                            <div className="absolute top-1 right-2 opacity-10">
-                                <Truck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                        <div className="px-6 py-3 relative">
+                            <div className="absolute top-2 right-2 opacity-10">
+                                <Truck className="w-8 h-8 text-primary dark:text-primary" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                    Consignees
-                                </p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                    {stats.consignees}
-                                </p>
+                                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Consignees</p>
+                                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.consignees}</p>
                             </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
                         </div>
 
-                        {/* ✅ NEW - Billing Parties */}
-                        <div className="sm:px-6 py-4 relative">
-                            <div className="absolute top-1 right-2 opacity-10">
-                                <DollarSign className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+                        <div className="px-6 py-3 last:pr-0 relative">
+                            <div className="absolute top-2 right-2 opacity-10">
+                                <DollarSign className="w-8 h-8 text-primary" />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                    Billing
-                                </p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                    {stats.billing}
-                                </p>
-                            </div>
-                            <div className="hidden sm:block absolute right-0 top-0 bottom-0 w-[1px] bg-gray-300 dark:bg-gray-600"></div>
-                        </div>
-
-                        {/* Active */}
-                        <div className="sm:px-6 py-4 last:pr-0 relative">
-                            <div className="absolute top-1 right-2 opacity-10">
-                                <UserCheck className="w-8 h-8 text-gray-600 dark:text-gray-400" />
-                            </div>
-                            <div className="relative z-10">
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                    Active
-                                </p>
-                                <p className="text-2xl sm:text-3xl font-bold text-foreground">
-                                    {stats.active}
-                                </p>
+                                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Billing</p>
+                                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.billing}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Buttons - Right Side */}
-                <div className="flex flex-wrap gap-2 md:flex-nowrap md:ml-auto md:items-center">
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowImportModal(true)}
-                                    className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                >
-                                    <Upload className="w-4 h-4 mr-2" />
-                                    Import
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Import parties from file</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleExport}
-                                    className="flex-1 sm:flex-none bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                >
-                                    <FileDown className="w-4 h-4 mr-2" />
-                                    Export
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>Export parties to CSV</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
+                <div className="flex flex-col gap-2 lg:flex-shrink-0 lg:min-w-[200px]">
                     <Button
-                        size="sm"
+                        size="default"
                         onClick={handleAddParty}
-                        className="flex-1 sm:flex-none"
+                        className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
                     >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Party
                     </Button>
+
+                    <div className="flex gap-2">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="default"
+                                        onClick={() => setShowImportModal(true)}
+                                        className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                                    >
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Import
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>Import parties from CSV/Excel</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="default"
+                                        onClick={handleExport}
+                                        className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                                    >
+                                        <FileDown className="w-4 h-4 mr-2" />
+                                        Export
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                    <p>Export to CSV</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
                 </div>
             </div>
 
-            {/* 🔥 CARD 2: Tabs + Search + Table */}
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+            {/* TABLE CARD */}
+            <div className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
 
-                {/* Tabs Section */}
-                <div className="border-b border-gray-200 dark:border-gray-800">
+                {/* Tabs */}
+                <div className="border-b border-border dark:border-border">
                     <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-                        <div className="px-4 sm:px-6 overflow-x-auto">
+                        <div className="px-6 overflow-x-auto scrollbar-none">
                             <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex min-w-max">
                                 <TabsTrigger
                                     value="all"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3.5 transition-all text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                                 >
-                                    All ({parties.length})
+                                    All Parties ({filteredParties.length})
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="consignors"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3.5 transition-all text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                                 >
                                     Consignors ({stats.consignors})
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="consignees"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3.5 transition-all text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                                 >
                                     Consignees ({stats.consignees})
                                 </TabsTrigger>
-                                {/* ✅ NEW TAB - Billing Parties */}
                                 <TabsTrigger
                                     value="billing"
-                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 sm:px-6 py-3 transition-all duration-300 text-xs sm:text-sm"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3.5 transition-all text-sm font-medium text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-white"
                                 >
-                                    <DollarSign className="w-3.5 h-3.5 mr-1 inline" />
+                                    <DollarSign className="w-4 h-4 mr-1.5 inline" />
                                     Billing Parties ({stats.billing})
                                 </TabsTrigger>
                             </TabsList>
@@ -1386,36 +1339,35 @@ export const Customers = () => {
                     </Tabs>
                 </div>
 
-                {/* Search and Filters Section */}
-                <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-800">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        {/* Search Bar */}
+                {/* Search & Filters */}
+                <div className="p-6 border-b border-border dark:border-border">
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
                         <div className="relative w-full sm:w-96">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                             <Input
                                 placeholder="Search by name, phone, city..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-10 border border-gray-200 text-sm sm:text-base"
+                                className="pl-10 pr-10 h-10 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-sm"
                             />
                             {searchTerm && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-accent dark:hover:bg-secondary"
                                     onClick={() => setSearchTerm("")}
                                 >
-                                    <X className="h-3 w-3" />
+                                    <X className="h-3.5 w-3.5" />
                                 </Button>
                             )}
                         </div>
-                        {/* Filters */}
-                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+
+                        <div className="flex gap-3 w-full sm:w-auto">
                             <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                <SelectTrigger className="w-full sm:w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[160px] h-10 border-border dark:border-border bg-card text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="bg-card border-border dark:border-border">
                                     <SelectItem value="ALL">All Types</SelectItem>
                                     <SelectItem value="CONSIGNOR">Consignors</SelectItem>
                                     <SelectItem value="CONSIGNEE">Consignees</SelectItem>
@@ -1424,463 +1376,350 @@ export const Customers = () => {
                             </Select>
 
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-full sm:w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[160px] h-10 border-border dark:border-border bg-card text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="bg-card border-border dark:border-border">
                                     <SelectItem value="ALL">All Status</SelectItem>
-                                    <SelectItem value="ACTIVE">Active Only</SelectItem>
-                                    <SelectItem value="INACTIVE">Inactive Only</SelectItem>
+                                    <SelectItem value="ACTIVE">Active</SelectItem>
+                                    <SelectItem value="INACTIVE">Inactive</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
                 </div>
 
-                {/* Table Section */}
-                <div className="p-4 sm:p-6">
-                    {/* Desktop Table View */}
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block">
-                        <div className="w-full overflow-auto no-scrollbar">
-                            <Table className="customers-table min-w-full">
-                                <TableHeader>
-                                    <TableRow className="hover:bg-muted/50 bg-muted/30">
-                                        {/* ✅ DYNAMIC HEADERS BASED ON TAB */}
-                                        {selectedTab === "all" && (
-                                            <>
-                                                <TableHead style={{ width: '40%' }} className="font-semibold">
-                                                    <div className="flex items-center gap-2">
-                                                        <Building2 className="w-4 h-4 text-muted-foreground" />
-                                                        Party Name
-                                                    </div>
-                                                </TableHead>
-                                                <TableHead style={{ width: '10%' }} className="font-semibold">Type</TableHead>
-                                                <TableHead style={{ width: '14%' }} className="font-semibold">City / State</TableHead>
-                                                <TableHead style={{ width: '12%' }} className="font-semibold">Last Booking</TableHead>
-                                                <TableHead style={{ width: '12%' }} className="font-semibold">Trips (Month)</TableHead>
-                                                <TableHead style={{ width: '8%' }} className="font-semibold">Verified</TableHead>
-                                                <TableHead style={{ width: '8%' }} className="font-semibold">Status</TableHead>
-                                                <TableHead style={{ width: '4%' }} className="font-semibold text-center">⋮</TableHead>
-                                            </>
-                                        )}
+                {/* Table */}
+                <div className="hidden md:block overflow-x-auto">
+                    <Table className="customers-table">
+                        <TableHeader>
+                            <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
+                                <TableHead className="w-[30%] font-semibold text-muted-foreground dark:text-muted-foreground pl-6">
+                                    <div className="flex items-center gap-2">
+                                        <Building2 className="w-4 h-4" />
+                                        Party Name
+                                    </div>
+                                </TableHead>
+                                <TableHead className="w-[12%] font-semibold text-muted-foreground dark:text-muted-foreground">Type</TableHead>
+                                <TableHead className="w-[15%] font-semibold text-muted-foreground dark:text-muted-foreground">City / State</TableHead>
+                                <TableHead className="w-[10%] font-semibold text-muted-foreground dark:text-muted-foreground">Last Booking</TableHead>
+                                <TableHead className="w-[8%] font-semibold text-muted-foreground dark:text-muted-foreground">Trips</TableHead>
+                                <TableHead className="w-[10%] font-semibold text-muted-foreground dark:text-muted-foreground">Verified</TableHead>
+                                <TableHead className="w-[10%] font-semibold text-muted-foreground dark:text-muted-foreground">Status</TableHead>
+                                <TableHead className="w-[5%] font-semibold text-muted-foreground dark:text-muted-foreground text-center pr-6">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedParties.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={8} className="h-64 text-center">
+                                        <div className="flex flex-col items-center justify-center gap-3">
+                                            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                                                <Users className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                                            </div>
+                                            <div>
+                                                <p className="text-base font-medium text-foreground dark:text-white">No parties found</p>
+                                                <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                                                    {searchTerm || typeFilter !== "ALL"
+                                                        ? "Try adjusting your search or filters"
+                                                        : "Get started by adding your first party"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginatedParties.map((party) => {
+                                    const typeConfig = partyTypeConfig[party.party_type];
+                                    const TypeIcon = typeConfig.icon;
 
-                                        {selectedTab === "billing" && (
-                                            <>
-                                                <TableHead style={{ width: '40%' }} className="font-semibold">Party Name</TableHead>
-                                                <TableHead style={{ width: '10%' }} className="font-semibold">Type</TableHead>
-                                                <TableHead style={{ width: '14%' }} className="font-semibold">City / State</TableHead>
-                                                <TableHead style={{ width: '12%' }} className="font-semibold">Last Booking</TableHead>
-                                                <TableHead style={{ width: '10%' }} className="font-semibold">Trips</TableHead>
-                                                <TableHead style={{ width: '12%' }} className="font-semibold">Billing Status</TableHead>
-                                                <TableHead style={{ width: '8%' }} className="font-semibold">Outstanding</TableHead>
-                                                <TableHead style={{ width: '4%' }} className="font-semibold text-center">⋮</TableHead>
-                                            </>
-                                        )}
-
-                                        {selectedTab === "consignors" && (
-                                            <>
-                                                <TableHead style={{ width: '50%' }} className="font-semibold">Party Name</TableHead>
-                                                <TableHead style={{ width: '18%' }} className="font-semibold">City / State</TableHead>
-                                                <TableHead style={{ width: '12%' }} className="font-semibold">Trips (Month)</TableHead>
-                                                <TableHead style={{ width: '10%' }} className="font-semibold">Last Booking</TableHead>
-                                                <TableHead style={{ width: '6%' }} className="font-semibold">Billing?</TableHead>
-                                                <TableHead style={{ width: '4%' }} className="font-semibold">Status</TableHead>
-                                            </>
-                                        )}
-
-                                        {selectedTab === "consignees" && (
-                                            <>
-                                                <TableHead style={{ width: '50%' }} className="font-semibold">Party Name</TableHead>
-                                                <TableHead style={{ width: '18%' }} className="font-semibold">City / State</TableHead>
-                                                <TableHead style={{ width: '10%' }} className="font-semibold">Last Booking</TableHead>
-                                                <TableHead style={{ width: '10%' }} className="font-semibold">Trips</TableHead>
-                                                <TableHead style={{ width: '8%' }} className="font-semibold">POD Rate</TableHead>
-                                                <TableHead style={{ width: '4%' }} className="font-semibold">Status</TableHead>
-                                            </>
-                                        )}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredParties.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={8} className="text-center py-16">
-                                                <div className="flex flex-col items-center gap-4">
-                                                    <div className="p-4 bg-muted/30 rounded-full">
-                                                        <Users className="w-12 h-12 text-muted-foreground/50" />
-                                                    </div>
-                                                    <div className="text-muted-foreground">
-                                                        <p className="text-lg font-medium">No parties found</p>
-                                                        <p className="text-sm mt-1">
-                                                            {searchTerm || typeFilter !== "ALL"
-                                                                ? "Try adjusting your filters"
-                                                                : "Add your first party to get started"}
-                                                        </p>
-                                                    </div>
-                                                </div>
+                                    return (
+                                        <TableRow
+                                            key={party.id}
+                                            className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors"
+                                        >
+                                            <TableCell className="pl-6 font-medium text-foreground dark:text-white">
+                                                <div className="font-semibold">{party.name}</div>
+                                                {party.contact_person && (
+                                                    <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">{party.contact_person}</div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge className={cn("gap-1.5 text-xs font-medium", typeConfig.color)}>
+                                                    <TypeIcon className="w-3 h-3" />
+                                                    {typeConfig.label}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-sm text-foreground dark:text-white">
+                                                {party.city}, {party.state}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground dark:text-muted-foreground">
+                                                {getLastBookingDisplay(party.last_booking_date || null)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="font-mono text-xs border-border dark:border-border">
+                                                    {party.trips_this_month || 0}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <VerifiedBadges party={party} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge
+                                                    className={cn(
+                                                        "cursor-pointer transition-all text-xs font-medium",
+                                                        party.status === "ACTIVE"
+                                                            ? "bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] hover:bg-[#D1FAE5] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30"
+                                                            : "bg-[#F3F4F6] text-muted-foreground border border-border hover:bg-[#E5E7EB] dark:bg-secondary dark:text-muted-foreground dark:border-border"
+                                                    )}
+                                                    onClick={() => togglePartyStatus(party)}
+                                                >
+                                                    {party.status === "ACTIVE" ? (
+                                                        <CheckCircle className="w-3 h-3 mr-1" />
+                                                    ) : (
+                                                        <XCircle className="w-3 h-3 mr-1" />
+                                                    )}
+                                                    {party.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="pr-6">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 hover:bg-accent dark:hover:bg-secondary"
+                                                        >
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent
+                                                        align="end"
+                                                        className="w-48 bg-card border-border dark:border-border"
+                                                    >
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleEditParty(party.id)}
+                                                            className="hover:bg-accent dark:hover:bg-secondary cursor-pointer"
+                                                        >
+                                                            <Edit className="mr-2 h-4 w-4" />
+                                                            Edit Details
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
+                                                        <DropdownMenuItem
+                                                            className="text-[#DC2626] hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer"
+                                                            onClick={() => setDeletePartyId(party.id)}
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete Party
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
-                                    ) : (
-                                        filteredParties.map((party) => {
-                                            const typeConfig = partyTypeConfig[party.party_type];
-                                            const TypeIcon = typeConfig.icon;
-                                            const billingConfig = getBillingStatusConfig(party.billing_status || "");
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
 
-                                            return (
-                                                <TableRow
-                                                    key={party.id}
-                                                    className="hover:bg-muted/50 transition-colors"
-                                                >
-                                                    {/* ✅ ALL PARTIES TAB */}
-                                                    {selectedTab === "all" && (
-                                                        <>
-                                                            <TableCell style={{ width: '40%' }}>
-                                                                <div className="font-semibold">{party.name}</div>
-                                                                {party.contact_person && (
-                                                                    <div className="text-xs text-muted-foreground">{party.contact_person}</div>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '10%' }}>
-                                                                <Badge className={cn("gap-1", typeConfig.color)}>
-                                                                    <TypeIcon className="w-3 h-3" />
-                                                                    {typeConfig.label}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '14%' }}>
-                                                                {party.city}, {party.state}
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '12%' }}>
-                                                                <span className="text-sm">{getLastBookingDisplay(party.last_booking_date || null)}</span>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '12%' }}>
-                                                                <Badge variant="outline" className="font-mono">
-                                                                    {party.trips_this_month || 0}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '8%' }}>
-                                                                <VerifiedBadges party={party} />
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '8%' }}>
-                                                                <Badge
-                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
-                                                                    className={cn(
-                                                                        "cursor-pointer",
-                                                                        party.status === "ACTIVE"
-                                                                            ? "bg-green-100 text-green-700 border-green-200"
-                                                                            : "bg-gray-100 text-gray-700 border-gray-200"
-                                                                    )}
-                                                                    onClick={() => togglePartyStatus(party)}
-                                                                >
-                                                                    {party.status === "ACTIVE" ? <CheckCircle className="w-3 h-3 mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
-                                                                    {party.status}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '4%' }}>
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                                            <MoreVertical className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem onClick={() => handleEditParty(party.id)}>
-                                                                            <Edit className="mr-2 h-4 w-4" />
-                                                                            Edit Details
-                                                                        </DropdownMenuItem>
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem className="text-destructive" onClick={() => setDeletePartyId(party.id)}>
-                                                                            <Trash2 className="mr-2 h-4 w-4" />
-                                                                            Delete Party
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </TableCell>
-                                                        </>
-                                                    )}
-
-                                                    {/* ✅ BILLING PARTIES TAB */}
-                                                    {selectedTab === "billing" && (
-                                                        <>
-                                                            <TableCell style={{ width: '40%' }}>
-                                                                <div className="font-semibold">{party.name}</div>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '10%' }}>
-                                                                <Badge className={cn("gap-1", typeConfig.color)}>
-                                                                    <TypeIcon className="w-3 h-3" />
-                                                                    {typeConfig.label}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '14%' }}>{party.city}, {party.state}</TableCell>
-                                                            <TableCell style={{ width: '12%' }}>{getLastBookingDisplay(party.last_booking_date || null)}</TableCell>
-                                                            <TableCell style={{ width: '10%' }}>
-                                                                <Badge variant="outline">{party.trips_this_month || 0}</Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '12%' }}>
-                                                                <Badge className={cn("text-xs", billingConfig.color)}>
-                                                                    {billingConfig.icon} {party.billing_status}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '8%' }}>
-                                                                {party.outstanding_amount > 0 ? (
-                                                                    <TooltipProvider>
-                                                                        <Tooltip>
-                                                                            <TooltipTrigger>
-                                                                                <Badge variant="destructive" className="text-xs font-semibold">
-                                                                                    {party.outstanding_amount} Unbilled  {/* ✅ NEW - Show count */}
-                                                                                </Badge>
-                                                                            </TooltipTrigger>
-                                                                            <TooltipContent>
-                                                                                <p className="font-semibold">{party.outstanding_amount} bookings not yet billed</p>
-                                                                                <p className="text-xs text-muted-foreground mt-1">
-                                                                                    Total trips this month: {party.trips_this_month}
-                                                                                </p>
-                                                                            </TooltipContent>
-                                                                        </Tooltip>
-                                                                    </TooltipProvider>
-                                                                ) : (
-                                                                    <span className="text-sm text-green-600 font-medium">All Clear</span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '4%' }}>
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                                            <MoreVertical className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="end">
-                                                                        <DropdownMenuItem onClick={() => navigate(`/customers/edit/${party.id}`)}>
-                                                                            <Edit className="mr-2 h-4 w-4" />
-                                                                            Edit Details
-                                                                        </DropdownMenuItem>
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            </TableCell>
-                                                        </>
-                                                    )}
-
-                                                    {/* ✅ CONSIGNORS TAB */}
-                                                    {selectedTab === "consignors" && (
-                                                        <>
-                                                            <TableCell style={{ width: '50%' }}>
-                                                                <div className="font-semibold text-base">{party.name}</div>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '18%' }}>{party.city}, {party.state}</TableCell>
-                                                            <TableCell style={{ width: '12%' }}>
-                                                                <Badge variant="outline">{party.trips_this_month || 0}</Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '10%' }}>{getLastBookingDisplay(party.last_booking_date || null)}</TableCell>
-                                                            <TableCell style={{ width: '6%' }}>
-                                                                {party.is_billing_party ? (
-                                                                    <Badge className="bg-green-100 text-green-700 text-xs">Y</Badge>
-                                                                ) : (
-                                                                    <span className="text-muted-foreground text-xs">N</span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '4%' }}>
-                                                                <Badge
-                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
-                                                                    className={cn(
-                                                                        party.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                                                                    )}
-                                                                >
-                                                                    {party.status === "ACTIVE" ? "✓" : "✗"}
-                                                                </Badge>
-                                                            </TableCell>
-                                                        </>
-                                                    )}
-
-                                                    {/* ✅ CONSIGNEES TAB */}
-                                                    {selectedTab === "consignees" && (
-                                                        <>
-                                                            <TableCell style={{ width: '50%' }}>
-                                                                <div className="font-semibold text-base">{party.name}</div>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '18%' }}>{party.city}, {party.state}</TableCell>
-                                                            <TableCell style={{ width: '10%' }}>{getLastBookingDisplay(party.last_booking_date || null)}</TableCell>
-                                                            <TableCell style={{ width: '10%' }}>
-                                                                <Badge variant="outline">{party.trips_this_month || 0}</Badge>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '8%' }}>
-                                                                <TooltipProvider>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger>
-                                                                            <Badge
-                                                                                className={cn(
-                                                                                    "font-mono",
-                                                                                    party.pod_confirmation_rate && party.pod_confirmation_rate >= 90
-                                                                                        ? "bg-green-100 text-green-700"
-                                                                                        : party.pod_confirmation_rate && party.pod_confirmation_rate >= 70
-                                                                                            ? "bg-yellow-100 text-yellow-700"
-                                                                                            : "bg-red-100 text-red-700"
-                                                                                )}
-                                                                            >
-                                                                                {party.pod_confirmation_rate || 0}%
-                                                                            </Badge>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent>
-                                                                            <p>POD Confirmation Rate</p>
-                                                                            <p className="text-xs text-muted-foreground">Based on delivery confirmations</p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            </TableCell>
-                                                            <TableCell style={{ width: '4%' }}>
-                                                                <Badge
-                                                                    variant={party.status === "ACTIVE" ? "default" : "secondary"}
-                                                                    className={cn(
-                                                                        party.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
-                                                                    )}
-                                                                >
-                                                                    {party.status === "ACTIVE" ? "✓" : "✗"}
-                                                                </Badge>
-                                                            </TableCell>
-                                                        </>
-                                                    )}
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-3">
-                        {filteredParties.length === 0 ? (
-                            <div className="text-center py-12">
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className="p-4 bg-muted/30 rounded-full">
-                                        <Users className="w-12 h-12 text-muted-foreground/50" />
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                        <p className="text-lg font-medium">No parties found</p>
-                                        <p className="text-sm mt-1">
-                                            {searchTerm || typeFilter !== "ALL"
-                                                ? "Try adjusting your filters"
-                                                : "Add your first party to get started"}
-                                        </p>
-                                    </div>
-                                </div>
+                {/* Mobile View */}
+                <div className="md:hidden p-4 space-y-3">
+                    {paginatedParties.length === 0 ? (
+                        <div className="text-center py-16">
+                            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                <Users className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                             </div>
-                        ) : (
-                            filteredParties.map((party) => {
-                                const typeConfig = partyTypeConfig[party.party_type];
-                                const TypeIcon = typeConfig.icon;
+                            <p className="text-base font-medium text-foreground dark:text-white">No parties found</p>
+                            <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                                {searchTerm ? "Try adjusting your search" : "Add your first party"}
+                            </p>
+                        </div>
+                    ) : (
+                        paginatedParties.map((party) => {
+                            const typeConfig = partyTypeConfig[party.party_type];
+                            const TypeIcon = typeConfig.icon;
 
-                                return (
-                                    <div key={party.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-3 shadow-sm">
-                                        {/* Header */}
-                                        <div className="flex items-start justify-between">
-                                            <div className="space-y-1 flex-1">
-                                                <div className="flex items-center gap-2">
-                                                    <Building className="w-4 h-4 text-muted-foreground" />
-                                                    <span className="font-semibold text-sm">{party.name}</span>
-                                                </div>
-                                                {party.contact_person && (
-                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground ml-6">
-                                                        <User className="w-3 h-3" />
-                                                        {party.contact_person}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                        <MoreVertical className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-48">
-                                                    <DropdownMenuItem
-                                                        onClick={() => navigate(`/customers/edit/${party.id}`)}
-                                                    >
-                                                        <Edit className="mr-2 h-4 w-4" />
-                                                        Edit Details
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={() => setDeletePartyId(party.id)}
-                                                    >
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Delete Party
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-
-                                        {/* Type and Status */}
-                                        <div className="flex items-center gap-2">
-                                            <Badge className={cn("gap-1 text-xs", typeConfig.color)}>
-                                                <TypeIcon className="w-3 h-3" />
-                                                {typeConfig.label}
-                                            </Badge>
-                                            <Badge
-                                                variant={party.status === "ACTIVE" ? "default" : "secondary"}
-                                                className={cn(
-                                                    "cursor-pointer text-xs",
-                                                    party.status === "ACTIVE"
-                                                        ? "bg-green-100 text-green-700 border-green-200"
-                                                        : "bg-gray-100 text-gray-700 border-gray-200"
-                                                )}
-                                                onClick={() => togglePartyStatus(party)}
-                                            >
-                                                {party.status === "ACTIVE" ? (
-                                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                                ) : (
-                                                    <XCircle className="w-3 h-3 mr-1" />
-                                                )}
-                                                {party.status}
-                                            </Badge>
-                                        </div>
-
-                                        {/* Contact Info */}
-                                        <div className="space-y-2 text-sm pt-2 border-t border-gray-200 dark:border-gray-800">
+                            return (
+                                <div
+                                    key={party.id}
+                                    className="bg-card border border-border dark:border-border rounded-lg p-4 space-y-3 shadow-sm hover:shadow-md transition-shadow"
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
                                             <div className="flex items-center gap-2">
-                                                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                                                <span>{party.phone}</span>
+                                                <Building className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+                                                <span className="font-semibold text-sm text-foreground dark:text-white">{party.name}</span>
                                             </div>
-                                            {party.email && (
-                                                <div className="flex items-center gap-2">
-                                                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                                                    <span className="text-xs truncate">{party.email}</span>
+                                            {party.contact_person && (
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground dark:text-muted-foreground ml-6 mt-1">
+                                                    <User className="w-3 h-3" />
+                                                    {party.contact_person}
                                                 </div>
                                             )}
                                         </div>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="bg-card">
+                                                <DropdownMenuItem onClick={() => handleEditParty(party.id)}>
+                                                    <Edit className="mr-2 h-4 w-4" />
+                                                    Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem className="text-[#DC2626]" onClick={() => setDeletePartyId(party.id)}>
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
 
-                                        {/* Address */}
-                                        <div className="space-y-1 pt-2 border-t border-gray-200 dark:border-gray-800">
-                                            <div className="flex items-start gap-2 text-sm">
-                                                <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
-                                                <div className="text-xs">
-                                                    <div>{party.address_line1}</div>
-                                                    <div>{party.city}, {party.state} - {party.pincode}</div>
-                                                </div>
-                                            </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge className={cn("gap-1 text-xs", typeConfig.color)}>
+                                            <TypeIcon className="w-3 h-3" />
+                                            {typeConfig.label}
+                                        </Badge>
+                                        <Badge
+                                            className={cn(
+                                                "text-xs",
+                                                party.status === "ACTIVE"
+                                                    ? "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]"
+                                                    : "bg-[#F3F4F6] text-muted-foreground border-border"
+                                            )}
+                                        >
+                                            {party.status}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="space-y-2 pt-2 border-t border-border dark:border-border">
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                                            <Phone className="w-3.5 h-3.5" />
+                                            <span>{party.phone}</span>
                                         </div>
-
-                                        {/* Tax Info */}
-                                        {(party.gst_number || party.pan_number) && (
-                                            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-800">
-                                                {party.gst_number && (
-                                                    <Badge variant="outline" className="text-xs">
-                                                        GST: {party.gst_number}
-                                                    </Badge>
-                                                )}
-                                                {party.pan_number && (
-                                                    <Badge variant="outline" className="text-xs">
-                                                        PAN: {party.pan_number}
-                                                    </Badge>
-                                                )}
+                                        {party.email && (
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                                                <Mail className="w-3.5 h-3.5" />
+                                                <span className="text-xs truncate">{party.email}</span>
                                             </div>
                                         )}
+                                        <div className="flex items-start gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                                            <MapPin className="w-3.5 h-3.5 mt-0.5" />
+                                            <div className="text-xs">
+                                                <div>{party.address_line1}</div>
+                                                <div>{party.city}, {party.state} - {party.pincode}</div>
+                                            </div>
+                                        </div>
                                     </div>
-                                );
-                            })
-                        )}
-                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
+
+                {/* ✅ PAGINATION */}
+                {filteredParties.length > 0 && (
+                    <div className="px-6 py-4 border-t border-border dark:border-border bg-card">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+
+                            <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+                                Showing <span className="font-medium text-foreground dark:text-white">
+                                    {((currentPage - 1) * itemsPerPage) + 1}
+                                </span> to{" "}
+                                <span className="font-medium text-foreground dark:text-white">
+                                    {Math.min(currentPage * itemsPerPage, filteredParties.length)}
+                                </span>{" "}
+                                of <span className="font-medium text-foreground dark:text-white">{filteredParties.length}</span> results
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {currentPage > 2 && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(1)}
+                                        className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary"
+                                    >
+                                        <ChevronsLeft className="h-4 w-4" />
+                                    </Button>
+                                )}
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary disabled:opacity-50"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+
+                                <div className="flex items-center gap-1">
+                                    {getPaginationButtons().map((page, index) => (
+                                        page === '...' ? (
+                                            <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">...</span>
+                                        ) : (
+                                            <Button
+                                                key={page}
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setCurrentPage(page as number)}
+                                                className={cn(
+                                                    "h-9 w-9 p-0 border-border dark:border-border",
+                                                    currentPage === page
+                                                        ? "bg-primary border-primary text-foreground font-medium hover:bg-primary-hover"
+                                                        : "bg-card hover:bg-accent dark:hover:bg-secondary"
+                                                )}
+                                            >
+                                                {page}
+                                            </Button>
+                                        )
+                                    ))}
+                                </div>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary disabled:opacity-50"
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                                {currentPage < totalPages - 1 && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary"
+                                    >
+                                        <ChevronsRight className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+
+                            <Select
+                                value={itemsPerPage.toString()}
+                                onValueChange={(value) => {
+                                    setItemsPerPage(Number(value));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="w-[130px] h-9 border-border dark:border-border bg-card text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-card border-border dark:border-border text-white">
+                                    <SelectItem value="10">10 per page</SelectItem>
+                                    <SelectItem value="25">25 per page</SelectItem>
+                                    <SelectItem value="50">50 per page</SelectItem>
+                                    <SelectItem value="100">100 per page</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modals */}
@@ -1891,35 +1730,30 @@ export const Customers = () => {
             />
 
             <AlertDialog open={!!deletePartyId} onOpenChange={() => setDeletePartyId(null)}>
-                <AlertDialogContent className="max-w-md">
+                <AlertDialogContent className="bg-card border-border dark:border-border">
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5 text-destructive" />
-                            Are you absolutely sure?
+                        <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
+                            <AlertCircle className="w-5 h-5 text-[#DC2626]" />
+                            Delete Party?
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="text-left">
-                            This action cannot be undone. This will permanently delete the party.
-                            <div className="mt-3 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                                <p className="text-sm font-medium text-destructive">
-                                    ⚠️ Warning:
-                                </p>
-                                <p className="text-xs mt-1">
-                                    If this party has any associated bookings, it cannot be deleted.
-                                </p>
-                            </div>
+                        <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground">
+                            This action cannot be undone. This will permanently delete the party and remove all associated data from our servers.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary">
+                            Cancel
+                        </AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDeleteParty}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-[#DC2626] hover:bg-[#B91C1C] text-white"
                         >
                             Delete Party
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
             <AddEditPartyDrawer
                 isOpen={isDrawerOpen}
                 onClose={handleDrawerClose}
