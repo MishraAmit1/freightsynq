@@ -960,7 +960,7 @@ export const BookingList = () => {
                 <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
-                    Parties & Route
+                    Parties & Routes
                   </div>
                 </TableHead>
 
