@@ -386,10 +386,10 @@ export const AddEditParty = () => {
 
                 setFormData(prev => ({
                     ...prev,
-                    address_line1: locationData.area || prev.address_line1,
-                    city: locationData.city || '',
-                    state: locationData.state || '',
-                    pincode: locationData.pincode || prev.pincode
+                    address_line1: locationData.area || '',  // ✅ Empty if not found
+                    city: locationData.city || '',            // ✅ Empty if not found
+                    state: locationData.state || '',          // ✅ Empty if not found
+                    pincode: locationData.pincode || ''       // ✅ Empty if not found
                 }));
 
                 setLocationSearch(location.displayText);
@@ -400,10 +400,10 @@ export const AddEditParty = () => {
             } else {
                 setFormData(prev => ({
                     ...prev,
-                    address_line1: location.area || prev.address_line1,
-                    city: location.city || '',
-                    state: location.state || '',
-                    pincode: location.postcode || prev.pincode
+                    address_line1: location.area || '',   // ✅ Empty if not found
+                    city: location.city || '',             // ✅ Empty if not found
+                    state: location.state || '',           // ✅ Empty if not found
+                    pincode: location.postcode || ''       // ✅ Empty if not found
                 }));
 
                 setLocationSearch(location.displayText);

@@ -333,10 +333,10 @@ export const Signup = () => {
     // Show validation loading
     if (validatingInvite) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E1E24]">
                 <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-                    <p>Validating invite code...</p>
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[#0A0A0A] dark:text-[#FCC52C]" />
+                    <p className="text-[#0A0A0A] dark:text-white">Validating invite code...</p>
                 </div>
             </div>
         );
@@ -345,31 +345,31 @@ export const Signup = () => {
     // Block invalid invites
     if (inviteCode && inviteValid === false) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 p-4">
-                <Card className="w-full max-w-md border-red-200 shadow-2xl">
+            <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E1E24] p-4">
+                <Card className="w-full max-w-md border-red-200 dark:border-red-800/30 shadow-2xl bg-white dark:bg-[#2A2A32]">
                     <CardContent className="pt-6">
                         <div className="text-center space-y-4">
-                            <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
-                                <XCircle className="w-8 h-8 text-red-600" />
+                            <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                                <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
                             </div>
 
-                            <h2 className="text-2xl font-bold text-red-600">Invalid Invite Code</h2>
+                            <h2 className="text-2xl font-bold text-red-600 dark:text-red-400">Invalid Invite Code</h2>
 
-                            <p className="text-muted-foreground">
+                            <p className="text-[#737373] dark:text-[#A1A1AA]">
                                 {inviteError || 'This invite code cannot be used'}
                             </p>
 
-                            <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                                <p className="text-sm text-red-800">
+                            <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-lg border border-red-200 dark:border-red-800/30">
+                                <p className="text-sm text-red-800 dark:text-red-400">
                                     <strong>Code:</strong> <code className="font-mono">{inviteCode}</code>
                                 </p>
                             </div>
 
                             <div className="space-y-2 pt-2">
-                                <p className="text-sm font-medium text-muted-foreground">
+                                <p className="text-sm font-medium text-[#0A0A0A] dark:text-white">
                                     Possible reasons:
                                 </p>
-                                <ul className="text-xs text-muted-foreground space-y-1 text-left list-disc list-inside">
+                                <ul className="text-xs text-[#737373] dark:text-[#A1A1AA] space-y-1 text-left list-disc list-inside">
                                     <li>Already used by another company</li>
                                     <li>Invite has expired</li>
                                     <li>Invite was cancelled</li>
@@ -378,18 +378,18 @@ export const Signup = () => {
                             </div>
 
                             <div className="space-y-2 pt-4">
-                                <Button asChild className="w-full">
+                                <Button asChild className="w-full bg-[#0A0A0A] hover:bg-[#262626] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] text-white dark:text-[#1E1E24]">
                                     <Link to="/login">
                                         Go to Login
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </Link>
                                 </Button>
 
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-[#737373] dark:text-[#A1A1AA]">
                                     Need help?{' '}
                                     <a
                                         href="mailto:support@freightsynq.com"
-                                        className="text-primary hover:underline"
+                                        className="text-[#0A0A0A] dark:text-[#FCC52C] hover:underline"
                                     >
                                         Contact Support
                                     </a>
@@ -405,23 +405,23 @@ export const Signup = () => {
     // Block public signup
     if (!inviteCode) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 p-4">
-                <Card className="w-full max-w-md border-border/50 shadow-2xl">
+            <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#1E1E24] p-4">
+                <Card className="w-full max-w-md border-[#E5E7EB] dark:border-[#35353F] shadow-2xl bg-white dark:bg-[#2A2A32]">
                     <CardContent className="pt-6">
                         <div className="text-center space-y-4">
-                            <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-                                <AlertTriangle className="w-8 h-8 text-orange-600" />
+                            <div className="mx-auto w-16 h-16 bg-orange-100 dark:bg-orange-900/20 rounded-full flex items-center justify-center">
+                                <AlertTriangle className="w-8 h-8 text-orange-600 dark:text-orange-400" />
                             </div>
 
-                            <h2 className="text-2xl font-bold">Invitation Required</h2>
+                            <h2 className="text-2xl font-bold text-[#0A0A0A] dark:text-white">Invitation Required</h2>
 
-                            <p className="text-muted-foreground">
+                            <p className="text-[#737373] dark:text-[#A1A1AA]">
                                 FreightSynQ is an invite-only platform. You need a valid invitation code to create a company account.
                             </p>
 
-                            <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                                <p className="text-sm font-medium">How to get access:</p>
-                                <ul className="text-xs text-muted-foreground space-y-1 text-left list-disc list-inside">
+                            <div className="bg-[#F5F5F5] dark:bg-[#35353F] p-4 rounded-lg space-y-2">
+                                <p className="text-sm font-medium text-[#0A0A0A] dark:text-white">How to get access:</p>
+                                <ul className="text-xs text-[#737373] dark:text-[#A1A1AA] space-y-1 text-left list-disc list-inside">
                                     <li>Contact our sales team</li>
                                     <li>Request an invitation from your admin</li>
                                     <li>Email: sales@freightsynq.com</li>
@@ -429,16 +429,16 @@ export const Signup = () => {
                             </div>
 
                             <div className="space-y-2 pt-4">
-                                <Button asChild className="w-full">
+                                <Button asChild className="w-full bg-[#0A0A0A] hover:bg-[#262626] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] text-white dark:text-[#1E1E24]">
                                     <Link to="/login">
                                         Go to Login
                                         <ArrowRight className="ml-2 h-4 w-4" />
                                     </Link>
                                 </Button>
 
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-[#737373] dark:text-[#A1A1AA]">
                                     Already have an account?{' '}
-                                    <Link to="/employee-signup" className="text-primary hover:underline">
+                                    <Link to="/employee-signup" className="text-[#0A0A0A] dark:text-[#FCC52C] hover:underline">
                                         Join as Employee
                                     </Link>
                                 </p>
@@ -449,6 +449,7 @@ export const Signup = () => {
             </div>
         );
     }
+
     return (
         <div className="h-screen w-full flex overflow-hidden">
             {/* ✅ GLOBAL SCROLLBAR HIDE CSS */}
@@ -469,27 +470,28 @@ export const Signup = () => {
             }
         `}</style>
 
-
-            {/* ✅ LEFT PANEL - SIGNUP FORM */}
+            {/* ========================================
+                LEFT PANEL - SIGNUP FORM
+                ======================================== */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-white dark:bg-[#1E1E24] overflow-hidden">
                 <div className="w-full max-w-lg h-full max-h-[90vh] flex flex-col">
-                    {/* ✅ Header - CLEAN TEXT-BASED */}
+                    {/* Header */}
                     <div className="mb-6 flex-shrink-0">
-                        <p className="text-sm font-medium text-primary dark:text-primary mb-2">Get started</p>
-                        <h1 className="text-3xl sm:text-4xl font-bold text-foreground dark:text-white">
+                        <p className="text-sm font-medium text-[#0A0A0A] dark:text-[#FCC52C] mb-2">Get started</p>
+                        <h1 className="text-3xl sm:text-4xl font-bold text-[#0A0A0A] dark:text-white">
                             Create your account
                         </h1>
                     </div>
 
-                    {/* ✅ Scrollable Form - NO SCROLLBAR */}
+                    {/* Scrollable Form - NO SCROLLBAR */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <Card className="border border-border dark:border-border shadow-lg bg-card">
+                        <Card className="border border-[#E5E7EB] dark:border-[#35353F] shadow-lg bg-white dark:bg-[#2A2A32]">
                             <CardContent className="p-6">
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                     {/* Error Alert */}
                                     {error && (
-                                        <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/50">
-                                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                                        <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30">
+                                            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
                                             <AlertDescription className="text-red-700 dark:text-red-400 text-xs">{error}</AlertDescription>
                                         </Alert>
                                     )}
@@ -497,13 +499,13 @@ export const Signup = () => {
                                     {/* Company Info */}
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-1.5">
-                                            <Building2 className="w-4 h-4 text-primary dark:text-primary" />
-                                            <span className="text-sm font-semibold text-foreground dark:text-white">Company Information</span>
+                                            <Building2 className="w-4 h-4 text-[#0A0A0A] dark:text-[#FCC52C]" />
+                                            <span className="text-sm font-semibold text-[#0A0A0A] dark:text-white">Company Information</span>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-medium text-foreground dark:text-white">GST Number*</Label>
+                                                <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">GST Number*</Label>
                                                 <div className="relative">
                                                     <Input
                                                         name="gstNumber"
@@ -512,21 +514,21 @@ export const Signup = () => {
                                                         onChange={handleInputChange}
                                                         required
                                                         className={cn(
-                                                            "h-11 text-sm pr-10 uppercase border-border dark:border-border bg-card",
-                                                            gstValid === true && "border-green-500",
-                                                            gstValid === false && "border-red-500"
+                                                            "h-11 text-sm pr-10 uppercase border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
+                                                            gstValid === true && "border-green-500 dark:border-green-600",
+                                                            gstValid === false && "border-red-500 dark:border-red-600"
                                                         )}
                                                         maxLength={15}
                                                     />
                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                        {gstLookupLoading && <Loader2 className="w-4 h-4 animate-spin text-primary dark:text-primary" />}
-                                                        {!gstLookupLoading && gstValid === true && <CheckCircle className="w-4 h-4 text-green-500" />}
-                                                        {!gstLookupLoading && gstValid === false && formData.gstNumber && <XCircle className="w-4 h-4 text-red-500" />}
+                                                        {gstLookupLoading && <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0A] dark:text-[#FCC52C]" />}
+                                                        {!gstLookupLoading && gstValid === true && <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />}
+                                                        {!gstLookupLoading && gstValid === false && formData.gstNumber && <XCircle className="w-4 h-4 text-red-500 dark:text-red-400" />}
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-medium text-foreground dark:text-white">Company Name*</Label>
+                                                <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Company Name*</Label>
                                                 <div className="relative">
                                                     <Input
                                                         name="companyName"
@@ -535,13 +537,13 @@ export const Signup = () => {
                                                         onChange={handleInputChange}
                                                         required
                                                         className={cn(
-                                                            "h-11 text-sm border-border dark:border-border bg-card",
-                                                            gstData && "bg-green-50 dark:bg-green-900/20 border-green-300"
+                                                            "h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
+                                                            gstData && "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-800/30"
                                                         )}
                                                     />
                                                     {gstData && (
                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                            <Sparkles className="w-4 h-4 text-green-600" />
+                                                            <Sparkles className="w-4 h-4 text-green-600 dark:text-green-400" />
                                                         </div>
                                                     )}
                                                 </div>
@@ -549,15 +551,15 @@ export const Signup = () => {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-sm font-medium text-foreground dark:text-white">PAN Number</Label>
+                                            <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">PAN Number</Label>
                                             <Input
                                                 name="panNumber"
                                                 placeholder="10-digit PAN"
                                                 value={formData.panNumber}
                                                 onChange={handleInputChange}
                                                 className={cn(
-                                                    "h-11 text-sm uppercase border-border dark:border-border bg-card",
-                                                    formData.panNumber && "bg-green-50 dark:bg-green-900/20 border-green-300"
+                                                    "h-11 text-sm uppercase border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
+                                                    formData.panNumber && "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-800/30"
                                                 )}
                                                 maxLength={10}
                                             />
@@ -567,13 +569,13 @@ export const Signup = () => {
                                     {/* Admin Details */}
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-1.5">
-                                            <User className="w-4 h-4 text-primary dark:text-primary" />
-                                            <span className="text-sm font-semibold text-foreground dark:text-white">Admin User Details</span>
+                                            <User className="w-4 h-4 text-[#0A0A0A] dark:text-[#FCC52C]" />
+                                            <span className="text-sm font-semibold text-[#0A0A0A] dark:text-white">Admin User Details</span>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-medium text-foreground dark:text-white">Full Name*</Label>
+                                                <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Full Name*</Label>
                                                 <div className="relative">
                                                     <Input
                                                         name="userName"
@@ -582,32 +584,32 @@ export const Signup = () => {
                                                         onChange={handleInputChange}
                                                         required
                                                         className={cn(
-                                                            "h-11 text-sm border-border dark:border-border bg-card",
-                                                            gstData && "bg-green-50 dark:bg-green-900/20 border-green-300"
+                                                            "h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
+                                                            gstData && "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-800/30"
                                                         )}
                                                     />
                                                     {gstData && (
                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                            <Sparkles className="w-4 h-4 text-green-600" />
+                                                            <Sparkles className="w-4 h-4 text-green-600 dark:text-green-400" />
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-medium text-foreground dark:text-white">Phone</Label>
+                                                <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Phone</Label>
                                                 <Input
                                                     name="userPhone"
                                                     placeholder="10-digit number"
                                                     value={formData.userPhone}
                                                     onChange={handleInputChange}
-                                                    className="h-11 text-sm border-border dark:border-border bg-card"
+                                                    className="h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                                                     maxLength={10}
                                                 />
                                             </div>
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-sm font-medium text-foreground dark:text-white">Email Address*</Label>
+                                            <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Email Address*</Label>
                                             <Input
                                                 name="email"
                                                 type="email"
@@ -615,12 +617,12 @@ export const Signup = () => {
                                                 value={formData.email}
                                                 onChange={handleInputChange}
                                                 required
-                                                className="h-11 text-sm border-border dark:border-border bg-card"
+                                                className="h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                                             />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label className="text-sm font-medium text-foreground dark:text-white">Username* (for login)</Label>
+                                            <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Username* (for login)</Label>
                                             <div className="relative">
                                                 <Input
                                                     name="username"
@@ -634,24 +636,24 @@ export const Signup = () => {
                                                     }}
                                                     required
                                                     className={cn(
-                                                        "h-11 text-sm border-border dark:border-border bg-card",
-                                                        usernameAvailable === true && "border-green-500",
-                                                        usernameAvailable === false && "border-red-500"
+                                                        "h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
+                                                        usernameAvailable === true && "border-green-500 dark:border-green-600",
+                                                        usernameAvailable === false && "border-red-500 dark:border-red-600"
                                                     )}
                                                     minLength={3}
                                                     disabled={loading}
                                                 />
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                    {checkingUsername && <Loader2 className="w-4 h-4 animate-spin text-primary dark:text-primary" />}
-                                                    {!checkingUsername && usernameAvailable === true && <CheckCircle className="w-4 h-4 text-green-500" />}
-                                                    {!checkingUsername && usernameAvailable === false && formData.username && <XCircle className="w-4 h-4 text-red-500" />}
+                                                    {checkingUsername && <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0A] dark:text-[#FCC52C]" />}
+                                                    {!checkingUsername && usernameAvailable === true && <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />}
+                                                    {!checkingUsername && usernameAvailable === false && formData.username && <XCircle className="w-4 h-4 text-red-500 dark:text-red-400" />}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-medium text-foreground dark:text-white">Password*</Label>
+                                                <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Password*</Label>
                                                 <Input
                                                     name="password"
                                                     type="password"
@@ -659,11 +661,11 @@ export const Signup = () => {
                                                     value={formData.password}
                                                     onChange={handleInputChange}
                                                     required
-                                                    className="h-11 text-sm border-border dark:border-border bg-card"
+                                                    className="h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <Label className="text-sm font-medium text-foreground dark:text-white">Confirm Password*</Label>
+                                                <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">Confirm Password*</Label>
                                                 <Input
                                                     name="confirmPassword"
                                                     type="password"
@@ -671,7 +673,7 @@ export const Signup = () => {
                                                     value={formData.confirmPassword}
                                                     onChange={handleInputChange}
                                                     required
-                                                    className="h-11 text-sm border-border dark:border-border bg-card"
+                                                    className="h-11 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                                                 />
                                             </div>
                                         </div>
@@ -685,14 +687,14 @@ export const Signup = () => {
                                                 checked={formData.termsAccepted}
                                                 onCheckedChange={(checked) => setFormData({ ...formData, termsAccepted: !!checked })}
                                             />
-                                            <Label htmlFor="terms" className="text-sm font-normal text-muted-foreground dark:text-muted-foreground cursor-pointer">
+                                            <Label htmlFor="terms" className="text-sm font-normal text-[#737373] dark:text-[#A1A1AA] cursor-pointer">
                                                 I agree to the Terms & Conditions
                                             </Label>
                                         </div>
 
                                         <Button
                                             type="submit"
-                                            className="w-full h-11 text-base bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-semibold shadow-md hover:shadow-lg transition-all"
+                                            className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold shadow-md hover:shadow-lg dark:shadow-[0_4px_20px_rgba(252,197,44,0.3)] transition-all"
                                             disabled={loading || !formData.termsAccepted || usernameAvailable === false || gstValid !== true}
                                         >
                                             {loading ? (
@@ -708,9 +710,9 @@ export const Signup = () => {
                                             )}
                                         </Button>
 
-                                        <p className="text-center text-sm text-muted-foreground dark:text-muted-foreground">
+                                        <p className="text-center text-sm text-[#737373] dark:text-[#A1A1AA]">
                                             Already have an account?{' '}
-                                            <Link to="/login" className="text-primary dark:text-primary hover:underline font-medium">Sign in</Link>
+                                            <Link to="/login" className="text-[#0A0A0A] dark:text-[#FCC52C] hover:underline font-medium">Sign in</Link>
                                         </p>
                                     </div>
                                 </form>
@@ -720,7 +722,9 @@ export const Signup = () => {
                 </div>
             </div>
 
-            {/* RIGHT PANEL - SAME AS BEFORE */}
+            {/* ========================================
+                RIGHT PANEL - BRAND SHOWCASE (DARK)
+                ======================================== */}
             <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
 
                 {/* Animated Border CSS */}
@@ -797,12 +801,12 @@ export const Signup = () => {
                 <div className="animated-corner-br absolute inset-0 pointer-events-none z-20" />
 
                 {/* Corner Glow Dots */}
-                <div className="absolute top-0 left-0 w-2.5 h-2.5 bg-primary rounded-full glow-dot shadow-lg shadow-[#FCC52C]/60 z-20" />
+                <div className="absolute top-0 left-0 w-2.5 h-2.5 bg-[#FCC52C] rounded-full glow-dot shadow-lg shadow-[#FCC52C]/60 z-20" />
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#F38810] rounded-full glow-dot shadow-lg shadow-[#F38810]/60 z-20" style={{ animationDelay: '1s' }} />
 
                 {/* Background Elements */}
                 <div className="absolute inset-0">
-                    <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-primary/8 rounded-full blur-[120px]" />
+                    <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#FCC52C]/8 rounded-full blur-[120px]" />
                     <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-[#F38810]/8 rounded-full blur-[120px]" />
 
                     <div
@@ -820,13 +824,13 @@ export const Signup = () => {
                     <div className="relative mb-8">
                         <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl blur-2xl opacity-40" />
                         <div className="relative flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl shadow-2xl">
-                            <Truck className="w-10 h-10 text-foreground" />
+                            <Truck className="w-10 h-10 text-[#0A0A0F]" />
                         </div>
                     </div>
 
                     {/* Brand Name */}
                     <h2 className="text-4xl font-bold text-white mb-2">
-                        Freight<span className="text-primary">SynQ</span>
+                        Freight<span className="text-[#FCC52C]">SynQ</span>
                     </h2>
                     <p className="text-gray-400 text-lg mb-10">
                         Complete logistics management platform
@@ -835,15 +839,15 @@ export const Signup = () => {
                     {/* Feature Pills */}
                     <div className="flex flex-wrap justify-center gap-3 mb-14">
                         <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
-                            <Package className="w-4 h-4 text-primary" />
+                            <Package className="w-4 h-4 text-[#FCC52C]" />
                             <span className="text-sm text-gray-300">Smart Booking</span>
                         </div>
                         <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
-                            <Shield className="w-4 h-4 text-primary" />
+                            <Shield className="w-4 h-4 text-[#FCC52C]" />
                             <span className="text-sm text-gray-300">Secure</span>
                         </div>
                         <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
-                            <Zap className="w-4 h-4 text-primary" />
+                            <Zap className="w-4 h-4 text-[#FCC52C]" />
                             <span className="text-sm text-gray-300">Real-time</span>
                         </div>
                     </div>
@@ -853,11 +857,11 @@ export const Signup = () => {
                         {/* Stat 1 */}
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-primary/30 transition-all duration-300">
+                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
                                 <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
-                                    <Users className="w-5 h-5 text-primary" />
+                                    <Users className="w-5 h-5 text-[#FCC52C]" />
                                 </div>
-                                <p className="text-2xl font-bold text-white">500<span className="text-primary">+</span></p>
+                                <p className="text-2xl font-bold text-white">500<span className="text-[#FCC52C]">+</span></p>
                                 <p className="text-xs text-gray-500 mt-1">Active Clients</p>
                             </div>
                         </div>
@@ -865,11 +869,11 @@ export const Signup = () => {
                         {/* Stat 2 */}
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-primary/30 transition-all duration-300">
+                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
                                 <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
-                                    <Clock className="w-5 h-5 text-primary" />
+                                    <Clock className="w-5 h-5 text-[#FCC52C]" />
                                 </div>
-                                <p className="text-2xl font-bold text-white">99.9<span className="text-primary">%</span></p>
+                                <p className="text-2xl font-bold text-white">99.9<span className="text-[#FCC52C]">%</span></p>
                                 <p className="text-xs text-gray-500 mt-1">Uptime SLA</p>
                             </div>
                         </div>
@@ -877,11 +881,11 @@ export const Signup = () => {
                         {/* Stat 3 */}
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-primary/30 transition-all duration-300">
+                            <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
                                 <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
-                                    <Headphones className="w-5 h-5 text-primary" />
+                                    <Headphones className="w-5 h-5 text-[#FCC52C]" />
                                 </div>
-                                <p className="text-2xl font-bold text-white">24<span className="text-primary">/7</span></p>
+                                <p className="text-2xl font-bold text-white">24<span className="text-[#FCC52C]">/7</span></p>
                                 <p className="text-xs text-gray-500 mt-1">Support</p>
                             </div>
                         </div>

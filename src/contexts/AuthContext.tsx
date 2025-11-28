@@ -94,14 +94,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const fetchUserData = async (userId: string, useCache = true) => {
         console.log('Starting fetchUserData for:', userId);
-        const { data: { user: authUser } } = await supabase.auth.getUser();
 
-        if (authUser && !authUser.email_confirmed_at) {
-            console.log('⚠️ Email not verified, skipping profile load');
-            setLoading(false);
-            return;
-        }
-
+        // Check cache first
         if (useCache) {
             const cachedData = getCachedUserData(userId);
             if (cachedData) {
@@ -109,8 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUserProfile(cachedData.profile);
                 if (cachedData.company) setCompany(cachedData.company);
                 setLoading(false);
-                setTimeout(() => fetchUserData(userId, false), 100);
-                return;
+                // Don't return here, let fresh fetch happen in background
             }
         }
 
@@ -119,52 +112,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 .from('users')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle(); // ✅ Changed from .single() to .maybeSingle() to avoid error
 
             if (profileError) {
-                console.error('Profile fetch error:', profileError);
                 throw profileError;
             }
 
-            console.log('Profile fetched:', profile);
-            setUserProfile(profile);
+            if (profile) {
+                console.log('Profile fetched:', profile);
+                setUserProfile(profile);
 
-            let companyData = null;
-            if (profile?.company_id) {
-                const { data, error: companyError } = await supabase
-                    .from('companies')
-                    .select('*')
-                    .eq('id', profile.company_id)
-                    .single();
+                let companyData = null;
+                if (profile.company_id) {
+                    const { data, error: companyError } = await supabase
+                        .from('companies')
+                        .select('*')
+                        .eq('id', profile.company_id)
+                        .single();
 
-                if (!companyError && data) {
-                    setCompany(data);
-                    companyData = data;
-                    console.log('Company data fetched:', data);
+                    if (!companyError && data) {
+                        setCompany(data);
+                        companyData = data;
+                    }
+                }
+
+                setCachedUserData(userId, {
+                    profile,
+                    company: companyData
+                });
+            } else {
+                // ✅ Handle Super Admin Case where RLS might hide profile
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                if (authUser?.email === 'freightsynq@gmail.com') {
+                    console.log('Super Admin detected (No profile access), creating placeholder');
+                    const superAdminProfile = {
+                        id: userId,
+                        email: authUser.email,
+                        name: 'Super Admin',
+                        role: 'admin',
+                        company_id: '',
+                        created_at: new Date().toISOString()
+                    };
+                    setUserProfile(superAdminProfile);
                 }
             }
 
-            setCachedUserData(userId, {
-                profile,
-                company: companyData
-            });
-
         } catch (error) {
             console.error('fetchUserData error:', error);
-
+            // Don't clear profile if we have cached data
             const cachedData = getCachedUserData(userId);
-            if (cachedData) {
-                console.log('Using cached data as fallback');
-                setUserProfile(cachedData.profile);
-                if (cachedData.company) setCompany(cachedData.company);
-            } else {
-                setUserProfile({
-                    id: userId,
-                    name: 'User',
-                    email: user?.email || '',
-                    role: 'operator',
-                    company_id: ''
-                });
+            if (!cachedData) {
+                // Only set placeholder if really nothing exists
+                const { data: { user: authUser } } = await supabase.auth.getUser();
+                if (authUser?.email === 'freightsynq@gmail.com') {
+                    setUserProfile({
+                        id: userId,
+                        email: authUser.email,
+                        name: 'Super Admin',
+                        role: 'admin',
+                        company_id: ''
+                    });
+                }
             }
         } finally {
             setLoading(false);

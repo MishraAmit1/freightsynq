@@ -1640,7 +1640,7 @@ export const Customers = () => {
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setCurrentPage(1)}
-                                        className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary"
+                                        className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                                     >
                                         <ChevronsLeft className="h-4 w-4" />
                                     </Button>
@@ -1651,7 +1651,7 @@ export const Customers = () => {
                                     size="sm"
                                     disabled={currentPage === 1}
                                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary disabled:opacity-50"
+                                    className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                 </Button>
@@ -1659,7 +1659,7 @@ export const Customers = () => {
                                 <div className="flex items-center gap-1">
                                     {getPaginationButtons().map((page, index) => (
                                         page === '...' ? (
-                                            <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">...</span>
+                                            <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground dark:text-muted-foreground">...</span>
                                         ) : (
                                             <Button
                                                 key={page}
@@ -1669,8 +1669,8 @@ export const Customers = () => {
                                                 className={cn(
                                                     "h-9 w-9 p-0 border-border dark:border-border",
                                                     currentPage === page
-                                                        ? "bg-primary border-primary text-foreground font-medium hover:bg-primary-hover"
-                                                        : "bg-card hover:bg-accent dark:hover:bg-secondary"
+                                                        ? "bg-primary border-primary text-primary-foreground hover:text-primary-foreground font-medium hover:bg-primary-hover"
+                                                        : "bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                                                 )}
                                             >
                                                 {page}
@@ -1684,16 +1684,17 @@ export const Customers = () => {
                                     size="sm"
                                     disabled={currentPage === totalPages || totalPages === 0}
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary disabled:opacity-50"
+                                    className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                                 >
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
+
                                 {currentPage < totalPages - 1 && (
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setCurrentPage(totalPages)}
-                                        className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary"
+                                        className="h-9 w-9 p-0 border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                                     >
                                         <ChevronsRight className="h-4 w-4" />
                                     </Button>
@@ -1707,14 +1708,14 @@ export const Customers = () => {
                                     setCurrentPage(1);
                                 }}
                             >
-                                <SelectTrigger className="w-[130px] h-9 border-border dark:border-border bg-card text-sm">
+                                <SelectTrigger className="w-[130px] h-9 border-border dark:border-border bg-card text-sm text-foreground dark:text-white hover:text-foreground dark:hover:text-white">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="bg-card border-border dark:border-border text-white">
-                                    <SelectItem value="10">10 per page</SelectItem>
-                                    <SelectItem value="25">25 per page</SelectItem>
-                                    <SelectItem value="50">50 per page</SelectItem>
-                                    <SelectItem value="100">100 per page</SelectItem>
+                                <SelectContent className="bg-card border-border dark:border-border">
+                                    <SelectItem value="10" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">10 per page</SelectItem>
+                                    <SelectItem value="25" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">25 per page</SelectItem>
+                                    <SelectItem value="50" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">50 per page</SelectItem>
+                                    <SelectItem value="100" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">100 per page</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

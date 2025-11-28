@@ -96,8 +96,8 @@ export const Sidebar = ({
           }
         }}
         className={cn(
-          "flex items-center rounded-lg text-sm font-medium transition-all duration-200 relative group",
-          !isMobile && isCollapsed ? "justify-center p-3" : "space-x-3 px-4 py-3",
+          "flex items-center rounded-lg text-[13px] font-medium transition-all duration-200 relative group",
+          !isMobile && isCollapsed ? "justify-center p-2.5" : "space-x-2.5 px-3.5 py-2.5",
           // Active state - Theme consistent
           isActive && "bg-primary text-primary-foreground shadow-md dark:bg-primary/15 dark:text-primary dark:border-l-4 dark:border-primary",
           // Default state
@@ -116,7 +116,7 @@ export const Sidebar = ({
         )}
 
         <item.icon className={cn(
-          "w-5 h-5 flex-shrink-0 transition-transform duration-200",
+          "w-[18px] h-[18px] flex-shrink-0 transition-transform duration-200",
           hoveredItem === item.name && "rotate-6 scale-110"
         )} />
 
@@ -178,7 +178,7 @@ export const Sidebar = ({
             "transition-all duration-500 ease-in-out",
             "bg-card dark:bg-card border-r border-border dark:border-border",
             isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-            !isMobile && isCollapsed ? "lg:w-[80px]" : "w-60"
+            !isMobile && isCollapsed ? "lg:w-[75px]" : "w-56"
           )}
           style={{
             transitionProperty: 'width, transform',
@@ -213,7 +213,7 @@ export const Sidebar = ({
               "group",
               "z-[100]",
               // Position: Right corner, on the border line after header
-              "-right-3 top-[62px]"
+              "-right-3 top-[56px]"
             )}
             onClick={onToggleCollapse}
           >
@@ -230,7 +230,7 @@ export const Sidebar = ({
           <div className={cn(
             "border-b border-border dark:border-border transition-all duration-500 ease-in-out",
             "flex items-center",
-            !isMobile && isCollapsed ? "px-3 h-[73px]" : "px-4 h-[73px]"
+            !isMobile && isCollapsed ? "px-2.5 h-[65px]" : "px-3.5 h-[65px]"
           )}>
             <div className={cn(
               "flex items-center gap-3 transition-all duration-500 ease-in-out w-full",
@@ -242,15 +242,15 @@ export const Sidebar = ({
                 className={cn(
                   "object-contain transition-all duration-500 ease-in-out",
                   isCollapsed && !isMobile
-                    ? "w-10 h-10"
-                    : "h-12 w-auto"
+                    ? "w-9 h-9"
+                    : "h-11 w-auto"
                 )}
               />
               <div className={cn(
                 "overflow-hidden transition-all duration-500 ease-in-out",
                 isCollapsed && !isMobile ? "w-0 h-0 opacity-0" : "w-auto opacity-100"
               )}>
-                <h1 className="text-lg font-bold text-foreground dark:text-white truncate whitespace-nowrap leading-tight">
+                <h1 className="text-[17px] font-bold text-foreground dark:text-white truncate whitespace-nowrap leading-tight">
                   FreightSynQ
                 </h1>
               </div>
@@ -261,7 +261,7 @@ export const Sidebar = ({
           <nav
             className={cn(
               "flex-1 py-4 space-y-2 overflow-y-auto transition-all duration-500 ease-in-out scrollbar-none",
-              !isMobile && isCollapsed ? "px-3" : "px-4"
+              !isMobile && isCollapsed ? "px-2.5" : "px-3.5"
             )}
           >
             {/* Regular Navigation */}

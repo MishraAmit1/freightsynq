@@ -39,7 +39,7 @@ import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
 import { useToast } from "@/hooks/use-toast";
 import { MiniTrackingMap } from "@/components/MiniTrackingMap";
-
+import { useNavigate } from "react-router-dom";
 interface BookingDetailSheetProps {
     isOpen: boolean;
     onClose: () => void;
@@ -130,7 +130,7 @@ export const BookingDetailSheet = ({
     const [showVehicleAssignModal, setShowVehicleAssignModal] = useState(false);
     const [showRemarksModal, setShowRemarksModal] = useState(false);
     const [remarksText, setRemarksText] = useState("");
-
+    const navigate = useNavigate();
     useEffect(() => {
         if (isOpen && bookingId) {
             loadBookingDetails();
@@ -384,6 +384,14 @@ export const BookingDetailSheet = ({
                                                 {status.label}
                                             </Badge>
                                             <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => navigate(`/bookings/${booking.id}`)}
+                                                className="h-8 px-3 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary font-medium"
+                                            >
+                                                Open Details
+                                            </Button>
+                                            <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={onClose}
@@ -506,7 +514,7 @@ export const BookingDetailSheet = ({
                                         {booking.consignorPhone && (
                                             <Button
                                                 variant="link"
-                                                className="h-auto p-0 text-xs mt-1 text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                className="h-auto p-0 text-xs mt-1 text-primary dark:text-primary hover:text-primary"
                                                 asChild
                                             >
                                                 <a href={`tel:${booking.consignorPhone}`}>
@@ -535,7 +543,7 @@ export const BookingDetailSheet = ({
                                         {booking.consigneePhone && (
                                             <Button
                                                 variant="link"
-                                                className="h-auto p-0 text-xs mt-1 text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                className="h-auto p-0 text-xs mt-1 text-primary dark:text-primary hover:text-primary"
                                                 asChild
                                             >
                                                 <a href={`tel:${booking.consigneePhone}`}>
@@ -753,7 +761,7 @@ export const BookingDetailSheet = ({
                                                             </p>
                                                             <Button
                                                                 variant="link"
-                                                                className="h-auto p-0 text-sm font-semibold text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                                className="h-auto p-0 text-sm font-semibold text-primary dark:text-primary hover:text-primary"
                                                                 asChild
                                                             >
                                                                 <a href={`tel:${booking.assignedVehicle.driver.phone}`}>
@@ -785,7 +793,7 @@ export const BookingDetailSheet = ({
                                                             {booking.broker.phone && (
                                                                 <Button
                                                                     variant="link"
-                                                                    className="h-auto p-0 text-xs text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                                                    className="h-auto p-0 text-xs text-primary dark:text-primary hover:text-primary"
                                                                     asChild
                                                                 >
                                                                     <a href={`tel:${booking.broker.phone}`}>

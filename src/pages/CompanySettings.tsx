@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ApiUsageDashboard } from '@/components/ApiUsageDashboard';
+import { Separator } from "@/components/ui/separator";
 import {
     Loader2,
     Copy,
@@ -36,7 +37,11 @@ import {
     User,
     CreditCard,
     Warehouse,
-    Truck
+    Truck,
+    Star,
+    Package,
+    TrendingUp,
+    Hash
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,6 +64,16 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
     fetchLRCities,
     addLRCity,
     setActiveLRCity,
@@ -68,6 +83,14 @@ import {
 } from '@/api/lr-sequences';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
+import { CompanyBranch, fetchCompanyBranches, createBranch } from "@/api/bookings";
+
+// ✅ Branch Stats Interface
+interface BranchStats {
+    totalBookings: number;
+    activeBookings: number;
+    currentCounter: number;
+}
 
 export const CompanySettings = () => {
     const { company, userProfile } = useAuth();
@@ -97,11 +120,27 @@ export const CompanySettings = () => {
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [employeeRoleFilter, setEmployeeRoleFilter] = useState<string>('all');
 
+    // ✅ NEW: Branch states
+    const [branches, setBranches] = useState<CompanyBranch[]>([]);
+    const [branchStats, setBranchStats] = useState<Record<string, BranchStats>>({});
+    const [branchesLoading, setBranchesLoading] = useState(false);
+    const [showAddBranchModal, setShowAddBranchModal] = useState(false);
+    const [showEditBranchModal, setShowEditBranchModal] = useState(false);
+    const [editingBranch, setEditingBranch] = useState<CompanyBranch | null>(null);
+    const [deletingBranchId, setDeletingBranchId] = useState<string | null>(null);
+    const [branchFormData, setBranchFormData] = useState({
+        branch_name: "",
+        city: "",
+        address: ""
+    });
+    const [branchSaving, setBranchSaving] = useState(false);
+
     useEffect(() => {
         if (company) {
             loadData();
             loadTemplateData();
             loadLRCities();
+            loadBranches(); // ✅ Add this
             setIsAdmin(userProfile?.role === 'admin');
         }
     }, [company, userProfile]);
@@ -164,6 +203,180 @@ export const CompanySettings = () => {
             setLrCitiesLoading(false);
         }
     };
+
+    // ✅ NEW: Load Branches Function
+    const loadBranches = async () => {
+        setBranchesLoading(true);
+        try {
+            const branchData = await fetchCompanyBranches();
+            setBranches(branchData);
+
+            // Fetch stats for each branch
+            const stats: Record<string, BranchStats> = {};
+
+            for (const branch of branchData) {
+                const { data: bookingData } = await supabase
+                    .from('bookings')
+                    .select('id, status')
+                    .eq('branch_id', branch.id);
+
+                const { data: counterData } = await supabase
+                    .from('booking_counters')
+                    .select('current_number')
+                    .eq('branch_id', branch.id)
+                    .single();
+
+                stats[branch.id] = {
+                    totalBookings: bookingData?.length || 0,
+                    activeBookings: bookingData?.filter(b => !['DELIVERED', 'CANCELLED'].includes(b.status)).length || 0,
+                    currentCounter: counterData?.current_number || 0
+                };
+            }
+
+            setBranchStats(stats);
+        } catch (error) {
+            console.error('Error loading branches:', error);
+        } finally {
+            setBranchesLoading(false);
+        }
+    };
+
+    // ✅ NEW: Branch CRUD Functions
+    const getNextBranchCode = () => {
+        if (branches.length >= 26) return "AA";
+        return String.fromCharCode(65 + branches.length);
+    };
+
+    const handleAddBranch = async () => {
+        if (!branchFormData.branch_name || !branchFormData.city) {
+            toast({
+                title: "❌ Validation Error",
+                description: "Branch name and city are required",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        try {
+            setBranchSaving(true);
+
+            const newBranch = await createBranch({
+                branch_name: branchFormData.branch_name,
+                city: branchFormData.city,
+                address: branchFormData.address
+            });
+
+            toast({
+                title: "✅ Branch Created",
+                description: `${newBranch.branch_name} (${newBranch.branch_code}) has been created`,
+            });
+
+            setShowAddBranchModal(false);
+            setBranchFormData({ branch_name: "", city: "", address: "" });
+            loadBranches();
+        } catch (error: any) {
+            toast({
+                title: "❌ Error",
+                description: error.message || "Failed to create branch",
+                variant: "destructive",
+            });
+        } finally {
+            setBranchSaving(false);
+        }
+    };
+
+    const handleEditBranch = async () => {
+        if (!editingBranch) return;
+
+        try {
+            setBranchSaving(true);
+
+            const { error } = await supabase
+                .from('company_branches')
+                .update({
+                    branch_name: branchFormData.branch_name,
+                    city: branchFormData.city,
+                    address: branchFormData.address
+                })
+                .eq('id', editingBranch.id);
+
+            if (error) throw error;
+
+            toast({
+                title: "✅ Branch Updated",
+                description: `${branchFormData.branch_name} has been updated`,
+            });
+
+            setShowEditBranchModal(false);
+            setEditingBranch(null);
+            setBranchFormData({ branch_name: "", city: "", address: "" });
+            loadBranches();
+        } catch (error: any) {
+            toast({
+                title: "❌ Error",
+                description: error.message || "Failed to update branch",
+                variant: "destructive",
+            });
+        } finally {
+            setBranchSaving(false);
+        }
+    };
+
+    const handleDeleteBranch = async () => {
+        if (!deletingBranchId) return;
+
+        try {
+            const { data: bookings } = await supabase
+                .from('bookings')
+                .select('id')
+                .eq('branch_id', deletingBranchId)
+                .limit(1);
+
+            if (bookings && bookings.length > 0) {
+                toast({
+                    title: "❌ Cannot Delete",
+                    description: "This branch has existing bookings",
+                    variant: "destructive",
+                });
+                setDeletingBranchId(null);
+                return;
+            }
+
+            const { error } = await supabase
+                .from('company_branches')
+                .delete()
+                .eq('id', deletingBranchId);
+
+            if (error) throw error;
+
+            toast({
+                title: "✅ Branch Deleted",
+                description: "Branch has been deleted successfully",
+            });
+
+            loadBranches();
+        } catch (error: any) {
+            toast({
+                title: "❌ Error",
+                description: error.message || "Failed to delete branch",
+                variant: "destructive",
+            });
+        } finally {
+            setDeletingBranchId(null);
+        }
+    };
+
+    const openEditBranchModal = (branch: CompanyBranch) => {
+        setEditingBranch(branch);
+        setBranchFormData({
+            branch_name: branch.branch_name,
+            city: branch.city || "",
+            address: branch.address || ""
+        });
+        setShowEditBranchModal(true);
+    };
+
+    // ... (keep all existing functions like handleAddCity, handleSetActiveCity, etc.)
 
     const handleAddCity = async () => {
         if (!newCityForm.city_name.trim()) {
@@ -412,9 +625,220 @@ export const CompanySettings = () => {
         <div className="space-y-8 -mt-1">
             {/* Header Section */}
             <div className="space-y-6">
+                {/* ✅ NEW: BRANCHES CARD */}
+                <Card className="bg-card border border-border dark:border-border shadow-sm">
+                    <CardHeader className="border-b border-border dark:border-border">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
+                                    <div className="p-1.5 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                                        <Building2 className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    Company Branches
+                                </CardTitle>
+                                <CardDescription className="mt-1 text-muted-foreground dark:text-muted-foreground">
+                                    Manage branches and their booking sequences
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="border-border dark:border-border">
+                                    {branches.length} Branch{branches.length !== 1 ? 'es' : ''}
+                                </Badge>
+                                {isAdmin && (
+                                    <Button
+                                        onClick={() => setShowAddBranchModal(true)}
+                                        size="sm"
+                                        className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add Branch
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        {branchesLoading ? (
+                            <div className="flex justify-center py-12">
+                                <div className="relative">
+                                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+                                </div>
+                            </div>
+                        ) : branches.length === 0 ? (
+                            <div className="text-center py-12">
+                                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                    <Building2 className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-medium mb-2 text-foreground dark:text-white">No Branches</h3>
+                                <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-4">
+                                    Create your first branch to start managing locations
+                                </p>
+                                {isAdmin && (
+                                    <Button
+                                        onClick={() => setShowAddBranchModal(true)}
+                                        className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        Add First Branch
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {/* Quick Stats */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                                    <div className="bg-muted rounded-lg p-3 text-center">
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                        <p className="text-xl font-bold text-foreground dark:text-white">{branches.length}</p>
+                                    </div>
+                                    <div className="bg-muted rounded-lg p-3 text-center">
+                                        <p className="text-xs text-muted-foreground">Active</p>
+                                        <p className="text-xl font-bold text-green-600">{branches.filter(b => b.status === 'ACTIVE').length}</p>
+                                    </div>
+                                    <div className="bg-muted rounded-lg p-3 text-center">
+                                        <p className="text-xs text-muted-foreground">Next Code</p>
+                                        <Badge className="text-lg px-2 py-0.5">{getNextBranchCode()}</Badge>
+                                    </div>
+                                    <div className="bg-muted rounded-lg p-3 text-center">
+                                        <p className="text-xs text-muted-foreground">Total Bookings</p>
+                                        <p className="text-xl font-bold text-foreground dark:text-white">
+                                            {Object.values(branchStats).reduce((sum, stat) => sum + stat.totalBookings, 0)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Separator className="bg-border dark:bg-border" />
+
+                                {/* Branch List */}
+                                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                    {branches.map((branch) => {
+                                        const stats = branchStats[branch.id] || {
+                                            totalBookings: 0,
+                                            activeBookings: 0,
+                                            currentCounter: 0
+                                        };
+
+                                        return (
+                                            <div
+                                                key={branch.id}
+                                                className={cn(
+                                                    "p-4 rounded-lg border transition-all",
+                                                    branch.is_default
+                                                        ? "bg-accent dark:bg-primary/10 border-primary"
+                                                        : "bg-muted border-border dark:border-border"
+                                                )}
+                                            >
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="text-lg px-3 py-1 font-mono border-border dark:border-border"
+                                                        >
+                                                            {branch.branch_code}
+                                                        </Badge>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-semibold text-foreground dark:text-white truncate">
+                                                                    {branch.branch_name}
+                                                                </span>
+                                                                {branch.is_default && (
+                                                                    <Badge className="text-xs bg-primary text-primary-foreground border-0">
+                                                                        <Star className="w-3 h-3 mr-1" />
+                                                                        Default
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            {branch.city && (
+                                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground dark:text-muted-foreground mt-0.5">
+                                                                    <MapPin className="w-3 h-3" />
+                                                                    {branch.city}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        {/* Stats Badges */}
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="secondary" className="font-mono text-xs">
+                                                                        <Hash className="w-3 h-3 mr-1" />
+                                                                        {stats.currentCounter.toString().padStart(3, '0')}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Current Counter</TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge variant="outline" className="text-xs border-border">
+                                                                        <Package className="w-3 h-3 mr-1" />
+                                                                        {stats.totalBookings}
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>Total Bookings</TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+
+                                                        {stats.activeBookings > 0 && (
+                                                            <Badge className="text-xs bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-0">
+                                                                {stats.activeBookings} Active
+                                                            </Badge>
+                                                        )}
+
+                                                        {/* Status Badge */}
+                                                        <Badge
+                                                            className={cn(
+                                                                "text-xs",
+                                                                branch.status === 'ACTIVE'
+                                                                    ? "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50"
+                                                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
+                                                            )}
+                                                        >
+                                                            {branch.status}
+                                                        </Badge>
+
+                                                        {/* Actions */}
+                                                        {isAdmin && (
+                                                            <div className="flex items-center gap-1">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() => openEditBranchModal(branch)}
+                                                                    className="h-7 w-7 p-0 hover:bg-accent dark:hover:bg-secondary"
+                                                                >
+                                                                    <Edit className="w-3.5 h-3.5" />
+                                                                </Button>
+
+                                                                {!branch.is_default && (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() => setDeletingBranchId(branch.id)}
+                                                                        className="h-7 w-7 p-0 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600"
+                                                                    >
+                                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
                 {/* Company Code & Employees Cards */}
                 <div className="grid gap-6 md:grid-cols-2">
-                    {/* Company Code Card */}
+                    {/* Company Code Card - KEEP AS IS */}
                     <Card className="bg-card border border-border dark:border-border shadow-sm">
                         <CardHeader className="border-b border-border dark:border-border">
                             <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
@@ -480,7 +904,7 @@ export const CompanySettings = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Employees Card */}
+                    {/* Employees Card - KEEP AS IS */}
                     <Card className="bg-card border border-border dark:border-border shadow-sm">
                         <CardHeader className="border-b border-border dark:border-border">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -660,8 +1084,7 @@ export const CompanySettings = () => {
                         </CardContent>
                     </Card>
                 </div>
-
-                {/* LR Template Card */}
+                {/* LR Template Card - KEEP AS IS */}
                 <Card className="bg-card border border-border dark:border-border shadow-sm">
                     <CardHeader className="border-b border-border dark:border-border">
                         <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
@@ -745,7 +1168,7 @@ export const CompanySettings = () => {
                     </CardContent>
                 </Card>
 
-                {/* LR City Card */}
+                {/* LR City Card - KEEP AS IS */}
                 <Card className="bg-card border border-border dark:border-border shadow-sm">
                     <CardHeader className="border-b border-border dark:border-border">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -879,7 +1302,260 @@ export const CompanySettings = () => {
                 <ApiUsageDashboard />
             </div>
 
-            {/* Add City Modal */}
+            {/* ✅ ADD BRANCH MODAL */}
+            {/* ✅ ADD BRANCH MODAL - Original Style */}
+            <Dialog open={showAddBranchModal} onOpenChange={setShowAddBranchModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add New Branch</DialogTitle>
+                        <DialogDescription>
+                            Create a new branch. The next available code ({getNextBranchCode()}) will be assigned automatically.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="">
+                            <Label>Branch Code (Auto-assigned)</Label>
+                            <Badge variant="outline" className="text-2xl px-4 py-2 font-mono">
+                                {getNextBranchCode()}
+                            </Badge>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Branch Name <span className="text-red-500">*</span></Label>
+                            <Input
+                                value={branchFormData.branch_name}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, branch_name: e.target.value })}
+                                placeholder="e.g., Vapi Main Office"
+                                disabled={branchSaving}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>City <span className="text-red-500">*</span></Label>
+                            <Input
+                                value={branchFormData.city}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, city: e.target.value })}
+                                placeholder="e.g., Vapi"
+                                disabled={branchSaving}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Address</Label>
+                            <Input
+                                value={branchFormData.address}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, address: e.target.value })}
+                                placeholder="Full address (optional)"
+                                disabled={branchSaving}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowAddBranchModal(false)}
+                            disabled={branchSaving}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleAddBranch}
+                            disabled={branchSaving || !branchFormData.branch_name || !branchFormData.city}
+                        >
+                            {branchSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Create Branch
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ✅ EDIT BRANCH MODAL - Original Style */}
+            <Dialog open={showEditBranchModal} onOpenChange={setShowEditBranchModal}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Branch</DialogTitle>
+                        <DialogDescription>
+                            Update branch details. Branch code cannot be changed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Branch Code</Label>
+                            <Badge variant="outline" className="text-2xl px-4 py-2 font-mono">
+                                {editingBranch?.branch_code}
+                            </Badge>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Branch Name <span className="text-red-500">*</span></Label>
+                            <Input
+                                value={branchFormData.branch_name}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, branch_name: e.target.value })}
+                                placeholder="e.g., Vapi Main Office"
+                                disabled={branchSaving}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>City <span className="text-red-500">*</span></Label>
+                            <Input
+                                value={branchFormData.city}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, city: e.target.value })}
+                                placeholder="e.g., Vapi"
+                                disabled={branchSaving}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Address</Label>
+                            <Input
+                                value={branchFormData.address}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, address: e.target.value })}
+                                placeholder="Full address (optional)"
+                                disabled={branchSaving}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowEditBranchModal(false);
+                                setEditingBranch(null);
+                            }}
+                            disabled={branchSaving}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleEditBranch} disabled={branchSaving}>
+                            {branchSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ✅ DELETE BRANCH CONFIRMATION - Original Style */}
+            <AlertDialog
+                open={!!deletingBranchId}
+                onOpenChange={() => setDeletingBranchId(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the branch.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteBranch}
+                            className="bg-destructive text-destructive-foreground"
+                        >
+                            Delete Branch
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ✅ EDIT BRANCH MODAL */}
+            <Dialog open={showEditBranchModal} onOpenChange={setShowEditBranchModal}>
+                <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
+                    <DialogHeader className="border-b border-border dark:border-border pb-4">
+                        <DialogTitle className="text-foreground dark:text-white">Edit Branch</DialogTitle>
+                        <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
+                            Update branch details. Code cannot be changed.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">Branch Code</Label>
+                            <Badge variant="outline" className="text-2xl px-4 py-2 font-mono border-border">
+                                {editingBranch?.branch_code}
+                            </Badge>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">Branch Name *</Label>
+                            <Input
+                                value={branchFormData.branch_name}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, branch_name: e.target.value })}
+                                placeholder="e.g., Vapi Main Office"
+                                disabled={branchSaving}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">City *</Label>
+                            <Input
+                                value={branchFormData.city}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, city: e.target.value })}
+                                placeholder="e.g., Vapi"
+                                disabled={branchSaving}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">Address (Optional)</Label>
+                            <Input
+                                value={branchFormData.address}
+                                onChange={(e) => setBranchFormData({ ...branchFormData, address: e.target.value })}
+                                placeholder="Full address"
+                                disabled={branchSaving}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex-col sm:flex-row gap-2 border-t border-border dark:border-border pt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowEditBranchModal(false);
+                                setEditingBranch(null);
+                            }}
+                            disabled={branchSaving}
+                            className="w-full sm:w-auto bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleEditBranch}
+                            disabled={branchSaving}
+                            className="w-full sm:w-auto bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+                        >
+                            {branchSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            Save Changes
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ✅ DELETE BRANCH CONFIRMATION */}
+            <AlertDialog open={!!deletingBranchId} onOpenChange={() => setDeletingBranchId(null)}>
+                <AlertDialogContent className="bg-card border-border dark:border-border">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
+                            Delete Branch?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground">
+                            This action cannot be undone. Make sure no bookings are associated with this branch.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="border-border dark:border-border">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteBranch}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Delete Branch
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Add City Modal - KEEP AS IS */}
             <Dialog open={showAddCityModal} onOpenChange={setShowAddCityModal}>
                 <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
                     <DialogHeader className="border-b border-border dark:border-border pb-4">
@@ -951,7 +1627,7 @@ export const CompanySettings = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Edit City Modal */}
+            {/* Edit City Modal - KEEP AS IS */}
             <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
                 <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
                     <DialogHeader className="border-b border-border dark:border-border pb-4">

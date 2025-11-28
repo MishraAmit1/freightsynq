@@ -1,4 +1,4 @@
-// TopBar.tsx - FreightSynQ Design System
+// src/components/layout/TopBar.tsx - UPDATED (For Regular Users)
 import { Bell, Search, Menu, Sun, Moon, Building2, LogOut, User, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +64,10 @@ const getPageInfo = (pathname: string) => {
     '/warehouses': {
       title: 'Warehouse Management',
       description: 'Manage warehouse operations and inventory across locations'
+    },
+    '/branches': {
+      title: 'Branch Management',
+      description: 'Manage company branches and their operations'
     },
     '/profile': {
       title: 'User Profile',
@@ -241,7 +245,7 @@ export const TopBar = ({ onMenuClick }: TopBarProps) => {
           </div>
         </div>
 
-        {/* Actions - PROPER ORDER */}
+        {/* Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
 
           {/* 1. Theme Toggle Button */}

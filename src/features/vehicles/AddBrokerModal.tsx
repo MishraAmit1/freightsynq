@@ -370,7 +370,7 @@ export const AddBrokerModal = ({ isOpen, onClose, onSave, broker }: AddBrokerMod
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent className="w-full sm:max-w-2xl overflow-y-auto bg-card border-l border-border dark:border-border">
+            <SheetContent className="w-full sm:max-w-3xl overflow-y-auto bg-card border-l border-border dark:border-border">
                 <SheetHeader className="border-b border-border dark:border-border pb-4">
                     <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
                         <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">

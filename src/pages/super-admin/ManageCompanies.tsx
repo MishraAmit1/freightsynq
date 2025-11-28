@@ -194,18 +194,6 @@ export const ManageCompanies = () => {
 
     return (
         <div className="container mx-auto p-6">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold flex items-center gap-2 text-foreground dark:text-white">
-                    <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-                        <Building className="w-8 h-8 text-primary dark:text-primary" />
-                    </div>
-                    Manage Companies
-                </h1>
-                <p className="text-muted-foreground dark:text-muted-foreground mt-2">
-                    View and manage all companies on the platform
-                </p>
-            </div>
-
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <Card className="bg-card border border-border dark:border-border">
@@ -357,7 +345,7 @@ export const ManageCompanies = () => {
                                         <Button
                                             onClick={() => openExtendDialog(company)}
                                             variant="outline"
-                                            className="flex-shrink-0 bg-card border-primary/30 hover:bg-accent dark:hover:bg-secondary text-primary dark:text-primary hover:text-primary dark:text-primary"
+                                            className="flex-shrink-0 bg-card border-primary/30 hover:bg-accent dark:hover:bg-secondary text-primary hover:text-primary dark:text-primary"
                                         >
                                             <CalendarPlus className="w-4 h-4 mr-2" />
                                             Extend Access

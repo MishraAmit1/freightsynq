@@ -33,7 +33,12 @@ import { AssignVehicleModal } from "./AssignVehicleModal";
 import { ConfirmActionModal } from "./ConfirmActionModal";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 interface Warehouse {
   id: string;
   name: string;
@@ -365,18 +370,19 @@ export const WarehouseDetails = () => {
         <TabsList className="grid w-full grid-cols-2 bg-muted border border-border dark:border-border">
           <TabsTrigger
             value="inventory"
-            className="data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
           >
             Current Inventory ({consignments.length})
           </TabsTrigger>
           <TabsTrigger
             value="logs"
-            className="data-[state=active]:bg-primary data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
           >
             Activity Logs ({warehouseLogs.length})
           </TabsTrigger>
         </TabsList>
 
+        {/* Inventory Tab */}
         {/* Inventory Tab */}
         <TabsContent value="inventory" className="mt-6">
           <Card className="bg-card border border-border dark:border-border">
@@ -403,14 +409,11 @@ export const WarehouseDetails = () => {
                     <TableHeader>
                       <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Booking ID</TableHead>
-                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Consignment ID</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Consignor</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Consignee</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Material</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Units</TableHead>
-                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Status</TableHead>
                         <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Aging</TableHead>
-                        <TableHead className="text-muted-foreground dark:text-muted-foreground font-semibold">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -426,59 +429,45 @@ export const WarehouseDetails = () => {
                             <TableCell className="font-medium text-foreground dark:text-white">
                               {consignment.booking.booking_id}
                             </TableCell>
-                            <TableCell className="text-foreground dark:text-white">{consignment.consignment_id}</TableCell>
-                            <TableCell className="text-muted-foreground dark:text-muted-foreground">{consignment.booking.consignor_name}</TableCell>
-                            <TableCell className="text-muted-foreground dark:text-muted-foreground">{consignment.booking.consignee_name}</TableCell>
-                            <TableCell className="max-w-48 truncate text-muted-foreground dark:text-muted-foreground">
-                              {consignment.booking.material_description}
+                            <TableCell className="text-foreground dark:text-white">
+                              {consignment.booking.consignor_name}
                             </TableCell>
-                            <TableCell className="text-foreground dark:text-white">{consignment.booking.cargo_units}</TableCell>
-                            <TableCell>
-                              <Badge className={cn("border", getStatusColor(consignment.status))}>
-                                {consignment.status.replace('_', ' ')}
-                              </Badge>
+                            <TableCell className="text-foreground dark:text-white">
+                              {consignment.booking.consignee_name}
+                            </TableCell>
+                            <TableCell className="text-foreground dark:text-white">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="block truncate max-w-[200px] cursor-help">
+                                      {consignment.booking.material_description || 'N/A'}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <p className="text-sm">
+                                      {consignment.booking.material_description || 'No material description'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </TableCell>
+                            <TableCell className="text-foreground dark:text-white">
+                              {consignment.booking.cargo_units || '1'}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                <span className={getAgingColor(aging)}>
+                                <span className={cn(
+                                  "font-medium",
+                                  getAgingColor(aging)
+                                )}>
                                   {aging} day{aging !== 1 ? 's' : ''}
                                 </span>
-                                {isOverdue && <AlertTriangle className="w-3 h-3 text-red-600" />}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                {consignment.status === "IN_WAREHOUSE" && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleAssignVehicle(consignment)}
-                                      className="gap-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                                    >
-                                      <Truck className="w-3 h-3" />
-                                      Assign
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleMarkTransit(consignment)}
-                                      className="gap-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                                    >
-                                      Transit
-                                    </Button>
-                                  </>
+                                {isOverdue && (
+                                  <Badge variant="destructive" className="ml-1 h-5 px-1 text-[10px]">
+                                    Overdue
+                                  </Badge>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleMarkDelivered(consignment)}
-                                  className="gap-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                  Delivered
-                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>

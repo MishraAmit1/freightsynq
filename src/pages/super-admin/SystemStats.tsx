@@ -141,27 +141,7 @@ export const SystemStats = () => {
 
     return (
         <div className="container mx-auto p-6">
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold flex items-center gap-2 text-foreground dark:text-white">
-                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-                            <TrendingUp className="w-8 h-8 text-primary dark:text-primary" />
-                        </div>
-                        System Statistics
-                    </h1>
-                    <p className="text-muted-foreground dark:text-muted-foreground mt-2">
-                        Platform overview and analytics
-                    </p>
-                </div>
-                <Button
-                    onClick={loadStats}
-                    variant="outline"
-                    className="bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
-                </Button>
-            </div>
+
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">

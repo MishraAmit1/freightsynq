@@ -26,6 +26,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -71,7 +77,8 @@ import {
   ChevronsRight,
   ChevronRight,
   ChevronLeft,
-  ChevronsLeft
+  ChevronsLeft,
+  Upload
 } from "lucide-react";
 import { fetchBookings, updateBookingStatus, updateBookingWarehouse, deleteBooking, updateBooking, updateBookingLR } from "@/api/bookings";
 import { fetchWarehouses } from "@/api/warehouses";
@@ -157,7 +164,7 @@ interface Booking {
   billed_at?: string;
   actual_delivery?: string;
   alerts?: Array<{
-    type: 'POD_PENDING' | 'EWAY_EXPIRING';
+    type: 'POD_PENDING' | 'EWAY_EXPIRING' | 'EWAY_EXPIRED';
     severity: 'warning' | 'critical';
     message: string;
   }>;
@@ -222,8 +229,6 @@ const statusConfig = {
   }
 };
 
-// ✅ UPDATED: Combined Dispatch Display (Location + Vehicle)
-// ✅ UPDATED: Remove buttons, only show info
 // ✅ UPDATED: Keep DRAFT type
 const getDispatchDisplay = (booking: Booking) => {
   // Priority 1: Warehouse
@@ -340,7 +345,62 @@ export const BookingList = () => {
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [lrViewer, setLrViewer] = useState<{
+    isOpen: boolean;
+    booking: Booking | null;
+  }>({ isOpen: false, booking: null });
+  const parseEwayDate = (dateStr: string): Date | null => {
+    try {
+      // First try ISO format (2025-11-24T23:59:00Z)
+      const isoDate = new Date(dateStr);
+      if (!isNaN(isoDate.getTime())) {
+        return isoDate;
+      }
 
+      // Try Indian format: "24/11/2025 11:59:00 PM"
+      const indianMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i);
+      if (indianMatch) {
+        const [, day, month, year, hour, minute, second, meridiem] = indianMatch;
+        let hours = parseInt(hour);
+
+        // Convert to 24-hour format
+        if (meridiem.toUpperCase() === 'PM' && hours !== 12) {
+          hours += 12;
+        }
+        if (meridiem.toUpperCase() === 'AM' && hours === 12) {
+          hours = 0;
+        }
+
+        return new Date(
+          parseInt(year),
+          parseInt(month) - 1, // Month is 0-indexed
+          parseInt(day),
+          hours,
+          parseInt(minute),
+          parseInt(second)
+        );
+      }
+
+      // Try without time: "24/11/2025"
+      const dateOnlyMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+      if (dateOnlyMatch) {
+        const [, day, month, year] = dateOnlyMatch;
+        return new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day),
+          23, // End of day
+          59,
+          59
+        );
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error parsing eway date:', dateStr, error);
+      return null;
+    }
+  };
   const handleDownloadLR = async (booking: Booking) => {
     if (!booking.lrNumber) {
       toast({
@@ -508,23 +568,48 @@ export const BookingList = () => {
           }
         }
 
+        // E-way bill expiry logic
+        // ✅ E-way bill expiry logic (with parser support)
         if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
-          booking.eway_bill_details.forEach((ewb: any) => {
+          booking.eway_bill_details.forEach((ewb: any, index: number) => {
             if (ewb.valid_until) {
-              const validUntil = new Date(ewb.valid_until);
+              // ✅ Use parser function
+              const validUntil = parseEwayDate(ewb.valid_until);
+
+              // Skip if date parsing failed
+              if (!validUntil) {
+                console.warn('Failed to parse eway date:', ewb.valid_until);
+                return;
+              }
+
               const hoursLeft = (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-              if (hoursLeft > 0 && hoursLeft < 12) {
+              // ✅ CASE 1: Already Expired
+              if (hoursLeft < 0) {
+                const hoursExpired = Math.abs(Math.floor(hoursLeft));
+                const daysExpired = Math.floor(hoursExpired / 24);
+
+                alerts.push({
+                  type: 'EWAY_EXPIRED',
+                  severity: 'critical',
+                  message: daysExpired > 0
+                    ? `E-way bill ${ewb.number} expired ${daysExpired}d ago`
+                    : `E-way bill ${ewb.number} expired ${hoursExpired}h ago`
+                });
+              }
+              // ✅ CASE 2: Expiring Soon (within 24 hours)
+              else if (hoursLeft >= 0 && hoursLeft < 24) {
                 alerts.push({
                   type: 'EWAY_EXPIRING',
                   severity: 'warning',
-                  message: `E-way bill expires in ${Math.floor(hoursLeft)}h`
+                  message: hoursLeft < 1
+                    ? `E-way bill ${ewb.number} expires in ${Math.floor(hoursLeft * 60)}m`
+                    : `E-way bill ${ewb.number} expires in ${Math.floor(hoursLeft)}h`
                 });
               }
             }
           });
         }
-
         return {
           id: booking.id,
           bookingId: booking.booking_id,
@@ -1027,7 +1112,6 @@ export const BookingList = () => {
                   const stage = getBookingStage(booking);
                   const stageConf = stageConfig[stage];
                   const dispatch = getDispatchDisplay(booking);
-
                   return (
                     <TableRow
                       key={booking.id}
@@ -1035,7 +1119,7 @@ export const BookingList = () => {
                     >
                       {/* COLUMN 1: Booking ID + Pickup Date + Branch Code */}
                       <TableCell className="font-mono py-3 pl-6">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 ">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="link"
@@ -1044,7 +1128,6 @@ export const BookingList = () => {
                             >
                               {booking.bookingId}
                             </Button>
-
                             {booking.alerts && booking.alerts.length > 0 && (
                               <TooltipProvider delayDuration={300}>
                                 <Tooltip>
@@ -1054,7 +1137,7 @@ export const BookingList = () => {
                                       <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent className="bg-red-50 text-red-900 border-red-200 p-3 max-w-xs shadow-md">
+                                  <TooltipContent side="top" className="bg-red-50 text-red-900 border-red-200 p-3 max-w-xs shadow-md">
                                     <p className="font-bold text-xs mb-1 flex items-center gap-1">
                                       <AlertTriangle className="w-3 h-3" />
                                       Attention Required:
@@ -1135,9 +1218,6 @@ export const BookingList = () => {
                           {stageConf.label}
                         </Badge>
                       </TableCell>
-
-                      {/* ✅ COLUMN 4: Dispatch Status (Warehouse OR Vehicle+Location) */}
-                      {/* ✅ COLUMN 4: Dispatch Status - NO BUTTONS */}
                       {/* ✅ COLUMN 4: Dispatch Status - WITH Warehouse Button */}
                       <TableCell className="py-3">
                         <div className="space-y-1.5">
@@ -1283,56 +1363,93 @@ export const BookingList = () => {
                       </TableCell>
 
                       {/* ✅ COLUMN 5: Documents (Simplified) */}
+                      {/* ✅ COLUMN 5: Documents with Create LR Button */}
                       <TableCell className="py-3">
                         <div className="space-y-0.5 text-xs">
-                          <div
-                            className={cn(
-                              "flex items-center gap-1 cursor-pointer hover:text-primary transition-colors",
-                              booking.lrNumber ? "text-foreground dark:text-white" : "text-muted-foreground"
+                          {/* LR Row - with Create button */}
+                          <div className="flex items-center gap-1">
+                            {booking.lrNumber ? (
+                              // LR exists - show number + eye icon
+                              <>
+                                <span className="font-mono font-medium text-foreground dark:text-white">
+                                  {booking.lrNumber}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0 hover:bg-primary/10"
+                                  onClick={() => setLrViewer({ isOpen: true, booking })}
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-primary" />
+                                </Button>
+                              </>
+                            ) : (
+                              // ✅ LR doesn't exist - show Create button
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                                className="h-5 px-2 text-[10px] hover:bg-primary/10 hover:text-primary font-medium"
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Create LR
+                              </Button>
                             )}
-                            onClick={() => booking.lrNumber && handleDownloadLR(booking)}
-                          >
-                            <span className="font-medium">LR</span>
-                            <span className="font-mono">{booking.lrNumber || '------'}</span>
                           </div>
 
-                          <div
-                            className={cn(
-                              "flex items-center gap-1 cursor-pointer hover:text-primary transition-colors",
-                              booking.pod_file_url ? "text-foreground dark:text-white" : "text-muted-foreground"
+                          {/* POD Row - Same as before (no changes) */}
+                          <div className="flex items-center gap-1">
+                            {booking.pod_file_url ? (
+                              <>
+                                <span className="font-mono font-medium text-green-600 dark:text-green-400">
+                                  POD ✓
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0 hover:bg-primary/10"
+                                  onClick={() => setPodViewer({
+                                    isOpen: true,
+                                    fileUrl: booking.pod_file_url!,
+                                    bookingId: booking.bookingId
+                                  })}
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-primary" />
+                                </Button>
+                              </>
+                            ) : (
+                              <span className="font-mono text-muted-foreground">POD------</span>
                             )}
-                            onClick={() => booking.pod_file_url && setPodViewer({
-                              isOpen: true,
-                              fileUrl: booking.pod_file_url,
-                              bookingId: booking.bookingId
-                            })}
-                          >
-                            <span className="font-medium">POD</span>
-                            <span className="font-mono">{booking.pod_uploaded_at ? '✓' : '------'}</span>
                           </div>
 
-                          <div
-                            className={cn(
-                              "flex items-center gap-1",
-                              booking.eway_bill_details && booking.eway_bill_details.length > 0
-                                ? (() => {
-                                  const hasExpired = booking.eway_bill_details.some((ewb: any) => {
-                                    if (!ewb.valid_until) return false;
-                                    return new Date(ewb.valid_until) < new Date();
-                                  });
-                                  return hasExpired ? "text-red-600 dark:text-red-400" : "text-foreground dark:text-white";
-                                })()
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            <span className="font-medium">EWAY</span>
-                            <span className="font-mono truncate max-w-[50px]">
-                              {booking.eway_bill_details?.[0]?.number || '------'}
+                          {/* E-WAY BILL Row - Same as before (no changes) */}
+                          <div className="flex items-center">
+                            <span
+                              className={cn(
+                                "font-mono",
+                                booking.eway_bill_details && booking.eway_bill_details.length > 0
+                                  ? (() => {
+                                    const hasExpired = booking.eway_bill_details.some((ewb: any) => {
+                                      if (!ewb.valid_until) return false;
+                                      const validUntil = parseEwayDate(ewb.valid_until);
+                                      if (!validUntil) return false;
+                                      return validUntil < new Date();
+                                    });
+                                    return hasExpired
+                                      ? "text-red-600 dark:text-red-400"
+                                      : "text-foreground dark:text-white";
+                                  })()
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {booking.eway_bill_details?.[0]?.number
+                                ? `EWAY-${booking.eway_bill_details[0].number}`
+                                : 'EWAY------'
+                              }
                             </span>
                           </div>
                         </div>
                       </TableCell>
-
                       {/* COLUMN 6: ETA / SLA */}
                       <TableCell className="py-3">
                         {!booking.estimated_arrival ? (
@@ -1363,43 +1480,40 @@ export const BookingList = () => {
                           </div>
                         )}
                       </TableCell>
-
-                      {/* COLUMN 7: Actions */}
-                      <TableCell className="py-3 pr-6">
-                        <div className="flex flex-row items-center">
-                          <div className="w-full">
-                            <ProgressiveActionButton
-                              booking={booking}
-                              stage={getBookingStage(booking)}
-                              onAction={(actionType) => {
-                                switch (actionType) {
-                                  case 'ASSIGN_VEHICLE':
-                                    setAssignmentModal({ isOpen: true, bookingId: booking.id });
-                                    break;
-                                  case 'CREATE_LR':
-                                    setLrModal({ isOpen: true, bookingId: booking.id });
-                                    break;
-                                  case 'UPLOAD_POD':
-                                    setPodModal({ isOpen: true, bookingId: booking.id });
-                                    break;
-                                  case 'GENERATE_INVOICE':
-                                    setInvoiceModal({ isOpen: true, bookingId: booking.id });
-                                    break;
-                                  case 'VIEW_INVOICE':
-                                    if (booking.invoice_number) {
-                                      toast({
-                                        title: "Invoice",
-                                        description: `Invoice: ${booking.invoice_number}`,
-                                      });
-                                    }
-                                    break;
-                                  case 'REFRESH':
-                                    loadData();
-                                    break;
-                                }
-                              }}
-                            />
-                          </div>
+                      {/* COLUMN 7: Actions - Centered with reduced gap */}
+                      <TableCell className="py-3 pr-6 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <ProgressiveActionButton
+                            booking={booking}
+                            stage={getBookingStage(booking)}
+                            onAction={(actionType) => {
+                              switch (actionType) {
+                                case 'ASSIGN_VEHICLE':
+                                  setAssignmentModal({ isOpen: true, bookingId: booking.id });
+                                  break;
+                                case 'CREATE_LR':
+                                  setLrModal({ isOpen: true, bookingId: booking.id });
+                                  break;
+                                case 'UPLOAD_POD':
+                                  setPodModal({ isOpen: true, bookingId: booking.id });
+                                  break;
+                                case 'GENERATE_INVOICE':
+                                  setInvoiceModal({ isOpen: true, bookingId: booking.id });
+                                  break;
+                                case 'VIEW_INVOICE':
+                                  if (booking.invoice_number) {
+                                    toast({
+                                      title: "Invoice",
+                                      description: `Invoice: ${booking.invoice_number}`,
+                                    });
+                                  }
+                                  break;
+                                case 'REFRESH':
+                                  loadData();
+                                  break;
+                              }
+                            }}
+                          />
 
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1454,8 +1568,114 @@ export const BookingList = () => {
         </div>
 
         {/* Mobile View - Keep same as before */}
+        {/* Mobile Card View */}
         <div className="lg:hidden p-4 space-y-3">
-          {/* ... mobile cards code remains same ... */}
+          {paginatedBookings.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+              </div>
+              <p className="text-base font-medium text-foreground dark:text-white">No bookings found</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                {searchTerm ? "Try adjusting your search" : "Add your first booking"}
+              </p>
+            </div>
+          ) : (
+            paginatedBookings.map((booking) => {
+              const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+              const StatusIcon = status.icon;
+
+              return (
+                <div
+                  key={booking.id}
+                  className="bg-card border border-border dark:border-border rounded-lg p-4 space-y-3 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto font-semibold text-primary text-sm"
+                        onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
+                      >
+                        {booking.bookingId}
+                      </Button>
+                      <Badge className={cn("text-xs", status.color)}>
+                        <StatusIcon className="w-3 h-3 mr-1" />
+                        {status.label}
+                      </Badge>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-card">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setEditingFullBooking(booking);
+                            setIsEditFullBookingModalOpen(true);
+                          }}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-[#DC2626]" onClick={() => setDeletingBookingId(booking.id)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      <span className="font-medium">{booking.consignorName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className="w-3 h-3" />
+                      <span className="text-muted-foreground">{booking.consigneeName}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3 h-3 text-green-600" />
+                      <span className="font-medium">{booking.fromLocation}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3 h-3 text-red-600" />
+                      <span className="text-muted-foreground">{booking.toLocation}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border dark:border-border">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/bookings/${booking.id}`)}
+                      className="flex-1"
+                    >
+                      <Eye className="w-3 h-3 mr-1" />
+                      View
+                    </Button>
+                    {!booking.lrNumber && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                        className="flex-1"
+                      >
+                        <FileText className="w-3 h-3 mr-1" />
+                        Create LR
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Pagination - Keep same as before */}
@@ -1478,7 +1698,7 @@ export const BookingList = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(1)}
-                    className="h-9 w-9 p-0 border-border dark:border-border"
+                    className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                   >
                     <ChevronsLeft className="h-4 w-4" />
                   </Button>
@@ -1489,7 +1709,7 @@ export const BookingList = () => {
                   size="sm"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  className="h-9 w-9 p-0 border-border dark:border-border disabled:opacity-50"
+                  className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -1497,7 +1717,7 @@ export const BookingList = () => {
                 <div className="flex items-center gap-1">
                   {getPaginationButtons().map((page, index) => (
                     page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">...</span>
+                      <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground dark:text-muted-foreground">...</span>
                     ) : (
                       <Button
                         key={page}
@@ -1507,8 +1727,8 @@ export const BookingList = () => {
                         className={cn(
                           "h-9 w-9 p-0 border-border dark:border-border",
                           currentPage === page
-                            ? "bg-primary border-primary text-foreground font-medium hover:bg-primary-hover"
-                            : "bg-card hover:bg-accent dark:hover:bg-secondary"
+                            ? "bg-primary border-primary text-primary-foreground hover:text-primary-foreground font-medium hover:bg-primary-hover"
+                            : "bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                         )}
                       >
                         {page}
@@ -1522,7 +1742,7 @@ export const BookingList = () => {
                   size="sm"
                   disabled={currentPage === totalPages || totalPages === 0}
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  className="h-9 w-9 p-0 border-border dark:border-border disabled:opacity-50"
+                  className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -1532,7 +1752,7 @@ export const BookingList = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(totalPages)}
-                    className="h-9 w-9 p-0 border-border dark:border-border"
+                    className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                   >
                     <ChevronsRight className="h-4 w-4" />
                   </Button>
@@ -1546,14 +1766,14 @@ export const BookingList = () => {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[130px] h-9 border-border dark:border-border bg-card">
+                <SelectTrigger className="w-[130px] h-9 border-border dark:border-border bg-card text-foreground dark:text-white hover:text-foreground dark:hover:text-white">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-card border-border dark:border-border text-white">
-                  <SelectItem value="10">10 per page</SelectItem>
-                  <SelectItem value="25">25 per page</SelectItem>
-                  <SelectItem value="50">50 per page</SelectItem>
-                  <SelectItem value="100">100 per page</SelectItem>
+                <SelectContent className="bg-card border-border dark:border-border">
+                  <SelectItem value="10" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">10 per page</SelectItem>
+                  <SelectItem value="25" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">25 per page</SelectItem>
+                  <SelectItem value="50" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">50 per page</SelectItem>
+                  <SelectItem value="100" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">100 per page</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1718,6 +1938,113 @@ export const BookingList = () => {
         fileUrl={podViewer.fileUrl}
         bookingId={podViewer.bookingId}
       />
+      {/* LR Details Viewer Dialog */}
+      <Dialog
+        open={lrViewer.isOpen}
+        onOpenChange={(open) => !open && setLrViewer({ isOpen: false, booking: null })}
+      >
+        <DialogContent className="sm:max-w-[500px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <FileText className="w-5 h-5 text-primary" />
+              LR Details - {lrViewer.booking?.lrNumber}
+            </DialogTitle>
+          </DialogHeader>
+
+          {lrViewer.booking && (
+            <div className="space-y-4 py-4">
+              {/* LR Info Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">LR Number</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {lrViewer.booking.lrNumber || '-'}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">LR Date</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {lrViewer.booking.lrDate
+                      ? new Date(lrViewer.booking.lrDate).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                      : '-'
+                    }
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Bilti Number</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {lrViewer.booking.bilti_number || '-'}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Invoice Number</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {lrViewer.booking.invoice_number || '-'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-border" />
+
+              {/* Material Info */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">Material Description</p>
+                <p className="text-sm text-foreground bg-muted/50 p-2 rounded-md">
+                  {lrViewer.booking.materialDescription || 'No description provided'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Cargo Units</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {lrViewer.booking.cargoUnits || '1'}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Service Type</p>
+                  <Badge variant="outline" className="text-xs">
+                    {lrViewer.booking.serviceType}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Route</p>
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="w-4 h-4 text-green-600" />
+                  <span className="font-medium">{lrViewer.booking.fromLocation}</span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                  <MapPin className="w-4 h-4 text-red-600" />
+                  <span className="font-medium">{lrViewer.booking.toLocation}</span>
+                </div>
+              </div>
+
+              {/* Download Button */}
+              <div className="border-t border-border pt-4">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    handleDownloadLR(lrViewer.booking!);
+                    setLrViewer({ isOpen: false, booking: null });
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download LR PDF
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

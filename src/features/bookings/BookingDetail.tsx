@@ -120,6 +120,9 @@ interface BookingDetail {
     balance_amount?: number;
     payment_terms?: string;
   };
+  actual_delivery?: string;
+  pod_uploaded_at?: string;
+  billed_at?: string;
 }
 
 const statusConfig = {
@@ -237,6 +240,9 @@ export const BookingDetail = () => {
           broker: data.vehicle_assignments?.[0]?.broker,
           consignor: data.consignor,
           consignee: data.consignee,
+          actual_delivery: data.actual_delivery,
+          pod_uploaded_at: data.pod_uploaded_at,
+          billed_at: data.billed_at,
         };
 
         setBooking(convertedBooking);
@@ -1101,7 +1107,18 @@ export const BookingDetail = () => {
               )}
             </div>
 
-            <JourneyView bookingId={booking.id} />
+            <JourneyView
+              bookingId={booking.id}
+              booking={{
+                created_at: booking.bookingDateTime,
+                lrDate: booking.lrDate,
+                lrNumber: booking.lrNumber,
+                actual_delivery: booking.actual_delivery,
+                pod_uploaded_at: booking.pod_uploaded_at,
+                billed_at: booking.billed_at,
+                status: booking.status
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>

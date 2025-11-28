@@ -11,18 +11,12 @@ import {
 import { supabase } from '@/lib/supabase'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Truck,
-  User,
   Loader2,
-  Building2,
-  Package,
   Check,
   ChevronDown,
   Plus,
-  UserPlus,
   X
 } from "lucide-react";
 import {
@@ -594,13 +588,13 @@ export const EnhancedVehicleAssignmentModal = ({
               <TabsList className="grid w-full grid-cols-2 bg-muted">
                 <TabsTrigger
                   value="owned"
-                  className="data-[state=active]:bg-primary data-[state=active]:text-foreground text-muted-foreground dark:text-muted-foreground"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                 >
                   Owned Vehicles ({ownedVehicles.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="hired"
-                  className="data-[state=active]:bg-primary data-[state=active]:text-foreground text-muted-foreground dark:text-muted-foreground"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                 >
                   Hired Vehicles ({hiredVehicles.length})
                 </TabsTrigger>
@@ -742,14 +736,14 @@ export const EnhancedVehicleAssignmentModal = ({
               variant="outline"
               onClick={onClose}
               disabled={isLoading}
-              className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+              className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
             >
               Cancel
             </Button>
             <Button
               onClick={handleAssign}
               disabled={!selectedVehicleId || !selectedDriverId || isLoading}
-              className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground hover:text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
