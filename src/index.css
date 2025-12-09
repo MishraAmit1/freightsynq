@@ -637,3 +637,21 @@ body {
   width: 0 !important;
   height: 0 !important;
 }
+
+/* Leaflet Z-Index Fix */
+.leaflet-pane {
+  z-index: 0 !important;
+}
+
+.leaflet-control {
+  z-index: 1 !important;
+}
+
+/* Modal should always be on top */
+[data-radix-dialog-content] {
+  z-index: 1000 !important;
+}
+
+[data-radix-dialog-overlay] {
+  z-index: 999 !important;
+}

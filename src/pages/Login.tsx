@@ -444,7 +444,6 @@ export const Login = () => {
                                 <p className="text-xs text-gray-500 mt-1">Uptime SLA</p>
                             </div>
                         </div>
-
                         {/* Stat 3 */}
                         <div className="group relative">
                             <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

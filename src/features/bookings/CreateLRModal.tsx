@@ -26,11 +26,20 @@ import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { fetchEwayBillDetails, formatValidityDate } from '@/api/ewayBill';
-import { getNextLRNumber, incrementLRNumber } from '@/api/lr-sequences';
+// ✅ CHANGE 1: Update imports
+import {
+  fetchLRCities,
+  LRCitySequence,
+  updateLRCityNumber
+} from '@/api/lr-sequences';
 import { cn } from "@/lib/utils";
 import { LRCityQuickSetup } from "@/components/LRCityQuickSetup";
+import { supabase } from "@/lib/supabase";
 
-// Update the LRData interface
+// ============================================
+// INTERFACES (Keep existing)
+// ============================================
+
 export interface LRData {
   lrNumber: string;
   lrDate: string;
@@ -41,21 +50,10 @@ export interface LRData {
   ewayBillDetails?: any[];
 }
 
-// Validate LR Date
-const validateLRDate = (dateString: string): string | null => {
-  if (!dateString) return "LR date is required";
+// ============================================
+// ZOD SCHEMAS (Keep existing)
+// ============================================
 
-  const selectedDate = new Date(dateString);
-
-  if (isNaN(selectedDate.getTime())) {
-    return "Invalid date format";
-  }
-
-  // No restrictions - any date allowed
-  return null;
-};
-
-// ZOD SCHEMA
 const lrItemSchema = z.object({
   quantity: z.number().min(1, "Quantity must be at least 1"),
   unit_type: z.enum(["BOX", "CARTOON", "OTHERS"]),
@@ -79,7 +77,6 @@ const lrSchema = z.object({
 
 type LRFormData = z.infer<typeof lrSchema>;
 
-// ✅ UPDATED PROPS
 interface CreateLRModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -92,12 +89,35 @@ interface CreateLRModalProps {
     lrNumber?: string;
     bilti_number?: string;
     invoice_number?: string;
-    materialDescription?: string; // For fallback
-    cargoUnits?: string;         // For fallback
-    eway_bill_details?: any[];   // Main data source
+    materialDescription?: string;
+    cargoUnits?: string;
+    eway_bill_details?: any[];
   } | null;
   nextLRNumber: number;
 }
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// ✅ CHANGE 2: Add helper to calculate next LR number for any city
+const getNextLRNumberForCity = (city: LRCitySequence): string => {
+  const nextNumber = (city.current_lr_number + 1).toString().padStart(6, '0');
+  return `${city.prefix}${nextNumber}`;
+};
+
+const mapUnitType = (unit: string): "BOX" | "CARTOON" | "OTHERS" => {
+  if (!unit) return "BOX";
+  const upperUnit = unit.toUpperCase();
+  if (upperUnit === "BOX" || upperUnit === "BOXES" || upperUnit === "BX") return "BOX";
+  if (upperUnit === "CARTOON" || upperUnit === "CARTON" || upperUnit === "CTN") return "CARTOON";
+  if (upperUnit === "NOS" || upperUnit === "PCS" || upperUnit === "PIECES") return "OTHERS";
+  return "OTHERS";
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 
 export const CreateLRModal = ({
   isOpen,
@@ -110,12 +130,11 @@ export const CreateLRModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lrDateError, setLrDateError] = useState<string | null>(null);
 
-  const [activeLRCity, setActiveLRCity] = useState<{
-    city_name: string;
-    prefix: string;
-    lr_number: string;
-  } | null>(null);
-  const [loadingLRNumber, setLoadingLRNumber] = useState(false);
+  // ✅ CHANGE 3: Add new state variables for LR Cities
+  const [lrCities, setLrCities] = useState<LRCitySequence[]>([]);
+  const [loadingLRCities, setLoadingLRCities] = useState(true);
+  const [selectedCityId, setSelectedCityId] = useState<string>("");
+  const [selectedCity, setSelectedCity] = useState<LRCitySequence | null>(null);
 
   const [ewayBillValidations, setEwayBillValidations] = useState<{
     [key: number]: {
@@ -127,7 +146,6 @@ export const CreateLRModal = ({
     }
   }>({});
 
-  // ✅ ADD THIS STATE TO STORE E-WAY BILL VALUES
   const [ewayBillValues, setEwayBillValues] = useState<{ [key: number]: string }>({});
 
   const {
@@ -165,6 +183,39 @@ export const CreateLRModal = ({
     name: "documents"
   });
 
+  // ✅ CHANGE 4: Add function to load all LR cities
+  const loadLRCities = async () => {
+    setLoadingLRCities(true);
+    try {
+      const cities = await fetchLRCities();
+      setLrCities(cities);
+
+      // Find active city or use first one as default
+      const activeCity = cities.find(c => c.is_active) || cities[0];
+      if (activeCity) {
+        setSelectedCityId(activeCity.id);
+        setSelectedCity(activeCity);
+        setValue("lrNumber", getNextLRNumberForCity(activeCity));
+      }
+    } catch (error) {
+      console.error('Error loading LR cities:', error);
+      setLrCities([]);
+    } finally {
+      setLoadingLRCities(false);
+    }
+  };
+
+  // ✅ CHANGE 5: Add city change handler
+  const handleCityChange = (cityId: string) => {
+    const city = lrCities.find(c => c.id === cityId);
+    if (city) {
+      setSelectedCityId(cityId);
+      setSelectedCity(city);
+      setValue("lrNumber", getNextLRNumberForCity(city));
+    }
+  };
+
+  // Keep existing validation functions
   const validateEwayBill = async (ewayBillNumber: string, index: number) => {
     if (!ewayBillNumber || ewayBillNumber.length !== 12) {
       setEwayBillValidations(prev => {
@@ -175,7 +226,6 @@ export const CreateLRModal = ({
       return;
     }
 
-    // ✅ PRESERVE THE VALUE BEFORE AND AFTER VALIDATION
     setValue(`documents.${index}.ewayBill`, ewayBillNumber);
     setEwayBillValues(prev => ({
       ...prev,
@@ -190,7 +240,6 @@ export const CreateLRModal = ({
     try {
       const response = await fetchEwayBillDetails(ewayBillNumber);
 
-      // ✅ ENSURE VALUE PERSISTS AFTER VALIDATION
       setValue(`documents.${index}.ewayBill`, ewayBillNumber);
 
       if (response.success && response.data) {
@@ -229,7 +278,6 @@ export const CreateLRModal = ({
     } catch (error: any) {
       console.error('E-way bill validation error:', error);
 
-      // ✅ ENSURE VALUE PERSISTS EVEN ON ERROR
       setValue(`documents.${index}.ewayBill`, ewayBillNumber);
 
       setEwayBillValidations(prev => ({
@@ -293,36 +341,11 @@ export const CreateLRModal = ({
     }
   };
 
-  const loadLRNumberFromCity = async () => {
-    setLoadingLRNumber(true);
-    try {
-      const cityData = await getNextLRNumber();
-      setActiveLRCity({
-        city_name: cityData.city_name,
-        prefix: cityData.prefix,
-        lr_number: cityData.lr_number
-      });
-      setValue("lrNumber", cityData.lr_number);
-    } catch (error: any) {
-      console.log('ℹ️ No active LR city configured');
-      setActiveLRCity(null);
-    } finally {
-      setLoadingLRNumber(false);
-    }
-  };
-
-  const mapUnitType = (unit: string): "BOX" | "CARTOON" | "OTHERS" => {
-    if (!unit) return "BOX";
-    const upperUnit = unit.toUpperCase();
-    if (upperUnit === "BOX" || upperUnit === "BOXES" || upperUnit === "BX") return "BOX";
-    if (upperUnit === "CARTOON" || upperUnit === "CARTON" || upperUnit === "CTN") return "CARTOON";
-    if (upperUnit === "NOS" || upperUnit === "PCS" || upperUnit === "PIECES") return "OTHERS";
-    return "OTHERS";
-  };
-
+  // ✅ CHANGE 6: Update useEffect to load cities
   useEffect(() => {
     if (isOpen && booking) {
-      loadLRNumberFromCity();
+      // Load all LR cities
+      loadLRCities();
       setValue("lrDate", new Date().toISOString().split('T')[0]);
 
       console.log('🔍 Booking received in LR Modal:', {
@@ -332,13 +355,12 @@ export const CreateLRModal = ({
         ewayDetails: booking.eway_bill_details
       });
 
-      // ✅ SMART DETECTION
+      // E-way bill booking detection
       if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
         console.log('✅ E-way bill booking detected! Auto-filling...');
 
         const documents = booking.eway_bill_details.map((ewb, idx) => {
           const ewayBillNumber = ewb.number || '';
-          // ✅ STORE IN LOCAL STATE
           if (ewayBillNumber) {
             setEwayBillValues(prev => ({
               ...prev,
@@ -368,7 +390,6 @@ export const CreateLRModal = ({
 
           setValue("items", items);
 
-          // Pre-validate
           booking.eway_bill_details.forEach((ewb, index) => {
             const { formatted, isExpired } = formatValidityDate(ewb.valid_until);
             setEwayBillValidations(prev => ({
@@ -440,9 +461,12 @@ export const CreateLRModal = ({
       }
 
     } else if (!isOpen) {
+      // ✅ CHANGE 7: Reset all city-related states
       reset();
       setLrDateError(null);
-      setActiveLRCity(null);
+      setLrCities([]);
+      setSelectedCityId("");
+      setSelectedCity(null);
       setEwayBillValidations({});
       setEwayBillValues({});
     }
@@ -476,6 +500,7 @@ export const CreateLRModal = ({
     }).join('\n');
   };
 
+  // ✅ CHANGE 8: Update onSubmit to increment selected city
   const onSubmit = async (data: LRFormData) => {
     setIsSubmitting(true);
 
@@ -546,6 +571,35 @@ export const CreateLRModal = ({
         .join(',');
 
       if (booking?.id) {
+        // ✅ PHASE 3 UPDATE: First save LR data with city ID
+        const updateData: any = {
+          lr_number: data.lrNumber,
+          lr_date: data.lrDate,
+          bilti_number: ewayBillsString || null,
+          invoice_number: invoicesString || null,
+          cargo_units: units,
+          material_description: materials,
+          eway_bill_details: ewayBillDetailsArray.length > 0 ? ewayBillDetailsArray : null
+        };
+
+        // ✅ NEW: Add lr_city_id if we have selected city
+        if (selectedCity?.id) {
+          updateData.lr_city_id = selectedCity.id;
+          console.log('🏙️ Saving with city ID:', selectedCity.id, 'for city:', selectedCity.city_name);
+        }
+
+        // ✅ UPDATE: Direct database update with lr_city_id
+        const { error: updateError } = await supabase
+          .from('bookings')
+          .update(updateData)
+          .eq('id', booking.id);
+
+        if (updateError) {
+          console.error('Error updating booking with LR:', updateError);
+          throw updateError;
+        }
+
+        // ✅ Call the onSave callback (for parent component updates)
         await onSave(booking.id, {
           lrNumber: data.lrNumber,
           lrDate: data.lrDate,
@@ -556,12 +610,22 @@ export const CreateLRModal = ({
           ewayBillDetails: ewayBillDetailsArray
         });
 
+        // ✅ Increment LR number for SELECTED city
         try {
-          await incrementLRNumber();
-          console.log('✅ LR number incremented successfully');
+          if (selectedCity) {
+            await updateLRCityNumber(selectedCity.id, selectedCity.current_lr_number + 1);
+            console.log('✅ LR number incremented for city:', selectedCity.city_name);
+          }
         } catch (incrementError) {
           console.error('Warning: Failed to increment LR number:', incrementError);
+          // Don't fail the whole operation if increment fails
         }
+
+        // ✅ Success toast with city info
+        toast({
+          title: "✅ LR Created Successfully",
+          description: `LR ${data.lrNumber} created for ${selectedCity?.city_name || 'default city'}`,
+        });
 
         onClose();
       } else {
@@ -587,7 +651,9 @@ export const CreateLRModal = ({
   const handleClose = () => {
     reset();
     setLrDateError(null);
-    setActiveLRCity(null);
+    setLrCities([]);
+    setSelectedCityId("");
+    setSelectedCity(null);
     setEwayBillValidations({});
     setEwayBillValues({});
     onClose();
@@ -606,6 +672,7 @@ export const CreateLRModal = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Booking Info */}
           <div className="p-3 bg-muted/50 rounded-lg text-sm">
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -619,35 +686,73 @@ export const CreateLRModal = ({
             </div>
           </div>
 
-          {loadingLRNumber ? (
-            <div className="flex items-center justify-center p-3 bg-muted/50 rounded-lg">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              <span className="text-sm">Loading LR configuration...</span>
-            </div>
-          ) : activeLRCity ? (
-            <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="w-4 h-4 text-primary" />
-                <span className="font-medium">Current LR City:</span>
-                <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
-                  {activeLRCity.city_name}
-                </Badge>
-                <span className="text-muted-foreground ml-2">
-                  (Next: {activeLRCity.lr_number})
-                </span>
+          {/* ✅ CHANGE 10: Add LR City Selection Dropdown */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              LR City <span className="text-destructive">*</span>
+            </Label>
+            {loadingLRCities ? (
+              <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Loading LR cities...</span>
               </div>
-            </div>
-          ) : (
-            <LRCityQuickSetup onCityConfigured={loadLRNumberFromCity} />
-          )}
+            ) : lrCities.length > 0 ? (
+              <Select
+                value={selectedCityId}
+                onValueChange={handleCityChange}
+                disabled={isSubmitting}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select LR city">
+                    {selectedCity && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {selectedCity.prefix}
+                        </Badge>
+                        <span>{selectedCity.city_name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          Next: {getNextLRNumberForCity(selectedCity)}
+                        </span>
+                      </div>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {lrCities.map(city => (
+                    <SelectItem key={city.id} value={city.id}>
+                      <div className="flex items-center gap-2 w-full">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {city.prefix}
+                        </Badge>
+                        <span>{city.city_name}</span>
+                        {city.is_active && (
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-600 ml-2">
+                            Active
+                          </Badge>
+                        )}
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          Next: {getNextLRNumberForCity(city)}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <LRCityQuickSetup onCityConfigured={loadLRCities} />
+            )}
+          </div>
 
+          {/* LR Number & Date */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>LR Number</Label>
               <Input
                 {...register("lrNumber")}
-                disabled
-                className="bg-muted cursor-not-allowed"
+                // disabled
+                className="bg-muted"
               />
               {errors.lrNumber && (
                 <p className="text-sm text-destructive mt-1">{errors.lrNumber.message}</p>
@@ -679,6 +784,7 @@ export const CreateLRModal = ({
             </div>
           </div>
 
+          {/* E-way Bills Section */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label className="flex items-center gap-2">
@@ -704,7 +810,6 @@ export const CreateLRModal = ({
                 return (
                   <div key={field.id} className="space-y-2">
                     <div className="flex gap-2">
-                      {/* ✅ UPDATED E-WAY BILL INPUT */}
                       <div className="flex-1">
                         <div className="flex gap-2">
                           <div className="relative flex-1">
@@ -720,7 +825,6 @@ export const CreateLRModal = ({
                                   onChange={(e) => {
                                     const val = e.target.value.replace(/\D/g, '');
                                     field.onChange(val);
-                                    // ✅ STORE IN LOCAL STATE
                                     setEwayBillValues(prev => ({
                                       ...prev,
                                       [index]: val
@@ -730,7 +834,6 @@ export const CreateLRModal = ({
                                 />
                               )}
                             />
-                            {/* Validation icons */}
                             {validation?.loading && (
                               <div className="absolute right-2 top-1/2 -translate-y-1/2">
                                 <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -748,14 +851,12 @@ export const CreateLRModal = ({
                             )}
                           </div>
 
-                          {/* ✅ UPDATED VALIDATE BUTTON */}
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             onClick={() => {
                               const currentValue = getValues(`documents.${index}.ewayBill`) || ewayBillValues[index] || '';
-
                               if (currentValue && currentValue.length === 12) {
                                 validateEwayBill(currentValue, index);
                               } else {
@@ -794,7 +895,6 @@ export const CreateLRModal = ({
                         )}
                       </div>
 
-                      {/* Invoice Input */}
                       <div className="flex-1">
                         <Input
                           {...register(`documents.${index}.invoice`)}
@@ -802,7 +902,6 @@ export const CreateLRModal = ({
                         />
                       </div>
 
-                      {/* Delete Button */}
                       <Button
                         type="button"
                         variant="ghost"
@@ -826,7 +925,6 @@ export const CreateLRModal = ({
                       </Button>
                     </div>
 
-                    {/* Validation Badge */}
                     {validation?.validUntil && (
                       <div className="flex items-center gap-2 px-2">
                         <Badge
@@ -859,6 +957,7 @@ export const CreateLRModal = ({
             </div>
           </div>
 
+          {/* Cargo Items Section */}
           <div className="space-y-3">
             <div className="flex justify-between">
               <Label className="flex items-center gap-2">
@@ -946,6 +1045,7 @@ export const CreateLRModal = ({
               })}
             </div>
 
+            {/* Preview */}
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground mb-2">Preview (LR Format):</p>
               <pre className="text-sm font-medium whitespace-pre-wrap">
@@ -981,6 +1081,7 @@ export const CreateLRModal = ({
             </div>
           </div>
 
+          {/* ✅ CHANGE 11: Update submit button disabled condition */}
           <DialogFooter>
             <Button
               type="button"
@@ -992,7 +1093,7 @@ export const CreateLRModal = ({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !activeLRCity}
+              disabled={isSubmitting || !selectedCityId || loadingLRCities}
             >
               {isSubmitting ? (
                 <>

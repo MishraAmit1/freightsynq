@@ -1,4 +1,4 @@
-import { calculateBookingETA } from '@/lib/etaCalculations'
+import { calculateETAFromDistance } from '@/lib/distance-calculator'
 import { supabase } from '@/lib/supabase'
 
 export interface OwnedVehicle {
@@ -337,6 +337,7 @@ export const verifyHiredVehicle = async (vehicleId: string, isVerified: boolean)
 }
 
 // Assign vehicle to booking
+
 export const assignVehicleToBooking = async (assignmentData: {
   booking_id: string
   vehicle_type: 'OWNED' | 'HIRED'
@@ -404,28 +405,38 @@ export const assignVehicleToBooking = async (assignmentData: {
     }
 
     // ============================================
-    // ✅ ADD THIS - RECALCULATE ETA
+    // ✅ FIXED: RECALCULATE ETA USING ACTUAL DISTANCE
     // ============================================
 
-    // Get booking details to recalculate ETA
+    // Get booking details including route_distance_km
     const { data: bookingForETA } = await supabase
       .from('bookings')
-      .select('from_location, to_location, pickup_date')
+      .select('from_location, to_location, pickup_date, route_distance_km')
       .eq('id', assignmentData.booking_id)
       .single();
 
     if (bookingForETA) {
-      // Import ETA calculation helper
+      let updatedETA: Date;
 
-      // Calculate new ETA (vehicle assigned, so more accurate)
-      const updatedETA = calculateBookingETA({
-        from_location: bookingForETA.from_location,
-        to_location: bookingForETA.to_location,
-        pickup_date: bookingForETA.pickup_date,
-        status: 'DISPATCHED'
-      });
+      // ✅ Use actual distance from database if available
+      if (bookingForETA.route_distance_km && bookingForETA.route_distance_km > 0) {
+        // Calculate ETA from NOW using actual distance
+        updatedETA = calculateETAFromDistance(
+          bookingForETA.route_distance_km,
+          undefined  // undefined = calculate from NOW (not pickup date)
+        );
 
-      console.log('📊 ETA recalculated on vehicle assignment:', updatedETA);
+        console.log('📊 ETA recalculated using actual distance:');
+        console.log(`   Distance: ${bookingForETA.route_distance_km} km`);
+        console.log(`   New ETA: ${updatedETA.toISOString()}`);
+      } else {
+        // Fallback: Use default calculation from NOW
+        const defaultDistance = 800; // km
+        updatedETA = calculateETAFromDistance(defaultDistance, undefined);
+
+        console.log('⚠️ No route_distance_km found, using default 800 km');
+        console.log(`   New ETA: ${updatedETA.toISOString()}`);
+      }
 
       // Update booking with new ETA
       await supabase

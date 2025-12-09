@@ -1,4 +1,4 @@
-import { calculateBookingETA } from '@/lib/etaCalculations'
+import { calculateETAFromDistance, getRouteDistance } from '@/lib/distance-calculator'
 import { supabase } from '@/lib/supabase'
 export interface BookingData {
   id: string
@@ -143,6 +143,7 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
 };
 
 // ✅ UPDATED - Now requires branch_id
+// ✅ UPDATED createBooking with FREE distance calculation
 export const createBooking = async (bookingData: {
   consignor_id: string;
   consignee_id: string;
@@ -155,7 +156,7 @@ export const createBooking = async (bookingData: {
   bilti_number?: string | null;
   invoice_number?: string | null;
   eway_bill_details?: any[];
-  branch_id: string;  // ✅ NEW REQUIRED FIELD
+  branch_id: string;
 }) => {
   try {
     // Get current user
@@ -178,7 +179,7 @@ export const createBooking = async (bookingData: {
 
     console.log('🎫 Generating booking ID for branch:', bookingData.branch_id);
 
-    // ✅ Generate booking ID using NEW function
+    // Generate booking ID
     const { data: bookingId, error: idError } = await supabase
       .rpc('generate_booking_id_new', {
         p_company_id: userProfile.company_id,
@@ -191,12 +192,31 @@ export const createBooking = async (bookingData: {
     }
 
     console.log('✅ Generated booking ID:', bookingId);
-    const initialETA = calculateBookingETA({
-      pickup_date: bookingData.pickup_date,
-      from_location: bookingData.from_location,
-      to_location: bookingData.to_location
-    });
-    // Create booking with new ID format
+
+    // ═══════════════════════════════════════════════════════════
+    // ✅ NEW: Calculate REAL distance using FREE APIs
+    // ═══════════════════════════════════════════════════════════
+
+    console.log('📍 Calculating route distance...');
+
+    const routeResult = await getRouteDistance(
+      bookingData.from_location,
+      bookingData.to_location
+    );
+
+    console.log('📊 Distance result:', routeResult);
+
+    // Calculate ETA based on actual distance
+    const estimatedArrival = calculateETAFromDistance(
+      routeResult.distance,
+      bookingData.pickup_date
+    );
+
+    console.log('⏰ Estimated arrival:', estimatedArrival.toISOString());
+
+    // ═══════════════════════════════════════════════════════════
+
+    // Create booking with distance and ETA
     const { data, error } = await supabase
       .from('bookings')
       .insert([{
@@ -214,7 +234,8 @@ export const createBooking = async (bookingData: {
         bilti_number: bookingData.bilti_number || null,
         invoice_number: bookingData.invoice_number || null,
         eway_bill_details: bookingData.eway_bill_details || [],
-        estimated_arrival: initialETA.toISOString(), // ✅ ADD THIS
+        route_distance_km: routeResult.distance,        // ✅ NEW: Save distance
+        estimated_arrival: estimatedArrival.toISOString(), // ✅ NEW: Save ETA
         status: 'DRAFT',
         created_by: user.id
       }])
@@ -227,8 +248,12 @@ export const createBooking = async (bookingData: {
     }
 
     console.log('✅ Booking created:', data.booking_id);
+    console.log(`   📏 Distance: ${routeResult.distance} km`);
+    console.log(`   ⏰ ETA: ${estimatedArrival.toISOString()}`);
+    console.log(`   📡 Method: ${routeResult.method}`);
 
     return data;
+
   } catch (error: any) {
     console.error('❌ Error in createBooking:', error);
     throw error;

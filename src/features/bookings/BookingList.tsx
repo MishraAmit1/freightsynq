@@ -125,6 +125,7 @@ interface Booking {
   estimated_arrival?: string;
   remarks?: string;
   created_at?: string;
+  route_distance_km?: number;
   shipmentStatus: "AT_WAREHOUSE" | "IN_TRANSIT" | "DELIVERED";
   current_warehouse?: {
     id?: string;
@@ -256,6 +257,11 @@ const getDispatchDisplay = (booking: Booking) => {
       const isStale = hoursDiff >= 2 && hoursDiff < 6;
 
       const getTimeAgo = () => {
+        // ✅ FIX: Agar time negative hai (future) ya 1 min se kam hai
+        if (hoursDiff <= 0 || hoursDiff < (1 / 60)) {
+          return 'Just now';
+        }
+
         if (hoursDiff < 1) {
           const minutes = Math.floor(hoursDiff * 60);
           return `${minutes}m ago`;
@@ -634,6 +640,7 @@ export const BookingList = () => {
           branch_code: booking.branch?.branch_code,
           branch_city: booking.branch?.city,
           created_at: booking.created_at,
+          route_distance_km: booking.route_distance_km,
           assignedVehicle: activeAssignment && vehicle ? {
             vehicleNumber: vehicle.vehicle_number,
             vehicleType: vehicle.vehicle_type,
@@ -1072,8 +1079,8 @@ export const BookingList = () => {
 
                 <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    ETA / SLA
+                    <MapPin className="w-4 h-4" />
+                    Distance & ETA
                   </div>
                 </TableHead>
 
@@ -1451,34 +1458,56 @@ export const BookingList = () => {
                         </div>
                       </TableCell>
                       {/* COLUMN 6: ETA / SLA */}
+                      {/* COLUMN 6: Distance + ETA / SLA */}
                       <TableCell className="py-3">
-                        {!booking.estimated_arrival ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : (
-                          <div className="space-y-1">
+                        <div className="space-y-1">
+                          {/* Distance */}
+                          {booking.route_distance_km ? (
                             <div className="flex items-center gap-1.5">
-                              <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
-                              <span className="text-[10px] font-medium truncate">
-                                {formatETA(booking.estimated_arrival)}
+                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
+                              <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400">
+                                {booking.route_distance_km.toLocaleString()} km
                               </span>
                             </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0" />
+                              <span className="text-[10px] text-muted-foreground">
+                                Distance N/A
+                              </span>
+                            </div>
+                          )}
 
-                            {(() => {
-                              const sla = getSLAStatus(booking.estimated_arrival, booking.status);
-                              return (
-                                <div className={cn(
-                                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
-                                  sla.bgColor,
-                                  sla.color,
-                                  "border-current/20"
-                                )}>
-                                  <span>{sla.icon}</span>
-                                  <span>{sla.label}</span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        )}
+                          {/* ETA */}
+                          {booking.estimated_arrival ? (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                                <span className="text-[10px] font-medium truncate">
+                                  {formatETA(booking.estimated_arrival)}
+                                </span>
+                              </div>
+
+                              {/* SLA Status */}
+                              {(() => {
+                                const sla = getSLAStatus(booking.estimated_arrival, booking.status);
+                                return (
+                                  <div className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
+                                    sla.bgColor,
+                                    sla.color,
+                                    "border-current/20"
+                                  )}>
+                                    <span>{sla.icon}</span>
+                                    <span>{sla.label}</span>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">ETA not set</span>
+                          )}
+                        </div>
                       </TableCell>
                       {/* COLUMN 7: Actions - Centered with reduced gap */}
                       <TableCell className="py-3 pr-6 text-center">

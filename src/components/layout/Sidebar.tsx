@@ -17,6 +17,7 @@ import {
   Plus,
   Building,
   TrendingUp,
+  Locate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,6 +54,7 @@ export const Sidebar = ({
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Customers", href: "/customers", icon: UsersRound },
     { name: "Bookings", href: "/bookings", icon: FileText },
+    { name: "Tracking", href: "/tracking", icon: Locate },
     { name: "Broker", href: "/brokers", icon: UserRoundPlus },
     { name: "Vehicles", href: "/vehicles", icon: Truck },
     { name: "Drivers", href: "/drivers", icon: UserCog },

@@ -1,4 +1,3 @@
-// src/App.tsx - UPDATED
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,6 +38,7 @@ import { SuperAdminDashboard } from "./pages/super-admin/SuperAdminDashboard"; /
 import { CreateInvites } from "./pages/super-admin/CreateInvites";
 import { ManageCompanies } from "./pages/super-admin/ManageCompanies";
 import { SystemStats } from "./pages/super-admin/SystemStats";
+import { Tracking } from "./pages/Tracking";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -120,6 +120,7 @@ const AppRouter = () => {
                 <Route path="/warehouses" element={<WarehouseList />} />
                 <Route path="/warehouses/:id" element={<WarehouseDetails />} />
                 <Route path="/branches" element={<BranchManagement />} />
+                <Route path="/tracking" element={<Tracking />} />
 
                 <Route path="/company-settings" element={
                   <AdminRoute>

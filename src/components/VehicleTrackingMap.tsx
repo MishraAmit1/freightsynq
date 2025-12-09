@@ -17,7 +17,7 @@ import {
     Info,
     Activity,
     Lock,
-    Smartphone, // ✅ Add this
+    Smartphone,
     Signal,
     CheckCircle,
     DollarSign,

@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -23,7 +22,6 @@ import {
   AlertCircle,
   CheckCircle2,
   TrendingUp,
-  MapPinned,
   Navigation,
   Edit,
   Activity,
@@ -280,10 +278,10 @@ export const BookingDetail = () => {
   const loadTollCrossings = async (assignmentId: string) => {
     try {
       const { data, error } = await supabase
-        .from('vehicle_tracking')
-        .select('id, toll_name, crossed_at, location')
-        .eq('assignment_id', assignmentId)
-        .order('crossed_at', { ascending: false })
+        .from('fastag_crossings')
+        .select('id, toll_plaza_name, crossing_time, latitude, longitude')
+        .eq('vehicle_assignment_id', assignmentId)
+        .order('crossing_time', { ascending: false })
         .limit(3);
 
       if (error) throw error;

@@ -11,7 +11,130 @@ export interface LRCitySequence {
     created_at: string;
     updated_at: string;
 }
+// ✅ NEW: Fetch all LRs for a specific city
+export interface CityLR {
+    id: string;
+    booking_id: string;
+    lr_number: string;
+    lr_date: string;
+    from_location: string;
+    to_location: string;
+    status: string;
+    created_at: string;
+    consignor: { name: string } | null;
+    consignee: { name: string } | null;
+}
 
+// ✅ NEW FUNCTION - Don't touch existing ones
+export const fetchLRsByCityId = async (cityId: string): Promise<CityLR[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data: userData } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+    if (!userData?.company_id) throw new Error('Company ID not found');
+
+    const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+            id,
+            booking_id,
+            lr_number,
+            lr_date,
+            from_location,
+            to_location,
+            status,
+            created_at,
+            consignor:parties!consignor_id(name),
+            consignee:parties!consignee_id(name)
+        `)
+        .eq('company_id', userData.company_id)
+        .eq('lr_city_id', cityId)
+        .not('lr_number', 'is', null)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching city LRs by ID:', error);
+        throw error;
+    }
+
+    return data || [];
+};
+
+// ✅ ENHANCED VERSION - Works with both old and new data
+export const fetchLRsByCity = async (cityPrefix: string, cityId?: string): Promise<CityLR[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data: userData } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+    if (!userData?.company_id) throw new Error('Company ID not found');
+
+    // ✅ FIX: Only use city_id method for new implementation
+    if (cityId) {
+        const { data, error } = await supabase
+            .from('bookings')
+            .select(`
+                id,
+                booking_id,
+                lr_number,
+                lr_date,
+                from_location,
+                to_location,
+                status,
+                created_at,
+                consignor:parties!consignor_id(name),
+                consignee:parties!consignee_id(name)
+            `)
+            .eq('company_id', userData.company_id)
+            .eq('lr_city_id', cityId)  // ✅ Only match exact city ID
+            .not('lr_number', 'is', null)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching city LRs:', error);
+            throw error;
+        }
+
+        // ✅ Return whatever we find (even empty array)
+        return data || [];
+    } else {
+        // ✅ Old method - only if no cityId provided
+        const { data, error } = await supabase
+            .from('bookings')
+            .select(`
+                id,
+                booking_id,
+                lr_number,
+                lr_date,
+                from_location,
+                to_location,
+                status,
+                created_at,
+                consignor:parties!consignor_id(name),
+                consignee:parties!consignee_id(name)
+            `)
+            .eq('company_id', userData.company_id)
+            .like('lr_number', `${cityPrefix}%`)
+            .not('lr_number', 'is', null)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching city LRs:', error);
+            throw error;
+        }
+
+        return data || [];
+    }
+};
 // Get all cities for company
 export const fetchLRCities = async (): Promise<LRCitySequence[]> => {
     const { data, error } = await supabase

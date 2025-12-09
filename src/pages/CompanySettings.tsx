@@ -41,7 +41,10 @@ import {
     Star,
     Package,
     TrendingUp,
-    Hash
+    Hash,
+    Calendar,
+    ArrowRight,
+    Download
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,11 +82,14 @@ import {
     setActiveLRCity,
     updateLRCityNumber,
     deleteLRCity,
-    LRCitySequence
+    LRCitySequence,
+    fetchLRsByCity, // ✅ NEW IMPORT
+    CityLR // ✅ NEW IMPORT
 } from '@/api/lr-sequences';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { CompanyBranch, fetchCompanyBranches, createBranch } from "@/api/bookings";
+import { format } from 'date-fns';
 
 // ✅ Branch Stats Interface
 interface BranchStats {
@@ -120,7 +126,14 @@ export const CompanySettings = () => {
     const [employeeSearch, setEmployeeSearch] = useState('');
     const [employeeRoleFilter, setEmployeeRoleFilter] = useState<string>('all');
 
-    // ✅ NEW: Branch states
+    // ✅ NEW: City LRs Modal States
+    const [selectedCity, setSelectedCity] = useState<LRCitySequence | null>(null);
+    const [cityLRs, setCityLRs] = useState<CityLR[]>([]);
+    const [loadingCityLRs, setLoadingCityLRs] = useState(false);
+    const [showCityLRsModal, setShowCityLRsModal] = useState(false);
+    const [lrSearchTerm, setLrSearchTerm] = useState('');
+
+    // ✅ Branch states
     const [branches, setBranches] = useState<CompanyBranch[]>([]);
     const [branchStats, setBranchStats] = useState<Record<string, BranchStats>>({});
     const [branchesLoading, setBranchesLoading] = useState(false);
@@ -140,7 +153,7 @@ export const CompanySettings = () => {
             loadData();
             loadTemplateData();
             loadLRCities();
-            loadBranches(); // ✅ Add this
+            loadBranches();
             setIsAdmin(userProfile?.role === 'admin');
         }
     }, [company, userProfile]);
@@ -204,7 +217,7 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Load Branches Function
+    // ✅ Load Branches Function
     const loadBranches = async () => {
         setBranchesLoading(true);
         try {
@@ -241,7 +254,7 @@ export const CompanySettings = () => {
         }
     };
 
-    // ✅ NEW: Branch CRUD Functions
+    // ✅ Branch CRUD Functions
     const getNextBranchCode = () => {
         if (branches.length >= 26) return "AA";
         return String.fromCharCode(65 + branches.length);
@@ -376,8 +389,6 @@ export const CompanySettings = () => {
         setShowEditBranchModal(true);
     };
 
-    // ... (keep all existing functions like handleAddCity, handleSetActiveCity, etc.)
-
     const handleAddCity = async () => {
         if (!newCityForm.city_name.trim()) {
             toast({
@@ -406,7 +417,9 @@ export const CompanySettings = () => {
         }
     };
 
-    const handleSetActiveCity = async (cityId: string, cityName: string) => {
+    const handleSetActiveCity = async (cityId: string, cityName: string, event: React.MouseEvent) => {
+        event.stopPropagation(); // ✅ Prevent card click event
+
         try {
             await setActiveLRCity(cityId);
             await loadLRCities();
@@ -423,7 +436,9 @@ export const CompanySettings = () => {
         }
     };
 
-    const handleDeleteCity = async (cityId: string, cityName: string) => {
+    const handleDeleteCity = async (cityId: string, cityName: string, event: React.MouseEvent) => {
+        event.stopPropagation(); // ✅ Prevent card click event
+
         if (!confirm(`Are you sure you want to delete ${cityName}?`)) return;
 
         try {
@@ -442,30 +457,161 @@ export const CompanySettings = () => {
         }
     };
 
-    const handleEditCity = (city: LRCitySequence) => {
+    const handleEditCity = (city: LRCitySequence, event: React.MouseEvent) => {
+        event.stopPropagation(); // ✅ Prevent card click event
         setEditingCity(city);
         setShowEditModal(true);
     };
 
+    // ✅ ENHANCED: Update city with all fields
     const handleUpdateCityNumber = async () => {
         if (!editingCity) return;
 
+        // Validate
+        if (!editingCity.city_name?.trim()) {
+            toast({
+                title: '❌ Validation Error',
+                description: 'City name is required',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        if (!editingCity.prefix?.trim()) {
+            toast({
+                title: '❌ Validation Error',
+                description: 'Prefix is required',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        // Check for duplicate prefix
+        const duplicatePrefix = lrCities.find(c =>
+            c.id !== editingCity.id &&
+            c.prefix === editingCity.prefix
+        );
+
+        if (duplicatePrefix) {
+            toast({
+                title: '❌ Duplicate Prefix',
+                description: `Prefix "${editingCity.prefix}" is already used by ${duplicatePrefix.city_name}`,
+                variant: 'destructive',
+            });
+            return;
+        }
+
         try {
-            await updateLRCityNumber(editingCity.id, editingCity.current_lr_number);
+            // ✅ Update all fields
+            const { error } = await supabase
+                .from('lr_city_sequences')
+                .update({
+                    city_name: editingCity.city_name,
+                    prefix: editingCity.prefix,
+                    current_lr_number: editingCity.current_lr_number,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', editingCity.id);
+
+            if (error) throw error;
+
             await loadLRCities();
             setShowEditModal(false);
             setEditingCity(null);
+
             toast({
-                title: '✅ Number Updated',
-                description: `${editingCity.city_name} LR number has been updated`,
+                title: '✅ City Updated',
+                description: `${editingCity.city_name} configuration has been updated`,
             });
         } catch (error: any) {
             toast({
                 title: '❌ Error',
-                description: error.message || 'Failed to update city number',
+                description: error.message || 'Failed to update city configuration',
                 variant: 'destructive',
             });
         }
+    };
+    // ✅ NEW: Handle View City LRs
+    // ✅ SMART VERSION - Works with both old and new data
+    const handleViewCityLRs = async (city: LRCitySequence) => {
+        setSelectedCity(city);
+        setShowCityLRsModal(true);
+        setLoadingCityLRs(true);
+        setLrSearchTerm('');
+
+        try {
+            // ✅ Pass both prefix and ID - function will use best method
+            const lrs = await fetchLRsByCity(city.prefix, city.id);
+            setCityLRs(lrs);
+
+            // ✅ Show info if using old method
+            if (lrs.length > 0 && !lrs[0].lr_city_id) {
+                console.log('ℹ️ Using prefix-based filtering (legacy mode)');
+            }
+        } catch (error: any) {
+            toast({
+                title: '❌ Error',
+                description: error.message || 'Failed to fetch LRs',
+                variant: 'destructive',
+            });
+            setCityLRs([]);
+        } finally {
+            setLoadingCityLRs(false);
+        }
+    };
+
+    // ✅ NEW: Filter City LRs
+    const filteredCityLRs = cityLRs.filter(lr => {
+        if (!lrSearchTerm) return true;
+
+        const searchLower = lrSearchTerm.toLowerCase();
+        return (
+            lr.lr_number?.toLowerCase().includes(searchLower) ||
+            lr.booking_id?.toLowerCase().includes(searchLower) ||
+            lr.consignor?.name?.toLowerCase().includes(searchLower) ||
+            lr.consignee?.name?.toLowerCase().includes(searchLower) ||
+            lr.from_location?.toLowerCase().includes(searchLower) ||
+            lr.to_location?.toLowerCase().includes(searchLower)
+        );
+    });
+
+    // ✅ NEW: Export City LRs to CSV
+    const handleExportCityLRs = () => {
+        if (filteredCityLRs.length === 0) {
+            toast({
+                title: 'No Data',
+                description: 'No LRs to export',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const csvContent = [
+            ['LR Number', 'Booking Number', 'LR Date', 'From', 'To', 'Consignor', 'Consignee', 'Status'],
+            ...filteredCityLRs.map(lr => [
+                lr.lr_number,
+                lr.booking_id,
+                lr.lr_date ? format(new Date(lr.lr_date), 'dd/MM/yyyy') : '',
+                lr.from_location,
+                lr.to_location,
+                lr.consignor?.name || '',
+                lr.consignee?.name || '',
+                lr.status
+            ])
+        ].map(row => row.join(',')).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${selectedCity?.city_name}_LRs_${format(new Date(), 'dd-MM-yyyy')}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        toast({
+            title: '✅ Exported',
+            description: 'LRs exported successfully',
+        });
     };
 
     const generateNewCode = async () => {
@@ -625,7 +771,7 @@ export const CompanySettings = () => {
         <div className="space-y-8 -mt-1">
             {/* Header Section */}
             <div className="space-y-6">
-                {/* ✅ NEW: BRANCHES CARD */}
+                {/* ✅ BRANCHES CARD */}
                 <Card className="bg-card border border-border dark:border-border shadow-sm">
                     <CardHeader className="border-b border-border dark:border-border">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -836,9 +982,10 @@ export const CompanySettings = () => {
                         )}
                     </CardContent>
                 </Card>
+
                 {/* Company Code & Employees Cards */}
                 <div className="grid gap-6 md:grid-cols-2">
-                    {/* Company Code Card - KEEP AS IS */}
+                    {/* Company Code Card */}
                     <Card className="bg-card border border-border dark:border-border shadow-sm">
                         <CardHeader className="border-b border-border dark:border-border">
                             <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
@@ -904,7 +1051,7 @@ export const CompanySettings = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Employees Card - KEEP AS IS */}
+                    {/* Employees Card */}
                     <Card className="bg-card border border-border dark:border-border shadow-sm">
                         <CardHeader className="border-b border-border dark:border-border">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -1084,7 +1231,8 @@ export const CompanySettings = () => {
                         </CardContent>
                     </Card>
                 </div>
-                {/* LR Template Card - KEEP AS IS */}
+
+                {/* LR Template Card */}
                 <Card className="bg-card border border-border dark:border-border shadow-sm">
                     <CardHeader className="border-b border-border dark:border-border">
                         <CardTitle className="flex items-center gap-2 text-lg text-foreground dark:text-white">
@@ -1168,7 +1316,7 @@ export const CompanySettings = () => {
                     </CardContent>
                 </Card>
 
-                {/* LR City Card - KEEP AS IS */}
+                {/* ✅ UPDATED: LR City Card - Clickable Cards */}
                 <Card className="bg-card border border-border dark:border-border shadow-sm">
                     <CardHeader className="border-b border-border dark:border-border">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1224,8 +1372,10 @@ export const CompanySettings = () => {
                                 {lrCities.map((city) => (
                                     <div
                                         key={city.id}
+                                        onClick={() => handleViewCityLRs(city)} // ✅ NEW: Click to view LRs
                                         className={cn(
-                                            "p-4 rounded-lg border transition-all",
+                                            "p-4 rounded-lg border transition-all cursor-pointer", // ✅ NEW: cursor-pointer
+                                            "hover:shadow-md hover:border-primary", // ✅ NEW: hover effect
                                             city.is_active
                                                 ? "bg-accent dark:bg-primary/10 border-primary"
                                                 : "bg-muted border-border dark:border-border"
@@ -1259,7 +1409,7 @@ export const CompanySettings = () => {
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
-                                                            onClick={() => handleSetActiveCity(city.id, city.city_name)}
+                                                            onClick={(e) => handleSetActiveCity(city.id, city.city_name, e)} // ✅ NEW: stopPropagation
                                                             className="bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                                                         >
                                                             Set Active
@@ -1272,7 +1422,7 @@ export const CompanySettings = () => {
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
-                                                            onClick={() => handleEditCity(city)}
+                                                            onClick={(e) => handleEditCity(city, e)} // ✅ NEW: stopPropagation
                                                             className="hover:bg-accent dark:hover:bg-secondary"
                                                         >
                                                             <Edit className="w-4 h-4" />
@@ -1282,7 +1432,7 @@ export const CompanySettings = () => {
                                                             <Button
                                                                 size="sm"
                                                                 variant="ghost"
-                                                                onClick={() => handleDeleteCity(city.id, city.city_name)}
+                                                                onClick={(e) => handleDeleteCity(city.id, city.city_name, e)} // ✅ NEW: stopPropagation
                                                                 className="hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
@@ -1290,6 +1440,16 @@ export const CompanySettings = () => {
                                                         )}
                                                     </>
                                                 )}
+
+                                                {/* ✅ NEW: View LRs Hint */}
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Eye className="w-4 h-4 text-muted-foreground" />
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>Click to view all LRs</TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                             </div>
                                         </div>
                                     </div>
@@ -1302,62 +1462,66 @@ export const CompanySettings = () => {
                 <ApiUsageDashboard />
             </div>
 
-            {/* ✅ ADD BRANCH MODAL */}
-            {/* ✅ ADD BRANCH MODAL - Original Style */}
+            {/* ✅ EXISTING MODALS - Branch Add/Edit/Delete */}
             <Dialog open={showAddBranchModal} onOpenChange={setShowAddBranchModal}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add New Branch</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
+                    <DialogHeader className="border-b border-border dark:border-border pb-4">
+                        <DialogTitle className="text-foreground dark:text-white">Add New Branch</DialogTitle>
+                        <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
                             Create a new branch. The next available code ({getNextBranchCode()}) will be assigned automatically.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="">
-                            <Label>Branch Code (Auto-assigned)</Label>
-                            <Badge variant="outline" className="text-2xl px-4 py-2 font-mono">
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">Branch Code (Auto-assigned)</Label>
+                            <Badge variant="outline" className="text-2xl px-4 py-2 font-mono border-border">
                                 {getNextBranchCode()}
                             </Badge>
                         </div>
                         <div className="space-y-2">
-                            <Label>Branch Name <span className="text-red-500">*</span></Label>
+                            <Label className="text-foreground dark:text-white">Branch Name <span className="text-red-500">*</span></Label>
                             <Input
                                 value={branchFormData.branch_name}
                                 onChange={(e) => setBranchFormData({ ...branchFormData, branch_name: e.target.value })}
                                 placeholder="e.g., Vapi Main Office"
                                 disabled={branchSaving}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>City <span className="text-red-500">*</span></Label>
+                            <Label className="text-foreground dark:text-white">City <span className="text-red-500">*</span></Label>
                             <Input
                                 value={branchFormData.city}
                                 onChange={(e) => setBranchFormData({ ...branchFormData, city: e.target.value })}
                                 placeholder="e.g., Vapi"
                                 disabled={branchSaving}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Address</Label>
+                            <Label className="text-foreground dark:text-white">Address (Optional)</Label>
                             <Input
                                 value={branchFormData.address}
                                 onChange={(e) => setBranchFormData({ ...branchFormData, address: e.target.value })}
-                                placeholder="Full address (optional)"
+                                placeholder="Full address"
                                 disabled={branchSaving}
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                             />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col sm:flex-row gap-2 border-t border-border dark:border-border pt-4">
                         <Button
                             variant="outline"
                             onClick={() => setShowAddBranchModal(false)}
                             disabled={branchSaving}
+                            className="w-full sm:w-auto bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleAddBranch}
                             disabled={branchSaving || !branchFormData.branch_name || !branchFormData.city}
+                            className="w-full sm:w-auto bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
                         >
                             {branchSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             Create Branch
@@ -1366,94 +1530,6 @@ export const CompanySettings = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* ✅ EDIT BRANCH MODAL - Original Style */}
-            <Dialog open={showEditBranchModal} onOpenChange={setShowEditBranchModal}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Edit Branch</DialogTitle>
-                        <DialogDescription>
-                            Update branch details. Branch code cannot be changed.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Branch Code</Label>
-                            <Badge variant="outline" className="text-2xl px-4 py-2 font-mono">
-                                {editingBranch?.branch_code}
-                            </Badge>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Branch Name <span className="text-red-500">*</span></Label>
-                            <Input
-                                value={branchFormData.branch_name}
-                                onChange={(e) => setBranchFormData({ ...branchFormData, branch_name: e.target.value })}
-                                placeholder="e.g., Vapi Main Office"
-                                disabled={branchSaving}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>City <span className="text-red-500">*</span></Label>
-                            <Input
-                                value={branchFormData.city}
-                                onChange={(e) => setBranchFormData({ ...branchFormData, city: e.target.value })}
-                                placeholder="e.g., Vapi"
-                                disabled={branchSaving}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Address</Label>
-                            <Input
-                                value={branchFormData.address}
-                                onChange={(e) => setBranchFormData({ ...branchFormData, address: e.target.value })}
-                                placeholder="Full address (optional)"
-                                disabled={branchSaving}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setShowEditBranchModal(false);
-                                setEditingBranch(null);
-                            }}
-                            disabled={branchSaving}
-                        >
-                            Cancel
-                        </Button>
-                        <Button onClick={handleEditBranch} disabled={branchSaving}>
-                            {branchSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Save Changes
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ✅ DELETE BRANCH CONFIRMATION - Original Style */}
-            <AlertDialog
-                open={!!deletingBranchId}
-                onOpenChange={() => setDeletingBranchId(null)}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the branch.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleDeleteBranch}
-                            className="bg-destructive text-destructive-foreground"
-                        >
-                            Delete Branch
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            {/* ✅ EDIT BRANCH MODAL */}
             <Dialog open={showEditBranchModal} onOpenChange={setShowEditBranchModal}>
                 <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
                     <DialogHeader className="border-b border-border dark:border-border pb-4">
@@ -1529,7 +1605,6 @@ export const CompanySettings = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* ✅ DELETE BRANCH CONFIRMATION */}
             <AlertDialog open={!!deletingBranchId} onOpenChange={() => setDeletingBranchId(null)}>
                 <AlertDialogContent className="bg-card border-border dark:border-border">
                     <AlertDialogHeader>
@@ -1555,7 +1630,7 @@ export const CompanySettings = () => {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Add City Modal - KEEP AS IS */}
+            {/* Add City Modal */}
             <Dialog open={showAddCityModal} onOpenChange={setShowAddCityModal}>
                 <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
                     <DialogHeader className="border-b border-border dark:border-border pb-4">
@@ -1627,19 +1702,64 @@ export const CompanySettings = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Edit City Modal - KEEP AS IS */}
+            {/* Edit City Modal */}
+            {/* ✅ ENHANCED Edit City Modal - Full Edit */}
             <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
                 <DialogContent className="sm:max-w-md bg-card border-border dark:border-border">
                     <DialogHeader className="border-b border-border dark:border-border pb-4">
-                        <DialogTitle className="text-foreground dark:text-white">Edit LR Number</DialogTitle>
+                        <DialogTitle className="text-foreground dark:text-white">
+                            Edit LR City Configuration
+                        </DialogTitle>
                         <DialogDescription className="text-muted-foreground dark:text-muted-foreground">
-                            Update the current LR number for {editingCity?.city_name}
+                            Update city name, prefix, and current LR number
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
+                        {/* ✅ NEW: City Name Edit */}
                         <div className="space-y-2">
-                            <Label className="text-foreground dark:text-white">Current LR Number</Label>
+                            <Label className="text-foreground dark:text-white">
+                                City Name <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                value={editingCity?.city_name || ''}
+                                onChange={(e) => setEditingCity(editingCity ? {
+                                    ...editingCity,
+                                    city_name: e.target.value
+                                } : null)}
+                                placeholder="e.g., Vapi, Ahmedabad"
+                                className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
+                            />
+                        </div>
+
+                        {/* ✅ NEW: Prefix Edit */}
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">
+                                Prefix <span className="text-red-500">*</span>
+                            </Label>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    value={editingCity?.prefix || ''}
+                                    onChange={(e) => setEditingCity(editingCity ? {
+                                        ...editingCity,
+                                        prefix: e.target.value.toUpperCase()
+                                    } : null)}
+                                    placeholder="e.g., VPI, AMD"
+                                    maxLength={10}
+                                    className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
+                                />
+                                <Badge variant="outline" className="px-3 py-2 font-mono">
+                                    Preview: {editingCity?.prefix || 'XX'}{(editingCity?.current_lr_number || 0).toString().padStart(6, '0')}
+                                </Badge>
+                            </div>
+
+                        </div>
+
+                        {/* ✅ EXISTING: Current LR Number */}
+                        <div className="space-y-2">
+                            <Label className="text-foreground dark:text-white">
+                                Current LR Number <span className="text-red-500">*</span>
+                            </Label>
                             <Input
                                 type="number"
                                 value={editingCity?.current_lr_number || 1001}
@@ -1647,33 +1767,189 @@ export const CompanySettings = () => {
                                     ...editingCity,
                                     current_lr_number: parseInt(e.target.value) || 1001
                                 } : null)}
+                                min="0"
                                 className="border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                             />
+                            <p className="text-xs text-muted-foreground">
+                                Next LR will be: {editingCity?.prefix || 'XX'}{((editingCity?.current_lr_number || 0) + 1).toString().padStart(6, '0')}
+                            </p>
                         </div>
-
-                        <Alert className="border-yellow-200 dark:border-yellow-900/50 bg-yellow-50/50 dark:bg-yellow-900/10">
-                            <AlertCircle className="w-4 h-4 text-yellow-600" />
-                            <AlertDescription className="text-yellow-700 dark:text-yellow-400 text-sm">
-                                Changing this will affect the next LR generated
-                            </AlertDescription>
-                        </Alert>
                     </div>
 
                     <DialogFooter className="flex-col sm:flex-row gap-2 border-t border-border dark:border-border pt-4">
                         <Button
                             variant="outline"
-                            onClick={() => setShowEditModal(false)}
+                            onClick={() => {
+                                setShowEditModal(false);
+                                setEditingCity(null);
+                            }}
                             className="w-full sm:w-auto bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
                         >
                             Cancel
                         </Button>
                         <Button
                             onClick={handleUpdateCityNumber}
+                            disabled={
+                                !editingCity?.city_name ||
+                                !editingCity?.prefix ||
+                                editingCity.current_lr_number < 0 ||
+                                // Check for duplicate prefix
+                                lrCities.some(c => c.id !== editingCity.id && c.prefix === editingCity.prefix)
+                            }
                             className="w-full sm:w-auto bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
                         >
-                            Update Number
+                            Save Changes
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* ✅ UPDATED: City LRs Modal */}
+            <Dialog open={showCityLRsModal} onOpenChange={setShowCityLRsModal}>
+                <DialogContent className="sm:max-w-4xl max-h-[85vh] bg-card border-border dark:border-border flex flex-col overflow-hidden">
+                    <DialogHeader className="border-b border-border dark:border-border pb-4 shrink-0">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
+                                    <MapPin className="w-5 h-5 text-primary" />
+                                    {selectedCity?.city_name} - LR Records
+                                </DialogTitle>
+                                <DialogDescription className="mt-1 text-muted-foreground dark:text-muted-foreground">
+                                    All LRs with prefix: <span className="font-mono font-medium">{selectedCity?.prefix}</span>
+                                </DialogDescription>
+                            </div>
+                            <Badge variant="outline" className="text-sm border-border">
+                                {filteredCityLRs.length} LR{filteredCityLRs.length !== 1 ? 's' : ''}
+                            </Badge>
+                        </div>
+                    </DialogHeader>
+
+                    {/* Search & Export Bar - shrink-0 so it doesn't shrink */}
+                    <div className="flex items-center gap-2 py-4 shrink-0">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search LR number, booking ID, consignor, route..."
+                                value={lrSearchTerm}
+                                onChange={(e) => setLrSearchTerm(e.target.value)}
+                                className="pl-9 h-9 border-border dark:border-border"
+                            />
+                            {lrSearchTerm && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setLrSearchTerm('')}
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                                >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                </Button>
+                            )}
+                        </div>
+                        {filteredCityLRs.length > 0 && (
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleExportCityLRs}
+                                className="h-9 border-border dark:border-border"
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Export CSV
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* LRs List - flex-1 and min-h-0 for proper scrolling */}
+                    <div className="flex-1 min-h-0 overflow-y-auto border rounded-lg border-border dark:border-border">
+                        {loadingCityLRs ? (
+                            <div className="flex flex-col items-center justify-center py-16">
+                                <Loader2 className="w-10 h-10 animate-spin text-primary mb-3" />
+                                <p className="text-sm text-muted-foreground">Loading LRs...</p>
+                            </div>
+                        ) : filteredCityLRs.length === 0 ? (
+                            <div className="text-center py-16">
+                                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                                    <Package className="w-8 h-8 text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-medium mb-1 text-foreground dark:text-white">
+                                    {lrSearchTerm ? 'No matching LRs found' : 'No LRs generated yet'}
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    {lrSearchTerm
+                                        ? 'Try adjusting your search'
+                                        : `No LRs have been created for ${selectedCity?.city_name} yet`}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-border dark:divide-border">
+                                {filteredCityLRs.map((lr) => (
+                                    <div
+                                        key={lr.id}
+                                        className="p-4 hover:bg-accent dark:hover:bg-secondary/50 transition-colors"
+                                    >
+                                        {/* ... rest of your LR item code remains same ... */}
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Badge variant="outline" className="font-mono text-sm">
+                                                        {lr.lr_number}
+                                                    </Badge>
+                                                    <span className="text-xs text-muted-foreground">•</span>
+                                                    <span className="text-sm text-muted-foreground">
+                                                        {lr.booking_id}
+                                                    </span>
+                                                    {lr.lr_date && (
+                                                        <>
+                                                            <span className="text-xs text-muted-foreground">•</span>
+                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {format(new Date(lr.lr_date), 'dd MMM yyyy')}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-sm mb-2">
+                                                    <MapPin className="w-4 h-4 text-green-600 shrink-0" />
+                                                    <span className="truncate">{lr.from_location}</span>
+                                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                    <MapPin className="w-4 h-4 text-red-600 shrink-0" />
+                                                    <span className="truncate">{lr.to_location}</span>
+                                                </div>
+                                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                                    {lr.consignor?.name && (
+                                                        <div className="flex items-center gap-1">
+                                                            <User className="w-3 h-3" />
+                                                            <span className="truncate max-w-[150px]">{lr.consignor.name}</span>
+                                                        </div>
+                                                    )}
+                                                    {lr.consignee?.name && (
+                                                        <>
+                                                            <span>→</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <User className="w-3 h-3" />
+                                                                <span className="truncate max-w-[150px]">{lr.consignee.name}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0">
+                                                <Badge
+                                                    className={cn(
+                                                        "text-xs",
+                                                        lr.status === 'DELIVERED' && "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50",
+                                                        lr.status === 'IN_TRANSIT' && "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/50",
+                                                        lr.status === 'CANCELLED' && "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50",
+                                                        lr.status === 'PENDING' && "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/50"
+                                                    )}
+                                                >
+                                                    {lr.status.replace('_', ' ')}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
