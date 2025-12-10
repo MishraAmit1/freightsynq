@@ -62,7 +62,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
                     let crossingTime = c.readerReadTime;
                     if (crossingTime.includes(' ')) {
                         const [d, t] = crossingTime.split(' ');
-                        crossingTime = `${d}T${t.split('.')[0]}Z`;
+                        crossingTime = `${d}T${t.split('.')[0]}`;
                     }
 
                     return {

@@ -19,14 +19,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Package, FileText, Loader2, MapPin, AlertCircle, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Plus,
+  Trash2,
+  Package,
+  FileText,
+  Loader2,
+  MapPin,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  FileEdit
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { fetchEwayBillDetails, formatValidityDate } from '@/api/ewayBill';
-// ✅ CHANGE 1: Update imports
 import {
   fetchLRCities,
   LRCitySequence,
@@ -37,7 +47,7 @@ import { LRCityQuickSetup } from "@/components/LRCityQuickSetup";
 import { supabase } from "@/lib/supabase";
 
 // ============================================
-// INTERFACES (Keep existing)
+// INTERFACES
 // ============================================
 
 export interface LRData {
@@ -48,10 +58,11 @@ export interface LRData {
   cargoUnitsString: string;
   materialDescription: string;
   ewayBillDetails?: any[];
+  isOfflineLR?: boolean;  // ✅ NEW
 }
 
 // ============================================
-// ZOD SCHEMAS (Keep existing)
+// ZOD SCHEMAS
 // ============================================
 
 const lrItemSchema = z.object({
@@ -68,11 +79,22 @@ const documentSchema = z.object({
   invoice: z.string(),
 });
 
+// ✅ Updated schema - items optional when offline
 const lrSchema = z.object({
   lrNumber: z.string().min(1, "LR number is required"),
   lrDate: z.string().min(1, "LR date is required"),
   documents: z.array(documentSchema),
-  items: z.array(lrItemSchema).min(1, "At least one item is required"),
+  items: z.array(lrItemSchema),
+  isOfflineLR: z.boolean().default(false),
+}).refine((data) => {
+  // Items required only when NOT offline
+  if (!data.isOfflineLR && data.items.length === 0) {
+    return false;
+  }
+  return true;
+}, {
+  message: "At least one item is required for digital LR",
+  path: ["items"]
 });
 
 type LRFormData = z.infer<typeof lrSchema>;
@@ -100,7 +122,6 @@ interface CreateLRModalProps {
 // HELPER FUNCTIONS
 // ============================================
 
-// ✅ CHANGE 2: Add helper to calculate next LR number for any city
 const getNextLRNumberForCity = (city: LRCitySequence): string => {
   const nextNumber = (city.current_lr_number + 1).toString().padStart(6, '0');
   return `${city.prefix}${nextNumber}`;
@@ -130,11 +151,14 @@ export const CreateLRModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lrDateError, setLrDateError] = useState<string | null>(null);
 
-  // ✅ CHANGE 3: Add new state variables for LR Cities
+  // LR Cities state
   const [lrCities, setLrCities] = useState<LRCitySequence[]>([]);
   const [loadingLRCities, setLoadingLRCities] = useState(true);
   const [selectedCityId, setSelectedCityId] = useState<string>("");
   const [selectedCity, setSelectedCity] = useState<LRCitySequence | null>(null);
+
+  // ✅ NEW: Offline LR state
+  const [isOfflineLR, setIsOfflineLR] = useState(false);
 
   const [ewayBillValidations, setEwayBillValidations] = useState<{
     [key: number]: {
@@ -169,7 +193,8 @@ export const CreateLRModal = ({
       documents: [{
         ewayBill: "",
         invoice: ""
-      }]
+      }],
+      isOfflineLR: false
     }
   });
 
@@ -183,14 +208,13 @@ export const CreateLRModal = ({
     name: "documents"
   });
 
-  // ✅ CHANGE 4: Add function to load all LR cities
+  // Load LR cities
   const loadLRCities = async () => {
     setLoadingLRCities(true);
     try {
       const cities = await fetchLRCities();
       setLrCities(cities);
 
-      // Find active city or use first one as default
       const activeCity = cities.find(c => c.is_active) || cities[0];
       if (activeCity) {
         setSelectedCityId(activeCity.id);
@@ -205,7 +229,6 @@ export const CreateLRModal = ({
     }
   };
 
-  // ✅ CHANGE 5: Add city change handler
   const handleCityChange = (cityId: string) => {
     const city = lrCities.find(c => c.id === cityId);
     if (city) {
@@ -215,7 +238,26 @@ export const CreateLRModal = ({
     }
   };
 
-  // Keep existing validation functions
+  // ✅ NEW: Handle offline checkbox toggle
+  const handleOfflineToggle = (checked: boolean) => {
+    setIsOfflineLR(checked);
+    setValue("isOfflineLR", checked);
+
+    // If switching to offline, clear items validation errors
+    if (checked) {
+      // Set default empty items to avoid validation issues
+      setValue("items", []);
+    } else {
+      // Restore default item when switching back to digital
+      setValue("items", [{
+        quantity: 1,
+        unit_type: "BOX",
+        material_description: ""
+      }]);
+    }
+  };
+
+  // E-way bill validation
   const validateEwayBill = async (ewayBillNumber: string, index: number) => {
     if (!ewayBillNumber || ewayBillNumber.length !== 12) {
       setEwayBillValidations(prev => {
@@ -266,7 +308,6 @@ export const CreateLRModal = ({
           toast({
             title: "⏰ E-way Bill Expiring Soon",
             description: `Valid until ${formatted}`,
-            variant: "default",
           });
         } else {
           toast({
@@ -341,24 +382,15 @@ export const CreateLRModal = ({
     }
   };
 
-  // ✅ CHANGE 6: Update useEffect to load cities
+  // Initialize form
   useEffect(() => {
     if (isOpen && booking) {
-      // Load all LR cities
       loadLRCities();
       setValue("lrDate", new Date().toISOString().split('T')[0]);
+      setIsOfflineLR(false);
+      setValue("isOfflineLR", false);
 
-      console.log('🔍 Booking received in LR Modal:', {
-        bookingId: booking.bookingId,
-        hasEwayDetails: !!booking.eway_bill_details,
-        ewayDetailsCount: booking.eway_bill_details?.length || 0,
-        ewayDetails: booking.eway_bill_details
-      });
-
-      // E-way bill booking detection
       if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
-        console.log('✅ E-way bill booking detected! Auto-filling...');
-
         const documents = booking.eway_bill_details.map((ewb, idx) => {
           const ewayBillNumber = ewb.number || '';
           if (ewayBillNumber) {
@@ -418,9 +450,6 @@ export const CreateLRModal = ({
         }
 
       } else {
-        // MANUAL BOOKING
-        console.log('📝 Manual booking - using standard fields');
-
         const ewayBills = booking.bilti_number ? booking.bilti_number.split(',').map(num => num.trim()) : [];
         const invoices = booking.invoice_number ? booking.invoice_number.split(',').map(num => num.trim()) : [];
 
@@ -461,7 +490,6 @@ export const CreateLRModal = ({
       }
 
     } else if (!isOpen) {
-      // ✅ CHANGE 7: Reset all city-related states
       reset();
       setLrDateError(null);
       setLrCities([]);
@@ -469,6 +497,7 @@ export const CreateLRModal = ({
       setSelectedCity(null);
       setEwayBillValidations({});
       setEwayBillValues({});
+      setIsOfflineLR(false);
     }
   }, [isOpen, booking]);
 
@@ -500,65 +529,59 @@ export const CreateLRModal = ({
     }).join('\n');
   };
 
-  // ✅ CHANGE 8: Update onSubmit to increment selected city
+  // ✅ UPDATED: Submit handler with offline support
   const onSubmit = async (data: LRFormData) => {
     setIsSubmitting(true);
 
     try {
-      const ewayBillsToValidate = data.documents
-        .map((doc, index) => ({ number: doc.ewayBill, index }))
-        .filter(item => item.number && item.number.length === 12);
+      // ✅ Skip cargo validation for offline LR
+      if (!isOfflineLR) {
+        const ewayBillsToValidate = data.documents
+          .map((doc, index) => ({ number: doc.ewayBill, index }))
+          .filter(item => item.number && item.number.length === 12);
 
-      for (const item of ewayBillsToValidate) {
-        if (!ewayBillValidations[item.index]?.details) {
+        for (const item of ewayBillsToValidate) {
+          if (!ewayBillValidations[item.index]?.details) {
+            toast({
+              title: "⏳ Validating E-way Bills",
+              description: "Please wait while we validate all E-way bills...",
+            });
+            await validateEwayBill(item.number, item.index);
+          }
+        }
+
+        const invalidItems = data.items.filter(item =>
+          item.unit_type === 'OTHERS' && !item.custom_unit_type?.trim()
+        );
+        if (invalidItems.length > 0) {
           toast({
-            title: "⏳ Validating E-way Bills",
-            description: "Please wait while we validate all E-way bills...",
+            title: "Validation Error",
+            description: "Please specify custom unit type for 'Others' items",
+            variant: "destructive",
           });
-          await validateEwayBill(item.number, item.index);
+          setIsSubmitting(false);
+          return;
         }
       }
 
-      const hasInvalidEwayBills = ewayBillsToValidate.some(item => {
-        const validation = ewayBillValidations[item.index];
-        return !validation || !validation.details;
-      });
+      // Generate cargo strings (empty for offline)
+      const { units, materials } = isOfflineLR
+        ? { units: "", materials: "" }
+        : generateCargoStrings(data.items);
 
-      if (hasInvalidEwayBills) {
-        toast({
-          title: "❌ Validation Incomplete",
-          description: "Please wait for all E-way bills to be validated before saving",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const invalidItems = data.items.filter(item =>
-        item.unit_type === 'OTHERS' && !item.custom_unit_type?.trim()
-      );
-      if (invalidItems.length > 0) {
-        toast({
-          title: "Validation Error",
-          description: "Please specify custom unit type for 'Others' items",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const { units, materials } = generateCargoStrings(data.items);
-
+      // E-way bill details
       const ewayBillDetailsArray = data.documents
         .map((doc, index) => {
           if (doc.ewayBill && ewayBillValidations[index]?.details) {
             return ewayBillValidations[index].details;
           }
+          // For offline, just save the number without validation
+          if (doc.ewayBill && isOfflineLR) {
+            return { number: doc.ewayBill, is_offline: true };
+          }
           return null;
         })
         .filter(Boolean);
-
-      console.log('💾 Saving E-way bill details:', ewayBillDetailsArray);
 
       const ewayBillsString = data.documents
         .map(doc => doc.ewayBill)
@@ -571,24 +594,21 @@ export const CreateLRModal = ({
         .join(',');
 
       if (booking?.id) {
-        // ✅ PHASE 3 UPDATE: First save LR data with city ID
         const updateData: any = {
           lr_number: data.lrNumber,
           lr_date: data.lrDate,
           bilti_number: ewayBillsString || null,
           invoice_number: invoicesString || null,
-          cargo_units: units,
-          material_description: materials,
-          eway_bill_details: ewayBillDetailsArray.length > 0 ? ewayBillDetailsArray : null
+          cargo_units: units || null,
+          material_description: materials || null,
+          eway_bill_details: ewayBillDetailsArray.length > 0 ? ewayBillDetailsArray : null,
+          is_offline_lr: isOfflineLR  // ✅ NEW: Save offline flag
         };
 
-        // ✅ NEW: Add lr_city_id if we have selected city
         if (selectedCity?.id) {
           updateData.lr_city_id = selectedCity.id;
-          console.log('🏙️ Saving with city ID:', selectedCity.id, 'for city:', selectedCity.city_name);
         }
 
-        // ✅ UPDATE: Direct database update with lr_city_id
         const { error: updateError } = await supabase
           .from('bookings')
           .update(updateData)
@@ -599,7 +619,7 @@ export const CreateLRModal = ({
           throw updateError;
         }
 
-        // ✅ Call the onSave callback (for parent component updates)
+        // Call onSave callback
         await onSave(booking.id, {
           lrNumber: data.lrNumber,
           lrDate: data.lrDate,
@@ -607,24 +627,25 @@ export const CreateLRModal = ({
           invoiceNumber: invoicesString || undefined,
           cargoUnitsString: units,
           materialDescription: materials,
-          ewayBillDetails: ewayBillDetailsArray
+          ewayBillDetails: ewayBillDetailsArray,
+          isOfflineLR: isOfflineLR
         });
 
-        // ✅ Increment LR number for SELECTED city
+        // Increment LR number
         try {
           if (selectedCity) {
             await updateLRCityNumber(selectedCity.id, selectedCity.current_lr_number + 1);
-            console.log('✅ LR number incremented for city:', selectedCity.city_name);
           }
         } catch (incrementError) {
           console.error('Warning: Failed to increment LR number:', incrementError);
-          // Don't fail the whole operation if increment fails
         }
 
-        // ✅ Success toast with city info
+        // ✅ Updated success message
         toast({
-          title: "✅ LR Created Successfully",
-          description: `LR ${data.lrNumber} created for ${selectedCity?.city_name || 'default city'}`,
+          title: isOfflineLR ? "✅ Offline LR Created" : "✅ LR Created Successfully",
+          description: isOfflineLR
+            ? `Offline LR ${data.lrNumber} created. You can upload the physical LR later.`
+            : `LR ${data.lrNumber} created for ${selectedCity?.city_name || 'default city'}`,
         });
 
         onClose();
@@ -656,6 +677,7 @@ export const CreateLRModal = ({
     setSelectedCity(null);
     setEwayBillValidations({});
     setEwayBillValues({});
+    setIsOfflineLR(false);
     onClose();
   };
 
@@ -685,8 +707,7 @@ export const CreateLRModal = ({
               </div>
             </div>
           </div>
-
-          {/* ✅ CHANGE 10: Add LR City Selection Dropdown */}
+          {/* LR City Selection */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
               LR City <span className="text-destructive">*</span>
@@ -751,7 +772,6 @@ export const CreateLRModal = ({
               <Label>LR Number</Label>
               <Input
                 {...register("lrNumber")}
-                // disabled
                 className="bg-muted"
               />
               {errors.lrNumber && (
@@ -784,7 +804,7 @@ export const CreateLRModal = ({
             </div>
           </div>
 
-          {/* E-way Bills Section */}
+          {/* E-way Bills Section - Always visible */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <Label className="flex items-center gap-2">
@@ -851,42 +871,45 @@ export const CreateLRModal = ({
                             )}
                           </div>
 
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const currentValue = getValues(`documents.${index}.ewayBill`) || ewayBillValues[index] || '';
-                              if (currentValue && currentValue.length === 12) {
-                                validateEwayBill(currentValue, index);
-                              } else {
-                                toast({
-                                  title: "❌ Invalid Format",
-                                  description: "E-way bill must be exactly 12 digits",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                            disabled={validation?.loading}
-                            className="hover:bg-primary/10 hover:border-primary"
-                          >
-                            {validation?.loading ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                                Checking
-                              </>
-                            ) : validation?.valid ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 mr-1" />
-                                Valid
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 mr-1" />
-                                Validate
-                              </>
-                            )}
-                          </Button>
+                          {/* ✅ Hide validate button for offline LR */}
+                          {!isOfflineLR && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const currentValue = getValues(`documents.${index}.ewayBill`) || ewayBillValues[index] || '';
+                                if (currentValue && currentValue.length === 12) {
+                                  validateEwayBill(currentValue, index);
+                                } else {
+                                  toast({
+                                    title: "❌ Invalid Format",
+                                    description: "E-way bill must be exactly 12 digits",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                              disabled={validation?.loading}
+                              className="hover:bg-primary/10 hover:border-primary"
+                            >
+                              {validation?.loading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  Checking
+                                </>
+                              ) : validation?.valid ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  Valid
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  Validate
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </div>
                         {errors.documents?.[index]?.ewayBill && (
                           <p className="text-xs text-destructive mt-1">
@@ -925,7 +948,7 @@ export const CreateLRModal = ({
                       </Button>
                     </div>
 
-                    {validation?.validUntil && (
+                    {validation?.validUntil && !isOfflineLR && (
                       <div className="flex items-center gap-2 px-2">
                         <Badge
                           variant={validation.valid ? "default" : "destructive"}
@@ -956,132 +979,171 @@ export const CreateLRModal = ({
               })}
             </div>
           </div>
-
-          {/* Cargo Items Section */}
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <Label className="flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Cargo Items & Materials
-              </Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => itemFields.length < 5 && appendItem({
-                  quantity: 1,
-                  unit_type: "BOX",
-                  material_description: ""
-                })}
-                disabled={itemFields.length >= 5}
+          {/* ✅ NEW: Offline LR Checkbox */}
+          <div className="flex items-center space-x-3 p-3 border border-dashed rounded-lg bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+            <Checkbox
+              id="offline-lr"
+              checked={isOfflineLR}
+              onCheckedChange={handleOfflineToggle}
+              disabled={isSubmitting}
+            />
+            <div className="flex-1">
+              <Label
+                htmlFor="offline-lr"
+                className="text-sm font-medium cursor-pointer flex items-center gap-2"
               >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Item
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              {itemFields.map((field, index) => {
-                const itemType = watch(`items.${index}.unit_type`);
-
-                return (
-                  <div key={field.id} className="p-3 border rounded-lg bg-background">
-                    <div className="flex gap-2 mb-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                        placeholder="Qty"
-                        className="w-20"
-                      />
-
-                      <Select
-                        value={itemType}
-                        onValueChange={(value) =>
-                          setValue(`items.${index}.unit_type`, value as any)
-                        }
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="BOX">Box</SelectItem>
-                          <SelectItem value="CARTOON">Cartoon</SelectItem>
-                          <SelectItem value="OTHERS">Others</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      {itemType === 'OTHERS' && (
-                        <Input
-                          {...register(`items.${index}.custom_unit_type`)}
-                          placeholder="Specify type"
-                          className="flex-1"
-                        />
-                      )}
-
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => itemFields.length > 1 && removeItem(index)}
-                        disabled={itemFields.length === 1}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-
-                    <Input
-                      {...register(`items.${index}.material_description`)}
-                      placeholder="Material description (e.g., Rice Bags 50kg)"
-                      className="w-full"
-                    />
-                    {errors.items?.[index]?.material_description && (
-                      <p className="text-xs text-destructive mt-1">
-                        {errors.items[index]?.material_description?.message}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Preview */}
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground mb-2">Preview (LR Format):</p>
-              <pre className="text-sm font-medium whitespace-pre-wrap">
-                {generateDisplayFormat(watchedItems)}
-              </pre>
-
-              {watchedDocuments.some(doc => doc.ewayBill || doc.invoice) && (
-                <div className="mt-3 space-y-2">
-                  {watchedDocuments.some(doc => doc.ewayBill) && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">E-way Bills:</p>
-                      <p className="text-sm">
-                        {watchedDocuments
-                          .map(doc => doc.ewayBill)
-                          .filter(eb => eb)
-                          .join(', ')}
-                      </p>
-                    </div>
-                  )}
-                  {watchedDocuments.some(doc => doc.invoice) && (
-                    <div>
-                      <p className="text-sm text-muted-foreground">Invoice Numbers:</p>
-                      <p className="text-sm">
-                        {watchedDocuments
-                          .map(doc => doc.invoice)
-                          .filter(inv => inv)
-                          .join(', ')}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+                <FileEdit className="w-4 h-4 text-amber-600" />
+                Create LR Offline (Manual/Physical LR)
+              </Label>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Check this if you're creating a physical LR. You can upload the scanned copy later.
+              </p>
             </div>
           </div>
+          {/* ✅ Cargo Items Section - HIDDEN when offline */}
+          {!isOfflineLR && (
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <Label className="flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Cargo Items & Materials
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => itemFields.length < 5 && appendItem({
+                    quantity: 1,
+                    unit_type: "BOX",
+                    material_description: ""
+                  })}
+                  disabled={itemFields.length >= 5}
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Add Item
+                </Button>
+              </div>
 
-          {/* ✅ CHANGE 11: Update submit button disabled condition */}
+              <div className="space-y-2">
+                {itemFields.map((field, index) => {
+                  const itemType = watch(`items.${index}.unit_type`);
+
+                  return (
+                    <div key={field.id} className="p-3 border rounded-lg bg-background">
+                      <div className="flex gap-2 mb-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                          placeholder="Qty"
+                          className="w-20"
+                        />
+
+                        <Select
+                          value={itemType}
+                          onValueChange={(value) =>
+                            setValue(`items.${index}.unit_type`, value as any)
+                          }
+                        >
+                          <SelectTrigger className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="BOX">Box</SelectItem>
+                            <SelectItem value="CARTOON">Cartoon</SelectItem>
+                            <SelectItem value="OTHERS">Others</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {itemType === 'OTHERS' && (
+                          <Input
+                            {...register(`items.${index}.custom_unit_type`)}
+                            placeholder="Specify type"
+                            className="flex-1"
+                          />
+                        )}
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => itemFields.length > 1 && removeItem(index)}
+                          disabled={itemFields.length === 1}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+
+                      <Input
+                        {...register(`items.${index}.material_description`)}
+                        placeholder="Material description (e.g., Rice Bags 50kg)"
+                        className="w-full"
+                      />
+                      {errors.items?.[index]?.material_description && (
+                        <p className="text-xs text-destructive mt-1">
+                          {errors.items[index]?.material_description?.message}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Preview */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Preview (LR Format):</p>
+                <pre className="text-sm font-medium whitespace-pre-wrap">
+                  {generateDisplayFormat(watchedItems)}
+                </pre>
+
+                {watchedDocuments.some(doc => doc.ewayBill || doc.invoice) && (
+                  <div className="mt-3 space-y-2">
+                    {watchedDocuments.some(doc => doc.ewayBill) && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">E-way Bills:</p>
+                        <p className="text-sm">
+                          {watchedDocuments
+                            .map(doc => doc.ewayBill)
+                            .filter(eb => eb)
+                            .join(', ')}
+                        </p>
+                      </div>
+                    )}
+                    {watchedDocuments.some(doc => doc.invoice) && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Invoice Numbers:</p>
+                        <p className="text-sm">
+                          {watchedDocuments
+                            .map(doc => doc.invoice)
+                            .filter(inv => inv)
+                            .join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ✅ Offline LR Info Box */}
+          {isOfflineLR && (
+            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <FileEdit className="w-5 h-5 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-900 dark:text-amber-100">
+                    Offline LR Mode
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    You're creating an offline/physical LR. Only LR number, date, and document numbers will be saved.
+                    You can upload the scanned copy of the physical LR later from the booking list.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <DialogFooter>
             <Button
               type="button"
@@ -1099,6 +1161,11 @@ export const CreateLRModal = ({
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating...
+                </>
+              ) : isOfflineLR ? (
+                <>
+                  <FileEdit className="w-4 h-4 mr-2" />
+                  Create Offline LR
                 </>
               ) : (
                 "Create LR"

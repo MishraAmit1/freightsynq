@@ -69,6 +69,10 @@ const getPageInfo = (pathname: string) => {
       title: 'Branch Management',
       description: 'Manage company branches and their operations'
     },
+    '/tracking': {
+      title: 'Vehicle Tracking',
+      description: 'Real-time fleet tracking and vehicle search'
+    },
     '/profile': {
       title: 'User Profile',
       description: 'Manage your account settings and preferences'

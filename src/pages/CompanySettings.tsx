@@ -1805,7 +1805,7 @@ export const CompanySettings = () => {
             </Dialog>
             {/* ✅ UPDATED: City LRs Modal */}
             <Dialog open={showCityLRsModal} onOpenChange={setShowCityLRsModal}>
-                <DialogContent className="sm:max-w-4xl max-h-[85vh] bg-card border-border dark:border-border flex flex-col overflow-hidden">
+                <DialogContent className="sm:max-w-5xl max-h-[85vh] bg-card border-border dark:border-border flex flex-col overflow-hidden">
                     <DialogHeader className="border-b border-border dark:border-border pb-4 shrink-0">
                         <div className="flex items-center justify-between">
                             <div>
@@ -1823,12 +1823,12 @@ export const CompanySettings = () => {
                         </div>
                     </DialogHeader>
 
-                    {/* Search & Export Bar - shrink-0 so it doesn't shrink */}
+                    {/* Search & Export Bar */}
                     <div className="flex items-center gap-2 py-4 shrink-0">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search LR number, booking ID, consignor, route..."
+                                placeholder="Search LR number, consignor, route..."
                                 value={lrSearchTerm}
                                 onChange={(e) => setLrSearchTerm(e.target.value)}
                                 className="pl-9 h-9 border-border dark:border-border"
@@ -1857,8 +1857,8 @@ export const CompanySettings = () => {
                         )}
                     </div>
 
-                    {/* LRs List - flex-1 and min-h-0 for proper scrolling */}
-                    <div className="flex-1 min-h-0 overflow-y-auto border rounded-lg border-border dark:border-border">
+                    {/* LRs Table */}
+                    <div className="flex-1 min-h-0 overflow-hidden border rounded-lg border-border dark:border-border">
                         {loadingCityLRs ? (
                             <div className="flex flex-col items-center justify-center py-16">
                                 <Loader2 className="w-10 h-10 animate-spin text-primary mb-3" />
@@ -1879,74 +1879,94 @@ export const CompanySettings = () => {
                                 </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-border dark:divide-border">
-                                {filteredCityLRs.map((lr) => (
-                                    <div
-                                        key={lr.id}
-                                        className="p-4 hover:bg-accent dark:hover:bg-secondary/50 transition-colors"
-                                    >
-                                        {/* ... rest of your LR item code remains same ... */}
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Badge variant="outline" className="font-mono text-sm">
+                            <div className="overflow-auto h-full">
+                                <table className="w-full">
+                                    {/* Table Header */}
+                                    <thead className="bg-muted/50 dark:bg-secondary/50 sticky top-0 z-10">
+                                        <tr className="border-b border-border dark:border-border">
+                                            <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                                                LR No.
+                                            </th>
+                                            <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                                                Date
+                                            </th>
+                                            <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                                                Consignor
+                                            </th>
+                                            <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                                                Route
+                                            </th>
+                                            <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                                                Status
+                                            </th>
+                                        </tr>
+                                    </thead>
+
+                                    {/* Table Body */}
+                                    <tbody className="divide-y divide-border dark:divide-border">
+                                        {filteredCityLRs.map((lr) => (
+                                            <tr
+                                                key={lr.id}
+                                                className="hover:bg-accent/50 dark:hover:bg-secondary/30 transition-colors"
+                                            >
+                                                {/* LR Number */}
+                                                <td className="px-4 py-3">
+                                                    <Badge variant="outline" className="font-mono text-xs">
                                                         {lr.lr_number}
                                                     </Badge>
-                                                    <span className="text-xs text-muted-foreground">•</span>
-                                                    <span className="text-sm text-muted-foreground">
-                                                        {lr.booking_id}
+                                                </td>
+
+                                                {/* Date */}
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm text-foreground dark:text-white whitespace-nowrap">
+                                                        {lr.lr_date
+                                                            ? format(new Date(lr.lr_date), 'dd MMM yyyy')
+                                                            : '-'
+                                                        }
                                                     </span>
-                                                    {lr.lr_date && (
-                                                        <>
-                                                            <span className="text-xs text-muted-foreground">•</span>
-                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                <Calendar className="w-3 h-3" />
-                                                                {format(new Date(lr.lr_date), 'dd MMM yyyy')}
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 text-sm mb-2">
-                                                    <MapPin className="w-4 h-4 text-green-600 shrink-0" />
-                                                    <span className="truncate">{lr.from_location}</span>
-                                                    <ArrowRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                    <MapPin className="w-4 h-4 text-red-600 shrink-0" />
-                                                    <span className="truncate">{lr.to_location}</span>
-                                                </div>
-                                                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                    {lr.consignor?.name && (
-                                                        <div className="flex items-center gap-1">
-                                                            <User className="w-3 h-3" />
-                                                            <span className="truncate max-w-[150px]">{lr.consignor.name}</span>
-                                                        </div>
-                                                    )}
-                                                    {lr.consignee?.name && (
-                                                        <>
-                                                            <span>→</span>
-                                                            <div className="flex items-center gap-1">
-                                                                <User className="w-3 h-3" />
-                                                                <span className="truncate max-w-[150px]">{lr.consignee.name}</span>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="shrink-0">
-                                                <Badge
-                                                    className={cn(
-                                                        "text-xs",
-                                                        lr.status === 'DELIVERED' && "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50",
-                                                        lr.status === 'IN_TRANSIT' && "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/50",
-                                                        lr.status === 'CANCELLED' && "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50",
-                                                        lr.status === 'PENDING' && "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/50"
-                                                    )}
-                                                >
-                                                    {lr.status.replace('_', ' ')}
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                                                </td>
+
+                                                {/* Consignor */}
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                                        <span className="text-sm text-foreground dark:text-white truncate max-w-[180px]">
+                                                            {lr.consignor?.name || '-'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Route (From → To) */}
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <span className="text-foreground dark:text-white truncate max-w-[120px]">
+                                                            {lr.from_location || '-'}
+                                                        </span>
+                                                        <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                                        <span className="text-foreground dark:text-white truncate max-w-[120px]">
+                                                            {lr.to_location || '-'}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Status */}
+                                                <td className="px-4 py-3 text-center">
+                                                    <Badge
+                                                        className={cn(
+                                                            "text-xs",
+                                                            lr.status === 'DELIVERED' && "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/50",
+                                                            lr.status === 'IN_TRANSIT' && "bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/50",
+                                                            lr.status === 'CANCELLED' && "bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50",
+                                                            lr.status === 'PENDING' && "bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/50"
+                                                        )}
+                                                    >
+                                                        {lr.status.replace('_', ' ')}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>

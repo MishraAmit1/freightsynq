@@ -78,7 +78,8 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  Upload
+  Upload,
+  FileEdit
 } from "lucide-react";
 import { fetchBookings, updateBookingStatus, updateBookingWarehouse, deleteBooking, updateBooking, updateBookingLR } from "@/api/bookings";
 import { fetchWarehouses } from "@/api/warehouses";
@@ -99,6 +100,7 @@ import { QuickInvoiceModal } from "@/components/QuickInvoiceModal";
 import { formatETA, getSLAStatus } from "@/lib/etaCalculations";
 import { EditRemarksModal } from "@/components/EditRemarksModal";
 import { PODViewerModal } from "@/components/PODViewerModal";
+import { UploadOfflineLRModal } from "@/components/UploadOfflineLRModal";
 
 // Interfacess
 interface Booking {
@@ -126,6 +128,9 @@ interface Booking {
   remarks?: string;
   created_at?: string;
   route_distance_km?: number;
+  is_offline_lr?: boolean;
+  offline_lr_file_url?: string;
+  offline_lr_uploaded_at?: string;
   shipmentStatus: "AT_WAREHOUSE" | "IN_TRANSIT" | "DELIVERED";
   current_warehouse?: {
     id?: string;
@@ -355,6 +360,15 @@ export const BookingList = () => {
     isOpen: boolean;
     booking: Booking | null;
   }>({ isOpen: false, booking: null });
+  const [offlineLRUploadModal, setOfflineLRUploadModal] = useState<{
+    isOpen: boolean;
+    booking: { id: string; bookingId: string; lrNumber: string } | null;
+  }>({ isOpen: false, booking: null });
+  const [offlineLRViewer, setOfflineLRViewer] = useState<{
+    isOpen: boolean;
+    fileUrl: string | null;
+    lrNumber: string;
+  }>({ isOpen: false, fileUrl: null, lrNumber: "" });
   const parseEwayDate = (dateStr: string): Date | null => {
     try {
       // First try ISO format (2025-11-24T23:59:00Z)
@@ -650,6 +664,9 @@ export const BookingList = () => {
               phone: activeAssignment.driver?.phone || '',
             }
           } : undefined,
+          is_offline_lr: booking.is_offline_lr || false,
+          offline_lr_file_url: booking.offline_lr_file_url,
+          offline_lr_uploaded_at: booking.offline_lr_uploaded_at,
           broker: activeAssignment?.broker || undefined,
           pod_uploaded_at: booking.pod_uploaded_at,
           pod_file_url: booking.pod_file_url,
@@ -1706,7 +1723,6 @@ export const BookingList = () => {
             })
           )}
         </div>
-
         {/* Pagination - Keep same as before */}
         {filteredBookings.length > 0 && (
           <div className="px-6 py-4 border-t border-border dark:border-border bg-card">
@@ -1968,6 +1984,7 @@ export const BookingList = () => {
         bookingId={podViewer.bookingId}
       />
       {/* LR Details Viewer Dialog */}
+      {/* LR Details Viewer Dialog - UPDATED FOR OFFLINE */}
       <Dialog
         open={lrViewer.isOpen}
         onOpenChange={(open) => !open && setLrViewer({ isOpen: false, booking: null })}
@@ -1977,6 +1994,14 @@ export const BookingList = () => {
             <DialogTitle className="flex items-center gap-2 text-foreground">
               <FileText className="w-5 h-5 text-primary" />
               LR Details - {lrViewer.booking?.lrNumber}
+
+              {/* ✅ Offline Badge */}
+              {lrViewer.booking?.is_offline_lr && (
+                <Badge variant="outline" className="ml-2 text-amber-600 border-amber-600">
+                  <FileEdit className="w-3 h-3 mr-1" />
+                  Offline LR
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -2005,48 +2030,25 @@ export const BookingList = () => {
                   </p>
                 </div>
 
-                <div className="space-y-1">
+                {/* <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Bilti Number</p>
                   <p className="text-sm font-semibold text-foreground">
                     {lrViewer.booking.bilti_number || '-'}
                   </p>
-                </div>
+                </div> */}
 
-                <div className="space-y-1">
+                {/* <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">Invoice Number</p>
                   <p className="text-sm font-semibold text-foreground">
                     {lrViewer.booking.invoice_number || '-'}
                   </p>
-                </div>
+                </div> */}
               </div>
 
               <div className="border-t border-border" />
 
-              {/* Material Info */}
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Material Description</p>
-                <p className="text-sm text-foreground bg-muted/50 p-2 rounded-md">
-                  {lrViewer.booking.materialDescription || 'No description provided'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Cargo Units</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {lrViewer.booking.cargoUnits || '1'}
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Service Type</p>
-                  <Badge variant="outline" className="text-xs">
-                    {lrViewer.booking.serviceType}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-4">
+              {/* Route Info */}
+              <div className="border-t border-border">
                 <p className="text-xs font-medium text-muted-foreground mb-2">Route</p>
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="w-4 h-4 text-green-600" />
@@ -2057,21 +2059,185 @@ export const BookingList = () => {
                 </div>
               </div>
 
-              {/* Download Button */}
-              <div className="border-t border-border pt-4">
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    handleDownloadLR(lrViewer.booking!);
-                    setLrViewer({ isOpen: false, booking: null });
-                  }}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download LR PDF
-                </Button>
-              </div>
+              {/* ✅ OFFLINE LR SECTION */}
+              {lrViewer.booking.is_offline_lr && (
+                <>
+                  <div className="border-t border-border" />
+
+                  {/* Offline LR Badge */}
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                      <FileEdit className="w-4 h-4" />
+                      <span className="text-sm font-medium">LR Generated Offline</span>
+                    </div>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      This is a physical/manual LR. The scanned copy can be uploaded below.
+                    </p>
+                  </div>
+
+                  {/* Upload or View Section */}
+                  {lrViewer.booking.offline_lr_file_url ? (
+                    // ✅ File is uploaded - Show View button
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-sm font-medium">LR Document Uploaded</span>
+                        </div>
+                        {lrViewer.booking.offline_lr_uploaded_at && (
+                          <span className="text-xs text-green-600">
+                            {new Date(lrViewer.booking.offline_lr_uploaded_at).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                        )}
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={() => {
+                          setOfflineLRViewer({
+                            isOpen: true,
+                            fileUrl: lrViewer.booking!.offline_lr_file_url!,
+                            lrNumber: lrViewer.booking!.lrNumber!
+                          });
+                        }}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View LR Document
+                      </Button>
+                    </div>
+                  ) : (
+                    // ✅ No file uploaded - Show Upload button
+                    <Button
+                      className="w-full"
+                      variant="default"
+                      onClick={() => {
+                        setLrViewer({ isOpen: false, booking: null });
+                        setOfflineLRUploadModal({
+                          isOpen: true,
+                          booking: {
+                            id: lrViewer.booking!.id,
+                            bookingId: lrViewer.booking!.bookingId,
+                            lrNumber: lrViewer.booking!.lrNumber!
+                          }
+                        });
+                      }}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload LR Document
+                    </Button>
+                  )}
+                </>
+              )}
+
+              {/* ✅ DIGITAL LR SECTION - Only show for non-offline */}
+              {!lrViewer.booking.is_offline_lr && (
+                <>
+                  {/* Material Info */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Material Description</p>
+                    <p className="text-sm text-foreground bg-muted/50 p-2 rounded-md">
+                      {lrViewer.booking.materialDescription || 'No description provided'}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Cargo Units</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {lrViewer.booking.cargoUnits || '1'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Service Type</p>
+                      <Badge variant="outline" className="text-xs">
+                        {lrViewer.booking.serviceType}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Download Button */}
+                  <div className="border-t border-border pt-4">
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        handleDownloadLR(lrViewer.booking!);
+                        setLrViewer({ isOpen: false, booking: null });
+                      }}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download LR PDF
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ NEW: Offline LR Upload Modal */}
+      <UploadOfflineLRModal
+        isOpen={offlineLRUploadModal.isOpen}
+        onClose={() => setOfflineLRUploadModal({ isOpen: false, booking: null })}
+        booking={offlineLRUploadModal.booking}
+        onSuccess={loadData}
+      />
+
+      {/* ✅ NEW: Offline LR Viewer Modal */}
+      <Dialog
+        open={offlineLRViewer.isOpen}
+        onOpenChange={(open) => !open && setOfflineLRViewer({ isOpen: false, fileUrl: null, lrNumber: "" })}
+      >
+        <DialogContent className="sm:max-w-3xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
+              LR Document - {offlineLRViewer.lrNumber}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex items-center justify-center min-h-[400px] bg-muted rounded-lg overflow-hidden">
+            {offlineLRViewer.fileUrl && (
+              offlineLRViewer.fileUrl.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={offlineLRViewer.fileUrl}
+                  className="w-full h-[500px]"
+                  title="LR Document"
+                />
+              ) : (
+                <img
+                  src={offlineLRViewer.fileUrl}
+                  alt="LR Document"
+                  className="max-w-full max-h-[500px] object-contain"
+                />
+              )
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setOfflineLRViewer({ isOpen: false, fileUrl: null, lrNumber: "" })}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (offlineLRViewer.fileUrl) {
+                  window.open(offlineLRViewer.fileUrl, '_blank');
+                }
+              }}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

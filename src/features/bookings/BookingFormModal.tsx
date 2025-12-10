@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Loader2, Check, ChevronsUpDown, Plus, User, MapPin, Save, Package, Badge as BadgeIcon, AlertCircle, Calendar, Truck } from "lucide-react";
+import { X, Loader2, Check, ChevronsUpDown, Plus, User, MapPin, Save, Package, AlertCircle, Calendar, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import DatePicker from "react-datepicker";
@@ -20,12 +20,16 @@ import { CompanyBranch, fetchCompanyBranches } from "@/api/bookings";
 // CUSTOM HOOKS
 // ============================================
 
-const useDebounce = (value: string, delay: number) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+const useDebounce = (value: string, delay: number): string => {
+  const [debouncedValue, setDebouncedValue] = useState<string>(value || '');
+
   useEffect(() => {
-    const handler = setTimeout(() => { setDebouncedValue(value); }, delay);
-    return () => { clearTimeout(handler); };
+    const handler = setTimeout(() => {
+      setDebouncedValue(value || '');
+    }, delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
+
   return debouncedValue;
 };
 
@@ -52,21 +56,95 @@ interface Party {
 interface BookingFormData {
   consignor_id: string;
   consignee_id: string;
-  consignorName?: string;
-  consigneeName?: string;
-  fromCity: string;
-  fromState: string;
-  toCity: string;
-  toState: string;
+  consignorName: string;
+  consigneeName: string;
+  from_location: string;
+  to_location: string;
   serviceType: "FTL" | "PTL";
-  pickupDate?: string;
-  branch_id?: string;
+  pickupDate: string;
+  branch_id: string;
 }
 
 interface BookingFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: BookingPayload) => Promise<void>;
+}
+
+interface BookingPayload {
+  consignor_id: string;
+  consignee_id: string;
+  from_location: string;
+  to_location: string;
+  service_type: "FTL" | "PTL";
+  pickup_date: string;
+  branch_id: string;
+  material_description: string;
+  cargo_units: string;
+  bilti_number: null;
+  invoice_number: null;
+  eway_bill_details: never[];
+}
+
+interface LocationSuggestion {
+  placeId?: string;
+  area: string;
+  city: string;
+  state: string;
+  postcode?: string;
+  displayText: string;
+  mainText?: string;
+  secondaryText?: string;
+  isActualArea: boolean;
+  fullText?: string;
+  isGoogle?: boolean;
+  isNominatim?: boolean;
+  display_name?: string;
+  fullAddress?: string;
+  type?: string;
+  importance?: number;
+  isArea?: boolean;
+  isCity?: boolean;
+}
+
+interface GooglePlacePrediction {
+  placeId: string;
+  text?: { text: string };
+  structuredFormat?: {
+    mainText?: { text: string };
+    secondaryText?: { text: string };
+  };
+}
+
+interface GooglePlaceSuggestion {
+  placePrediction: GooglePlacePrediction;
+}
+
+interface GooglePlaceComponent {
+  types: string[];
+  longText?: string;
+  shortText?: string;
+}
+
+interface NominatimResult {
+  address?: {
+    suburb?: string;
+    neighbourhood?: string;
+    locality?: string;
+    hamlet?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state?: string;
+    postcode?: string;
+    quarter?: string;
+    residential?: string;
+  };
+  name?: string;
+  display_name: string;
+  type: string;
+  importance?: number;
 }
 
 // ============================================
@@ -75,56 +153,122 @@ interface BookingFormModalProps {
 
 const validatePickupDate = (dateString: string | undefined): string | null => {
   if (!dateString) return null;
+
   const selectedDate = new Date(dateString + 'T00:00:00');
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
   const twoDaysAgo = new Date(today);
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
   twoDaysAgo.setHours(0, 0, 0, 0);
+
   if (isNaN(selectedDate.getTime())) return "Invalid date format";
   if (selectedDate < twoDaysAgo) return "Pickup date cannot be more than 2 days in the past";
+
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() + 1);
   if (selectedDate > maxDate) return "Pickup date cannot be more than 1 year in the future";
+
   return null;
 };
 
+const getInitialFormData = (): BookingFormData => ({
+  consignor_id: "",
+  consignee_id: "",
+  consignorName: "",
+  consigneeName: "",
+  from_location: "",
+  to_location: "",
+  serviceType: "FTL",
+  pickupDate: "",
+  branch_id: ""
+});
+
 // ============================================
-// LOCATION SEARCH INPUT COMPONENT (UPDATED)
+// LOCATION SEARCH INPUT COMPONENT
 // ============================================
 
-const LocationSearchInput = ({
-  value, onChange, placeholder, disabled = false, onLocationSelect, onClear
-}: {
+interface LocationSearchInputProps {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   disabled?: boolean;
-  onLocationSelect?: (location: any) => void;
-  onClear?: () => void; // ✅ NEW: Callback when cleared
-}) => {
-  const [searchTerm, setSearchTerm] = useState(value);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [hasSelected, setHasSelected] = useState(false);
+  onLocationSelect?: (location: LocationSuggestion) => void;
+  onClear?: () => void;
+  enableSearch?: boolean; // NEW: Control whether to show suggestions
+}
+
+const LocationSearchInput = ({
+  value,
+  onChange,
+  placeholder,
+  disabled = false,
+  onLocationSelect,
+  onClear,
+  enableSearch = true // Default: suggestions enabled
+}: LocationSearchInputProps) => {
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState<string>(value || '');
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [searching, setSearching] = useState<boolean>(false);
+  const [hasSelected, setHasSelected] = useState<boolean>(false);
+  const [isUserTyping, setIsUserTyping] = useState<boolean>(false); // NEW: Track if user is typing
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  useEffect(() => { setSearchTerm(value); }, [value]);
-
+  // Sync external value changes (from party selection)
   useEffect(() => {
-    if (hasSelected) { setSuggestions([]); setShowSuggestions(false); return; }
-    if (debouncedSearch && debouncedSearch.length > 2) { searchLocations(debouncedSearch); }
-    else { setSuggestions([]); setShowSuggestions(false); }
-  }, [debouncedSearch, hasSelected]);
+    setSearchTerm(value || '');
+    // When value is set externally (party selection), don't show suggestions
+    if (value && !isUserTyping) {
+      setHasSelected(true);
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [value, isUserTyping]);
 
-  const searchLocations = async (query: string) => {
-    if (hasSelected) return;
+  // Search locations only when user is typing and search is enabled
+  useEffect(() => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Don't search if:
+    // 1. Search is disabled
+    // 2. User has selected a location
+    // 3. User is not actively typing
+    // 4. Search term is too short
+    // 5. Debounced search term is too short
+    // 6. Empty search term
+    // 7. Clear suggestions if any of the above
+    // 8. Otherwise, proceed with search
+    // This prevents unnecessary API calls and respects user intent to not show suggestions when not typing or when search is disabled 
+    if (!enableSearch || hasSelected || !isUserTyping || !debouncedSearch || debouncedSearch.length <= 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    searchLocations(debouncedSearch, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [debouncedSearch, hasSelected, enableSearch, isUserTyping]);
+
+  const searchLocations = async (query: string, signal: AbortSignal): Promise<void> => {
     setSearching(true);
     const sessionToken = Math.random().toString(36).substring(7);
 
     try {
       const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
       if (apiKey) {
         const response = await fetch(
           'https://places.googleapis.com/v1/places:autocomplete',
@@ -146,18 +290,23 @@ const LocationSearchInput = ({
                   high: { latitude: 37.0, longitude: 97.0 }
                 }
               }
-            })
+            }),
+            signal
           }
         );
 
+        if (signal.aborted) return;
+
         if (response.ok) {
           const data = await response.json();
-          if (!hasSelected && data.suggestions) {
-            const formattedResults = data.suggestions.map((suggestion: any) => {
+
+          if (data.suggestions && !signal.aborted) {
+            const formattedResults: LocationSuggestion[] = data.suggestions.map((suggestion: GooglePlaceSuggestion) => {
               const prediction = suggestion.placePrediction;
               const mainText = prediction.structuredFormat?.mainText?.text || prediction.text?.text || '';
               const secondaryText = prediction.structuredFormat?.secondaryText?.text || '';
-              const isArea = secondaryText && !mainText.includes(secondaryText);
+              const isArea = Boolean(secondaryText && !mainText.includes(secondaryText));
+
               return {
                 placeId: prediction.placeId,
                 area: isArea ? mainText : '',
@@ -171,129 +320,218 @@ const LocationSearchInput = ({
                 isGoogle: true
               };
             });
+
             setSuggestions(formattedResults);
             setShowSuggestions(formattedResults.length > 0);
+            setSearching(false);
             return;
           }
         }
       }
+
       throw new Error("Falling back to Nominatim");
 
     } catch (error) {
+      if (signal.aborted) return;
+
+      // Fallback to Nominatim
       try {
         const fallbackResponse = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&countrycodes=in&limit=20&addressdetails=1&featuretype=settlement&accept-language=en`
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&countrycodes=in&limit=20&addressdetails=1&featuretype=settlement&accept-language=en`,
+          { signal }
         );
-        const data = await fallbackResponse.json();
-        if (!hasSelected) {
-          const formattedResults = data
-            .map((item: any) => {
-              const area = item.address?.suburb || item.address?.neighbourhood || item.address?.locality || item.address?.hamlet || item.name?.split(',')[0] || '';
-              const city = item.address?.city || item.address?.town || item.address?.village || item.address?.municipality || '';
-              const state = item.address?.state || '';
-              const postcode = item.address?.postcode || '';
-              let displayText = '';
-              if (area && city && area !== city) { displayText = `${area}, ${city}`; }
-              else if (city) { displayText = city; }
-              else if (area) { displayText = area; }
-              else { displayText = item.display_name; }
-              const isArea = ['suburb', 'neighbourhood', 'locality', 'hamlet', 'quarter', 'residential'].includes(item.type);
-              const isCity = ['city', 'town', 'village', 'municipality'].includes(item.type);
-              return {
-                area: area || city || '',
-                city: city || area || '',
-                state: state,
-                postcode: postcode,
-                display_name: item.display_name,
-                displayText: displayText,
-                fullAddress: `${area ? area + ', ' : ''}${city}, ${state} - ${postcode}`,
-                type: item.type,
-                importance: item.importance || 0,
-                isArea: isArea,
-                isCity: isCity,
-                isActualArea: area && city && area !== city,
-                isNominatim: true
-              };
-            })
-            .filter((item: any) => {
-              const hasNonEnglish = /[^\x00-\x7F]/.test(item.displayText);
-              const hasDevanagari = /[\u0900-\u097F]/.test(item.displayText);
-              return !hasNonEnglish && !hasDevanagari && item.city && item.state && (item.isArea || item.isCity || item.isActualArea);
-            })
-            .filter((item: any, index: number, self: any[]) => index === self.findIndex((t) => t.displayText === item.displayText && t.city === item.city))
-            .sort((a: any, b: any) => {
-              if (a.isActualArea && !b.isActualArea) return -1;
-              if (!a.isActualArea && b.isActualArea) return 1;
-              if (a.isArea && !b.isArea) return -1;
-              if (!a.isArea && b.isArea) return 1;
-              return b.importance - a.importance;
-            });
+
+        if (signal.aborted) return;
+
+        const data: NominatimResult[] = await fallbackResponse.json();
+
+        const formattedResults: LocationSuggestion[] = data
+          .map((item) => {
+            const area = item.address?.suburb ||
+              item.address?.neighbourhood ||
+              item.address?.locality ||
+              item.address?.hamlet ||
+              item.name?.split(',')[0] || '';
+            const city = item.address?.city ||
+              item.address?.town ||
+              item.address?.village ||
+              item.address?.municipality || '';
+            const state = item.address?.state || '';
+            const postcode = item.address?.postcode || '';
+
+            let displayText = '';
+            if (area && city && area !== city) {
+              displayText = `${area}, ${city}`;
+            } else if (city) {
+              displayText = city;
+            } else if (area) {
+              displayText = area;
+            } else {
+              displayText = item.display_name;
+            }
+
+            const isArea = ['suburb', 'neighbourhood', 'locality', 'hamlet', 'quarter', 'residential'].includes(item.type);
+            const isCity = ['city', 'town', 'village', 'municipality'].includes(item.type);
+
+            return {
+              area: area || city || '',
+              city: city || area || '',
+              state: state,
+              postcode: postcode,
+              display_name: item.display_name,
+              displayText: displayText,
+              fullAddress: `${area ? area + ', ' : ''}${city}, ${state} - ${postcode}`,
+              type: item.type,
+              importance: item.importance || 0,
+              isArea: isArea,
+              isCity: isCity,
+              isActualArea: Boolean(area && city && area !== city),
+              isNominatim: true
+            };
+          })
+          .filter((item) => {
+            const hasNonEnglish = /[^\x00-\x7F]/.test(item.displayText);
+            const hasDevanagari = /[\u0900-\u097F]/.test(item.displayText);
+            return !hasNonEnglish && !hasDevanagari && item.city && item.state && (item.isArea || item.isCity || item.isActualArea);
+          })
+          .filter((item, index, self) =>
+            index === self.findIndex((t) => t.displayText === item.displayText && t.city === item.city)
+          )
+          .sort((a, b) => {
+            if (a.isActualArea && !b.isActualArea) return -1;
+            if (!a.isActualArea && b.isActualArea) return 1;
+            if (a.isArea && !b.isArea) return -1;
+            if (!a.isArea && b.isArea) return 1;
+            return (b.importance || 0) - (a.importance || 0);
+          });
+
+        if (!signal.aborted) {
           setSuggestions(formattedResults);
           setShowSuggestions(formattedResults.length > 0);
         }
       } catch (fallbackError) {
-        console.error("Both search methods failed:", fallbackError);
+        if (!signal.aborted) {
+          console.error("Both search methods failed:", fallbackError);
+          toast({
+            title: "Search Failed",
+            description: "Unable to search locations. Please try again.",
+            variant: "destructive"
+          });
+        }
       }
     } finally {
-      setSearching(false);
+      if (!signal.aborted) {
+        setSearching(false);
+      }
     }
   };
 
-  const handleSelect = async (location: any) => {
+  const handleSelect = async (location: LocationSuggestion): Promise<void> => {
     setSearching(true);
+    setIsUserTyping(false); // Stop typing mode
+
     try {
       let finalLocation = { ...location };
+
       if (location.placeId && location.isGoogle) {
         const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
         if (apiKey) {
           const detailsResponse = await fetch(
             `https://places.googleapis.com/v1/places/${location.placeId}?key=${apiKey}&fields=addressComponents,location,displayName`,
-            { method: 'GET', headers: { 'X-Goog-FieldMask': 'addressComponents,location,displayName' } }
+            {
+              method: 'GET',
+              headers: {
+                'X-Goog-FieldMask': 'addressComponents,location,displayName'
+              }
+            }
           );
+
           if (detailsResponse.ok) {
             const placeDetails = await detailsResponse.json();
-            const components = placeDetails.addressComponents || [];
-            let locationData = { area: '', city: '', state: '', postcode: '' };
-            components.forEach((comp: any) => {
+            const components: GooglePlaceComponent[] = placeDetails.addressComponents || [];
+
+            const locationData = { area: '', city: '', state: '', postcode: '' };
+
+            components.forEach((comp) => {
               const types = comp.types || [];
-              if (types.includes('sublocality_level_1') || types.includes('sublocality') || types.includes('neighborhood')) { locationData.area = comp.longText || comp.shortText; }
-              if (types.includes('locality')) { locationData.city = comp.longText || comp.shortText; }
-              if (types.includes('administrative_area_level_1')) { locationData.state = comp.longText || comp.shortText; }
-              if (types.includes('postal_code')) { locationData.postcode = comp.longText || comp.shortText; }
+              if (types.includes('sublocality_level_1') || types.includes('sublocality') || types.includes('neighborhood')) {
+                locationData.area = comp.longText || comp.shortText || '';
+              }
+              if (types.includes('locality')) {
+                locationData.city = comp.longText || comp.shortText || '';
+              }
+              if (types.includes('administrative_area_level_1')) {
+                locationData.state = comp.longText || comp.shortText || '';
+              }
+              if (types.includes('postal_code')) {
+                locationData.postcode = comp.longText || comp.shortText || '';
+              }
             });
-            if (!locationData.area && location.mainText) { locationData.area = location.mainText; }
-            finalLocation = { ...location, area: locationData.area, city: locationData.city, state: locationData.state, postcode: locationData.postcode };
+
+            if (!locationData.area && location.mainText) {
+              locationData.area = location.mainText;
+            }
+
+            finalLocation = {
+              ...location,
+              area: locationData.area,
+              city: locationData.city,
+              state: locationData.state,
+              postcode: locationData.postcode
+            };
           }
         }
       }
-      const fullAddress = finalLocation.fullAddress || `${finalLocation.area ? finalLocation.area + ', ' : ''}${finalLocation.city}, ${finalLocation.state}${finalLocation.postcode ? ' - ' + finalLocation.postcode : ''}`;
+
+      const fullAddress = `${finalLocation.city}, ${finalLocation.state}`;
       setSearchTerm(fullAddress);
       onChange(fullAddress);
       setHasSelected(true);
       setSuggestions([]);
       setShowSuggestions(false);
-      if (onLocationSelect) { onLocationSelect(finalLocation); }
+
+      if (onLocationSelect) {
+        onLocationSelect(finalLocation);
+      }
     } catch (error) {
       console.error("Error selecting location:", error);
+      toast({
+        title: "Error",
+        description: "Failed to get location details",
+        variant: "destructive"
+      });
     } finally {
       setSearching(false);
     }
   };
 
-  const handleInputChange = (newValue: string) => {
+  const handleInputChange = (newValue: string): void => {
     setSearchTerm(newValue);
     onChange(newValue);
-    if (hasSelected) { setHasSelected(false); }
+    setIsUserTyping(true); // User is now typing
+
+    if (hasSelected) {
+      setHasSelected(false);
+    }
   };
 
-  // ✅ UPDATED: Call onClear callback when clearing
-  const handleClear = () => {
+  const handleClear = (): void => {
     setSearchTerm("");
     onChange("");
     setHasSelected(false);
+    setIsUserTyping(false);
     setSuggestions([]);
     setShowSuggestions(false);
-    if (onClear) { onClear(); } // ✅ NEW: Trigger clear callback
+
+    if (onClear) {
+      onClear();
+    }
+  };
+
+  const handleFocus = (): void => {
+    // When user focuses on field, enable typing mode for future searches
+    // But don't show suggestions until they actually type
   };
 
   return (
@@ -303,12 +541,15 @@ const LocationSearchInput = ({
         <Input
           value={searchTerm}
           onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={handleFocus}
           placeholder={placeholder}
           className="pl-9 pr-9 h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
           disabled={disabled}
           autoComplete="off"
         />
-        {searching && <Loader2 className="absolute right-9 top-2.5 h-3.5 w-3.5 animate-spin text-primary" />}
+        {searching && (
+          <Loader2 className="absolute right-9 top-2.5 h-3.5 w-3.5 animate-spin text-primary" />
+        )}
         {searchTerm && !searching && (
           <Button
             type="button"
@@ -321,11 +562,12 @@ const LocationSearchInput = ({
           </Button>
         )}
       </div>
-      {showSuggestions && suggestions.length > 0 && !hasSelected && (
+
+      {showSuggestions && suggestions.length > 0 && !hasSelected && enableSearch && isUserTyping && (
         <div className="absolute z-50 w-full bg-card border border-border dark:border-border rounded-lg mt-1 shadow-lg max-h-[200px] overflow-auto">
           {suggestions.map((location, index) => (
             <div
-              key={index}
+              key={`${location.placeId || location.displayText}-${index}`}
               className={cn(
                 "px-3 py-2 cursor-pointer border-b border-border dark:border-border last:border-0 transition-colors",
                 "hover:bg-accent dark:hover:bg-secondary",
@@ -353,7 +595,6 @@ const LocationSearchInput = ({
                     <span className="text-xs text-muted-foreground dark:text-muted-foreground">
                       {location.state}{location.postcode && ` • PIN: ${location.postcode}`}
                     </span>
-                    {/* ✅ REMOVED: Google and Backup badges */}
                     <span className={cn(
                       "text-xs px-1.5 py-0.5 rounded font-medium",
                       location.isActualArea
@@ -369,7 +610,6 @@ const LocationSearchInput = ({
           ))}
         </div>
       )}
-      {/* ✅ REMOVED: "Location selected" message */}
     </div>
   );
 };
@@ -378,45 +618,65 @@ const LocationSearchInput = ({
 // PARTY SELECT COMPONENT
 // ============================================
 
-const PartySelect = ({
-  value, onValueChange, type, placeholder = "Select party...", disabled = false, onAddNew
-}: {
+interface PartySelectProps {
   value?: string;
   onValueChange: (value: string, party: Party) => void;
   type: 'CONSIGNOR' | 'CONSIGNEE';
   placeholder?: string;
   disabled?: boolean;
   onAddNew?: () => void;
-}) => {
-  const [open, setOpen] = useState(false);
+}
+
+const PartySelect = ({
+  value,
+  onValueChange,
+  type,
+  placeholder = "Select party...",
+  disabled = false,
+  onAddNew
+}: PartySelectProps) => {
+  const [open, setOpen] = useState<boolean>(false);
   const [parties, setParties] = useState<Party[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const loadParties = useCallback(async (search: string) => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('parties')
+        .select('*')
+        .eq('status', 'ACTIVE');
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,contact_person.ilike.%${search}%,phone.ilike.%${search}%`);
+      }
+
+      if (type && type !== 'BOTH') {
+        query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
+      }
+
+      query = query.order('created_at', { ascending: false }).limit(10);
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setParties(data || []);
+    } catch (error) {
+      console.error('Error searching parties:', error);
+      setParties([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [type]);
 
   useEffect(() => {
-    const loadParties = async () => {
-      setLoading(true);
-      try {
-        let query = supabase.from('parties').select('*').eq('status', 'ACTIVE');
-        if (searchTerm) {
-          query = query.or(`name.ilike.%${searchTerm}%,contact_person.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`);
-        }
-        if (type && type !== 'BOTH') {
-          query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
-        }
-        query = query.order('created_at', { ascending: false }).limit(10);
-        const { data, error } = await query;
-        if (error) throw error;
-        setParties(data || []);
-      } catch (error) {
-        console.error('Error searching parties:', error);
-        setParties([]);
-      }
-      finally { setLoading(false); }
-    };
-    const debounceTimer = setTimeout(loadParties, 300);
+    const debounceTimer = setTimeout(() => {
+      loadParties(searchTerm);
+    }, 300);
+
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, type]);
+  }, [searchTerm, loadParties]);
 
   const selectedParty = parties.find(p => p.id === value);
 
@@ -430,7 +690,9 @@ const PartySelect = ({
           className="w-full justify-between h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
           disabled={disabled}
         >
-          <span className="truncate">{selectedParty ? selectedParty.name : placeholder}</span>
+          <span className="truncate">
+            {selectedParty ? selectedParty.name : placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground dark:text-muted-foreground" />
         </Button>
       </PopoverTrigger>
@@ -444,12 +706,17 @@ const PartySelect = ({
           />
           <CommandEmpty>
             <div className="p-4 text-center">
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">No party found.</p>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
+                No party found.
+              </p>
               {onAddNew && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setOpen(false); onAddNew(); }}
+                  onClick={() => {
+                    setOpen(false);
+                    onAddNew();
+                  }}
                   className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -469,10 +736,17 @@ const PartySelect = ({
               <CommandItem
                 key={party.id}
                 value={party.name}
-                onSelect={() => { onValueChange(party.id, party); setOpen(false); setSearchTerm(""); }}
+                onSelect={() => {
+                  onValueChange(party.id, party);
+                  setOpen(false);
+                  setSearchTerm("");
+                }}
                 className="cursor-pointer hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
               >
-                <Check className={cn("mr-2 h-4 w-4 text-primary", value === party.id ? "opacity-100" : "opacity-0")} />
+                <Check className={cn(
+                  "mr-2 h-4 w-4 text-primary",
+                  value === party.id ? "opacity-100" : "opacity-0"
+                )} />
                 <div className="flex-1">
                   <div className="font-medium flex items-center gap-2">
                     <User className="w-3 h-3 text-muted-foreground dark:text-muted-foreground" />
@@ -494,55 +768,104 @@ const PartySelect = ({
 };
 
 // ============================================
-// QUICK ADD PARTY DRAWER (UPDATED)
+// QUICK ADD PARTY DRAWER
 // ============================================
 
-const QuickAddPartyDrawer = ({
-  isOpen, onClose, onSave, type
-}: {
+interface QuickAddPartyDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (party: Party) => void;
   type: 'CONSIGNOR' | 'CONSIGNEE';
-}) => {
+}
+
+interface PartyFormData {
+  name: string;
+  contact_person: string;
+  phone: string;
+  email: string;
+  address_line1: string;
+  city: string;
+  state: string;
+  pincode: string;
+  gst_number: string;
+  pan_number: string;
+}
+
+const getInitialPartyFormData = (): PartyFormData => ({
+  name: '',
+  contact_person: '',
+  phone: '',
+  email: '',
+  address_line1: '',
+  city: '',
+  state: '',
+  pincode: '',
+  gst_number: '',
+  pan_number: ''
+});
+
+const QuickAddPartyDrawer = ({
+  isOpen,
+  onClose,
+  onSave,
+  type
+}: QuickAddPartyDrawerProps) => {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [locationSearch, setLocationSearch] = useState("");
-  const [formData, setFormData] = useState({
-    name: '', contact_person: '', phone: '', email: '', address_line1: '',
-    city: '', state: '', pincode: '', gst_number: '', pan_number: ''
-  });
+  const [loading, setLoading] = useState<boolean>(false);
+  const [locationSearch, setLocationSearch] = useState<string>("");
+  const [formData, setFormData] = useState<PartyFormData>(getInitialPartyFormData());
 
   useEffect(() => {
     if (!isOpen) {
       setLocationSearch("");
-      setFormData({ name: '', contact_person: '', phone: '', email: '', address_line1: '', city: '', state: '', pincode: '', gst_number: '', pan_number: '' });
+      setFormData(getInitialPartyFormData());
     }
   }, [isOpen]);
 
-  // ✅ UPDATED: Phone is now optional
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     if (!formData.name || !formData.address_line1 || !formData.city || !formData.state || !formData.pincode) {
-      toast({ title: "❌ Validation Error", description: "Please fill all required fields", variant: "destructive" });
+      toast({
+        title: "❌ Validation Error",
+        description: "Please fill all required fields",
+        variant: "destructive"
+      });
       return;
     }
+
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('parties').insert([{ ...formData, party_type: type, status: 'ACTIVE' }]).select().single();
+      const { data, error } = await supabase
+        .from('parties')
+        .insert([{
+          ...formData,
+          party_type: type,
+          status: 'ACTIVE'
+        }])
+        .select()
+        .single();
+
       if (error) throw error;
-      toast({ title: "✅ Success", description: `${type} added successfully` });
+
+      toast({
+        title: "✅ Success",
+        description: `${type} added successfully`
+      });
+
       onSave(data);
       onClose();
     } catch (error) {
       console.error('Error adding party:', error);
-      toast({ title: "❌ Error", description: "Failed to add party", variant: "destructive" });
+      toast({
+        title: "❌ Error",
+        description: "Failed to add party",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ NEW: Handler to clear location-dependent fields
-  const handleLocationClear = () => {
+  const handleLocationClear = (): void => {
     setFormData(prev => ({
       ...prev,
       address_line1: '',
@@ -552,15 +875,14 @@ const QuickAddPartyDrawer = ({
     }));
   };
 
-  // ✅ UPDATED: Handler to set all location fields (always overwrite)
-  const handleLocationSelect = (location: any) => {
+  const handleLocationSelect = (location: LocationSuggestion): void => {
     const addressLine = location.area && location.area !== location.city ? location.area : '';
     setFormData(prev => ({
       ...prev,
-      address_line1: addressLine, // ✅ Always set (empty string if no area)
-      city: location.city || '',   // ✅ Always set
-      state: location.state || '', // ✅ Always set
-      pincode: location.postcode || '' // ✅ Always set
+      address_line1: addressLine,
+      city: location.city || '',
+      state: location.state || '',
+      pincode: location.postcode || ''
     }));
     setLocationSearch(location.displayText);
   };
@@ -576,6 +898,7 @@ const QuickAddPartyDrawer = ({
             Add New {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
           </SheetTitle>
         </SheetHeader>
+
         <div className="space-y-4 py-6">
           <div>
             <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
@@ -588,9 +911,9 @@ const QuickAddPartyDrawer = ({
               className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              {/* ✅ UPDATED: Phone is now optional (removed asterisk) */}
               <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                 Phone
               </Label>
@@ -614,7 +937,9 @@ const QuickAddPartyDrawer = ({
               />
             </div>
           </div>
+
           <Separator className="bg-[#E5E7EB] dark:bg-secondary my-4" />
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               Search Area/City
@@ -625,10 +950,11 @@ const QuickAddPartyDrawer = ({
               placeholder="Search area/city to auto-fill..."
               disabled={loading}
               onLocationSelect={handleLocationSelect}
-              onClear={handleLocationClear} // ✅ NEW: Pass clear handler
+              onClear={handleLocationClear}
+              enableSearch={true}
             />
-            {/* ✅ REMOVED: "Powered by Google Places" text */}
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               Address Line 1 <span className="text-red-600">*</span>
@@ -640,6 +966,7 @@ const QuickAddPartyDrawer = ({
               className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
@@ -664,6 +991,7 @@ const QuickAddPartyDrawer = ({
               />
             </div>
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               Pincode <span className="text-red-600">*</span>
@@ -676,6 +1004,7 @@ const QuickAddPartyDrawer = ({
               className="h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
             />
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
               GST Number
@@ -688,6 +1017,7 @@ const QuickAddPartyDrawer = ({
               className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
             />
           </div>
+
           <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
             <Button
               variant="outline"
@@ -724,38 +1054,19 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
   const { toast } = useToast();
   const [dateError, setDateError] = useState<string | null>(null);
   const [branches, setBranches] = useState<CompanyBranch[]>([]);
-  const [loadingBranches, setLoadingBranches] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [addPartyModal, setAddPartyModal] = useState<{ isOpen: boolean; type: 'CONSIGNOR' | 'CONSIGNEE' }>({ isOpen: false, type: 'CONSIGNOR' });
-
-  const [formData, setFormData] = useState<BookingFormData>({
-    consignor_id: "",
-    consignee_id: "",
-    consignorName: "",
-    consigneeName: "",
-    fromCity: "",
-    fromState: "",
-    toCity: "",
-    toState: "",
-    serviceType: "FTL",
-    pickupDate: undefined,
-    branch_id: ""
+  const [loadingBranches, setLoadingBranches] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [addPartyModal, setAddPartyModal] = useState<{ isOpen: boolean; type: 'CONSIGNOR' | 'CONSIGNEE' }>({
+    isOpen: false,
+    type: 'CONSIGNOR'
   });
 
+  const [formData, setFormData] = useState<BookingFormData>(getInitialFormData());
+
+  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        consignor_id: "",
-        consignee_id: "",
-        consignorName: "",
-        consigneeName: "",
-        fromCity: "",
-        fromState: "",
-        toCity: "",
-        toState: "",
-        serviceType: "FTL",
-        pickupDate: undefined,
-      });
+      setFormData(getInitialFormData());
       setDateError(null);
 
       const loadBranches = async () => {
@@ -770,6 +1081,11 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
           }
         } catch (error) {
           console.error('Error loading branches:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load branches",
+            variant: "destructive"
+          });
         } finally {
           setLoadingBranches(false);
         }
@@ -777,29 +1093,37 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
       loadBranches();
     }
-  }, [isOpen]);
+  }, [isOpen, toast]);
 
-  const handleConsignorSelect = (partyId: string, party: Party) => {
-    setFormData({
-      ...formData,
+  // Handle consignor selection - auto-fill location WITHOUT enabling search
+  const handleConsignorSelect = useCallback((partyId: string, party: Party): void => {
+    const fromLocation = party.city && party.state
+      ? `${party.city}, ${party.state}`
+      : '';
+
+    setFormData(prev => ({
+      ...prev,
       consignor_id: partyId,
       consignorName: party.name,
-      fromCity: party.city,
-      fromState: party.state
-    });
-  };
+      from_location: fromLocation
+    }));
+  }, []);
 
-  const handleConsigneeSelect = (partyId: string, party: Party) => {
-    setFormData({
-      ...formData,
+  // Handle consignee selection - auto-fill location WITHOUT enabling search
+  const handleConsigneeSelect = useCallback((partyId: string, party: Party): void => {
+    const toLocation = party.city && party.state
+      ? `${party.city}, ${party.state}`
+      : '';
+
+    setFormData(prev => ({
+      ...prev,
       consignee_id: partyId,
       consigneeName: party.name,
-      toCity: party.city,
-      toState: party.state
-    });
-  };
+      to_location: toLocation
+    }));
+  }, []);
 
-  const handleDateChange = (date: Date | null) => {
+  const handleDateChange = useCallback((date: Date | null): void => {
     if (date) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -808,64 +1132,112 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
       const error = validatePickupDate(isoString);
       setDateError(error);
-      setFormData({ ...formData, pickupDate: isoString });
+      setFormData(prev => ({ ...prev, pickupDate: isoString }));
     } else {
-      setFormData({ ...formData, pickupDate: undefined });
+      setFormData(prev => ({ ...prev, pickupDate: "" }));
       setDateError(null);
     }
-  };
+  }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
+    // Validation
     if (!formData.consignor_id || !formData.consignee_id) {
-      toast({ title: "Validation Error", description: "Please select both Consignor and Consignee", variant: "destructive" });
+      toast({
+        title: "Validation Error",
+        description: "Please select both Consignor and Consignee",
+        variant: "destructive"
+      });
       return;
     }
+
+    if (!formData.from_location || !formData.to_location) {
+      toast({
+        title: "Validation Error",
+        description: "Please select both pickup and drop locations",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (dateError) {
-      toast({ title: "Invalid Date", description: dateError, variant: "destructive" });
+      toast({
+        title: "Invalid Date",
+        description: dateError,
+        variant: "destructive"
+      });
       return;
     }
+
     if (!formData.branch_id) {
-      toast({ title: "Validation Error", description: "Please select a branch", variant: "destructive" });
+      toast({
+        title: "Validation Error",
+        description: "Please select a branch",
+        variant: "destructive"
+      });
       return;
     }
 
     try {
       setLoading(true);
 
-      const bookingData = {
+      const bookingData: BookingPayload = {
         consignor_id: formData.consignor_id,
         consignee_id: formData.consignee_id,
-        from_location: `${formData.fromCity}, ${formData.fromState}`,
-        to_location: `${formData.toCity}, ${formData.toState}`,
+        from_location: formData.from_location,
+        to_location: formData.to_location,
         service_type: formData.serviceType,
         pickup_date: formData.pickupDate,
-        branch_id: formData.branch_id
+        branch_id: formData.branch_id,
+        material_description: '',
+        cargo_units: '1',
+        bilti_number: null,
+        invoice_number: null,
+        eway_bill_details: []
       };
 
       await onSave(bookingData);
       onClose();
     } catch (error) {
       console.error('Error creating booking:', error);
-      toast({ title: "Error", description: "Failed to create booking", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to create booking",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleNewPartyAdded = (party: Party) => {
+  const handleNewPartyAdded = useCallback((party: Party): void => {
     if (addPartyModal.type === 'CONSIGNOR') {
       handleConsignorSelect(party.id, party);
     } else {
       handleConsigneeSelect(party.id, party);
     }
-  };
+  }, [addPartyModal.type, handleConsignorSelect, handleConsigneeSelect]);
 
-  const getMinDate = () => {
+  const getMinDate = (): Date => {
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
     twoDaysAgo.setHours(0, 0, 0, 0);
     return twoDaysAgo;
   };
+
+  const getMaxDate = (): Date => {
+    const maxDate = new Date();
+    maxDate.setFullYear(maxDate.getFullYear() + 1);
+    return maxDate;
+  };
+
+  const isFormValid = Boolean(
+    formData.consignor_id &&
+    formData.consignee_id &&
+    formData.branch_id &&
+    formData.from_location &&
+    formData.to_location &&
+    !dateError
+  );
 
   return (
     <>
@@ -889,12 +1261,14 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               {loadingBranches ? (
                 <div className="flex items-center gap-2 h-9 px-3 border border-border dark:border-border rounded-lg bg-muted">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground dark:text-muted-foreground">Loading branches...</span>
+                  <span className="text-sm text-muted-foreground dark:text-muted-foreground">
+                    Loading branches...
+                  </span>
                 </div>
               ) : (
                 <Select
                   value={formData.branch_id}
-                  onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, branch_id: value }))}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
@@ -942,7 +1316,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               )}
             </div>
 
-            {/* Party Selection */}
+            {/* Party Selection - Side by Side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
@@ -975,73 +1349,53 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
             <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
-            {/* Pickup Location */}
+            {/* From & To Location - SIDE BY SIDE in one row */}
             <div className="space-y-3">
               <Label className="text-sm font-semibold text-foreground dark:text-white flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary" />
-                Pickup Location
+                Pickup & Drop Locations
               </Label>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* From Location */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
-                    City <span className="text-red-600">*</span>
+                    From Location <span className="text-red-600">*</span>
                   </Label>
-                  <Input
-                    value={formData.fromCity}
-                    onChange={(e) => setFormData({ ...formData, fromCity: e.target.value })}
-                    placeholder="Enter pickup city"
-                    className="h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground"
+                  <LocationSearchInput
+                    value={formData.from_location}
+                    onChange={(value) => setFormData(prev => ({ ...prev, from_location: value }))}
+                    placeholder="Search pickup location..."
                     disabled={loading}
+                    enableSearch={true}
+                    onLocationSelect={(location) => {
+                      const formatted = location.city && location.state
+                        ? `${location.city}, ${location.state}`
+                        : location.displayText || '';
+                      setFormData(prev => ({ ...prev, from_location: formatted }));
+                    }}
+                    onClear={() => setFormData(prev => ({ ...prev, from_location: '' }))}
                   />
                 </div>
 
+                {/* To Location */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
-                    State <span className="text-red-600">*</span>
+                    To Location <span className="text-red-600">*</span>
                   </Label>
-                  <Input
-                    value={formData.fromState}
-                    onChange={(e) => setFormData({ ...formData, fromState: e.target.value })}
-                    placeholder="Enter pickup state"
-                    className="h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground"
+                  <LocationSearchInput
+                    value={formData.to_location}
+                    onChange={(value) => setFormData(prev => ({ ...prev, to_location: value }))}
+                    placeholder="Search drop location..."
                     disabled={loading}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Drop Location */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-foreground dark:text-white flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
-                Drop Location
-              </Label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
-                    City <span className="text-red-600">*</span>
-                  </Label>
-                  <Input
-                    value={formData.toCity}
-                    onChange={(e) => setFormData({ ...formData, toCity: e.target.value })}
-                    placeholder="Enter drop city"
-                    className="h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
-                    State <span className="text-red-600">*</span>
-                  </Label>
-                  <Input
-                    value={formData.toState}
-                    onChange={(e) => setFormData({ ...formData, toState: e.target.value })}
-                    placeholder="Enter drop state"
-                    className="h-9 text-sm border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground"
-                    disabled={loading}
+                    enableSearch={true}
+                    onLocationSelect={(location) => {
+                      const formatted = location.city && location.state
+                        ? `${location.city}, ${location.state}`
+                        : location.displayText || '';
+                      setFormData(prev => ({ ...prev, to_location: formatted }));
+                    }}
+                    onClear={() => setFormData(prev => ({ ...prev, to_location: '' }))}
                   />
                 </div>
               </div>
@@ -1049,7 +1403,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
             <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
-            {/* Service Type & Date */}
+            {/* Service Type & Date - Side by Side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
@@ -1057,7 +1411,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                 </Label>
                 <Select
                   value={formData.serviceType}
-                  onValueChange={(value: "FTL" | "PTL") => setFormData({ ...formData, serviceType: value })}
+                  onValueChange={(value: "FTL" | "PTL") => setFormData(prev => ({ ...prev, serviceType: value }))}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
@@ -1083,7 +1437,9 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                   Pickup Date
-                  <span className="text-muted-foreground dark:text-muted-foreground font-normal ml-1">(Optional)</span>
+                  <span className="text-muted-foreground dark:text-muted-foreground font-normal ml-1">
+                    (Optional)
+                  </span>
                 </Label>
                 <div className="relative">
                   <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground pointer-events-none z-10" />
@@ -1093,7 +1449,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                     dateFormat="dd/MM/yyyy"
                     placeholderText="DD/MM/YYYY"
                     minDate={getMinDate()}
-                    maxDate={new Date(new Date().setFullYear(new Date().getFullYear() + 1))}
+                    maxDate={getMaxDate()}
                     className={cn(
                       "flex h-9 w-full rounded-lg border bg-card pl-9 pr-3 py-2 text-sm text-foreground dark:text-white",
                       "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
@@ -1129,7 +1485,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
               <Button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={loading || !formData.consignor_id || !formData.consignee_id || !formData.branch_id}
+                disabled={loading || !isFormValid}
                 size="sm"
                 className="gap-2 bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50"
               >
@@ -1152,7 +1508,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
       <QuickAddPartyDrawer
         isOpen={addPartyModal.isOpen}
-        onClose={() => setAddPartyModal({ ...addPartyModal, isOpen: false })}
+        onClose={() => setAddPartyModal(prev => ({ ...prev, isOpen: false }))}
         onSave={handleNewPartyAdded}
         type={addPartyModal.type}
       />
