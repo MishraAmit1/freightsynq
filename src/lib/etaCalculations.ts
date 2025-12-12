@@ -94,14 +94,19 @@ export const getSLAStatus = (eta: Date | string, deliveryStatus?: string): {
 //         return `${dateStr}, ${timeStr}`;
 //     }
 // };
-
+const getMonthShort = (monthIndex: number): string => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[monthIndex];
+};
+/**
+ * Format ETA date - "12 Dec 2025"
+ */
 export const formatETA = (eta: Date | string): string => {
     const etaDate = new Date(eta);
+    const day = etaDate.getDate().toString().padStart(2, '0');
+    const month = getMonthShort(etaDate.getMonth());
+    const year = etaDate.getFullYear();  // ✅ Year add kiya
 
-    // Format: "08/12/2025" (DD/MM/YYYY)
-    return etaDate.toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
+    return `${day} ${month} ${year}`;  // ✅ Updated format
 };

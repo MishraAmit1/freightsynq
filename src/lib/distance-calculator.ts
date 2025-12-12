@@ -2,6 +2,11 @@
 // FREE Distance Calculator using Nominatim + OSRM
 
 import { supabase } from "./supabase";
+const getMonthShort = (monthIndex: number): string => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[monthIndex];
+};
 
 /**
  * Geocode a location string to coordinates
@@ -235,3 +240,205 @@ export function calculateETAFromDistance(
 
     return eta;
 }
+
+// ═══════════════════════════════════════════════════════════
+// 🆕 DYNAMIC ETA UTILITIES
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Get the best available ETA (dynamic or original)
+ */
+export const getBestETA = (booking: {
+    dynamic_eta?: string;
+    estimated_arrival?: string;
+}): string | null => {
+    return booking.dynamic_eta || booking.estimated_arrival || null;
+};
+
+/**
+ * Check if ETA is dynamic (real-time) or static (estimated)
+ */
+export const isETADynamic = (booking: {
+    dynamic_eta?: string;
+}): boolean => {
+    return !!booking.dynamic_eta;
+};
+
+/**
+ * Get ETA improvement/delay in hours
+ */
+export const getETADifference = (booking: {
+    dynamic_eta?: string;
+    estimated_arrival?: string;
+}): {
+    hours: number;
+    isImproved: boolean;
+    isDelayed: boolean;
+    label: string;
+} | null => {
+    if (!booking.dynamic_eta || !booking.estimated_arrival) {
+        return null;
+    }
+
+    const original = new Date(booking.estimated_arrival);
+    const dynamic = new Date(booking.dynamic_eta);
+
+    const diffMs = original.getTime() - dynamic.getTime();
+    const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+
+    return {
+        hours: Math.abs(diffHours),
+        isImproved: diffHours > 0,
+        isDelayed: diffHours < 0,
+        label: diffHours > 0
+            ? `${Math.abs(diffHours)}h early`
+            : diffHours < 0
+                ? `${Math.abs(diffHours)}h late`
+                : 'On schedule'
+    };
+};
+
+/**
+ * Get progress percentage
+ */
+export const getProgressPercentage = (booking: {
+    distance_covered?: number;
+    distance_remaining?: number;
+    route_distance_km?: number;
+}): number => {
+    const total = booking.route_distance_km ||
+        ((booking.distance_covered || 0) + (booking.distance_remaining || 0));
+
+    if (!total || total === 0) return 0;
+
+    const covered = booking.distance_covered || 0;
+    return Math.min(100, Math.round((covered / total) * 100));
+};
+
+/**
+ * Format speed with unit
+ */
+export const formatSpeed = (speed?: number): string => {
+    if (!speed) return '-';
+    return `${Math.round(speed)} km/hr`;
+};
+
+/**
+ * Get time since last ETA update
+ */
+export const getETAUpdateAge = (etaLastUpdatedAt?: string): string => {
+    if (!etaLastUpdatedAt) return '';
+
+    const updated = new Date(etaLastUpdatedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - updated.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+
+    if (diffHours < 1) {
+        const mins = Math.floor(diffHours * 60);
+        return `${mins}m ago`;
+    } else if (diffHours < 24) {
+        return `${Math.floor(diffHours)}h ago`;
+    } else {
+        const days = Math.floor(diffHours / 24);
+        return `${days}d ago`;
+    }
+};
+
+/**
+ * Enhanced SLA Status with dynamic ETA support
+ */
+export const getSLAStatus = (
+    eta: Date | string | null | undefined,
+    deliveryStatus?: string
+): {
+    status: 'on-time' | 'at-risk' | 'delayed' | 'unknown';
+    label: string;
+    color: string;
+    bgColor: string;
+    icon: string;
+} => {
+    // If already delivered
+    if (deliveryStatus === 'DELIVERED') {
+        return {
+            status: 'on-time',
+            label: 'Delivered',
+            color: 'text-green-700',
+            bgColor: 'bg-green-100 dark:bg-green-950/20',
+            icon: '✅'
+        };
+    }
+
+    // No ETA available
+    if (!eta) {
+        return {
+            status: 'unknown',
+            label: 'ETA N/A',
+            color: 'text-gray-500',
+            bgColor: 'bg-gray-100 dark:bg-gray-800',
+            icon: '⏳'
+        };
+    }
+
+    const now = new Date();
+    const etaDate = new Date(eta);
+    const hoursDiff = (etaDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursDiff < 0) {
+        const hoursDelayed = Math.abs(Math.floor(hoursDiff));
+        return {
+            status: 'delayed',
+            label: `Delayed ${hoursDelayed}h`,
+            color: 'text-red-700',
+            bgColor: 'bg-red-100 dark:bg-red-950/20',
+            icon: '🔴'
+        };
+    } else if (hoursDiff < 12) {
+        const hoursLeft = Math.floor(hoursDiff);
+        return {
+            status: 'at-risk',
+            label: `${hoursLeft}h left`,
+            color: 'text-yellow-700',
+            bgColor: 'bg-yellow-100 dark:bg-yellow-950/20',
+            icon: '⚠️'
+        };
+    } else {
+        const hoursLeft = Math.floor(hoursDiff);
+        return {
+            status: 'on-time',
+            label: hoursLeft < 48 ? `${hoursLeft}h left` : 'On Time',
+            color: 'text-green-700',
+            bgColor: 'bg-green-100 dark:bg-green-950/20',
+            icon: '🟢'
+        };
+    }
+};
+
+/**
+ * Format ETA date for display
+ */
+
+
+
+/**
+ * Format ETA with time
+ */
+/**
+ * Format with time - "12 Dec, 10:30 AM" (uppercase AM/PM)
+ */
+export const formatETAWithTime = (eta: Date | string): string => {
+    const etaDate = new Date(eta);
+
+    const day = etaDate.getDate().toString().padStart(2, '0');
+    const month = getMonthShort(etaDate.getMonth());
+
+    let hours = etaDate.getHours();
+    const minutes = etaDate.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should be 12
+    const hoursStr = hours.toString().padStart(2, '0');
+
+    return `${day} ${month}, ${hoursStr}:${minutes} ${ampm}`;
+};

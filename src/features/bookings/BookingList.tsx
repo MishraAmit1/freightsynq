@@ -79,9 +79,17 @@ import {
   ChevronLeft,
   ChevronsLeft,
   Upload,
-  FileEdit
+  FileEdit,
+  Sparkles,
 } from "lucide-react";
-import { fetchBookings, updateBookingStatus, updateBookingWarehouse, deleteBooking, updateBooking, updateBookingLR } from "@/api/bookings";
+import {
+  fetchBookings,
+  updateBookingStatus,
+  updateBookingWarehouse,
+  deleteBooking,
+  updateBooking,
+  updateBookingLR,
+} from "@/api/bookings";
 import { fetchWarehouses } from "@/api/warehouses";
 
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
@@ -90,9 +98,16 @@ import { BookingFormModal } from "./BookingFormModal";
 import { EditFullBookingModal } from "./EditFullBookingModal";
 import { WarehouseSelectionModal } from "../../components/WarehouseSelectionModal";
 import { toast, useToast } from "@/hooks/use-toast";
-import { checkTemplateStatus, generateLRWithTemplate } from "@/api/lr-templates";
+import {
+  checkTemplateStatus,
+  generateLRWithTemplate,
+} from "@/api/lr-templates";
 import { LRTemplateOnboarding } from "@/components/LRTemplateOnboarding";
-import { getBookingStage, getProgressiveAction, stageConfig } from "@/lib/bookingStages";
+import {
+  getBookingStage,
+  getProgressiveAction,
+  stageConfig,
+} from "@/lib/bookingStages";
 import { ProgressiveActionButton } from "@/components/ProgressiveActionButton";
 import { UploadPODModal } from "./UploadPODModal";
 import { BookingDetailSheet } from "./BookingDetailSheet";
@@ -101,6 +116,13 @@ import { formatETA, getSLAStatus } from "@/lib/etaCalculations";
 import { EditRemarksModal } from "@/components/EditRemarksModal";
 import { PODViewerModal } from "@/components/PODViewerModal";
 import { UploadOfflineLRModal } from "@/components/UploadOfflineLRModal";
+import {
+  formatETAWithTime,
+  getBestETA,
+  getETADifference,
+  getETAUpdateAge,
+  getProgressPercentage,
+} from "@/lib/distance-calculator";
 
 // Interfacess
 interface Booking {
@@ -131,6 +153,12 @@ interface Booking {
   is_offline_lr?: boolean;
   offline_lr_file_url?: string;
   offline_lr_uploaded_at?: string;
+  // 🆕 NEW: Dynamic ETA Fields
+  dynamic_eta?: string;
+  current_speed?: number;
+  distance_covered?: number;
+  distance_remaining?: number;
+  eta_last_updated_at?: string;
   shipmentStatus: "AT_WAREHOUSE" | "IN_TRANSIT" | "DELIVERED";
   current_warehouse?: {
     id?: string;
@@ -170,8 +198,8 @@ interface Booking {
   billed_at?: string;
   actual_delivery?: string;
   alerts?: Array<{
-    type: 'POD_PENDING' | 'EWAY_EXPIRING' | 'EWAY_EXPIRED';
-    severity: 'warning' | 'critical';
+    type: "POD_PENDING" | "EWAY_EXPIRING" | "EWAY_EXPIRED";
+    severity: "warning" | "critical";
     message: string;
   }>;
 }
@@ -187,52 +215,60 @@ interface Warehouse {
 const statusConfig = {
   DRAFT: {
     label: "Draft",
-    color: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+    color:
+      "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
     icon: Edit,
-    gradient: "from-gray-500 to-gray-600"
+    gradient: "from-gray-500 to-gray-600",
   },
   QUOTED: {
     label: "Quoted",
-    color: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    color:
+      "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
     icon: FileText,
-    gradient: "from-blue-500 to-blue-600"
+    gradient: "from-blue-500 to-blue-600",
   },
   CONFIRMED: {
     label: "Confirmed",
-    color: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
+    color:
+      "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
     icon: CheckCircle2,
-    gradient: "from-green-500 to-green-600"
+    gradient: "from-green-500 to-green-600",
   },
   AT_WAREHOUSE: {
     label: "At Warehouse",
-    color: "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800",
+    color:
+      "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800",
     icon: Package,
-    gradient: "from-indigo-500 to-indigo-600"
+    gradient: "from-indigo-500 to-indigo-600",
   },
   DISPATCHED: {
     label: "Dispatched",
-    color: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800",
+    color:
+      "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800",
     icon: Truck,
-    gradient: "from-purple-500 to-purple-600"
+    gradient: "from-purple-500 to-purple-600",
   },
   IN_TRANSIT: {
     label: "In Transit",
-    color: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
+    color:
+      "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
     icon: TrendingUp,
-    gradient: "from-orange-500 to-orange-600"
+    gradient: "from-orange-500 to-orange-600",
   },
   DELIVERED: {
     label: "Delivered",
-    color: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
+    color:
+      "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
     icon: CheckCircle2,
-    gradient: "from-emerald-500 to-emerald-600"
+    gradient: "from-emerald-500 to-emerald-600",
   },
   CANCELLED: {
     label: "Cancelled",
-    color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
+    color:
+      "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
     icon: XCircle,
-    gradient: "from-red-500 to-red-600"
-  }
+    gradient: "from-red-500 to-red-600",
+  },
 };
 
 // ✅ UPDATED: Keep DRAFT type
@@ -240,14 +276,16 @@ const getDispatchDisplay = (booking: Booking) => {
   // Priority 1: Warehouse
   if (booking.current_warehouse) {
     return {
-      type: 'WAREHOUSE' as const,
+      type: "WAREHOUSE" as const,
       location: booking.current_warehouse.name,
-      city: booking.current_warehouse.city
+      city: booking.current_warehouse.city,
     };
   }
 
   // Priority 2 & 3: Vehicle (with or without tracking)
-  const activeAssignment = booking.vehicle_assignments?.find(v => v.status === 'ACTIVE');
+  const activeAssignment = booking.vehicle_assignments?.find(
+    (v) => v.status === "ACTIVE"
+  );
 
   if (activeAssignment?.vehicle) {
     const vehicleNumber = activeAssignment.vehicle.vehicle_number;
@@ -256,15 +294,16 @@ const getDispatchDisplay = (booking: Booking) => {
     if (activeAssignment.last_toll_crossed && activeAssignment.last_toll_time) {
       const lastUpdate = new Date(activeAssignment.last_toll_time);
       const now = new Date();
-      const hoursDiff = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+      const hoursDiff =
+        (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
 
       const isFresh = hoursDiff < 2;
       const isStale = hoursDiff >= 2 && hoursDiff < 6;
 
       const getTimeAgo = () => {
         // ✅ FIX: Agar time negative hai (future) ya 1 min se kam hai
-        if (hoursDiff <= 0 || hoursDiff < (1 / 60)) {
-          return 'Just now';
+        if (hoursDiff <= 0 || hoursDiff < 1 / 60) {
+          return "Just now";
         }
 
         if (hoursDiff < 1) {
@@ -279,29 +318,33 @@ const getDispatchDisplay = (booking: Booking) => {
       };
 
       return {
-        type: 'TRACKING' as const,
+        type: "TRACKING" as const,
         vehicleNumber: vehicleNumber,
         location: activeAssignment.last_toll_crossed,
         timeAgo: getTimeAgo(),
         isFresh,
         isStale,
-        dotColor: isFresh ? 'bg-green-500' : isStale ? 'bg-yellow-500' : 'bg-gray-400'
+        dotColor: isFresh
+          ? "bg-green-500"
+          : isStale
+            ? "bg-yellow-500"
+            : "bg-gray-400",
       };
     }
 
     // Vehicle without tracking
     return {
-      type: 'VEHICLE' as const,
+      type: "VEHICLE" as const,
       vehicleNumber: vehicleNumber,
-      location: 'On the way',
-      timeAgo: 'No tracking yet'
+      location: "On the way",
+      timeAgo: "No tracking yet",
     };
   }
 
   // ✅ Priority 4: DRAFT (wapas add kiya)
   return {
-    type: 'DRAFT' as const,
-    location: 'Not dispatched'
+    type: "DRAFT" as const,
+    location: "Not dispatched",
   };
 };
 
@@ -327,10 +370,15 @@ export const BookingList = () => {
     currentWarehouseId?: string;
   }>({ isOpen: false, bookingId: "" });
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
-  const [isEditFullBookingModalOpen, setIsEditFullBookingModalOpen] = useState(false);
-  const [editingFullBooking, setEditingFullBooking] = useState<Booking | null>(null);
+  const [isEditFullBookingModalOpen, setIsEditFullBookingModalOpen] =
+    useState(false);
+  const [editingFullBooking, setEditingFullBooking] = useState<Booking | null>(
+    null
+  );
   const [nextLRNumber, setNextLRNumber] = useState(1001);
-  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
+  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(
+    null
+  );
   const [podModal, setPodModal] = useState<{
     isOpen: boolean;
     bookingId: string;
@@ -378,16 +426,19 @@ export const BookingList = () => {
       }
 
       // Try Indian format: "24/11/2025 11:59:00 PM"
-      const indianMatch = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i);
+      const indianMatch = dateStr.match(
+        /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i
+      );
       if (indianMatch) {
-        const [, day, month, year, hour, minute, second, meridiem] = indianMatch;
+        const [, day, month, year, hour, minute, second, meridiem] =
+          indianMatch;
         let hours = parseInt(hour);
 
         // Convert to 24-hour format
-        if (meridiem.toUpperCase() === 'PM' && hours !== 12) {
+        if (meridiem.toUpperCase() === "PM" && hours !== 12) {
           hours += 12;
         }
-        if (meridiem.toUpperCase() === 'AM' && hours === 12) {
+        if (meridiem.toUpperCase() === "AM" && hours === 12) {
           hours = 0;
         }
 
@@ -417,7 +468,7 @@ export const BookingList = () => {
 
       return null;
     } catch (error) {
-      console.error('Error parsing eway date:', dateStr, error);
+      console.error("Error parsing eway date:", dateStr, error);
       return null;
     }
   };
@@ -444,7 +495,7 @@ export const BookingList = () => {
         description: `LR ${booking.lrNumber} has been downloaded successfully`,
       });
     } catch (error) {
-      console.error('Error generating LR:', error);
+      console.error("Error generating LR:", error);
       toast({
         title: "❌ Download Failed",
         description: "Failed to generate LR PDF. Please try again.",
@@ -454,7 +505,7 @@ export const BookingList = () => {
   };
 
   useEffect(() => {
-    const styleElement = document.createElement('style');
+    const styleElement = document.createElement("style");
     styleElement.innerHTML = `
       .booking-table-container {
         overflow-x: auto;
@@ -526,7 +577,7 @@ export const BookingList = () => {
       const { hasTemplate } = await checkTemplateStatus();
       setNeedsTemplateSetup(!hasTemplate);
     } catch (error) {
-      console.error('Error checking template status:', error);
+      console.error("Error checking template status:", error);
     }
   };
 
@@ -541,7 +592,7 @@ export const BookingList = () => {
         description: "The booking has been deleted successfully",
       });
     } catch (error: any) {
-      console.error('Error deleting booking:', error);
+      console.error("Error deleting booking:", error);
       toast({
         title: "❌ Error",
         description: error.message || "Failed to delete booking",
@@ -559,31 +610,39 @@ export const BookingList = () => {
       }
       const [bookingsData, warehousesData] = await Promise.all([
         fetchBookings(),
-        fetchWarehouses()
+        fetchWarehouses(),
       ]);
 
-      const convertedBookings: Booking[] = bookingsData.map(booking => {
-        const activeAssignment = (booking.vehicle_assignments || []).find(va => va.status === 'ACTIVE');
+      const convertedBookings: Booking[] = bookingsData.map((booking) => {
+        const activeAssignment = (booking.vehicle_assignments || []).find(
+          (va) => va.status === "ACTIVE"
+        );
 
         let vehicle = null;
         if (activeAssignment) {
-          vehicle = activeAssignment.vehicle_type === 'OWNED'
-            ? activeAssignment.owned_vehicle
-            : activeAssignment.hired_vehicle;
+          vehicle =
+            activeAssignment.vehicle_type === "OWNED"
+              ? activeAssignment.owned_vehicle
+              : activeAssignment.hired_vehicle;
         }
 
         const alerts: any[] = [];
         const now = new Date();
 
-        if (booking.status === 'DELIVERED' && !booking.pod_uploaded_at) {
-          const deliveryTime = new Date(booking.actual_delivery || booking.updated_at);
-          const hoursSinceDelivery = (now.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60);
+        if (booking.status === "DELIVERED" && !booking.pod_uploaded_at) {
+          const deliveryTime = new Date(
+            booking.actual_delivery || booking.updated_at
+          );
+          const hoursSinceDelivery =
+            (now.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60);
 
           if (hoursSinceDelivery > 24) {
             alerts.push({
-              type: 'POD_PENDING',
-              severity: 'critical',
-              message: `POD pending for ${Math.floor(hoursSinceDelivery)} hours`
+              type: "POD_PENDING",
+              severity: "critical",
+              message: `POD pending for ${Math.floor(
+                hoursSinceDelivery
+              )} hours`,
             });
           }
         }
@@ -598,11 +657,12 @@ export const BookingList = () => {
 
               // Skip if date parsing failed
               if (!validUntil) {
-                console.warn('Failed to parse eway date:', ewb.valid_until);
+                console.warn("Failed to parse eway date:", ewb.valid_until);
                 return;
               }
 
-              const hoursLeft = (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60);
+              const hoursLeft =
+                (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60);
 
               // ✅ CASE 1: Already Expired
               if (hoursLeft < 0) {
@@ -610,21 +670,27 @@ export const BookingList = () => {
                 const daysExpired = Math.floor(hoursExpired / 24);
 
                 alerts.push({
-                  type: 'EWAY_EXPIRED',
-                  severity: 'critical',
-                  message: daysExpired > 0
-                    ? `E-way bill ${ewb.number} expired ${daysExpired}d ago`
-                    : `E-way bill ${ewb.number} expired ${hoursExpired}h ago`
+                  type: "EWAY_EXPIRED",
+                  severity: "critical",
+                  message:
+                    daysExpired > 0
+                      ? `E-way bill ${ewb.number} expired ${daysExpired}d ago`
+                      : `E-way bill ${ewb.number} expired ${hoursExpired}h ago`,
                 });
               }
               // ✅ CASE 2: Expiring Soon (within 24 hours)
               else if (hoursLeft >= 0 && hoursLeft < 24) {
                 alerts.push({
-                  type: 'EWAY_EXPIRING',
-                  severity: 'warning',
-                  message: hoursLeft < 1
-                    ? `E-way bill ${ewb.number} expires in ${Math.floor(hoursLeft * 60)}m`
-                    : `E-way bill ${ewb.number} expires in ${Math.floor(hoursLeft)}h`
+                  type: "EWAY_EXPIRING",
+                  severity: "warning",
+                  message:
+                    hoursLeft < 1
+                      ? `E-way bill ${ewb.number} expires in ${Math.floor(
+                        hoursLeft * 60
+                      )}m`
+                      : `E-way bill ${ewb.number} expires in ${Math.floor(
+                        hoursLeft
+                      )}h`,
                 });
               }
             }
@@ -655,15 +721,23 @@ export const BookingList = () => {
           branch_city: booking.branch?.city,
           created_at: booking.created_at,
           route_distance_km: booking.route_distance_km,
-          assignedVehicle: activeAssignment && vehicle ? {
-            vehicleNumber: vehicle.vehicle_number,
-            vehicleType: vehicle.vehicle_type,
-            capacity: vehicle.capacity,
-            driver: {
-              name: activeAssignment.driver?.name || '',
-              phone: activeAssignment.driver?.phone || '',
-            }
-          } : undefined,
+          dynamic_eta: booking.dynamic_eta,
+          current_speed: booking.current_speed,
+          distance_covered: booking.distance_covered,
+          distance_remaining: booking.distance_remaining,
+          eta_last_updated_at: booking.eta_last_updated_at,
+          assignedVehicle:
+            activeAssignment && vehicle
+              ? {
+                vehicleNumber: vehicle.vehicle_number,
+                vehicleType: vehicle.vehicle_type,
+                capacity: vehicle.capacity,
+                driver: {
+                  name: activeAssignment.driver?.name || "",
+                  phone: activeAssignment.driver?.phone || "",
+                },
+              }
+              : undefined,
           is_offline_lr: booking.is_offline_lr || false,
           offline_lr_file_url: booking.offline_lr_file_url,
           offline_lr_uploaded_at: booking.offline_lr_uploaded_at,
@@ -682,7 +756,7 @@ export const BookingList = () => {
       setBookings(convertedBookings);
       setWarehouses(warehousesData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
       toast({
         title: "❌ Error",
         description: "Failed to load data",
@@ -694,10 +768,14 @@ export const BookingList = () => {
     }
   };
 
-  const handleWarehouseChange = async (bookingId: string, warehouseId: string, warehouseName: string) => {
+  const handleWarehouseChange = async (
+    bookingId: string,
+    warehouseId: string,
+    warehouseName: string
+  ) => {
     try {
-      if (warehouseId === 'remove') {
-        await updateBookingWarehouse(bookingId, 'remove');
+      if (warehouseId === "remove") {
+        await updateBookingWarehouse(bookingId, "remove");
         toast({
           title: "✅ Warehouse Removed",
           description: "Booking removed from warehouse",
@@ -711,7 +789,7 @@ export const BookingList = () => {
       }
       await loadData();
     } catch (error: any) {
-      console.error('Error updating warehouse:', error);
+      console.error("Error updating warehouse:", error);
       toast({
         title: "❌ Error",
         description: error.message || "Failed to update warehouse",
@@ -721,11 +799,15 @@ export const BookingList = () => {
   };
 
   const filteredBookings = useMemo(() => {
-    return bookings.filter(booking => {
-      const matchesSearch = booking.bookingId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.consignorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    return bookings.filter((booking) => {
+      const matchesSearch =
+        booking.bookingId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.consignorName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         booking.consigneeName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === "ALL" || booking.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" || booking.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [bookings, searchTerm, statusFilter]);
@@ -751,18 +833,36 @@ export const BookingList = () => {
       }
     } else {
       if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
+        pages.push(1, 2, 3, 4, "...", totalPages);
       } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        pages.push(
+          1,
+          "...",
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages
+        );
       } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        pages.push(
+          1,
+          "...",
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          "...",
+          totalPages
+        );
       }
     }
 
     return pages;
   };
 
-  const handleVehicleAssignment = async (bookingId: string, vehicleAssignment: any) => {
+  const handleVehicleAssignment = async (
+    bookingId: string,
+    vehicleAssignment: any
+  ) => {
     try {
       await loadData();
       toast({
@@ -770,7 +870,7 @@ export const BookingList = () => {
         description: `Vehicle ${vehicleAssignment.vehicleNumber} has been assigned`,
       });
     } catch (error) {
-      console.error('Error after vehicle assignment:', error);
+      console.error("Error after vehicle assignment:", error);
       toast({
         title: "❌ Error",
         description: "Failed to refresh booking data",
@@ -788,7 +888,7 @@ export const BookingList = () => {
         invoice_number: lrData.invoiceNumber,
         material_description: lrData.materialDescription,
         cargo_units: lrData.cargoUnitsString,
-        eway_bill_details: lrData.ewayBillDetails
+        eway_bill_details: lrData.ewayBillDetails,
       });
 
       await loadData();
@@ -797,7 +897,7 @@ export const BookingList = () => {
         description: `Lorry Receipt ${lrData.lrNumber} has been saved`,
       });
     } catch (error) {
-      console.error('Error saving LR:', error);
+      console.error("Error saving LR:", error);
       toast({
         title: "❌ Error",
         description: "Failed to save LR",
@@ -829,7 +929,7 @@ export const BookingList = () => {
       setIsEditFullBookingModalOpen(false);
       setEditingFullBooking(null);
     } catch (error) {
-      console.error('Error saving full booking:', error);
+      console.error("Error saving full booking:", error);
       toast({
         title: "❌ Error",
         description: "Failed to save booking details",
@@ -840,7 +940,9 @@ export const BookingList = () => {
   };
 
   if (needsTemplateSetup) {
-    return <LRTemplateOnboarding onComplete={() => setNeedsTemplateSetup(false)} />;
+    return (
+      <LRTemplateOnboarding onComplete={() => setNeedsTemplateSetup(false)} />
+    );
   }
 
   if (initialLoading) {
@@ -873,10 +975,10 @@ export const BookingList = () => {
       "lr_date",
       "bilti_number",
       "current_warehouse",
-      "status"
+      "status",
     ];
 
-    const rows = paginatedBookings.map(booking => [
+    const rows = paginatedBookings.map((booking) => [
       booking.bookingId,
       booking.consignorName,
       booking.consigneeName,
@@ -888,27 +990,38 @@ export const BookingList = () => {
       booking.pickupDate || "",
       booking.invoice_number || "",
       booking.lrNumber || "",
-      booking.lrDate ? new Date(booking.lrDate).toISOString().split('T')[0] : "",
+      booking.lrDate
+        ? new Date(booking.lrDate).toISOString().split("T")[0]
+        : "",
       booking.bilti_number || "",
       booking.current_warehouse?.name || "",
-      booking.status
+      booking.status,
     ]);
 
     const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => {
-        const cellStr = String(cell);
-        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-          return `"${cellStr.replace(/"/g, '""')}"`;
-        }
-        return cellStr;
-      }).join(','))
-      .join('\n');
+      .map((row) =>
+        row
+          .map((cell) => {
+            const cellStr = String(cell);
+            if (
+              cellStr.includes(",") ||
+              cellStr.includes('"') ||
+              cellStr.includes("\n")
+            ) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          })
+          .join(",")
+      )
+      .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bookings_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `bookings_export_${new Date().toISOString().split("T")[0]
+      }.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
 
@@ -920,9 +1033,9 @@ export const BookingList = () => {
 
   const stats = {
     total: bookings.length,
-    confirmed: bookings.filter(b => b.status === 'CONFIRMED').length,
-    inTransit: bookings.filter(b => b.status === 'IN_TRANSIT').length,
-    delivered: bookings.filter(b => b.status === 'DELIVERED').length,
+    confirmed: bookings.filter((b) => b.status === "CONFIRMED").length,
+    inTransit: bookings.filter((b) => b.status === "IN_TRANSIT").length,
+    delivered: bookings.filter((b) => b.status === "DELIVERED").length,
   };
 
   return (
@@ -936,8 +1049,12 @@ export const BookingList = () => {
                 <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Total Bookings</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.total}</p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Total Bookings
+                </p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">
+                  {stats.total}
+                </p>
               </div>
             </div>
 
@@ -946,8 +1063,12 @@ export const BookingList = () => {
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Confirmed</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.confirmed}</p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Confirmed
+                </p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">
+                  {stats.confirmed}
+                </p>
               </div>
             </div>
 
@@ -956,8 +1077,12 @@ export const BookingList = () => {
                 <Truck className="w-8 h-8 text-primary dark:text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">In Transit</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.inTransit}</p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  In Transit
+                </p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">
+                  {stats.inTransit}
+                </p>
               </div>
             </div>
 
@@ -966,8 +1091,12 @@ export const BookingList = () => {
                 <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Delivered</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.delivered}</p>
+                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Delivered
+                </p>
+                <p className="text-3xl font-bold text-foreground dark:text-white">
+                  {stats.delivered}
+                </p>
               </div>
             </div>
           </div>
@@ -1115,7 +1244,9 @@ export const BookingList = () => {
                         <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
                       </div>
                       <div>
-                        <p className="text-base font-medium text-foreground dark:text-white">No bookings found</p>
+                        <p className="text-base font-medium text-foreground dark:text-white">
+                          No bookings found
+                        </p>
                         <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                           {searchTerm || statusFilter !== "ALL"
                             ? "Try adjusting your search or filters"
@@ -1123,7 +1254,10 @@ export const BookingList = () => {
                         </p>
                       </div>
                       {!searchTerm && statusFilter === "ALL" && (
-                        <Button onClick={() => setIsBookingFormOpen(true)} className="mt-2">
+                        <Button
+                          onClick={() => setIsBookingFormOpen(true)}
+                          className="mt-2"
+                        >
                           <Plus className="w-4 h-4 mr-2" />
                           Create First Booking
                         </Button>
@@ -1148,7 +1282,12 @@ export const BookingList = () => {
                             <Button
                               variant="link"
                               className="p-0 h-auto font-bold text-sm text-primary hover:text-primary/80"
-                              onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
+                              onClick={() =>
+                                setDetailSheet({
+                                  isOpen: true,
+                                  bookingId: booking.id,
+                                })
+                              }
                             >
                               {booking.bookingId}
                             </Button>
@@ -1161,14 +1300,20 @@ export const BookingList = () => {
                                       <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent side="top" className="bg-red-50 text-red-900 border-red-200 p-3 max-w-xs shadow-md">
+                                  <TooltipContent
+                                    side="top"
+                                    className="bg-red-50 text-red-900 border-red-200 p-3 max-w-xs shadow-md"
+                                  >
                                     <p className="font-bold text-xs mb-1 flex items-center gap-1">
                                       <AlertTriangle className="w-3 h-3" />
                                       Attention Required:
                                     </p>
                                     <ul className="list-disc pl-4 space-y-1">
                                       {booking.alerts.map((alert, idx) => (
-                                        <li key={idx} className="text-xs font-medium">
+                                        <li
+                                          key={idx}
+                                          className="text-xs font-medium"
+                                        >
                                           {alert.message}
                                         </li>
                                       ))}
@@ -1183,17 +1328,22 @@ export const BookingList = () => {
                             <Calendar className="w-3 h-3" />
                             <span>
                               {booking.pickupDate
-                                ? new Date(booking.pickupDate).toLocaleDateString('en-GB', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric'
+                                ? new Date(
+                                  booking.pickupDate
+                                ).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
                                 })
-                                : 'No pickup date'}
+                                : "No pickup date"}
                             </span>
                             {booking.branch_code && (
                               <>
                                 <span className="mx-1">•</span>
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-primary/30 font-bold">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] px-1.5 py-0 h-4 border-primary/30 font-bold"
+                                >
                                   {booking.branch_code}
                                 </Badge>
                               </>
@@ -1207,23 +1357,35 @@ export const BookingList = () => {
                         <div className="space-y-2.5">
                           <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0" />
-                            <span className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate max-w-[85px]" title={booking.consignorName}>
+                            <span
+                              className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate max-w-[85px]"
+                              title={booking.consignorName}
+                            >
                               {booking.consignorName}
                             </span>
                             <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
-                            <span className="text-[11px] text-muted-foreground truncate max-w-[85px]" title={booking.consigneeName}>
+                            <span
+                              className="text-[11px] text-muted-foreground truncate max-w-[85px]"
+                              title={booking.consigneeName}
+                            >
                               {booking.consigneeName}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-1.5">
                             <MapPin className="w-2.5 h-2.5 text-green-600 flex-shrink-0" />
-                            <span className="font-medium text-[11px] text-green-900 dark:text-green-100 truncate max-w-[85px]" title={booking.fromLocation}>
+                            <span
+                              className="font-medium text-[11px] text-green-900 dark:text-green-100 truncate max-w-[85px]"
+                              title={booking.fromLocation}
+                            >
                               {booking.fromLocation}
                             </span>
                             <ArrowRight className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
                             <MapPin className="w-2.5 h-2.5 text-red-600 flex-shrink-0" />
-                            <span className="text-[11px] text-red-900 dark:text-red-100 truncate max-w-[85px]" title={booking.toLocation}>
+                            <span
+                              className="text-[11px] text-red-900 dark:text-red-100 truncate max-w-[85px]"
+                              title={booking.toLocation}
+                            >
                               {booking.toLocation}
                             </span>
                           </div>
@@ -1245,7 +1407,7 @@ export const BookingList = () => {
                       {/* ✅ COLUMN 4: Dispatch Status - WITH Warehouse Button */}
                       <TableCell className="py-3">
                         <div className="space-y-1.5">
-                          {dispatch.type === 'TRACKING' && (
+                          {dispatch.type === "TRACKING" && (
                             <>
                               {/* Vehicle Number */}
                               <div className="flex items-center gap-1.5">
@@ -1257,23 +1419,30 @@ export const BookingList = () => {
 
                               {/* Location */}
                               <div className="flex items-center gap-1.5">
-                                <MapPin className={cn(
-                                  "w-3 h-3 flex-shrink-0",
-                                  dispatch.isFresh
-                                    ? "text-orange-600 dark:text-orange-400"
-                                    : dispatch.isStale
-                                      ? "text-yellow-600 dark:text-yellow-400"
-                                      : "text-gray-500 dark:text-gray-400"
-                                )} />
+                                <MapPin
+                                  className={cn(
+                                    "w-3 h-3 flex-shrink-0",
+                                    dispatch.isFresh
+                                      ? "text-orange-600 dark:text-orange-400"
+                                      : dispatch.isStale
+                                        ? "text-yellow-600 dark:text-yellow-400"
+                                        : "text-gray-500 dark:text-gray-400"
+                                  )}
+                                />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-medium truncate" title={dispatch.location}>
+                                  <p
+                                    className="text-[10px] font-medium truncate"
+                                    title={dispatch.location}
+                                  >
                                     {dispatch.location}
                                   </p>
                                   <div className="flex items-center gap-1">
-                                    <span className={cn(
-                                      "w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse",
-                                      dispatch.dotColor
-                                    )} />
+                                    <span
+                                      className={cn(
+                                        "w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse",
+                                        dispatch.dotColor
+                                      )}
+                                    />
                                     <span className="text-[9px] text-muted-foreground">
                                       {dispatch.timeAgo}
                                     </span>
@@ -1289,20 +1458,23 @@ export const BookingList = () => {
                                   setWarehouseModal({
                                     isOpen: true,
                                     bookingId: booking.id,
-                                    currentWarehouseId: booking.current_warehouse?.id
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
                                   });
                                 }}
                                 className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
                               >
                                 <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
                                 <span className="truncate">
-                                  {booking.current_warehouse ? 'Change Warehouse' : 'Add Warehouse'}
+                                  {booking.current_warehouse
+                                    ? "Change Warehouse"
+                                    : "Add Warehouse"}
                                 </span>
                               </Button>
                             </>
                           )}
 
-                          {dispatch.type === 'VEHICLE' && (
+                          {dispatch.type === "VEHICLE" && (
                             <>
                               {/* Vehicle Number */}
                               <div className="flex items-center gap-1.5">
@@ -1328,25 +1500,31 @@ export const BookingList = () => {
                                   setWarehouseModal({
                                     isOpen: true,
                                     bookingId: booking.id,
-                                    currentWarehouseId: booking.current_warehouse?.id
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
                                   });
                                 }}
                                 className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
                               >
                                 <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
                                 <span className="truncate">
-                                  {booking.current_warehouse ? 'Change Warehouse' : 'Add Warehouse'}
+                                  {booking.current_warehouse
+                                    ? "Change Warehouse"
+                                    : "Add Warehouse"}
                                 </span>
                               </Button>
                             </>
                           )}
 
-                          {dispatch.type === 'WAREHOUSE' && (
+                          {dispatch.type === "WAREHOUSE" && (
                             <>
                               <div className="flex items-center gap-1.5">
                                 <Package className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-semibold truncate" title={dispatch.location}>
+                                  <p
+                                    className="text-xs font-semibold truncate"
+                                    title={dispatch.location}
+                                  >
                                     {dispatch.location}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground">
@@ -1363,19 +1541,22 @@ export const BookingList = () => {
                                   setWarehouseModal({
                                     isOpen: true,
                                     bookingId: booking.id,
-                                    currentWarehouseId: booking.current_warehouse?.id
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
                                   });
                                 }}
                                 className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
                               >
                                 <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">Change Warehouse</span>
+                                <span className="truncate">
+                                  Change Warehouse
+                                </span>
                               </Button>
                             </>
                           )}
 
                           {/* ✅ DRAFT State */}
-                          {dispatch.type === 'DRAFT' && (
+                          {dispatch.type === "DRAFT" && (
                             <div className="flex items-center gap-1.5">
                               <AlertCircle className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                               <span className="text-[10px] text-muted-foreground">
@@ -1402,7 +1583,9 @@ export const BookingList = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 w-5 p-0 hover:bg-primary/10"
-                                  onClick={() => setLrViewer({ isOpen: true, booking })}
+                                  onClick={() =>
+                                    setLrViewer({ isOpen: true, booking })
+                                  }
                                 >
                                   <Eye className="w-3.5 h-3.5 text-primary" />
                                 </Button>
@@ -1412,7 +1595,12 @@ export const BookingList = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                                onClick={() =>
+                                  setLrModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                  })
+                                }
                                 className="h-5 px-2 text-[10px] hover:bg-primary/10 hover:text-primary font-medium"
                               >
                                 <Plus className="w-3 h-3 mr-1" />
@@ -1432,17 +1620,21 @@ export const BookingList = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-5 w-5 p-0 hover:bg-primary/10"
-                                  onClick={() => setPodViewer({
-                                    isOpen: true,
-                                    fileUrl: booking.pod_file_url!,
-                                    bookingId: booking.bookingId
-                                  })}
+                                  onClick={() =>
+                                    setPodViewer({
+                                      isOpen: true,
+                                      fileUrl: booking.pod_file_url!,
+                                      bookingId: booking.bookingId,
+                                    })
+                                  }
                                 >
                                   <Eye className="w-3.5 h-3.5 text-primary" />
                                 </Button>
                               </>
                             ) : (
-                              <span className="font-mono text-muted-foreground">POD------</span>
+                              <span className="font-mono text-muted-foreground">
+                                POD------
+                              </span>
                             )}
                           </div>
 
@@ -1451,14 +1643,20 @@ export const BookingList = () => {
                             <span
                               className={cn(
                                 "font-mono",
-                                booking.eway_bill_details && booking.eway_bill_details.length > 0
+                                booking.eway_bill_details &&
+                                  booking.eway_bill_details.length > 0
                                   ? (() => {
-                                    const hasExpired = booking.eway_bill_details.some((ewb: any) => {
-                                      if (!ewb.valid_until) return false;
-                                      const validUntil = parseEwayDate(ewb.valid_until);
-                                      if (!validUntil) return false;
-                                      return validUntil < new Date();
-                                    });
+                                    const hasExpired =
+                                      booking.eway_bill_details.some(
+                                        (ewb: any) => {
+                                          if (!ewb.valid_until) return false;
+                                          const validUntil = parseEwayDate(
+                                            ewb.valid_until
+                                          );
+                                          if (!validUntil) return false;
+                                          return validUntil < new Date();
+                                        }
+                                      );
                                     return hasExpired
                                       ? "text-red-600 dark:text-red-400"
                                       : "text-foreground dark:text-white";
@@ -1468,17 +1666,19 @@ export const BookingList = () => {
                             >
                               {booking.eway_bill_details?.[0]?.number
                                 ? `EWAY-${booking.eway_bill_details[0].number}`
-                                : 'EWAY------'
-                              }
+                                : "EWAY------"}
                             </span>
                           </div>
                         </div>
                       </TableCell>
                       {/* COLUMN 6: ETA / SLA */}
                       {/* COLUMN 6: Distance + ETA / SLA */}
+                      {/* COLUMN 6: Distance & Dynamic ETA */}
+                      {/* COLUMN 6: Distance & ETA / Delivery Status */}
                       <TableCell className="py-3">
-                        <div className="space-y-1">
-                          {/* Distance */}
+                        <div className="space-y-1.5">
+
+                          {/* Distance (always show) */}
                           {booking.route_distance_km ? (
                             <div className="flex items-center gap-1.5">
                               <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
@@ -1495,37 +1695,361 @@ export const BookingList = () => {
                             </div>
                           )}
 
-                          {/* ETA */}
-                          {booking.estimated_arrival ? (
-                            <>
-                              <div className="flex items-center gap-1.5">
-                                <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
-                                <span className="text-[10px] font-medium truncate">
-                                  {formatETA(booking.estimated_arrival)}
-                                </span>
-                              </div>
+                          {/* ═══════════════════════════════════════════════════════════ */}
+                          {/* 🆕 CONDITIONAL: Show ETA OR Delivery Status */}
+                          {/* ═══════════════════════════════════════════════════════════ */}
 
-                              {/* SLA Status */}
-                              {(() => {
-                                const sla = getSLAStatus(booking.estimated_arrival, booking.status);
-                                return (
-                                  <div className={cn(
-                                    "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
-                                    sla.bgColor,
-                                    sla.color,
-                                    "border-current/20"
-                                  )}>
-                                    <span>{sla.icon}</span>
-                                    <span>{sla.label}</span>
+                          {booking.status === 'DELIVERED' ? (
+                            /* ✅ DELIVERED - Show Delivery Summary */
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="space-y-1 cursor-help">
+                                    {/* Delivered timestamp */}
+                                    <div className="flex items-center gap-1.5">
+                                      <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0" />
+                                      <span className="text-[10px] font-bold text-green-700 dark:text-green-400">
+                                        Delivered
+                                      </span>
+                                    </div>
+
+                                    {/* On-time badge */}
+                                    {(() => {
+                                      const actualDelivery = booking.actual_delivery || booking.updated_at;
+                                      const originalETA = booking.estimated_arrival;
+
+                                      if (!actualDelivery || !originalETA) {
+                                        return null;
+                                      }
+
+                                      const deliveryTime = new Date(actualDelivery);
+                                      const etaTime = new Date(originalETA);
+                                      const diffHours = Math.round(
+                                        (etaTime.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60)
+                                      );
+
+                                      return (
+                                        <div className={cn(
+                                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
+                                          diffHours >= 0
+                                            ? "bg-green-100 text-green-700 border-green-200"
+                                            : "bg-red-100 text-red-700 border-red-200"
+                                        )}>
+                                          {diffHours >= 0 ? (
+                                            <>
+                                              <span>🎯</span>
+                                              <span>{diffHours > 0 ? `${diffHours}h early` : 'On time'}</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <span>⚠️</span>
+                                              <span>{Math.abs(diffHours)}h late</span>
+                                            </>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
-                                );
-                              })()}
-                            </>
+                                </TooltipTrigger>
+
+                                {/* Delivery Details Tooltip */}
+                                <TooltipContent side="top" className="max-w-xs p-3">
+                                  <div className="space-y-2 text-xs">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                      Delivery Summary
+                                    </p>
+
+                                    <div className="border-t border-border pt-2 space-y-1.5">
+                                      {/* Expected ETA */}
+                                      {booking.estimated_arrival && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Expected:</span>
+                                          <span className="font-medium">
+                                            {formatETAWithTime(booking.estimated_arrival)}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Actual Delivery */}
+                                      {(booking.actual_delivery || booking.updated_at) && (
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Delivered:</span>
+                                          <span className="font-bold text-green-600">
+                                            {formatETAWithTime(booking.actual_delivery || booking.updated_at!)}
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {/* Performance */}
+                                      {(() => {
+                                        const actualDelivery = booking.actual_delivery || booking.updated_at;
+                                        const originalETA = booking.estimated_arrival;
+
+                                        if (!actualDelivery || !originalETA) return null;
+
+                                        const deliveryTime = new Date(actualDelivery);
+                                        const etaTime = new Date(originalETA);
+                                        const diffHours = Math.round(
+                                          (etaTime.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60)
+                                        );
+
+                                        return (
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Performance:</span>
+                                            <span className={cn(
+                                              "font-bold",
+                                              diffHours >= 0 ? "text-green-600" : "text-red-600"
+                                            )}>
+                                              {diffHours >= 0 ? '✅ ' : '⚠️ '}
+                                              {diffHours >= 0
+                                                ? (diffHours > 0 ? `${diffHours}h early` : 'On time')
+                                                : `${Math.abs(diffHours)}h late`
+                                              }
+                                            </span>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {/* POD Status */}
+                                    {booking.pod_uploaded_at && (
+                                      <div className="border-t border-border pt-2 text-[10px]">
+                                        <span className="text-green-600 font-medium">
+                                          ✓ POD uploaded {getETAUpdateAge(booking.pod_uploaded_at)}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">ETA not set</span>
+                            /* 🚚 IN TRANSIT / NOT DELIVERED - Show ETA */
+                            (booking.dynamic_eta || booking.estimated_arrival) ? (
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5 cursor-help">
+                                      <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+
+                                      {booking.dynamic_eta ? (
+                                        // Has dynamic ETA - show comparison
+                                        <>
+                                          <span className="text-[10px] line-through text-muted-foreground">
+                                            {formatETA(booking.estimated_arrival!)}
+                                          </span>
+                                          <ArrowRight className="w-2.5 h-2.5 text-muted-foreground" />
+                                          <span className={cn(
+                                            "text-[10px] font-bold",
+                                            new Date(booking.dynamic_eta) < new Date(booking.estimated_arrival || '')
+                                              ? "text-green-600 dark:text-green-400"
+                                              : "text-red-600 dark:text-red-400"
+                                          )}>
+                                            {formatETA(booking.dynamic_eta)}
+                                          </span>
+                                          {new Date(booking.dynamic_eta) < new Date(booking.estimated_arrival || '') ? (
+                                            <Sparkles className="w-3 h-3 text-amber-500" />
+                                          ) : (
+                                            <AlertCircle className="w-3 h-3 text-red-500" />
+                                          )}
+                                        </>
+                                      ) : (
+                                        // Only static ETA
+                                        <span className="text-[10px] font-medium">
+                                          {formatETA(booking.estimated_arrival!)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+
+                                  {/* ETA Tooltip (same as before) */}
+                                  <TooltipContent side="top" className="max-w-xs p-3">
+                                    <div className="space-y-2 text-xs">
+                                      <p className="font-bold flex items-center gap-1.5">
+                                        <TrendingUp className="w-3.5 h-3.5" />
+                                        ETA Details
+                                      </p>
+
+                                      <div className="border-t border-border pt-2 space-y-1.5">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Original:</span>
+                                          <span className="font-medium">
+                                            {booking.estimated_arrival
+                                              ? formatETAWithTime(booking.estimated_arrival)
+                                              : 'N/A'
+                                            }
+                                          </span>
+                                        </div>
+
+                                        {booking.dynamic_eta && (
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Updated:</span>
+                                            <span className={cn(
+                                              "font-bold",
+                                              new Date(booking.dynamic_eta) < new Date(booking.estimated_arrival || '')
+                                                ? "text-green-600"
+                                                : "text-red-600"
+                                            )}>
+                                              {formatETAWithTime(booking.dynamic_eta)}
+                                            </span>
+                                          </div>
+                                        )}
+
+                                        {booking.dynamic_eta && booking.estimated_arrival && (
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Difference:</span>
+                                            {(() => {
+                                              const diff = getETADifference(booking);
+                                              if (!diff) return <span>-</span>;
+                                              return (
+                                                <span className={cn(
+                                                  "font-bold",
+                                                  diff.isImproved ? "text-green-600" : "text-red-600"
+                                                )}>
+                                                  {diff.isImproved ? '✨ ' : '⚠️ '}
+                                                  {diff.label}
+                                                </span>
+                                              );
+                                            })()}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {booking.eta_last_updated_at && (
+                                        <div className="border-t border-border pt-2 text-[10px] text-muted-foreground">
+                                          Updated {getETAUpdateAge(booking.eta_last_updated_at)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">ETA not set</span>
+                            )
                           )}
+
+                          {/* ═══════════════════════════════════════════════════════════ */}
+                          {/* SLA Badge / Progress - Only show if NOT delivered */}
+                          {/* ═══════════════════════════════════════════════════════════ */}
+
+                          {booking.status !== 'DELIVERED' && (booking.dynamic_eta || booking.estimated_arrival) && (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  {(() => {
+                                    const bestETA = getBestETA(booking);
+                                    const sla = getSLAStatus(bestETA, booking.status);
+                                    const progress = getProgressPercentage(booking);
+
+                                    return (
+                                      <div className={cn(
+                                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold border cursor-help",
+                                        sla.bgColor,
+                                        sla.color,
+                                        "border-current/20"
+                                      )}>
+                                        <span>{sla.icon}</span>
+                                        <span>{sla.label}</span>
+
+                                        {booking.current_speed && (
+                                          <>
+                                            <span className="opacity-50">•</span>
+                                            <span>{Math.round(booking.current_speed)} km/hr</span>
+                                          </>
+                                        )}
+
+                                        {progress > 0 && progress < 100 && (
+                                          <>
+                                            <span className="opacity-50">•</span>
+                                            <span>{progress}%</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </TooltipTrigger>
+
+                                {/* Progress Tooltip (same as before) */}
+                                <TooltipContent side="top" className="max-w-xs p-3">
+                                  <div className="space-y-2 text-xs">
+                                    <p className="font-bold flex items-center gap-1.5">
+                                      <Truck className="w-3.5 h-3.5" />
+                                      Journey Progress
+                                    </p>
+
+                                    {(booking.distance_covered || booking.distance_remaining) && (
+                                      <div className="border-t border-border pt-2">
+                                        <div className="flex justify-between text-[10px] mb-1">
+                                          <span>{booking.distance_covered || 0} km</span>
+                                          <span className="text-muted-foreground">
+                                            {getProgressPercentage(booking)}%
+                                          </span>
+                                          <span>{booking.route_distance_km || '-'} km</span>
+                                        </div>
+                                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                          <div
+                                            className={cn(
+                                              "h-full transition-all",
+                                              getProgressPercentage(booking) >= 80
+                                                ? "bg-green-500"
+                                                : "bg-blue-500"
+                                            )}
+                                            style={{ width: `${getProgressPercentage(booking)}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="border-t border-border pt-2 space-y-1.5">
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Covered:</span>
+                                        <span className="font-medium">
+                                          {booking.distance_covered ? `${booking.distance_covered} km` : '-'}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Remaining:</span>
+                                        <span className="font-medium">
+                                          {booking.distance_remaining ? `${booking.distance_remaining} km` : '-'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {booking.current_speed && (
+                                      <div className="border-t border-border pt-2 space-y-1.5">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">Current Speed:</span>
+                                          <span className="font-bold text-blue-600">
+                                            {Math.round(booking.current_speed)} km/hr
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {(() => {
+                                      const sla = getSLAStatus(getBestETA(booking), booking.status);
+                                      return (
+                                        <div className="border-t border-border pt-2">
+                                          <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Status:</span>
+                                            <span className={cn("font-bold", sla.color)}>
+                                              {sla.icon} {sla.label}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+
                         </div>
                       </TableCell>
+
                       {/* COLUMN 7: Actions - Centered with reduced gap */}
                       <TableCell className="py-3 pr-6 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -1534,19 +2058,31 @@ export const BookingList = () => {
                             stage={getBookingStage(booking)}
                             onAction={(actionType) => {
                               switch (actionType) {
-                                case 'ASSIGN_VEHICLE':
-                                  setAssignmentModal({ isOpen: true, bookingId: booking.id });
+                                case "ASSIGN_VEHICLE":
+                                  setAssignmentModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                  });
                                   break;
-                                case 'CREATE_LR':
-                                  setLrModal({ isOpen: true, bookingId: booking.id });
+                                case "CREATE_LR":
+                                  setLrModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                  });
                                   break;
-                                case 'UPLOAD_POD':
-                                  setPodModal({ isOpen: true, bookingId: booking.id });
+                                case "UPLOAD_POD":
+                                  setPodModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                  });
                                   break;
-                                case 'GENERATE_INVOICE':
-                                  setInvoiceModal({ isOpen: true, bookingId: booking.id });
+                                case "GENERATE_INVOICE":
+                                  setInvoiceModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                  });
                                   break;
-                                case 'VIEW_INVOICE':
+                                case "VIEW_INVOICE":
                                   if (booking.invoice_number) {
                                     toast({
                                       title: "Invoice",
@@ -1554,7 +2090,7 @@ export const BookingList = () => {
                                     });
                                   }
                                   break;
-                                case 'REFRESH':
+                                case "REFRESH":
                                   loadData();
                                   break;
                               }
@@ -1571,8 +2107,15 @@ export const BookingList = () => {
                                 <MoreVertical className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 bg-card border-border dark:border-border">
-                              <DropdownMenuItem onClick={() => navigate(`/bookings/${booking.id}`)}>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-48 bg-card border-border dark:border-border"
+                            >
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  navigate(`/bookings/${booking.id}`)
+                                }
+                              >
                                 <Eye className="mr-2 h-3.5 w-3.5" />
                                 <span className="text-xs">View Details</span>
                               </DropdownMenuItem>
@@ -1586,11 +2129,16 @@ export const BookingList = () => {
                                 <span className="text-xs">Edit Details</span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => setRemarksModal({ isOpen: true, bookingId: booking.id })}
+                                onClick={() =>
+                                  setRemarksModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                  })
+                                }
                               >
                                 <MessageSquare className="mr-2 h-3.5 w-3.5" />
                                 <span className="text-xs">
-                                  {booking.remarks ? 'Edit' : 'Add'} Remarks
+                                  {booking.remarks ? "Edit" : "Add"} Remarks
                                 </span>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
@@ -1621,14 +2169,20 @@ export const BookingList = () => {
               <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
               </div>
-              <p className="text-base font-medium text-foreground dark:text-white">No bookings found</p>
+              <p className="text-base font-medium text-foreground dark:text-white">
+                No bookings found
+              </p>
               <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
-                {searchTerm ? "Try adjusting your search" : "Add your first booking"}
+                {searchTerm
+                  ? "Try adjusting your search"
+                  : "Add your first booking"}
               </p>
             </div>
           ) : (
             paginatedBookings.map((booking) => {
-              const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+              const status =
+                statusConfig[booking.status as keyof typeof statusConfig] ||
+                statusConfig.DRAFT;
               const StatusIcon = status.icon;
 
               return (
@@ -1641,7 +2195,12 @@ export const BookingList = () => {
                       <Button
                         variant="link"
                         className="p-0 h-auto font-semibold text-primary text-sm"
-                        onClick={() => setDetailSheet({ isOpen: true, bookingId: booking.id })}
+                        onClick={() =>
+                          setDetailSheet({
+                            isOpen: true,
+                            bookingId: booking.id,
+                          })
+                        }
                       >
                         {booking.bookingId}
                       </Button>
@@ -1666,7 +2225,10 @@ export const BookingList = () => {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-[#DC2626]" onClick={() => setDeletingBookingId(booking.id)}>
+                        <DropdownMenuItem
+                          className="text-[#DC2626]"
+                          onClick={() => setDeletingBookingId(booking.id)}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
@@ -1677,22 +2239,30 @@ export const BookingList = () => {
                   <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-primary" />
-                      <span className="font-medium">{booking.consignorName}</span>
+                      <span className="font-medium">
+                        {booking.consignorName}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <ArrowRight className="w-3 h-3" />
-                      <span className="text-muted-foreground">{booking.consigneeName}</span>
+                      <span className="text-muted-foreground">
+                        {booking.consigneeName}
+                      </span>
                     </div>
                   </div>
 
                   <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3 h-3 text-green-600" />
-                      <span className="font-medium">{booking.fromLocation}</span>
+                      <span className="font-medium">
+                        {booking.fromLocation}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-3 h-3 text-red-600" />
-                      <span className="text-muted-foreground">{booking.toLocation}</span>
+                      <span className="text-muted-foreground">
+                        {booking.toLocation}
+                      </span>
                     </div>
                   </div>
 
@@ -1710,7 +2280,9 @@ export const BookingList = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setLrModal({ isOpen: true, bookingId: booking.id })}
+                        onClick={() =>
+                          setLrModal({ isOpen: true, bookingId: booking.id })
+                        }
                         className="flex-1"
                       >
                         <FileText className="w-3 h-3 mr-1" />
@@ -1728,13 +2300,22 @@ export const BookingList = () => {
           <div className="px-6 py-4 border-t border-border dark:border-border bg-card">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-sm text-muted-foreground dark:text-muted-foreground">
-                Showing <span className="font-medium text-foreground dark:text-white">
-                  {((currentPage - 1) * itemsPerPage) + 1}
-                </span> to{" "}
+                Showing{" "}
                 <span className="font-medium text-foreground dark:text-white">
-                  {Math.min(currentPage * itemsPerPage, filteredBookings.length)}
+                  {(currentPage - 1) * itemsPerPage + 1}
                 </span>{" "}
-                of <span className="font-medium text-foreground dark:text-white">{filteredBookings.length}</span> results
+                to{" "}
+                <span className="font-medium text-foreground dark:text-white">
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    filteredBookings.length
+                  )}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-foreground dark:text-white">
+                  {filteredBookings.length}
+                </span>{" "}
+                results
               </div>
 
               <div className="flex items-center gap-2">
@@ -1753,16 +2334,23 @@ export const BookingList = () => {
                   variant="outline"
                   size="sm"
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
                   className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
 
                 <div className="flex items-center gap-1">
-                  {getPaginationButtons().map((page, index) => (
-                    page === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground dark:text-muted-foreground">...</span>
+                  {getPaginationButtons().map((page, index) =>
+                    page === "..." ? (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="px-2 text-muted-foreground dark:text-muted-foreground"
+                      >
+                        ...
+                      </span>
                     ) : (
                       <Button
                         key={page}
@@ -1779,14 +2367,16 @@ export const BookingList = () => {
                         {page}
                       </Button>
                     )
-                  ))}
+                  )}
                 </div>
 
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={currentPage === totalPages || totalPages === 0}
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1815,10 +2405,30 @@ export const BookingList = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border dark:border-border">
-                  <SelectItem value="10" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">10 per page</SelectItem>
-                  <SelectItem value="25" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">25 per page</SelectItem>
-                  <SelectItem value="50" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">50 per page</SelectItem>
-                  <SelectItem value="100" className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white">100 per page</SelectItem>
+                  <SelectItem
+                    value="10"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                  >
+                    10 per page
+                  </SelectItem>
+                  <SelectItem
+                    value="25"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                  >
+                    25 per page
+                  </SelectItem>
+                  <SelectItem
+                    value="50"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                  >
+                    50 per page
+                  </SelectItem>
+                  <SelectItem
+                    value="100"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                  >
+                    100 per page
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1830,7 +2440,9 @@ export const BookingList = () => {
       <EnhancedVehicleAssignmentModal
         isOpen={assignmentModal.isOpen}
         onClose={() => setAssignmentModal({ isOpen: false, bookingId: "" })}
-        onAssign={(vehicleAssignment) => handleVehicleAssignment(assignmentModal.bookingId, vehicleAssignment)}
+        onAssign={(vehicleAssignment) =>
+          handleVehicleAssignment(assignmentModal.bookingId, vehicleAssignment)
+        }
         bookingId={assignmentModal.bookingId}
       />
 
@@ -1839,7 +2451,9 @@ export const BookingList = () => {
         onClose={() => setLrModal({ isOpen: false, bookingId: "" })}
         onSave={handleSaveLR}
         booking={(() => {
-          const foundBooking = filteredBookings.find(b => b.id === lrModal.bookingId);
+          const foundBooking = filteredBookings.find(
+            (b) => b.id === lrModal.bookingId
+          );
           if (!foundBooking) return null;
           return {
             id: foundBooking.id,
@@ -1851,7 +2465,7 @@ export const BookingList = () => {
             invoice_number: foundBooking.invoice_number,
             materialDescription: foundBooking.materialDescription,
             cargoUnits: foundBooking.cargoUnits,
-            eway_bill_details: foundBooking.eway_bill_details || []
+            eway_bill_details: foundBooking.eway_bill_details || [],
           };
         })()}
         nextLRNumber={nextLRNumber}
@@ -1862,11 +2476,11 @@ export const BookingList = () => {
         onClose={() => setIsBookingFormOpen(false)}
         onSave={async (bookingData: any) => {
           try {
-            const { createBooking } = await import('@/api/bookings');
+            const { createBooking } = await import("@/api/bookings");
             const newBooking = await createBooking({
               ...bookingData,
-              material_description: '',
-              cargo_units: '1'
+              material_description: "",
+              cargo_units: "1",
             });
             await loadData();
             toast({
@@ -1874,7 +2488,7 @@ export const BookingList = () => {
               description: `Booking ${newBooking.booking_id} has been created successfully`,
             });
           } catch (error) {
-            console.error('Error creating booking:', error);
+            console.error("Error creating booking:", error);
             toast({
               title: "❌ Error",
               description: "Failed to create booking",
@@ -1895,7 +2509,10 @@ export const BookingList = () => {
         nextLRNumber={nextLRNumber}
       />
 
-      <AlertDialog open={!!deletingBookingId} onOpenChange={() => setDeletingBookingId(null)}>
+      <AlertDialog
+        open={!!deletingBookingId}
+        onOpenChange={() => setDeletingBookingId(null)}
+      >
         <AlertDialogContent className="bg-card border-border dark:border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
@@ -1903,7 +2520,8 @@ export const BookingList = () => {
               Delete Booking?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground">
-              This action cannot be undone. This will permanently delete the booking.
+              This action cannot be undone. This will permanently delete the
+              booking.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1923,17 +2541,28 @@ export const BookingList = () => {
       <WarehouseSelectionModal
         isOpen={warehouseModal.isOpen}
         onClose={() => setWarehouseModal({ isOpen: false, bookingId: "" })}
-        onSelect={(warehouseId, warehouseName) => handleWarehouseChange(warehouseModal.bookingId, warehouseId, warehouseName)}
+        onSelect={(warehouseId, warehouseName) =>
+          handleWarehouseChange(
+            warehouseModal.bookingId,
+            warehouseId,
+            warehouseName
+          )
+        }
         currentWarehouseId={warehouseModal.currentWarehouseId}
         bookingId={warehouseModal.bookingId}
-        bookingDisplayId={filteredBookings.find(b => b.id === warehouseModal.bookingId)?.bookingId}
+        bookingDisplayId={
+          filteredBookings.find((b) => b.id === warehouseModal.bookingId)
+            ?.bookingId
+        }
       />
 
       <UploadPODModal
         isOpen={podModal.isOpen}
         onClose={() => setPodModal({ isOpen: false, bookingId: "" })}
         booking={(() => {
-          const found = filteredBookings.find(b => b.id === podModal.bookingId);
+          const found = filteredBookings.find(
+            (b) => b.id === podModal.bookingId
+          );
           return found ? { id: found.id, bookingId: found.bookingId } : null;
         })()}
         onSuccess={loadData}
@@ -1950,15 +2579,19 @@ export const BookingList = () => {
         isOpen={invoiceModal.isOpen}
         onClose={() => setInvoiceModal({ isOpen: false, bookingId: "" })}
         booking={(() => {
-          const found = filteredBookings.find(b => b.id === invoiceModal.bookingId);
-          return found ? {
-            id: found.id,
-            bookingId: found.bookingId,
-            consignorName: found.consignorName,
-            consigneeName: found.consigneeName,
-            fromLocation: found.fromLocation,
-            toLocation: found.toLocation
-          } : null;
+          const found = filteredBookings.find(
+            (b) => b.id === invoiceModal.bookingId
+          );
+          return found
+            ? {
+              id: found.id,
+              bookingId: found.bookingId,
+              consignorName: found.consignorName,
+              consigneeName: found.consigneeName,
+              fromLocation: found.fromLocation,
+              toLocation: found.toLocation,
+            }
+            : null;
         })()}
         onSuccess={loadData}
       />
@@ -1967,19 +2600,25 @@ export const BookingList = () => {
         isOpen={remarksModal.isOpen}
         onClose={() => setRemarksModal({ isOpen: false, bookingId: "" })}
         booking={(() => {
-          const found = filteredBookings.find(b => b.id === remarksModal.bookingId);
-          return found ? {
-            id: found.id,
-            bookingId: found.bookingId,
-            remarks: found.remarks
-          } : null;
+          const found = filteredBookings.find(
+            (b) => b.id === remarksModal.bookingId
+          );
+          return found
+            ? {
+              id: found.id,
+              bookingId: found.bookingId,
+              remarks: found.remarks,
+            }
+            : null;
         })()}
         onSuccess={loadData}
       />
 
       <PODViewerModal
         isOpen={podViewer.isOpen}
-        onClose={() => setPodViewer({ isOpen: false, fileUrl: null, bookingId: "" })}
+        onClose={() =>
+          setPodViewer({ isOpen: false, fileUrl: null, bookingId: "" })
+        }
         fileUrl={podViewer.fileUrl}
         bookingId={podViewer.bookingId}
       />
@@ -1987,17 +2626,21 @@ export const BookingList = () => {
       {/* LR Details Viewer Dialog - UPDATED FOR OFFLINE */}
       <Dialog
         open={lrViewer.isOpen}
-        onOpenChange={(open) => !open && setLrViewer({ isOpen: false, booking: null })}
+        onOpenChange={(open) =>
+          !open && setLrViewer({ isOpen: false, booking: null })
+        }
       >
         <DialogContent className="sm:max-w-[500px] bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
               <FileText className="w-5 h-5 text-primary" />
               LR Details - {lrViewer.booking?.lrNumber}
-
               {/* ✅ Offline Badge */}
               {lrViewer.booking?.is_offline_lr && (
-                <Badge variant="outline" className="ml-2 text-amber-600 border-amber-600">
+                <Badge
+                  variant="outline"
+                  className="ml-2 text-amber-600 border-amber-600"
+                >
                   <FileEdit className="w-3 h-3 mr-1" />
                   Offline LR
                 </Badge>
@@ -2010,23 +2653,29 @@ export const BookingList = () => {
               {/* LR Info Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">LR Number</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    LR Number
+                  </p>
                   <p className="text-sm font-semibold text-foreground">
-                    {lrViewer.booking.lrNumber || '-'}
+                    {lrViewer.booking.lrNumber || "-"}
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">LR Date</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    LR Date
+                  </p>
                   <p className="text-sm font-semibold text-foreground">
                     {lrViewer.booking.lrDate
-                      ? new Date(lrViewer.booking.lrDate).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric'
-                      })
-                      : '-'
-                    }
+                      ? new Date(lrViewer.booking.lrDate).toLocaleDateString(
+                        "en-GB",
+                        {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        }
+                      )
+                      : "-"}
                   </p>
                 </div>
 
@@ -2049,13 +2698,19 @@ export const BookingList = () => {
 
               {/* Route Info */}
               <div className="border-t border-border">
-                <p className="text-xs font-medium text-muted-foreground mb-2">Route</p>
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Route
+                </p>
                 <div className="flex items-center gap-2 text-sm">
                   <MapPin className="w-4 h-4 text-green-600" />
-                  <span className="font-medium">{lrViewer.booking.fromLocation}</span>
+                  <span className="font-medium">
+                    {lrViewer.booking.fromLocation}
+                  </span>
                   <ArrowRight className="w-4 h-4 text-muted-foreground" />
                   <MapPin className="w-4 h-4 text-red-600" />
-                  <span className="font-medium">{lrViewer.booking.toLocation}</span>
+                  <span className="font-medium">
+                    {lrViewer.booking.toLocation}
+                  </span>
                 </div>
               </div>
 
@@ -2068,10 +2723,13 @@ export const BookingList = () => {
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
                       <FileEdit className="w-4 h-4" />
-                      <span className="text-sm font-medium">LR Generated Offline</span>
+                      <span className="text-sm font-medium">
+                        LR Generated Offline
+                      </span>
                     </div>
                     <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                      This is a physical/manual LR. The scanned copy can be uploaded below.
+                      This is a physical/manual LR. The scanned copy can be
+                      uploaded below.
                     </p>
                   </div>
 
@@ -2082,14 +2740,18 @@ export const BookingList = () => {
                       <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
                         <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
                           <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-sm font-medium">LR Document Uploaded</span>
+                          <span className="text-sm font-medium">
+                            LR Document Uploaded
+                          </span>
                         </div>
                         {lrViewer.booking.offline_lr_uploaded_at && (
                           <span className="text-xs text-green-600">
-                            {new Date(lrViewer.booking.offline_lr_uploaded_at).toLocaleDateString('en-GB', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric'
+                            {new Date(
+                              lrViewer.booking.offline_lr_uploaded_at
+                            ).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
                             })}
                           </span>
                         )}
@@ -2102,7 +2764,7 @@ export const BookingList = () => {
                           setOfflineLRViewer({
                             isOpen: true,
                             fileUrl: lrViewer.booking!.offline_lr_file_url!,
-                            lrNumber: lrViewer.booking!.lrNumber!
+                            lrNumber: lrViewer.booking!.lrNumber!,
                           });
                         }}
                       >
@@ -2122,8 +2784,8 @@ export const BookingList = () => {
                           booking: {
                             id: lrViewer.booking!.id,
                             bookingId: lrViewer.booking!.bookingId,
-                            lrNumber: lrViewer.booking!.lrNumber!
-                          }
+                            lrNumber: lrViewer.booking!.lrNumber!,
+                          },
                         });
                       }}
                     >
@@ -2139,22 +2801,29 @@ export const BookingList = () => {
                 <>
                   {/* Material Info */}
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Material Description</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Material Description
+                    </p>
                     <p className="text-sm text-foreground bg-muted/50 p-2 rounded-md">
-                      {lrViewer.booking.materialDescription || 'No description provided'}
+                      {lrViewer.booking.materialDescription ||
+                        "No description provided"}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Cargo Units</p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Cargo Units
+                      </p>
                       <p className="text-sm font-semibold text-foreground">
-                        {lrViewer.booking.cargoUnits || '1'}
+                        {lrViewer.booking.cargoUnits || "1"}
                       </p>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">Service Type</p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Service Type
+                      </p>
                       <Badge variant="outline" className="text-xs">
                         {lrViewer.booking.serviceType}
                       </Badge>
@@ -2184,7 +2853,9 @@ export const BookingList = () => {
       {/* ✅ NEW: Offline LR Upload Modal */}
       <UploadOfflineLRModal
         isOpen={offlineLRUploadModal.isOpen}
-        onClose={() => setOfflineLRUploadModal({ isOpen: false, booking: null })}
+        onClose={() =>
+          setOfflineLRUploadModal({ isOpen: false, booking: null })
+        }
         booking={offlineLRUploadModal.booking}
         onSuccess={loadData}
       />
@@ -2192,7 +2863,10 @@ export const BookingList = () => {
       {/* ✅ NEW: Offline LR Viewer Modal */}
       <Dialog
         open={offlineLRViewer.isOpen}
-        onOpenChange={(open) => !open && setOfflineLRViewer({ isOpen: false, fileUrl: null, lrNumber: "" })}
+        onOpenChange={(open) =>
+          !open &&
+          setOfflineLRViewer({ isOpen: false, fileUrl: null, lrNumber: "" })
+        }
       >
         <DialogContent className="sm:max-w-3xl max-h-[90vh]">
           <DialogHeader>
@@ -2203,8 +2877,8 @@ export const BookingList = () => {
           </DialogHeader>
 
           <div className="flex items-center justify-center min-h-[400px] bg-muted rounded-lg overflow-hidden">
-            {offlineLRViewer.fileUrl && (
-              offlineLRViewer.fileUrl.toLowerCase().endsWith('.pdf') ? (
+            {offlineLRViewer.fileUrl &&
+              (offlineLRViewer.fileUrl.toLowerCase().endsWith(".pdf") ? (
                 <iframe
                   src={offlineLRViewer.fileUrl}
                   className="w-full h-[500px]"
@@ -2216,21 +2890,26 @@ export const BookingList = () => {
                   alt="LR Document"
                   className="max-w-full max-h-[500px] object-contain"
                 />
-              )
-            )}
+              ))}
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button
               variant="outline"
-              onClick={() => setOfflineLRViewer({ isOpen: false, fileUrl: null, lrNumber: "" })}
+              onClick={() =>
+                setOfflineLRViewer({
+                  isOpen: false,
+                  fileUrl: null,
+                  lrNumber: "",
+                })
+              }
             >
               Close
             </Button>
             <Button
               onClick={() => {
                 if (offlineLRViewer.fileUrl) {
-                  window.open(offlineLRViewer.fileUrl, '_blank');
+                  window.open(offlineLRViewer.fileUrl, "_blank");
                 }
               }}
             >

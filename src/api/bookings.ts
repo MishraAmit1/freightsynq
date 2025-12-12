@@ -20,6 +20,14 @@ export interface BookingData {
   created_at: string
   estimated_arrival?: string
   remarks?: string;
+  route_distance_km?: number
+
+  // 🆕 NEW: Dynamic ETA Fields
+  dynamic_eta?: string
+  current_speed?: number
+  distance_covered?: number
+  distance_remaining?: number
+  eta_last_updated_at?: string
   current_warehouse?: {
     id?: string
     name: string
@@ -115,12 +123,20 @@ export const fetchBookings = async (): Promise<BookingData[]> => {
       ...booking,
       consignor_name: booking.consignor?.name || 'Unknown',
       consignee_name: booking.consignee?.name || 'Unknown',
-      branch_name: booking.branch?.branch_name || '',        // ✅ ADDED
-      branch_code: booking.branch?.branch_code || '',        // ✅ ADDED
-      branch_city: booking.branch?.city || '',               // ✅ ADDED
+      branch_name: booking.branch?.branch_name || '',
+      branch_code: booking.branch?.branch_code || '',
+      branch_city: booking.branch?.city || '',
       eway_bill_details: booking.eway_bill_details || [],
       material_description: booking.material_description || '',
       cargo_units: booking.cargo_units || '',
+
+      // 🆕 NEW: Dynamic ETA Fields
+      dynamic_eta: booking.dynamic_eta,
+      current_speed: booking.current_speed,
+      distance_covered: booking.distance_covered,
+      distance_remaining: booking.distance_remaining,
+      eta_last_updated_at: booking.eta_last_updated_at,
+
       current_warehouse: booking.current_warehouse ? {
         id: booking.current_warehouse.id,
         name: booking.current_warehouse.name,
