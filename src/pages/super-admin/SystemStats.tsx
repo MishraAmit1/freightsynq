@@ -1,312 +1,376 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import {
-    TrendingUp,
-    Loader2,
-    Users,
-    Building,
-    Mail,
-    CheckCircle,
-    XCircle,
-    Clock,
-    RefreshCw
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+  TrendingUp,
+  Loader2,
+  Users,
+  Building,
+  CheckCircle,
+  Lock,
+  Unlock,
+  AlertTriangle,
+  Clock,
+  CalendarX,
+  Activity,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Stats {
-    totalCompanies: number;
-    activeCompanies: number;
-    totalInvites: number;
-    pendingInvites: number;
-    usedInvites: number;
-    expiredInvites: number;
+  totalCompanies: number;
+  activeCompanies: number;
+  freeCompanies: number;
+  fullCompanies: number;
+  expiringSoon: number;
+  expired: number;
+  totalUsers: number;
+  totalBookings: number;
 }
 
 export const SystemStats = () => {
-    const { isSuperAdmin } = useAuth();
-    const [stats, setStats] = useState<Stats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [recentInvites, setRecentInvites] = useState<any[]>([]);
+  const { isSuperAdmin } = useAuth();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-    if (!isSuperAdmin) {
-        return <Navigate to="/" replace />;
-    }
+  if (!isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
-    useEffect(() => {
-        loadStats();
-    }, []);
+  useEffect(() => {
+    loadStats();
+  }, []);
 
-    const loadStats = async () => {
-        setLoading(true);
-        try {
-            const { count: totalCompanies } = await supabase
-                .from('companies')
-                .select('*', { count: 'exact', head: true });
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      // Companies stats
+      const { data: companies } = await supabase.from("companies").select("*");
 
-            const { count: activeCompanies } = await supabase
-                .from('companies')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'ACTIVE');
+      if (companies) {
+        const now = new Date();
 
-            const { count: totalInvites } = await supabase
-                .from('company_invites')
-                .select('*', { count: 'exact', head: true });
+        const freeCompanies = companies.filter(
+          (c) => c.access_level === "FREE"
+        ).length;
+        const fullCompanies = companies.filter(
+          (c) => c.access_level === "FULL"
+        ).length;
+        const activeCompanies = companies.filter(
+          (c) => c.status === "ACTIVE"
+        ).length;
 
-            const { count: pendingInvites } = await supabase
-                .from('company_invites')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'pending');
+        const expiringSoon = companies.filter((c) => {
+          if (!c.access_expires_at) return false;
+          const daysLeft = Math.ceil(
+            (new Date(c.access_expires_at).getTime() - now.getTime()) /
+              (1000 * 60 * 60 * 24)
+          );
+          return daysLeft <= 7 && daysLeft > 0;
+        }).length;
 
-            const { count: usedInvites } = await supabase
-                .from('company_invites')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'used');
+        const expired = companies.filter((c) => {
+          if (!c.access_expires_at) return false;
+          return new Date(c.access_expires_at) < now;
+        }).length;
 
-            const { count: expiredInvites } = await supabase
-                .from('company_invites')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'expired');
+        // Users stats
+        const { count: totalUsers } = await supabase
+          .from("users")
+          .select("*", { count: "exact", head: true });
 
-            const { data: invites } = await supabase
-                .from('company_invites')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(10);
+        // Bookings stats
+        const { count: totalBookings } = await supabase
+          .from("bookings")
+          .select("*", { count: "exact", head: true });
 
-            setStats({
-                totalCompanies: totalCompanies || 0,
-                activeCompanies: activeCompanies || 0,
-                totalInvites: totalInvites || 0,
-                pendingInvites: pendingInvites || 0,
-                usedInvites: usedInvites || 0,
-                expiredInvites: expiredInvites || 0,
-            });
+        setStats({
+          totalCompanies: companies.length,
+          activeCompanies,
+          freeCompanies,
+          fullCompanies,
+          expiringSoon,
+          expired,
+          totalUsers: totalUsers || 0,
+          totalBookings: totalBookings || 0,
+        });
 
-            setRecentInvites(invites || []);
-        } catch (error: any) {
-            console.error('Load stats error:', error);
-            toast.error('Failed to load statistics');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'pending':
-                return {
-                    icon: Clock,
-                    color: 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50',
-                    label: 'Pending'
-                };
-            case 'used':
-                return {
-                    icon: CheckCircle,
-                    color: 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900/50',
-                    label: 'Used'
-                };
-            case 'expired':
-                return {
-                    icon: XCircle,
-                    color: 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50',
-                    label: 'Expired'
-                };
-            default:
-                return {
-                    icon: Clock,
-                    color: 'bg-muted text-muted-foreground dark:text-muted-foreground border border-border dark:border-border',
-                    label: status
-                };
-        }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-                <div className="relative">
-                    <Loader2 className="w-12 h-12 animate-spin text-primary" />
-                    <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
-                </div>
-                <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
-                    Loading statistics...
-                </p>
-            </div>
+        // Recent activity (last 10 companies)
+        setRecentActivity(
+          companies
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            )
+            .slice(0, 10)
         );
+      }
+    } catch (error: any) {
+      console.error("Load stats error:", error);
+      toast.error("Failed to load statistics");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAccessBadge = (company: any) => {
+    const daysLeft = company.access_expires_at
+      ? Math.ceil(
+          (new Date(company.access_expires_at).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : null;
+
+    if (company.access_level === "FREE") {
+      return {
+        icon: Lock,
+        color:
+          "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400",
+        label: "FREE",
+      };
     }
 
+    if (daysLeft && daysLeft <= 0) {
+      return {
+        icon: CalendarX,
+        color: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
+        label: "Expired",
+      };
+    }
+
+    if (daysLeft && daysLeft <= 7) {
+      return {
+        icon: AlertTriangle,
+        color:
+          "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
+        label: `${daysLeft} days left`,
+      };
+    }
+
+    return {
+      icon: Unlock,
+      color:
+        "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400",
+      label: daysLeft ? `${daysLeft} days` : "FULL",
+    };
+  };
+
+  if (loading) {
     return (
-        <div className="container mx-auto p-6">
-
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {/* Total Companies */}
-                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Total Companies</CardTitle>
-                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-                            <Building className="w-4 h-4 text-primary dark:text-primary" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-foreground dark:text-white">{stats?.totalCompanies || 0}</div>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                            {stats?.activeCompanies || 0} active
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Total Invites */}
-                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Total Invites</CardTitle>
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                            <Mail className="w-4 h-4 text-blue-600" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-foreground dark:text-white">{stats?.totalInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                            All time generated
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Pending Invites */}
-                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Pending Invites</CardTitle>
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                            <Clock className="w-4 h-4 text-blue-600" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-blue-600">{stats?.pendingInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                            Waiting to be used
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Used Invites */}
-                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Used Invites</CardTitle>
-                        <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-green-600">{stats?.usedInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                            Successfully converted
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Expired Invites */}
-                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Expired Invites</CardTitle>
-                        <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-                            <XCircle className="w-4 h-4 text-red-600" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-red-600">{stats?.expiredInvites || 0}</div>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                            Not used in time
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Conversion Rate */}
-                <Card className="bg-card border border-border dark:border-border hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Conversion Rate</CardTitle>
-                        <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-                            <TrendingUp className="w-4 h-4 text-primary dark:text-primary" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-3xl font-bold text-foreground dark:text-white">
-                            {stats?.totalInvites
-                                ? Math.round((stats.usedInvites / stats.totalInvites) * 100)
-                                : 0}%
-                        </div>
-                        <p className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                            Invites to signups
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Recent Invites */}
-            <Card className="bg-card border border-border dark:border-border">
-                <CardHeader className="border-b border-border dark:border-border">
-                    <CardTitle className="text-foreground dark:text-white">Recent Invites</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    <div className="space-y-3">
-                        {recentInvites.map((invite) => {
-                            const statusBadge = getStatusBadge(invite.status);
-                            const StatusIcon = statusBadge.icon;
-
-                            return (
-                                <div
-                                    key={invite.id}
-                                    className="flex items-center justify-between p-4 bg-muted border border-border dark:border-border rounded-lg hover:bg-accent dark:hover:bg-muted transition-colors"
-                                >
-                                    <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-foreground dark:text-white">{invite.company_name}</div>
-                                        <div className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
-                                            Code: <span className="font-mono bg-card px-2 py-0.5 rounded border border-border dark:border-border text-foreground dark:text-white">{invite.invite_code}</span>
-                                        </div>
-                                        <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
-                                            Created: {new Date(invite.created_at).toLocaleString('en-IN', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })}
-                                        </div>
-                                        {invite.used_at && (
-                                            <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                                                Used: {new Date(invite.used_at).toLocaleString('en-IN', {
-                                                    day: '2-digit',
-                                                    month: 'short',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className={cn("px-3 py-1.5 rounded-full flex items-center gap-1.5 flex-shrink-0 ml-4", statusBadge.color)}>
-                                        <StatusIcon className="w-3.5 h-3.5" />
-                                        <span className="text-xs font-medium">{statusBadge.label}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {recentInvites.length === 0 && (
-                            <div className="text-center py-12">
-                                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                                    <Mail className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
-                                </div>
-                                <p className="text-muted-foreground dark:text-muted-foreground">No invites generated yet</p>
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <div className="relative">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
         </div>
+        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+          Loading statistics...
+        </p>
+      </div>
     );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Companies */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Companies
+            </CardTitle>
+            <Building className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats?.totalCompanies || 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {stats?.activeCompanies || 0} active
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* FREE Accounts */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">FREE Accounts</CardTitle>
+            <Lock className="w-4 h-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {stats?.freeCompanies || 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Limited access</p>
+          </CardContent>
+        </Card>
+
+        {/* FULL Access */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">FULL Access</CardTitle>
+            <Unlock className="w-4 h-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {stats?.fullCompanies || 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              All features unlocked
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Access Status */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Access Status</CardTitle>
+            <Activity className="w-4 h-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              {stats?.expiringSoon ? (
+                <div className="flex items-center gap-1 text-xs">
+                  <AlertTriangle className="w-3 h-3 text-orange-500" />
+                  <span className="text-orange-600">
+                    {stats.expiringSoon} expiring soon
+                  </span>
+                </div>
+              ) : null}
+              {stats?.expired ? (
+                <div className="flex items-center gap-1 text-xs">
+                  <CalendarX className="w-3 h-3 text-red-500" />
+                  <span className="text-red-600">{stats.expired} expired</span>
+                </div>
+              ) : null}
+              {!stats?.expiringSoon && !stats?.expired && (
+                <div className="flex items-center gap-1 text-xs">
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                  <span className="text-green-600">All access healthy</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Users */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Across all companies
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Bookings */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Bookings
+            </CardTitle>
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats?.totalBookings || 0}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">All time</p>
+          </CardContent>
+        </Card>
+
+        {/* Conversion Rate */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Conversion Rate
+            </CardTitle>
+            <TrendingUp className="w-4 h-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {stats?.totalCompanies
+                ? Math.round((stats.fullCompanies / stats.totalCompanies) * 100)
+                : 0}
+              %
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">FREE to FULL</p>
+          </CardContent>
+        </Card>
+
+        {/* Platform Growth */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Platform Growth
+            </CardTitle>
+            <Activity className="w-4 h-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold text-green-600">+18%</div>
+              <div className="text-xs text-muted-foreground">this month</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Companies Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Company Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {recentActivity.map((company) => {
+              const accessBadge = getAccessBadge(company);
+              const AccessIcon = accessBadge.icon;
+
+              return (
+                <div
+                  key={company.id}
+                  className="flex items-center justify-between p-4 bg-muted rounded-lg"
+                >
+                  <div className="flex-1">
+                    <div className="font-semibold">{company.name}</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Registered:{" "}
+                      {new Date(company.created_at).toLocaleDateString("en-IN")}
+                    </div>
+                  </div>
+                  <div
+                    className={cn(
+                      "px-3 py-1.5 rounded-full flex items-center gap-1.5",
+                      accessBadge.color
+                    )}
+                  >
+                    <AccessIcon className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">
+                      {accessBadge.label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {recentActivity.length === 0 && (
+              <div className="text-center py-12">
+                <Building className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  No companies registered yet
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 };

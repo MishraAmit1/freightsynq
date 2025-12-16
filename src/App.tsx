@@ -5,9 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminRoute, ProtectedRoute } from "@/components/ProtectedRoute";
-import { SuperAdminRoute } from "@/components/SuperAdminRoute"; // NEW
+import { FreeAccessRoute } from "@/components/FreeAccessRoute"; // ✅ NEW
+import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout"; // NEW
+import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
 import { BookingList } from "@/features/bookings/BookingList";
 import { BookingDetail } from "@/features/bookings/BookingDetail";
 import { VehicleManagement } from "@/features/vehicles/VehicleManagement";
@@ -34,8 +35,7 @@ import { SetupChecker } from "./components/guards/SetupChecker";
 import { BranchManagement } from "./pages/branches";
 
 // Super Admin Pages
-import { SuperAdminDashboard } from "./pages/super-admin/SuperAdminDashboard"; // NEW
-import { CreateInvites } from "./pages/super-admin/CreateInvites";
+import { SuperAdminDashboard } from "./pages/super-admin/SuperAdminDashboard";
 import { ManageCompanies } from "./pages/super-admin/ManageCompanies";
 import { SystemStats } from "./pages/super-admin/SystemStats";
 import { Tracking } from "./pages/Tracking";
@@ -51,7 +51,7 @@ const queryClient = new QueryClient({
   },
 });
 
-// ✅ NEW: Router Component to handle super admin routing
+// ✅ Router Component
 const AppRouter = () => {
   const { isSuperAdmin, loading } = useAuth();
 
@@ -63,7 +63,7 @@ const AppRouter = () => {
     );
   }
 
-  // ✅ SUPER ADMIN ONLY ROUTES R
+  // ✅ SUPER ADMIN ROUTES
   if (isSuperAdmin) {
     return (
       <Routes>
@@ -78,7 +78,6 @@ const AppRouter = () => {
               <SuperAdminLayout>
                 <Routes>
                   <Route path="/" element={<SuperAdminDashboard />} />
-                  <Route path="/invites" element={<CreateInvites />} />
                   <Route path="/companies" element={<ManageCompanies />} />
                   <Route path="/stats" element={<SystemStats />} />
                 </Routes>
@@ -93,7 +92,7 @@ const AppRouter = () => {
     );
   }
 
-  // ✅ REGULAR USER ROUTES
+  // ✅ REGULAR USER ROUTES (FREE + FULL)
   return (
     <Routes>
       {/* Public Routes */}
@@ -104,6 +103,7 @@ const AppRouter = () => {
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+
       {/* Block super-admin routes for regular users */}
       <Route path="/super-admin/*" element={<Navigate to="/" replace />} />
 
@@ -115,41 +115,120 @@ const AppRouter = () => {
             <SetupChecker>
               <MainLayout>
                 <Routes>
+                  {/* ✅ FREE + FULL Access Routes (Everyone) */}
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
-                  <Route path="/form" element={<AddPartyForm />} />
-                  <Route path="/bookings" element={<BookingList />} />
-                  <Route path="/bookings/:id" element={<BookingDetail />} />
-                  <Route path="/vehicles" element={<VehicleManagement />} />
-                  <Route path="/brokers" element={<Broker />} />
-                  <Route path="/drivers" element={<Drivers />} />
-                  <Route path="/customers" element={<Customers />} />
-                  <Route
-                    path="/lr-template-settings"
-                    element={<LRTemplateSettings />}
-                  />
-                  <Route path="/warehouses" element={<WarehouseList />} />
-                  <Route
-                    path="/warehouses/:id"
-                    element={<WarehouseDetails />}
-                  />
-                  <Route path="/branches" element={<BranchManagement />} />
                   <Route path="/tracking" element={<Tracking />} />
 
+                  {/* ✅ FULL Access ONLY Routes */}
+                  <Route
+                    path="/form"
+                    element={
+                      <FreeAccessRoute>
+                        <AddPartyForm />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/bookings"
+                    element={
+                      <FreeAccessRoute>
+                        <BookingList />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/bookings/:id"
+                    element={
+                      <FreeAccessRoute>
+                        <BookingDetail />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/vehicles"
+                    element={
+                      <FreeAccessRoute>
+                        <VehicleManagement />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/brokers"
+                    element={
+                      <FreeAccessRoute>
+                        <Broker />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/drivers"
+                    element={
+                      <FreeAccessRoute>
+                        <Drivers />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/customers"
+                    element={
+                      <FreeAccessRoute>
+                        <Customers />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/lr-template-settings"
+                    element={
+                      <FreeAccessRoute>
+                        <LRTemplateSettings />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/warehouses"
+                    element={
+                      <FreeAccessRoute>
+                        <WarehouseList />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/warehouses/:id"
+                    element={
+                      <FreeAccessRoute>
+                        <WarehouseDetails />
+                      </FreeAccessRoute>
+                    }
+                  />
+                  <Route
+                    path="/branches"
+                    element={
+                      <FreeAccessRoute>
+                        <BranchManagement />
+                      </FreeAccessRoute>
+                    }
+                  />
+
+                  {/* ✅ ADMIN + FULL Access Routes */}
                   <Route
                     path="/company-settings"
                     element={
-                      <AdminRoute>
-                        <CompanySettings />
-                      </AdminRoute>
+                      <FreeAccessRoute>
+                        <AdminRoute>
+                          <CompanySettings />
+                        </AdminRoute>
+                      </FreeAccessRoute>
                     }
                   />
                   <Route
                     path="/company-profile"
                     element={
-                      <AdminRoute>
-                        <CompanyProfile />
-                      </AdminRoute>
+                      <FreeAccessRoute>
+                        <AdminRoute>
+                          <CompanyProfile />
+                        </AdminRoute>
+                      </FreeAccessRoute>
                     }
                   />
 

@@ -47,7 +47,6 @@ export const ForgotPassword = () => {
     setLoading(true);
     setError("");
     setSuccess(false);
-
     try {
       // Case insensitive
       let emailToUse = identifier.trim().toLowerCase();
