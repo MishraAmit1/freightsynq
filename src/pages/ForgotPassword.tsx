@@ -1,147 +1,116 @@
 import { useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
 import {
   Loader2,
   Truck,
   AlertTriangle,
-  User,
-  Lock,
-  ArrowRight,
-  Sparkles,
   Mail,
+  ArrowLeft,
+  CheckCircle,
   Shield,
   Zap,
   Globe,
   Users,
   Clock,
   Headphones,
-  Eye, // ✅ NEW
-  EyeOff, // ✅ NEW
+  Info,
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
-const getSuperAdminEmails = (): string[] => {
-  const emails = import.meta.env.VITE_SUPER_ADMIN_EMAILS || "";
-  return emails
-    .split(",")
-    .map((email: string) => email.trim().toLowerCase())
-    .filter(Boolean);
-};
-
-export const Login = () => {
+export const ForgotPassword = () => {
   const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // ✅ NEW
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showIncompleteActions, setShowIncompleteActions] = useState(false);
-  const [incompleteEmail, setIncompleteEmail] = useState("");
-  const { signIn, user } = useAuth();
-
-  if (user) {
-    return <Navigate to="/" replace />;
-  }
+  const [success, setSuccess] = useState(false);
+  const [emailSentTo, setEmailSentTo] = useState("");
 
   const isEmail = (str: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+  };
+
+  const maskEmail = (email: string): string => {
+    const [username, domain] = email.split("@");
+    if (username.length <= 3) {
+      return `${username[0]}***@${domain}`;
+    }
+    return `${username.slice(0, 2)}****${username.slice(-1)}@${domain}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setShowIncompleteActions(false);
+    setSuccess(false);
 
     try {
-      // ✅ CASE INSENSITIVE: Convert to lowercase
+      // Case insensitive
       let emailToUse = identifier.trim().toLowerCase();
 
+      // If username provided, lookup email
       if (!isEmail(identifier)) {
-        // ✅ Username lookup (also lowercase)
+        console.log("🔍 Looking up username:", identifier);
+
         const { data: emailResult, error: lookupError } = await supabase.rpc(
           "get_email_by_username",
           {
-            p_username: identifier.trim().toLowerCase(), // ✅ lowercase
+            p_username: identifier.trim().toLowerCase(),
           }
         );
 
-        if (lookupError || !emailResult) {
-          setError("Username not found. Please check and try again.");
-          setLoading(false);
-          return;
-        }
-
-        emailToUse = emailResult.toLowerCase(); // ✅ ensure lowercase
-      }
-
-      const { data, error: signInError } = await signIn(emailToUse, password);
-
-      if (signInError) {
-        if (signInError.message.includes("Invalid login credentials")) {
-          setError("Invalid username/email or password");
+        if (!lookupError && emailResult) {
+          emailToUse = emailResult.toLowerCase();
+          console.log("✅ Username found, email retrieved");
         } else {
-          setError(signInError.message);
-        }
-        setLoading(false);
-        return;
-      }
-
-      if (data?.user && !data.user.email_confirmed_at) {
-        setError("Please verify your email before logging in.");
-        localStorage.setItem("pendingVerificationEmail", emailToUse);
-        await supabase.auth.signOut();
-        setTimeout(() => {
-          window.location.href = "/verification-pending";
-        }, 2000);
-        setLoading(false);
-        return;
-      }
-
-      if (data?.user) {
-        const superAdmins = getSuperAdminEmails();
-        const isSuperAdminEmail = superAdmins.includes(emailToUse);
-        if (isSuperAdminEmail) {
-          toast.success("Welcome back, Super Admin!");
+          // Username not found
+          console.log("❌ Username not found");
+          // Still show success for security
+          setSuccess(true);
+          setEmailSentTo("your registered email address");
           return;
         }
+      }
 
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("company_id, name, username")
-          .eq("id", data.user.id)
-          .single();
+      // ✅ SKIP EMAIL EXISTS CHECK - Just send reset email
+      // Supabase will handle if email doesn't exist
+      console.log("📧 Sending reset email to:", emailToUse);
 
-        if (userError || !userData) {
-          await supabase.auth.signOut();
-          setError("User profile not found. Please contact support.");
-          setShowIncompleteActions(true);
-          setIncompleteEmail(emailToUse);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        emailToUse,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
+
+      if (resetError) {
+        console.error("Reset email error:", resetError);
+        if (resetError.message.includes("Email rate limit exceeded")) {
+          setError(
+            "Too many requests. Please wait a few minutes and try again."
+          );
           setLoading(false);
           return;
         }
-
-        if (!userData.company_id) {
-          await supabase.auth.signOut();
-          setError("Account setup incomplete!");
-          setShowIncompleteActions(true);
-          setIncompleteEmail(emailToUse);
-          setLoading(false);
-          return;
-        }
-
-        toast.success(`Welcome back, ${userData.name || userData.username}!`);
       }
+
+      // Always show success (security)
+      setSuccess(true);
+
+      if (isEmail(identifier)) {
+        setEmailSentTo(maskEmail(identifier));
+      } else {
+        setEmailSentTo("your registered email address");
+      }
+
+      setIdentifier("");
     } catch (error: any) {
-      setError(error.message || "An error occurred during login");
+      console.error("Forgot password error:", error);
+      setError("Something went wrong. Please try again later.");
     } finally {
       setLoading(false);
     }
@@ -149,170 +118,192 @@ export const Login = () => {
 
   return (
     <div className="min-h-screen w-full flex">
-      {/* LEFT PANEL - LOGIN FORM */}
+      {/* LEFT PANEL - FORGOT PASSWORD FORM */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-white dark:bg-[#1E1E24]">
         <div className="w-full max-w-md">
+          {/* Back Button */}
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 text-sm text-[#737373] dark:text-[#A1A1AA] hover:text-[#0A0A0A] dark:hover:text-[#FCC52C] transition-colors mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to login
+          </Link>
+
+          {/* Header */}
           <div className="mb-8">
             <p className="text-sm font-medium text-primary dark:text-[#FCC52C] mb-2">
-              Welcome back
+              Reset Password
             </p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-[#0A0A0A] dark:text-white">
-              Sign in to your account
+            <h1 className="text-3xl sm:text-4xl font-bold text-[#0A0A0A] dark:text-white mb-2">
+              Forgot your password?
             </h1>
+            <p className="text-sm text-[#737373] dark:text-[#A1A1AA]">
+              No worries! Enter your username or email and we'll send you reset
+              instructions.
+            </p>
           </div>
 
+          {/* Form Card */}
           <Card className="border border-[#E5E7EB] dark:border-[#35353F] shadow-lg bg-white dark:bg-[#2A2A32]">
             <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Error Alert */}
-                {error && (
-                  <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30">
-                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <AlertDescription className="text-red-700 dark:text-red-400 text-sm">
-                      {error}
-                    </AlertDescription>
-                  </Alert>
-                )}
+              {success ? (
+                // ✅ SUCCESS STATE
+                <div className="space-y-6">
+                  <div className="text-center space-y-4">
+                    <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
+                    </div>
 
-                {/* Incomplete Actions */}
-                {showIncompleteActions && (
-                  <div className="p-4 rounded-lg border border-[#F38810]/30 bg-[#FFF3D6] dark:bg-[#FCC52C]/10 space-y-3">
-                    <p className="text-sm font-medium text-[#D97706] dark:text-[#FCC52C]">
-                      What would you like to do?
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#2A2A32] hover:bg-[#F5F5F5] dark:hover:bg-[#35353F] text-[#0A0A0A] dark:text-white"
-                        onClick={() => {
-                          localStorage.setItem("retry_email", incompleteEmail);
-                          window.location.href = "/signup";
-                        }}
-                      >
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Complete Registration
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="w-full hover:bg-[#F5F5F5] dark:hover:bg-[#35353F] text-[#0A0A0A] dark:text-white"
-                        onClick={() => {
-                          window.location.href = `mailto:support@freightsynq.com?subject=Incomplete Setup&body=Email: ${incompleteEmail}`;
-                        }}
-                      >
-                        <Mail className="mr-2 h-4 w-4" />
-                        Contact Support
-                      </Button>
+                    <div>
+                      <h3 className="text-xl font-bold text-[#0A0A0A] dark:text-white mb-2">
+                        Check your email!
+                      </h3>
+                      <p className="text-sm text-[#737373] dark:text-[#A1A1AA]">
+                        If an account exists, we've sent password reset
+                        instructions to:
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-lg">
+                      <p className="text-sm font-medium text-green-800 dark:text-green-400">
+                        {emailSentTo}
+                      </p>
+                    </div>
+
+                    {/* Security Note */}
+                    <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg border border-blue-200 dark:border-blue-800/30">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5" />
+                        <div className="text-left">
+                          <p className="text-xs font-medium text-blue-800 dark:text-blue-400 mb-1">
+                            Security Notice:
+                          </p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            For security reasons, we don't confirm whether an
+                            account exists. You'll only receive an email if you
+                            have a registered account.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#F5F5F5] dark:bg-[#35353F] p-4 rounded-lg space-y-2 text-left">
+                      <p className="text-xs font-medium text-[#0A0A0A] dark:text-white">
+                        What's next?
+                      </p>
+                      <ul className="text-xs text-[#737373] dark:text-[#A1A1AA] space-y-1">
+                        <li className="flex items-start gap-2">
+                          <span className="text-[#FCC52C] mt-0.5">•</span>
+                          <span>Check your email inbox</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-[#FCC52C] mt-0.5">•</span>
+                          <span>Click the reset link (expires in 1 hour)</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-[#FCC52C] mt-0.5">•</span>
+                          <span>Create a new password</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-[#FCC52C] mt-0.5">•</span>
+                          <span>Check spam folder if not received</span>
+                        </li>
+                      </ul>
                     </div>
                   </div>
-                )}
 
-                {/* Username/Email Field */}
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="identifier"
-                    className="text-sm font-medium text-[#0A0A0A] dark:text-white"
-                  >
-                    Username or Email
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="identifier"
-                      type="text"
-                      placeholder="Enter username or email"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-11 pl-10 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
-                    />
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                  <div className="space-y-3">
+                    <Button
+                      onClick={() => {
+                        setSuccess(false);
+                        setEmailSentTo("");
+                      }}
+                      variant="outline"
+                      className="w-full h-11 text-base border-[#E5E7EB] dark:border-[#35353F] hover:bg-[#F5F5F5] dark:hover:bg-[#35353F]"
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Send to different email
+                    </Button>
+
+                    <Button
+                      asChild
+                      className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] text-white dark:text-[#1E1E24] font-semibold"
+                    >
+                      <Link to="/login">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Login
+                      </Link>
+                    </Button>
                   </div>
                 </div>
+              ) : (
+                // 📝 FORM STATE
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  {/* Error Alert */}
+                  {error && (
+                    <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30">
+                      <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      <AlertDescription className="text-red-700 dark:text-red-400 text-sm">
+                        {error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
-                {/* ✅ PASSWORD FIELD WITH EYE BUTTON */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  {/* Username/Email Field */}
+                  <div className="space-y-2">
                     <Label
-                      htmlFor="password"
+                      htmlFor="identifier"
                       className="text-sm font-medium text-[#0A0A0A] dark:text-white"
                     >
-                      Password
+                      Username or Email
                     </Label>
-                    <Link
-                      to="/forgot-password"
-                      className="text-xs text-[#0A0A0A] dark:text-[#FCC52C] hover:text-[#262626] dark:hover:text-[#F38810] transition-colors"
-                    >
-                      Forgot password?
-                    </Link>
+                    <div className="relative">
+                      <Input
+                        id="identifier"
+                        type="text"
+                        placeholder="Enter your username or email"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        required
+                        disabled={loading}
+                        className="h-11 pl-10 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
+                      />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                    </div>
                   </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"} // ✅ Toggle type
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="h-11 pl-10 pr-10 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
-                    />
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
 
-                    {/* ✅ EYE BUTTON */}
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] dark:text-[#A1A1AA] hover:text-[#0A0A0A] dark:hover:text-[#FCC52C] transition-colors"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Remember Me */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(!!checked)}
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold shadow-md hover:shadow-lg dark:shadow-[0_4px_20px_rgba(252,197,44,0.3)] transition-all"
                     disabled={loading}
-                  />
-                  <Label
-                    htmlFor="remember"
-                    className="text-sm font-normal text-[#737373] dark:text-[#A1A1AA] cursor-pointer"
                   >
-                    Remember me
-                  </Label>
-                </div>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending reset link...
+                      </>
+                    ) : (
+                      <>
+                        Send Reset Link
+                        <Mail className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
 
-                {/* Submit Button */}
-                <Button
-                  type="submit"
-                  className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold shadow-md hover:shadow-lg dark:shadow-[0_4px_20px_rgba(252,197,44,0.3)] transition-all"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    <>
-                      Sign In
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </form>
+                  {/* Back to Login Link */}
+                  <p className="text-center text-sm text-[#737373] dark:text-[#A1A1AA]">
+                    Remember your password?{" "}
+                    <Link
+                      to="/login"
+                      className="text-[#0A0A0A] dark:text-[#FCC52C] hover:underline font-medium"
+                    >
+                      Sign in
+                    </Link>
+                  </p>
+                </form>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -320,7 +311,6 @@ export const Login = () => {
 
       {/* RIGHT PANEL - Same as before */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
-        {/* (Keep all existing right panel code - animations, logo, stats etc) */}
         <style>{`
                     @keyframes borderFlow {
                         0%, 100% { background-position: 0% 50%; }
