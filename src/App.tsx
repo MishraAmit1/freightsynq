@@ -41,6 +41,8 @@ import { SystemStats } from "./pages/super-admin/SystemStats";
 import { Tracking } from "./pages/Tracking";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
+import { LRGenerator } from "./pages/LRGenerator";
+import { SavedLRs } from "./pages/SavedLRs";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,6 +95,9 @@ const AppRouter = () => {
   }
 
   // ✅ REGULAR USER ROUTES (FREE + FULL)
+  // Inside AppRouter component, update the Routes:
+
+  // ✅ REGULAR USER ROUTES (FREE + FULL)
   return (
     <Routes>
       {/* Public Routes */}
@@ -119,7 +124,9 @@ const AppRouter = () => {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/tracking" element={<Tracking />} />
-
+                  <Route path="/lr-generator" element={<LRGenerator />} />
+                  <Route path="/saved-lrs" element={<SavedLRs />} />
+                  {/* ✅ HERE - No wrapper */}
                   {/* ✅ FULL Access ONLY Routes */}
                   <Route
                     path="/form"
@@ -145,6 +152,7 @@ const AppRouter = () => {
                       </FreeAccessRoute>
                     }
                   />
+                  {/* ❌ REMOVE THE DUPLICATE LR-GENERATOR ROUTE WITH FreeAccessRoute */}
                   <Route
                     path="/vehicles"
                     element={
@@ -209,7 +217,6 @@ const AppRouter = () => {
                       </FreeAccessRoute>
                     }
                   />
-
                   {/* ✅ ADMIN + FULL Access Routes */}
                   <Route
                     path="/company-settings"
@@ -231,7 +238,6 @@ const AppRouter = () => {
                       </FreeAccessRoute>
                     }
                   />
-
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </MainLayout>

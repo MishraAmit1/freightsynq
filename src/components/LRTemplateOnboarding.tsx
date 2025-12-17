@@ -618,9 +618,9 @@ const LiveMinimalPreview = ({ customization, booking }) => {
       )}
 
       {/* Bottom Note */}
-      <div className="text-center text-xs text-gray-500 mt-2">
+      {/* <div className="text-center text-xs text-gray-500 mt-2">
         Subject to Delhi Jurisdiction | This is computer generated receipt
-      </div>
+      </div> */}
     </div>
   );
 };

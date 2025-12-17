@@ -20,6 +20,8 @@ import {
   Locate,
   Lock,
   Sparkles,
+  FilePlus2,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,7 +57,8 @@ export const Sidebar = ({
   const freeNavigation = [
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Tracking", href: "/tracking", icon: Locate },
-    // { name: "LR Generator", href: "/lr-generator", icon: FileText }, // Coming soon
+    { name: "LR Generator", href: "/lr-generator", icon: FilePlus2 },
+    { name: "Saved LRs", href: "/saved-lrs", icon: FileText }, // ✅ ADD
   ];
 
   // ✅ FULL tier navigation - All features
@@ -68,6 +71,7 @@ export const Sidebar = ({
     { name: "Vehicles", href: "/vehicles", icon: Truck },
     { name: "Drivers", href: "/drivers", icon: UserCog },
     { name: "Warehouses", href: "/warehouses", icon: Warehouse },
+    { name: "Saved LRs", href: "/saved-lrs", icon: FolderOpen },
     {
       name: "Company Settings",
       href: "/company-settings",

@@ -22,8 +22,8 @@ import {
   Users,
   Clock,
   Headphones,
-  Eye, // ✅ NEW
-  EyeOff, // ✅ NEW
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -39,7 +39,7 @@ const getSuperAdminEmails = (): string[] => {
 export const Login = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // ✅ NEW
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -62,15 +62,13 @@ export const Login = () => {
     setShowIncompleteActions(false);
 
     try {
-      // ✅ CASE INSENSITIVE: Convert to lowercase
       let emailToUse = identifier.trim().toLowerCase();
 
       if (!isEmail(identifier)) {
-        // ✅ Username lookup (also lowercase)
         const { data: emailResult, error: lookupError } = await supabase.rpc(
           "get_email_by_username",
           {
-            p_username: identifier.trim().toLowerCase(), // ✅ lowercase
+            p_username: identifier.trim().toLowerCase(),
           }
         );
 
@@ -80,7 +78,7 @@ export const Login = () => {
           return;
         }
 
-        emailToUse = emailResult.toLowerCase(); // ✅ ensure lowercase
+        emailToUse = emailResult.toLowerCase();
       }
 
       const { data, error: signInError } = await signIn(emailToUse, password);
@@ -164,7 +162,6 @@ export const Login = () => {
           <Card className="border border-[#E5E7EB] dark:border-[#35353F] shadow-lg bg-white dark:bg-[#2A2A32]">
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Error Alert */}
                 {error && (
                   <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30">
                     <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -174,7 +171,6 @@ export const Login = () => {
                   </Alert>
                 )}
 
-                {/* Incomplete Actions */}
                 {showIncompleteActions && (
                   <div className="p-4 rounded-lg border border-[#F38810]/30 bg-[#FFF3D6] dark:bg-[#FCC52C]/10 space-y-3">
                     <p className="text-sm font-medium text-[#D97706] dark:text-[#FCC52C]">
@@ -210,7 +206,6 @@ export const Login = () => {
                   </div>
                 )}
 
-                {/* Username/Email Field */}
                 <div className="space-y-2">
                   <Label
                     htmlFor="identifier"
@@ -233,7 +228,6 @@ export const Login = () => {
                   </div>
                 </div>
 
-                {/* ✅ PASSWORD FIELD WITH EYE BUTTON */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label
@@ -252,7 +246,7 @@ export const Login = () => {
                   <div className="relative">
                     <Input
                       id="password"
-                      type={showPassword ? "text" : "password"} // ✅ Toggle type
+                      type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -262,7 +256,6 @@ export const Login = () => {
                     />
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
 
-                    {/* ✅ EYE BUTTON */}
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
@@ -278,7 +271,6 @@ export const Login = () => {
                   </div>
                 </div>
 
-                {/* Remember Me */}
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="remember"
@@ -294,7 +286,6 @@ export const Login = () => {
                   </Label>
                 </div>
 
-                {/* Submit Button */}
                 <Button
                   type="submit"
                   className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold shadow-md hover:shadow-lg dark:shadow-[0_4px_20px_rgba(252,197,44,0.3)] transition-all"
@@ -312,15 +303,27 @@ export const Login = () => {
                     </>
                   )}
                 </Button>
+
+                {/* ✅ Added Sign Up Link Here */}
+                <div className="text-center text-sm">
+                  <span className="text-[#737373] dark:text-[#A1A1AA]">
+                    Don't have an account?{" "}
+                  </span>
+                  <Link
+                    to="/signup"
+                    className="font-medium text-[#0A0A0A] dark:text-[#FCC52C] hover:underline transition-all"
+                  >
+                    Sign up
+                  </Link>
+                </div>
               </form>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* RIGHT PANEL - Same as before */}
+      {/* RIGHT PANEL */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
-        {/* (Keep all existing right panel code - animations, logo, stats etc) */}
         <style>{`
                     @keyframes borderFlow {
                         0%, 100% { background-position: 0% 50%; }
