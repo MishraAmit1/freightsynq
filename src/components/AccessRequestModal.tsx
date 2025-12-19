@@ -154,7 +154,6 @@ export const AccessRequestModal = ({
               ))}
             </div>
           </div>
-
           {/* Why do you need access */}
           <div className="space-y-2">
             <Label htmlFor="reason">
