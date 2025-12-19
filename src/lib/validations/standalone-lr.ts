@@ -1,12 +1,32 @@
 // src/lib/validations/standalone-lr.ts
-import { z } from 'zod';
+import { z } from "zod";
+
+// Goods Item Schema
+export const goodsItemSchema = z.object({
+  id: z.string(),
+  description: z.string().optional(),
+  quantity: z.string().optional(),
+});
+
+export type GoodsItem = z.infer<typeof goodsItemSchema>;
 
 export const standaloneLRSchema = z.object({
   // LR Basic Info
-  standalone_lr_number: z.string().optional(),
-  lr_date: z.string().min(1, "LR date is required"),
-  
-  // Consignor (Sender) - Required
+  standalone_lr_number: z.string().min(1, "LR number is required"),
+  lr_date: z.string().min(1, "Date is required"),
+
+  // Company Details (Editable - stored in LR document)
+  company_name: z.string().optional(),
+  company_address: z.string().optional(),
+  company_city: z.string().optional(),
+  company_state: z.string().optional(),
+  company_phone: z.string().optional(),
+  company_email: z.string().optional(),
+  company_gst: z.string().optional(),
+  company_pan: z.string().optional(),
+  company_logo_url: z.string().optional(),
+
+  // Consignor Details
   consignor_name: z.string().min(1, "Consignor name is required"),
   consignor_address: z.string().optional(),
   consignor_city: z.string().optional(),
@@ -14,9 +34,9 @@ export const standaloneLRSchema = z.object({
   consignor_pincode: z.string().optional(),
   consignor_phone: z.string().optional(),
   consignor_gst: z.string().optional(),
-  consignor_email: z.string().email("Invalid email").optional().or(z.literal('')),
-  
-  // Consignee (Receiver) - Required
+  consignor_email: z.string().optional(),
+
+  // Consignee Details
   consignee_name: z.string().min(1, "Consignee name is required"),
   consignee_address: z.string().optional(),
   consignee_city: z.string().optional(),
@@ -24,32 +44,33 @@ export const standaloneLRSchema = z.object({
   consignee_pincode: z.string().optional(),
   consignee_phone: z.string().optional(),
   consignee_gst: z.string().optional(),
-  consignee_email: z.string().email("Invalid email").optional().or(z.literal('')),
-  
-  // Route - Required
+  consignee_email: z.string().optional(),
+
+  // Route Details
   from_location: z.string().min(1, "From location is required"),
   to_location: z.string().min(1, "To location is required"),
-  
-  // Goods Details
-  material_description: z.string().optional(),
-  packages_qty: z.string().optional(),
-  weight: z.number().optional().or(z.string().optional()),
+
+  // Goods Items (Array up to 5)
+  goods_items: z.array(goodsItemSchema).max(5).optional(),
+
+  // Other Goods Details
+  weight: z.number().optional(),
   invoice_number: z.string().optional(),
-  invoice_value: z.number().optional().or(z.string().optional()),
+  invoice_value: z.number().optional(),
   eway_bill_number: z.string().optional(),
-  
-  // Vehicle & Driver
+
+  // Vehicle Details
   vehicle_number: z.string().optional(),
   driver_name: z.string().optional(),
   driver_phone: z.string().optional(),
-  
-  // Payment
-  freight_amount: z.number().optional().or(z.string().optional()),
-  payment_mode: z.enum(['PAID', 'TO_PAY', 'TO_BE_BILLED']).optional(),
-  
+
+  // Billing
+  freight_amount: z.number().optional(),
+  payment_mode: z.enum(["TO_PAY", "PAID", "TO_BE_BILLED"]).optional(),
+
   // Other
   remarks: z.string().optional(),
-  template_code: z.string().default('standard'),
+  template_code: z.string().optional(),
 });
 
 export type StandaloneLRFormData = z.infer<typeof standaloneLRSchema>;

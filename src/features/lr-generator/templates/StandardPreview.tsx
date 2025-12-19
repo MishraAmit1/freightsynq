@@ -1,5 +1,11 @@
 // src/features/lr-generator/templates/StandardPreview.tsx
-import { parseCargoAndMaterials, formatDate } from "./helpers";
+import { formatDate } from "./helpers";
+
+interface GoodsItem {
+  id: string;
+  description?: string;
+  quantity?: string;
+}
 
 interface PreviewProps {
   customization: any;
@@ -10,14 +16,22 @@ export const LiveStandardPreview = ({
   customization,
   booking,
 }: PreviewProps) => {
-  const cargoData = parseCargoAndMaterials(
-    booking?.cargo_units || "10 boxes",
-    booking?.material_description || "Sample goods"
-  );
+  // ✅ Get goods items from booking
+  const goodsItems: GoodsItem[] = booking?.goods_items || [];
+
+  // ✅ Fill empty rows up to 5 for consistent display
+  const displayItems = [...goodsItems];
+  while (displayItems.length < 5) {
+    displayItems.push({
+      id: `empty-${displayItems.length}`,
+      description: "",
+      quantity: "",
+    });
+  }
 
   return (
     <div
-      className="bg-white border-2"
+      className="bg-white border-2 border-black"
       style={{
         fontFamily: customization.style_config.font_family,
         fontSize: "11px",
@@ -116,15 +130,15 @@ export const LiveStandardPreview = ({
 
       {/* SUB-HEADER ROW */}
       <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
-        <div className="border p-2">
+        <div className="border border-black p-2">
           <div className="font-bold">At OWNER'S risk</div>
           <div>Subject to Jurisdiction</div>
         </div>
-        <div className="border p-2 text-center">
+        <div className="border border-black p-2 text-center">
           <div className="font-bold">Vehicle No.</div>
           <div>{booking?.vehicle_number || "-"}</div>
         </div>
-        <div className="border p-2 text-center">
+        <div className="border border-black p-2 text-center">
           <div className="font-bold">GSTIN</div>
           <div>{customization.company_details?.gst || "29AABCV1234M1Z5"}</div>
         </div>
@@ -133,10 +147,14 @@ export const LiveStandardPreview = ({
       {/* CONSIGNOR & CONSIGNEE */}
       <div className="grid grid-cols-2 gap-2 mb-3">
         {customization.visible_fields?.consignor !== false && (
-          <div className="border p-2">
-            <div className="font-bold bg-gray-100 px-1">CONSIGNOR</div>
-            <div className="text-xs mt-1">
-              <div>{booking?.consignor?.name || "Consignor Name"}</div>
+          <div className="border border-black p-2">
+            <div className="font-bold bg-gray-100 px-1 -mx-1 -mt-1 mb-1 border-b border-black">
+              CONSIGNOR
+            </div>
+            <div className="text-xs space-y-0.5">
+              <div className="font-medium">
+                {booking?.consignor?.name || "Consignor Name"}
+              </div>
               <div>{booking?.consignor?.address || "Address"}</div>
               <div>GST: {booking?.consignor?.gst_number || "N/A"}</div>
               <div>Mobile: {booking?.consignor?.phone || "N/A"}</div>
@@ -145,10 +163,14 @@ export const LiveStandardPreview = ({
         )}
 
         {customization.visible_fields?.consignee !== false && (
-          <div className="border p-2">
-            <div className="font-bold bg-gray-100 px-1">CONSIGNEE</div>
-            <div className="text-xs mt-1">
-              <div>{booking?.consignee?.name || "Consignee Name"}</div>
+          <div className="border border-black p-2">
+            <div className="font-bold bg-gray-100 px-1 -mx-1 -mt-1 mb-1 border-b border-black">
+              CONSIGNEE
+            </div>
+            <div className="text-xs space-y-0.5">
+              <div className="font-medium">
+                {booking?.consignee?.name || "Consignee Name"}
+              </div>
               <div>{booking?.consignee?.address || "Address"}</div>
               <div>GST: {booking?.consignee?.gst_number || "N/A"}</div>
               <div>Mobile: {booking?.consignee?.phone || "N/A"}</div>
@@ -159,42 +181,58 @@ export const LiveStandardPreview = ({
 
       {/* FROM & TO */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="border p-2">
+        <div className="border border-black p-2">
           <span className="font-bold">FROM:</span>{" "}
           {booking?.from_location || "Origin"}
         </div>
-        <div className="border p-2">
+        <div className="border border-black p-2">
           <span className="font-bold">TO:</span>{" "}
           {booking?.to_location || "Destination"}
         </div>
       </div>
 
-      {/* GOODS & BILLING */}
+      {/* ✅ GOODS & BILLING - Updated with dynamic table */}
       <div className="grid grid-cols-2 gap-2 mb-3">
-        <div className="border">
-          <div className="font-bold text-center bg-gray-100 p-1">
+        {/* Goods Description Table */}
+        <div className="border border-black">
+          <div className="font-bold text-center bg-gray-100 p-1 border-b border-black">
             GOODS DESCRIPTION
           </div>
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b">
-                <th className="p-1 text-left">Packages</th>
-                <th className="p-1 text-left">Description</th>
+              <tr className="border-b border-black bg-gray-50">
+                <th className="p-1 text-left border-r border-black w-2/3">
+                  Description
+                </th>
+                <th className="p-1 text-left w-1/3">Quantity</th>
               </tr>
             </thead>
             <tbody>
-              {cargoData.slice(0, 3).map((row, idx) => (
-                <tr key={idx} className="border-b">
-                  <td className="p-1">{row.cargo}</td>
-                  <td className="p-1">{row.material}</td>
+              {displayItems.slice(0, 5).map((item, idx) => (
+                <tr key={item.id || idx} className="border-b border-gray-300">
+                  <td className="p-1 border-r border-gray-300 min-h-[20px]">
+                    {item.description || (
+                      <span className="text-gray-300">-</span>
+                    )}
+                  </td>
+                  <td className="p-1 min-h-[20px]">
+                    {item.quantity || <span className="text-gray-300">-</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {/* Weight Row */}
+          {booking?.weight && (
+            <div className="p-1 border-t border-black text-xs font-medium bg-gray-50">
+              Total Weight: {booking.weight} kg
+            </div>
+          )}
         </div>
 
-        <div className="border">
-          <div className="font-bold text-center bg-gray-100 p-1">
+        {/* Billing Details */}
+        <div className="border border-black">
+          <div className="font-bold text-center bg-gray-100 p-1 border-b border-black">
             BILLING DETAILS
           </div>
           <div className="p-2 text-xs space-y-1">
@@ -203,20 +241,38 @@ export const LiveStandardPreview = ({
               <span>{formatDate(booking?.lr_date)}</span>
             </div>
             <div className="flex justify-between">
-              <span>VALUE:</span>
-              <span>₹ {booking?.invoice_value || "0"}</span>
+              <span>Invoice No:</span>
+              <span>{booking?.invoice_number || "-"}</span>
             </div>
-            <div className="flex justify-between border-t pt-1">
+            <div className="flex justify-between">
+              <span>Invoice Value:</span>
+              <span>
+                ₹ {booking?.invoice_value?.toLocaleString("en-IN") || "0"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>E-way Bill:</span>
+              <span>{booking?.eway_bill || "-"}</span>
+            </div>
+            <div className="flex justify-between border-t border-black pt-1 mt-2">
               <span>Freight:</span>
-              <span>₹ {booking?.freight_charges || "0"}</span>
+              <span>
+                ₹ {booking?.freight_charges?.toLocaleString("en-IN") || "0"}
+              </span>
             </div>
-            <div className="flex justify-between font-bold border-t pt-1">
-              <span>Total:</span>
+            <div className="flex justify-between">
+              <span>Payment Mode:</span>
+              <span className="font-medium">
+                {booking?.payment_mode || "TO_PAY"}
+              </span>
+            </div>
+            <div className="flex justify-between font-bold border-t border-black pt-1 mt-2">
+              <span>TOTAL:</span>
               <span>
                 ₹{" "}
                 {(
-                  parseFloat(booking?.freight_charges || 0) +
-                  parseFloat(booking?.invoice_value || 0)
+                  (booking?.freight_charges || 0) +
+                  (booking?.invoice_value || 0)
                 ).toLocaleString("en-IN")}
               </span>
             </div>
@@ -225,15 +281,15 @@ export const LiveStandardPreview = ({
       </div>
 
       {/* FOOTER */}
-      <div className="border-t pt-2">
+      <div className="border-t-2 border-black pt-2">
         {customization.footer_config?.show_terms && (
-          <p className="text-xs mb-2">
-            {customization.footer_config.terms_text}
+          <p className="text-xs mb-3 italic">
+            Terms: {customization.footer_config.terms_text}
           </p>
         )}
 
         {customization.footer_config?.show_signature && (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 mt-4">
             {(
               customization.footer_config.signature_labels || [
                 "Consignor",
@@ -242,8 +298,8 @@ export const LiveStandardPreview = ({
               ]
             ).map((label: string, index: number) => (
               <div key={index} className="text-center">
-                <div className="border-b border-black mb-1 h-8"></div>
-                <div className="text-xs">{label}</div>
+                <div className="border-b border-black mb-1 h-10"></div>
+                <div className="text-xs font-medium">{label}</div>
               </div>
             ))}
           </div>

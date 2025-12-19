@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +53,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { format, subDays, startOfDay } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
+import { RequestStatusCard } from "@/components/RequestStatusCard";
+import { AccessRequestModal } from "@/components/AccessRequestModal";
 
 // ✅ THEME COLORS
 const CHART_COLORS = {
@@ -127,7 +128,7 @@ export const Dashboard = () => {
 
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-
+  const [showAccessRequestModal, setShowAccessRequestModal] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     bookings: {
       total: 0,
@@ -588,7 +589,28 @@ export const Dashboard = () => {
   // ✅ FREE USER DASHBOARD VIEW
   if (isFreeUser) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
+        {/* ✅ Access Request Modal */}
+        <AccessRequestModal
+          open={showAccessRequestModal}
+          onOpenChange={setShowAccessRequestModal}
+          featureName="All Features"
+          featureIcon={Sparkles}
+          features={[
+            "Customer & Party Management",
+            "Complete Booking System",
+            "Fleet & Vehicle Management",
+            "Warehouse Operations",
+          ]}
+        />
+
+        {/* ✅ Request Status Card - Shows pending/rejected/approved status */}
+        <RequestStatusCard
+          onRequestAgain={() => {
+            setShowAccessRequestModal(true); // ✅ Opens the modal!
+          }}
+        />
+
         {/* Welcome Banner */}
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
           <CardContent className="p-6">
@@ -609,7 +631,7 @@ export const Dashboard = () => {
                 </p>
               </div>
               <Button
-                onClick={() => window.open("mailto:sales@freightsynq.com")}
+                onClick={() => setShowAccessRequestModal(true)} // ✅ Updated - Opens modal
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Sparkles className="w-4 h-4 mr-2" />
@@ -718,7 +740,6 @@ export const Dashboard = () => {
       </div>
     );
   }
-
   // ✅ FULL USER DASHBOARD (Normal View)
   if (loading) {
     return (
@@ -1321,12 +1342,12 @@ export const Dashboard = () => {
       <BookingFormModal
         isOpen={isBookingFormOpen}
         onClose={() => setIsBookingFormOpen(false)}
-        onSave={(bookingData) => {
+        onSave={async (bookingData) => {
           toast({
             title: "✅ Booking Created",
             description: `Booking has been created successfully`,
           });
-          loadDashboardData();
+          await loadDashboardData();
         }}
       />
     </div>

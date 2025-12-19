@@ -3,7 +3,6 @@ import {
   changeTemplate,
   getAvailableTemplates,
   getCurrentTemplateWithCompany,
-  selectTemplate,
 } from "@/api/lr-templates";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft, ArrowRight, Upload, Eye } from "lucide-react";
+import { Loader2, ArrowLeft, ArrowRight, Eye } from "lucide-react";
 // Live Preview Components - Template Specific
 const LiveStandardPreview = ({ customization }) => (
   <div
@@ -1731,10 +1730,7 @@ export const LRTemplateOnboarding = ({ onComplete, changeMode = false }) => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setCustomization((prev) => ({
-          ...prev,
-          logo_url: e.target.result,
-        }));
+        setCustomization((prev) => ({ ...prev, logo_url: e.target.result }));
       };
       reader.readAsDataURL(file);
     }

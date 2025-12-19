@@ -7,15 +7,8 @@ import {
   Building,
   Users,
   Package,
-  TrendingUp,
-  Activity,
-  CheckCircle,
   ArrowUpRight,
   ArrowDownRight,
-  Server,
-  HardDrive,
-  Zap,
-  Shield,
   Lock,
   Unlock,
   AlertTriangle,
@@ -314,82 +307,6 @@ export const SuperAdminDashboard = () => {
       {/* System Health & Recent Companies */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* System Health */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" />
-              System Health
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* CPU Usage */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-blue-500" />
-                  CPU Usage
-                </span>
-                <span className="text-sm font-bold">
-                  {stats.systemHealth.cpu}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all"
-                  style={{ width: `${stats.systemHealth.cpu}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Memory */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <Server className="w-4 h-4 text-green-500" />
-                  Memory
-                </span>
-                <span className="text-sm font-bold">
-                  {stats.systemHealth.memory}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all"
-                  style={{ width: `${stats.systemHealth.memory}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Storage */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-orange-500" />
-                  Storage
-                </span>
-                <span className="text-sm font-bold">
-                  {stats.systemHealth.storage}%
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-orange-500 h-2 rounded-full transition-all"
-                  style={{ width: `${stats.systemHealth.storage}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-muted-foreground">
-                  All systems operational
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Recent Companies */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between">

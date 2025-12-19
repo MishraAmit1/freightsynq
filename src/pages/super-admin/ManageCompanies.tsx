@@ -1,4 +1,3 @@
-// src/pages/super-admin/ManageCompanies.tsx
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -262,7 +261,7 @@ export const ManageCompanies = () => {
   return (
     <div className="container mx-auto p-6 max-w-7xl">
       {/* Header */}
-      <div className="mb-6">
+      {/* <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2 text-foreground dark:text-white">
           <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
             <Building2 className="w-8 h-8 text-primary dark:text-primary" />
@@ -272,7 +271,7 @@ export const ManageCompanies = () => {
         <p className="text-muted-foreground dark:text-muted-foreground mt-2">
           Control company access levels and monitor registrations
         </p>
-      </div>
+      </div> */}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
@@ -321,23 +320,6 @@ export const ManageCompanies = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* <Card className="bg-card border-border dark:border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-                  Active
-                </p>
-                <p className="text-2xl font-bold text-foreground dark:text-white">
-                  {stats.active}
-                </p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400 opacity-50" />
-            </div>
-          </CardContent>
-        </Card> */}
-
         {/* Expiring Soon Card */}
         {stats.expiringSoon > 0 && (
           <Card className="bg-card border-orange-200 dark:border-orange-900/50">

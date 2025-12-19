@@ -15,7 +15,7 @@ interface LRLivePreviewProps {
   templateCode: string;
   companyData?: any;
   className?: string;
-  showCard?: boolean; // ✅ New prop for print mode
+  showCard?: boolean;
 }
 
 export const LRLivePreview = ({
@@ -23,8 +23,13 @@ export const LRLivePreview = ({
   templateCode,
   companyData,
   className,
-  showCard = true, // ✅ Default true
+  showCard = true,
 }: LRLivePreviewProps) => {
+  // ✅ Convert goods_items array for templates
+  const goodsItems =
+    formData.goods_items?.filter((item) => item.description || item.quantity) ||
+    [];
+
   // Convert form data to booking-like structure
   const bookingData = {
     lr_number: formData.standalone_lr_number || "LR-XXXXXX",
@@ -56,8 +61,12 @@ export const LRLivePreview = ({
     from_location: formData.from_location || "Origin",
     to_location: formData.to_location || "Destination",
 
-    material_description: formData.material_description,
-    cargo_units: formData.packages_qty,
+    // ✅ NEW: Pass goods_items array
+    goods_items:
+      goodsItems.length > 0
+        ? goodsItems
+        : [{ id: "1", description: "Sample goods", quantity: "10 boxes" }],
+
     weight: formData.weight,
     invoice_number: formData.invoice_number,
     invoice_value: formData.invoice_value,
@@ -70,23 +79,25 @@ export const LRLivePreview = ({
     freight_charges: formData.freight_amount,
     payment_mode: formData.payment_mode,
 
-    remarks: formData.remarks, // ✅ ADD REMARKS
+    remarks: formData.remarks,
   };
 
+  // USE FORM DATA FOR COMPANY (with fallback to companyData prop)
   const customization = {
-    logo_url: companyData?.logo_url || "",
+    logo_url: formData.company_logo_url || companyData?.logo_url || "",
     company_details: {
-      name: companyData?.name || "Your Company Name",
-      address: companyData?.address || "Company Address",
-      city: companyData?.city || "City",
-      state: companyData?.state || "State",
-      gst: companyData?.gst_number || "22AAAAA0000A1Z5",
-      pan: companyData?.pan_number || "AAAAA0000A",
-      phone: companyData?.phone || "+91 9999999999",
-      email: companyData?.email || "info@company.com",
+      name: formData.company_name || companyData?.name || "Your Company Name",
+      address:
+        formData.company_address || companyData?.address || "Company Address",
+      city: formData.company_city || companyData?.city || "City",
+      state: formData.company_state || companyData?.state || "State",
+      gst: formData.company_gst || companyData?.gst_number || "22AAAAA0000A1Z5",
+      pan: formData.company_pan || companyData?.pan_number || "AAAAA0000A",
+      phone: formData.company_phone || companyData?.phone || "+91 9999999999",
+      email: formData.company_email || companyData?.email || "info@company.com",
     },
     header_config: {
-      show_logo: !!companyData?.logo_url,
+      show_logo: !!(formData.company_logo_url || companyData?.logo_url),
       logo_position: "left",
       show_gst: true,
       show_pan: false,
@@ -100,14 +111,13 @@ export const LRLivePreview = ({
       consignee: true,
       from_location: true,
       to_location: true,
-      material_description: true,
+      goods_items: true,
       vehicle_number: true,
       driver_details: true,
       weight: !!formData.weight,
-      quantity: true,
       freight_charges: !!formData.freight_amount,
       payment_mode: !!formData.payment_mode,
-      remarks: !!formData.remarks, // ✅ ADD
+      remarks: !!formData.remarks,
     },
     style_config: {
       primary_color: "#000000",
@@ -117,7 +127,7 @@ export const LRLivePreview = ({
     },
     footer_config: {
       show_terms: true,
-      terms_text: formData.remarks || "Goods once sent will not be taken back", // ✅ Use remarks
+      terms_text: formData.remarks || "Goods once sent will not be taken back",
       show_signature: true,
       signature_labels: ["Consignor", "Driver", "Consignee"],
     },
@@ -163,7 +173,6 @@ export const LRLivePreview = ({
   const isLandscape =
     templateCode === "standard" || templateCode === "detailed";
 
-  // ✅ If showCard is false, render only the preview (for printing)
   if (!showCard) {
     return <div className={cn("bg-white", className)}>{renderTemplate()}</div>;
   }
@@ -191,12 +200,7 @@ export const LRLivePreview = ({
       </CardHeader>
 
       <CardContent className="p-0">
-        <div
-          className={cn(
-            "overflow-auto bg-muted dark:bg-[#1a1a1a] p-4"
-            // ✅ REMOVED max-height to fix scroll issue
-          )}
-        >
+        <div className="overflow-auto bg-muted dark:bg-[#1a1a1a] p-4">
           <div
             className="origin-top-left"
             style={{

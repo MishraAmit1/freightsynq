@@ -10,6 +10,7 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,11 @@ export const SuperAdminSidebar = ({
 
   const navigation = [
     { name: "Dashboard", href: "/super-admin", icon: BarChart3, exact: true },
-    // { name: "Create Invites", href: "/super-admin/invites", icon: Plus },
+    {
+      name: "Access Requests",
+      href: "/super-admin/access-requests",
+      icon: ClipboardList,
+    }, // ✅ NEW
     {
       name: "Manage Companies",
       href: "/super-admin/companies",

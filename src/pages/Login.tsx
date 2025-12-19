@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import { useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
   Headphones,
   Eye,
   EyeOff,
+  Building2, // ✅ NEW IMPORT
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -255,7 +257,6 @@ export const Login = () => {
                       className="h-11 pl-10 pr-10 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
                     />
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
-
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
@@ -304,17 +305,44 @@ export const Login = () => {
                   )}
                 </Button>
 
-                {/* ✅ Added Sign Up Link Here */}
-                <div className="text-center text-sm">
-                  <span className="text-[#737373] dark:text-[#A1A1AA]">
-                    Don't have an account?{" "}
-                  </span>
-                  <Link
-                    to="/signup"
-                    className="font-medium text-[#0A0A0A] dark:text-[#FCC52C] hover:underline transition-all"
-                  >
-                    Sign up
-                  </Link>
+                {/* ✅ NEW: Two Options - Create Company OR Join Company */}
+                <div className="space-y-4 pt-2">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-[#E5E7EB] dark:border-[#35353F]" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white dark:bg-[#2A2A32] px-2 text-[#737373] dark:text-[#A1A1AA]">
+                        Don't have an account?
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Create Company - Owner Signup */}
+                    <Link to="/signup">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-11 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] hover:bg-[#F5F5F5] dark:hover:bg-[#35353F] text-[#0A0A0A] dark:text-white transition-all group"
+                      >
+                        <Building2 className="w-4 h-4 mr-2 group-hover:text-primary dark:group-hover:text-[#FCC52C] transition-colors" />
+                        <span className="text-sm">Create Company</span>
+                      </Button>
+                    </Link>
+
+                    {/* Join Company - Employee Signup */}
+                    <Link to="/employee-signup">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full h-11 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] hover:bg-[#F5F5F5] dark:hover:bg-[#35353F] text-[#0A0A0A] dark:text-white transition-all group"
+                      >
+                        <Users className="w-4 h-4 mr-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors" />
+                        <span className="text-sm">Join Company</span>
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </form>
             </CardContent>
@@ -322,75 +350,76 @@ export const Login = () => {
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
+      {/* RIGHT PANEL - Keep as is */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
+        {/* ... Rest of the right panel code remains same ... */}
         <style>{`
-                    @keyframes borderFlow {
-                        0%, 100% { background-position: 0% 50%; }
-                        50% { background-position: 100% 50%; }
-                    }
-                    
-                    @keyframes glow {
-                        0%, 100% { opacity: 0.5; transform: scale(1); }
-                        50% { opacity: 1; transform: scale(1.2); }
-                    }
-                    
-                    .animated-corner-tl::before {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 150px;
-                        height: 3px;
-                        background: linear-gradient(90deg, #FCC52C, #F38810, #FCC52C, #F38810);
-                        background-size: 300% 100%;
-                        animation: borderFlow 2s ease-in-out infinite;
-                        border-radius: 0 4px 4px 0;
-                    }
-                    
-                    .animated-corner-tl::after {
-                        content: '';
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 3px;
-                        height: 150px;
-                        background: linear-gradient(180deg, #FCC52C, #F38810, #FCC52C, #F38810);
-                        background-size: 100% 300%;
-                        animation: borderFlow 2s ease-in-out infinite;
-                        border-radius: 0 0 4px 4px;
-                    }
-                    
-                    .animated-corner-br::before {
-                        content: '';
-                        position: absolute;
-                        bottom: 0;
-                        right: 0;
-                        width: 150px;
-                        height: 3px;
-                        background: linear-gradient(90deg, #F38810, #FCC52C, #F38810, #FCC52C);
-                        background-size: 300% 100%;
-                        animation: borderFlow 2s ease-in-out infinite;
-                        border-radius: 4px 0 0 4px;
-                    }
-                    
-                    .animated-corner-br::after {
-                        content: '';
-                        position: absolute;
-                        bottom: 0;
-                        right: 0;
-                        width: 3px;
-                        height: 150px;
-                        background: linear-gradient(180deg, #F38810, #FCC52C, #F38810, #FCC52C);
-                        background-size: 100% 300%;
-                        animation: borderFlow 2s ease-in-out infinite;
-                        border-radius: 4px 4px 0 0;
-                    }
-                    
-                    .glow-dot {
-                        animation: glow 2s ease-in-out infinite;
-                    }
-                `}</style>
+          @keyframes borderFlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+          }
+          
+          @keyframes glow {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+          }
+          
+          .animated-corner-tl::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 150px;
+            height: 3px;
+            background: linear-gradient(90deg, #FCC52C, #F38810, #FCC52C, #F38810);
+            background-size: 300% 100%;
+            animation: borderFlow 2s ease-in-out infinite;
+            border-radius: 0 4px 4px 0;
+          }
+          
+          .animated-corner-tl::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 150px;
+            background: linear-gradient(180deg, #FCC52C, #F38810, #FCC52C, #F38810);
+            background-size: 100% 300%;
+            animation: borderFlow 2s ease-in-out infinite;
+            border-radius: 0 0 4px 4px;
+          }
+          
+          .animated-corner-br::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            height: 3px;
+            background: linear-gradient(90deg, #F38810, #FCC52C, #F38810, #FCC52C);
+            background-size: 300% 100%;
+            animation: borderFlow 2s ease-in-out infinite;
+            border-radius: 4px 0 0 4px;
+          }
+          
+          .animated-corner-br::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 3px;
+            height: 150px;
+            background: linear-gradient(180deg, #F38810, #FCC52C, #F38810, #FCC52C);
+            background-size: 100% 300%;
+            animation: borderFlow 2s ease-in-out infinite;
+            border-radius: 4px 4px 0 0;
+          }
+          
+          .glow-dot {
+            animation: glow 2s ease-in-out infinite;
+          }
+        `}</style>
 
         <div className="animated-corner-tl absolute inset-0 pointer-events-none z-20" />
         <div className="animated-corner-br absolute inset-0 pointer-events-none z-20" />

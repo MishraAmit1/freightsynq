@@ -1,6 +1,13 @@
 // src/features/lr-generator/templates/DetailedPreview.tsx
 import { parseCargoAndMaterials, formatDate } from "./helpers";
 
+interface GoodsItem {
+  id: string;
+  description?: string;
+  quantity?: string;
+  weight?: string;
+}
+
 interface PreviewProps {
   customization: any;
   booking?: any;
@@ -10,10 +17,40 @@ export const LiveDetailedPreview = ({
   customization,
   booking,
 }: PreviewProps) => {
-  const cargoData = parseCargoAndMaterials(
-    booking?.cargo_units || "10 boxes",
-    booking?.material_description || "Sample goods"
-  );
+  // ✅ Get goods items - NEW FORMAT
+  let goodsData: GoodsItem[] = [];
+
+  if (
+    booking?.goods_items &&
+    Array.isArray(booking.goods_items) &&
+    booking.goods_items.length > 0
+  ) {
+    // New format - goods_items array
+    goodsData = booking.goods_items;
+  } else {
+    // Legacy format - parse from cargo_units and material_description
+    const cargoData = parseCargoAndMaterials(
+      booking?.cargo_units || "10 boxes",
+      booking?.material_description || "Sample goods"
+    );
+    goodsData = cargoData.map((row, idx) => ({
+      id: `legacy-${idx}`,
+      description: row.material || "",
+      quantity: row.cargo || "",
+      weight: "",
+    }));
+  }
+
+  // ✅ Fill to minimum 5 rows for consistent display
+  const displayItems = [...goodsData];
+  while (displayItems.length < 5) {
+    displayItems.push({
+      id: `empty-${displayItems.length}`,
+      description: "",
+      quantity: "",
+      weight: "",
+    });
+  }
 
   return (
     <div
@@ -207,7 +244,7 @@ export const LiveDetailedPreview = ({
         </div>
       </div>
 
-      {/* GOODS TABLE */}
+      {/* ✅ GOODS TABLE - UPDATED WITH goods_items */}
       <div className="border border-gray-600 mb-2">
         <div className="bg-gray-300 font-bold text-xs p-1">
           GOODS DESCRIPTION
@@ -215,29 +252,54 @@ export const LiveDetailedPreview = ({
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-gray-100">
-              <th className="border-r border-gray-400 p-1 text-left">S.No</th>
-              <th className="border-r border-gray-400 p-1 text-left">
-                Packages
+              <th className="border-r border-gray-400 p-1 text-left w-8">
+                S.No
+              </th>
+              <th className="border-r border-gray-400 p-1 text-left w-20">
+                Quantity
               </th>
               <th className="border-r border-gray-400 p-1 text-left">
                 Description
               </th>
-              <th className="border-r border-gray-400 p-1 text-center">
+              <th className="border-r border-gray-400 p-1 text-center w-16">
                 Weight
               </th>
-              <th className="p-1 text-center">Value (₹)</th>
+              <th className="p-1 text-center w-20">Value (₹)</th>
             </tr>
           </thead>
           <tbody>
-            {cargoData.slice(0, 5).map((row, index) => (
-              <tr key={index} className="border-t border-gray-300">
-                <td className="border-r border-gray-300 p-1">{index + 1}</td>
-                <td className="border-r border-gray-300 p-1">{row.cargo}</td>
-                <td className="border-r border-gray-300 p-1">{row.material}</td>
-                <td className="border-r border-gray-300 p-1 text-center">-</td>
-                <td className="p-1 text-center">-</td>
+            {displayItems.slice(0, 5).map((item, index) => (
+              <tr key={item.id || index} className="border-t border-gray-300">
+                {/* S.No - only if has data */}
+                <td className="border-r border-gray-300 p-1">
+                  {item.description || item.quantity ? (
+                    index + 1
+                  ) : (
+                    <span className="text-gray-300">-</span>
+                  )}
+                </td>
+
+                {/* Quantity - only if has value */}
+                <td className="border-r border-gray-300 p-1">
+                  {item.quantity || <span className="text-gray-300">-</span>}
+                </td>
+
+                {/* Description - only if has value */}
+                <td className="border-r border-gray-300 p-1">
+                  {item.description || <span className="text-gray-300">-</span>}
+                </td>
+
+                {/* Weight - only if has value */}
+                <td className="border-r border-gray-300 p-1 text-center">
+                  {item.weight || <span className="text-gray-300">-</span>}
+                </td>
+
+                {/* Value - placeholder */}
+                <td className="p-1 text-center text-gray-300">-</td>
               </tr>
             ))}
+
+            {/* TOTAL ROW */}
             <tr className="border-t-2 border-gray-400 font-bold bg-gray-50">
               <td colSpan={3} className="p-1 text-right">
                 TOTAL:
@@ -246,7 +308,7 @@ export const LiveDetailedPreview = ({
                 {booking?.weight || "0"}
               </td>
               <td className="p-1 text-center">
-                {booking?.invoice_value || "0"}
+                {booking?.invoice_value?.toLocaleString("en-IN") || "0"}
               </td>
             </tr>
           </tbody>
@@ -274,11 +336,15 @@ export const LiveDetailedPreview = ({
           <div className="text-xs space-y-1">
             <div className="flex justify-between">
               <span>Basic Freight:</span>
-              <span>₹ {booking?.freight_charges || "0"}</span>
+              <span>
+                ₹ {booking?.freight_charges?.toLocaleString("en-IN") || "0"}
+              </span>
             </div>
             <div className="flex justify-between font-bold border-t pt-1">
               <span>TOTAL:</span>
-              <span>₹ {booking?.freight_charges || "0"}</span>
+              <span>
+                ₹ {booking?.freight_charges?.toLocaleString("en-IN") || "0"}
+              </span>
             </div>
           </div>
         </div>

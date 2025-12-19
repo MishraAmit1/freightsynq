@@ -1,16 +1,48 @@
 // src/features/lr-generator/templates/GSTPreview.tsx
 import { parseCargoAndMaterials, formatDate } from "./helpers";
 
+interface GoodsItem {
+  id: string;
+  description?: string;
+  quantity?: string;
+}
+
 interface PreviewProps {
   customization: any;
   booking?: any;
 }
 
 export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
-  const cargoData = parseCargoAndMaterials(
-    booking?.cargo_units || "10 boxes",
-    booking?.material_description || "Sample goods"
-  );
+  // ✅ Get goods items
+  let goodsData: GoodsItem[] = [];
+
+  if (
+    booking?.goods_items &&
+    Array.isArray(booking.goods_items) &&
+    booking.goods_items.length > 0
+  ) {
+    goodsData = booking.goods_items;
+  } else {
+    const cargoData = parseCargoAndMaterials(
+      booking?.cargo_units || "10 boxes",
+      booking?.material_description || "Sample goods"
+    );
+    goodsData = cargoData.map((row, idx) => ({
+      id: `legacy-${idx}`,
+      description: row.material || "",
+      quantity: row.cargo || "",
+    }));
+  }
+
+  // Fill to minimum 5 rows
+  const displayItems = [...goodsData];
+  while (displayItems.length < 5) {
+    displayItems.push({
+      id: `empty-${displayItems.length}`,
+      description: "",
+      quantity: "",
+    });
+  }
 
   return (
     <div
@@ -40,13 +72,13 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
           {customization.header_config.logo_position !== "left" && (
             <div className="text-left">
               <div className="text-xs font-semibold text-gray-600">
-                Tax Invoice No.
+                LR Number
               </div>
               <div
                 className="text-lg font-bold"
                 style={{ color: customization.style_config.primary_color }}
               >
-                {booking?.invoice_number || booking?.lr_number || "AUTO-GEN"}
+                {booking?.lr_number || "AUTO-GEN"}
               </div>
               <div className="text-xs">
                 Date: {formatDate(booking?.lr_date)}
@@ -75,7 +107,7 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
             {customization.company_details?.name || "CARGO SOLUTIONS"}
           </h1>
           <div className="text-sm font-semibold bg-gray-100 px-3 py-1 rounded">
-            TAX INVOICE / LR
+            LORRY RECEIPT
           </div>
           {customization.header_config.show_address && (
             <p className="text-xs mt-1">
@@ -108,13 +140,13 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
           {customization.header_config.logo_position !== "right" && (
             <div className="text-right">
               <div className="text-xs font-semibold text-gray-600">
-                Tax Invoice No.
+                LR Number
               </div>
               <div
                 className="text-lg font-bold"
                 style={{ color: customization.style_config.primary_color }}
               >
-                {booking?.invoice_number || "AUTO-GEN"}
+                {booking?.lr_number || "AUTO-GEN"}
               </div>
               <div className="text-xs">
                 Date: {formatDate(booking?.lr_date)}
@@ -125,23 +157,21 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
       </div>
 
       {/* DOCUMENT INFO */}
-      <div className="grid grid-cols-5 gap-2 mb-3 text-xs bg-blue-50 p-2 rounded">
-        <div>
-          <span className="font-bold">LR No:</span>{" "}
-          {booking?.lr_number || "AUTO-GEN"}
-        </div>
+      <div className="grid grid-cols-4 gap-2 mb-3 text-xs bg-blue-50 p-2 rounded">
         <div>
           <span className="font-bold">Vehicle:</span>{" "}
           {booking?.vehicle_number || "-"}
         </div>
         <div>
-          <span className="font-bold">E-Way:</span> {booking?.eway_bill || "-"}
+          <span className="font-bold">E-Way Bill:</span>{" "}
+          {booking?.eway_bill || "-"}
         </div>
         <div>
           <span className="font-bold">Weight:</span> {booking?.weight || "0"} Kg
         </div>
         <div>
-          <span className="font-bold">HSN:</span> 996511
+          <span className="font-bold">Invoice No:</span>{" "}
+          {booking?.invoice_number || "-"}
         </div>
       </div>
 
@@ -150,7 +180,7 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
         {customization.visible_fields?.consignor !== false && (
           <div className="border-2 border-blue-300 rounded">
             <div className="bg-blue-500 text-white px-2 py-1 font-bold text-xs">
-              BILL TO (Consignor)
+              CONSIGNOR
             </div>
             <div className="p-2 text-xs">
               <div className="font-bold text-sm">
@@ -176,7 +206,7 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
         {customization.visible_fields?.consignee !== false && (
           <div className="border-2 border-green-300 rounded">
             <div className="bg-green-500 text-white px-2 py-1 font-bold text-xs">
-              SHIP TO (Consignee)
+              CONSIGNEE
             </div>
             <div className="p-2 text-xs">
               <div className="font-bold text-sm">
@@ -222,111 +252,90 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
         </div>
       </div>
 
-      {/* SERVICES TABLE */}
-      <div className="border border-gray-400 mb-3">
-        <div className="bg-gray-600 text-white p-2 font-bold text-sm text-center">
-          GOODS TRANSPORTATION SERVICES
+      {/* ✅ GOODS & BILLING - Same as Standard Template */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {/* Goods Description Table */}
+        <div className="border border-black">
+          <div className="font-bold text-center bg-gray-100 p-1 border-b border-black">
+            GOODS DESCRIPTION
+          </div>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-black bg-gray-50">
+                <th className="p-1 text-left border-r border-black w-2/3">
+                  Description
+                </th>
+                <th className="p-1 text-left w-1/3">Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayItems.slice(0, 5).map((item, idx) => (
+                <tr key={item.id || idx} className="border-b border-gray-300">
+                  <td className="p-1 border-r border-gray-300 min-h-[20px]">
+                    {item.description || (
+                      <span className="text-gray-300">-</span>
+                    )}
+                  </td>
+                  <td className="p-1 min-h-[20px]">
+                    {item.quantity || <span className="text-gray-300">-</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Weight Row */}
+          {booking?.weight && (
+            <div className="p-1 border-t border-black text-xs font-medium bg-gray-50">
+              Total Weight: {booking.weight} kg
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-12 bg-gray-200 p-1 text-xs font-bold border-b">
-          <div className="col-span-1">S.No</div>
-          <div className="col-span-2">Packages</div>
-          <div className="col-span-4">Description</div>
-          <div className="col-span-2 text-center">HSN/SAC</div>
-          <div className="col-span-1 text-center">Qty</div>
-          <div className="col-span-2 text-right">Value (₹)</div>
-        </div>
-
-        <div className="p-1">
-          {cargoData.slice(0, 3).map((row, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-12 text-xs py-1 border-b border-gray-200"
-            >
-              <div className="col-span-1">{index + 1}</div>
-              <div className="col-span-2">{row.cargo}</div>
-              <div className="col-span-4">{row.material}</div>
-              <div className="col-span-2 text-center">996511</div>
-              <div className="col-span-1 text-center">1</div>
-              <div className="col-span-2 text-right">-</div>
-            </div>
-          ))}
-
-          <div className="grid grid-cols-12 text-xs py-1 bg-blue-50 font-semibold">
-            <div className="col-span-1">{cargoData.length + 1}</div>
-            <div className="col-span-2">Transport</div>
-            <div className="col-span-4">Goods Transportation Service</div>
-            <div className="col-span-2 text-center">996511</div>
-            <div className="col-span-1 text-center">1 Trip</div>
-            <div className="col-span-2 text-right">
-              {(booking?.freight_charges || 0).toLocaleString("en-IN")}
-            </div>
+        {/* ✅ Billing Details - Simple like Standard Template */}
+        <div className="border border-black">
+          <div className="font-bold text-center bg-gray-100 p-1 border-b border-black">
+            BILLING DETAILS
           </div>
-        </div>
-      </div>
-
-      {/* TAX CALCULATION */}
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="border border-gray-300 p-2">
-          <div
-            className="font-bold text-sm mb-2"
-            style={{ color: customization.style_config.primary_color }}
-          >
-            ADDITIONAL INFO
-          </div>
-          <div className="text-xs space-y-1">
-            <div>
-              <span className="font-semibold">Invoice No:</span>{" "}
-              {booking?.invoice_number || "-"}
-            </div>
-            <div>
-              <span className="font-semibold">E-way Bill:</span>{" "}
-              {booking?.eway_bill || "-"}
-            </div>
-            <div>
-              <span className="font-semibold">Remarks:</span>{" "}
-              {booking?.remarks || "-"}
-            </div>
-          </div>
-        </div>
-
-        <div className="border border-gray-300 p-2">
-          <div
-            className="font-bold text-sm mb-2"
-            style={{ color: customization.style_config.primary_color }}
-          >
-            TAX CALCULATION
-          </div>
-          <div className="text-xs space-y-1">
+          <div className="p-2 text-xs space-y-1">
             <div className="flex justify-between">
-              <span>Taxable Amount:</span>
+              <span>DATE:</span>
+              <span>{formatDate(booking?.lr_date)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Invoice No:</span>
+              <span>{booking?.invoice_number || "-"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Invoice Value:</span>
               <span>
-                ₹ {(booking?.freight_charges || 0).toLocaleString("en-IN")}
+                ₹ {booking?.invoice_value?.toLocaleString("en-IN") || "0"}
               </span>
             </div>
             <div className="flex justify-between">
-              <span>CGST @ 2.5%:</span>
+              <span>E-way Bill:</span>
+              <span>{booking?.eway_bill || "-"}</span>
+            </div>
+            <div className="flex justify-between border-t border-black pt-1 mt-2">
+              <span>Freight:</span>
               <span>
-                ₹ {((booking?.freight_charges || 0) * 0.025).toFixed(2)}
+                ₹ {booking?.freight_charges?.toLocaleString("en-IN") || "0"}
               </span>
             </div>
             <div className="flex justify-between">
-              <span>SGST @ 2.5%:</span>
-              <span>
-                ₹ {((booking?.freight_charges || 0) * 0.025).toFixed(2)}
+              <span>Payment Mode:</span>
+              <span className="font-medium">
+                {booking?.payment_mode || "TO_PAY"}
               </span>
             </div>
-            <div className="border-t-2 border-gray-400 pt-1 mt-2">
-              <div className="flex justify-between font-bold text-sm">
-                <span>TOTAL:</span>
-                <span>
-                  ₹{" "}
-                  {((booking?.freight_charges || 0) * 1.05).toLocaleString(
-                    "en-IN",
-                    { minimumFractionDigits: 2 }
-                  )}
-                </span>
-              </div>
+            <div className="flex justify-between font-bold border-t border-black pt-1 mt-2">
+              <span>TOTAL:</span>
+              <span>
+                ₹{" "}
+                {(
+                  (booking?.freight_charges || 0) +
+                  (booking?.invoice_value || 0)
+                ).toLocaleString("en-IN")}
+              </span>
             </div>
           </div>
         </div>
@@ -337,22 +346,17 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
         <div className="font-bold text-xs mb-1">DECLARATION:</div>
         <div className="text-xs">
           {customization.footer_config?.terms_text ||
-            "We declare that this invoice shows the actual price of goods/services and all particulars are true and correct."}
+            "Goods booked at owner's risk. Subject to terms and conditions."}
         </div>
       </div>
 
       {/* SIGNATURES */}
       {customization.footer_config?.show_signature && (
         <div className="grid grid-cols-3 gap-4 text-center mt-4">
-          {[
-            "Customer Signature",
-            "Driver Signature",
-            "Authorized Signatory",
-          ].map((label, idx) => (
+          {["Consignor", "Driver", "Consignee"].map((label, idx) => (
             <div key={idx}>
               <div className="border-b-2 border-gray-400 mb-1 h-8"></div>
               <div className="text-xs font-semibold">{label}</div>
-              <div className="text-xs text-gray-500">Date: ___________</div>
             </div>
           ))}
         </div>
@@ -361,7 +365,7 @@ export const LiveGSTPreview = ({ customization, booking }: PreviewProps) => {
       {/* FOOTER */}
       <div className="text-center text-xs text-gray-600 mt-3 border-t pt-2">
         <div>
-          Computer generated Tax Invoice |{" "}
+          Computer generated document |{" "}
           {customization.company_details?.name || "Company Name"}
         </div>
       </div>

@@ -1,4 +1,3 @@
-// src/components/layout/Sidebar.tsx
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -18,10 +17,19 @@ import {
   Building,
   TrendingUp,
   Locate,
-  Lock,
   Sparkles,
   FilePlus2,
   FolderOpen,
+  Crown,
+  Users,
+  ClipboardList,
+  Receipt,
+  PackageSearch,
+  Route,
+  Calculator,
+  PieChart,
+  Bell,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AccessRequestModal } from "@/components/AccessRequestModal"; // ✅ NEW IMPORT
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -40,6 +49,72 @@ interface SidebarProps {
   onClose?: () => void;
   onToggleCollapse?: () => void;
 }
+
+// ✅ Feature details for each locked feature
+interface LockedFeatureDetails {
+  name: string;
+  icon: any;
+  title: string;
+  description: string;
+  features: string[];
+  featureIcons: any[];
+}
+
+const lockedFeaturesDetails: Record<string, LockedFeatureDetails> = {
+  Customers: {
+    name: "Customers",
+    icon: UsersRound,
+    title: "Customer Management",
+    description:
+      "Manage all your consignors, consignees and business partners in one place.",
+    features: [
+      "Add & manage consignors/consignees",
+      "Store GST & contact details",
+      "Track customer history",
+      "Quick search & filters",
+    ],
+    featureIcons: [Users, FileText, ClipboardList, PackageSearch],
+  },
+  Bookings: {
+    name: "Bookings",
+    icon: FileText,
+    title: "Booking & Bilty System",
+    description: "Complete booking management with LR generation and tracking.",
+    features: [
+      "Create & manage bookings",
+      "Generate professional bilty/LR",
+      "Track shipment status",
+      "Payment & billing management",
+    ],
+    featureIcons: [ClipboardList, Receipt, Route, Calculator],
+  },
+  Vehicles: {
+    name: "Vehicles",
+    icon: Truck,
+    title: "Fleet & Vehicle Management",
+    description: "Manage your entire fleet of owned and hired vehicles.",
+    features: [
+      "Add owned & hired vehicles",
+      "Track vehicle documents",
+      "Maintenance reminders",
+      "Driver assignment",
+    ],
+    featureIcons: [Truck, FileText, Bell, UserCog],
+  },
+  Warehouses: {
+    name: "Warehouses",
+    icon: Warehouse,
+    title: "Warehouse Management",
+    description: "Manage warehouse operations and inventory across locations.",
+    features: [
+      "Multiple warehouse support",
+      "Inventory tracking",
+      "Stock in/out management",
+      "Location-wise reports",
+    ],
+    featureIcons: [Warehouse, PackageSearch, ClipboardList, PieChart],
+  },
+};
 
 import companyLogoSmall from "../../../public/FS1.png";
 
@@ -53,12 +128,17 @@ export const Sidebar = ({
   const { userProfile, company, isSuperAdmin, accessLevel } = useAuth();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
+  // ✅ UPDATED STATE - showRequestModal instead of showPremiumAlert
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [selectedFeature, setSelectedFeature] =
+    useState<LockedFeatureDetails | null>(null);
+
   // ✅ FREE tier navigation - Limited features
   const freeNavigation = [
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Tracking", href: "/tracking", icon: Locate },
     { name: "LR Generator", href: "/lr-generator", icon: FilePlus2 },
-    { name: "Saved LRs", href: "/saved-lrs", icon: FileText }, // ✅ ADD
+    { name: "Saved LRs", href: "/saved-lrs", icon: FileText },
   ];
 
   // ✅ FULL tier navigation - All features
@@ -80,7 +160,7 @@ export const Sidebar = ({
     },
   ];
 
-  // ✅ Locked features to show FREE users what they're missing
+  // ✅ Locked features
   const lockedFeatures = [
     { name: "Customers", icon: UsersRound },
     { name: "Bookings", icon: FileText },
@@ -101,7 +181,7 @@ export const Sidebar = ({
   // ✅ Get navigation based on access level
   const getNavigation = () => {
     if (isSuperAdmin) {
-      return fullNavigation; // Super admin sees everything
+      return fullNavigation;
     }
     if (accessLevel === "FULL") {
       return fullNavigation.filter((item) => {
@@ -111,11 +191,20 @@ export const Sidebar = ({
         return true;
       });
     }
-    return freeNavigation; // FREE users see limited
+    return freeNavigation;
   };
 
   const navigation = getNavigation();
   const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+
+  // ✅ UPDATED - Handle locked feature click
+  const handleLockedFeatureClick = (featureName: string) => {
+    const featureDetails = lockedFeaturesDetails[featureName];
+    if (featureDetails) {
+      setSelectedFeature(featureDetails);
+      setShowRequestModal(true); // ✅ CHANGED from setShowPremiumAlert
+    }
+  };
 
   const renderNavLink = (item: any, index: number) => {
     const isActive =
@@ -204,26 +293,31 @@ export const Sidebar = ({
     );
   };
 
-  // ✅ Render locked feature item (for FREE users)
+  // ✅ Render locked feature item
   const renderLockedItem = (item: any, index: number) => {
     if (isCollapsed && !isMobile) {
       return (
         <Tooltip key={item.name}>
           <TooltipTrigger asChild>
             <div
+              onClick={() => handleLockedFeatureClick(item.name)}
               className={cn(
                 "flex items-center justify-center p-2.5 rounded-lg",
-                "text-muted-foreground/50 cursor-not-allowed"
+                "text-muted-foreground cursor-pointer",
+                "hover:bg-primary/10 transition-colors"
               )}
             >
               <div className="relative">
-                <item.icon className="w-[18px] h-[18px] opacity-40" />
-                <Lock className="w-2.5 h-2.5 absolute -bottom-0.5 -right-0.5 text-muted-foreground" />
+                <item.icon className="w-[18px] h-[18px] opacity-60" />
+                <Crown className="w-3 h-3 absolute -bottom-1 -right-1 text-primary" />
               </div>
             </div>
           </TooltipTrigger>
           <TooltipContent side="right" className="ml-2">
-            <p>{item.name} - Full Access Required</p>
+            <div className="flex items-center gap-1">
+              <Crown className="w-3 h-3 text-primary" />
+              <p>{item.name} - Premium</p>
+            </div>
           </TooltipContent>
         </Tooltip>
       );
@@ -232,16 +326,23 @@ export const Sidebar = ({
     return (
       <div
         key={item.name}
+        onClick={() => handleLockedFeatureClick(item.name)}
         className={cn(
           "flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg",
-          "text-muted-foreground/50 cursor-not-allowed"
+          "text-muted-foreground cursor-pointer",
+          "bg-primary/5 dark:bg-primary/10",
+          "border border-primary/20 dark:border-primary/30",
+          "hover:bg-primary/10 dark:hover:bg-primary/15",
+          "hover:border-primary/40 dark:hover:border-primary/50",
+          "transition-all duration-200",
+          "active:scale-[0.98]"
         )}
       >
         <div className="relative">
-          <item.icon className="w-[18px] h-[18px] opacity-40" />
-          <Lock className="w-2.5 h-2.5 absolute -bottom-0.5 -right-0.5" />
+          <item.icon className="w-[18px] h-[18px] opacity-70" />
         </div>
-        <span className="text-[13px] opacity-50">{item.name}</span>
+        <span className="text-[13px] font-medium flex-1">{item.name}</span>
+        <Crown className="w-4 h-4 text-primary" />
       </div>
     );
   };
@@ -249,6 +350,17 @@ export const Sidebar = ({
   return (
     <>
       <TooltipProvider delayDuration={0}>
+        {/* ✅ REPLACED: AccessRequestModal instead of AlertDialog */}
+        {selectedFeature && (
+          <AccessRequestModal
+            open={showRequestModal}
+            onOpenChange={setShowRequestModal}
+            featureName={selectedFeature.name}
+            featureIcon={selectedFeature.icon}
+            features={selectedFeature.features}
+          />
+        )}
+
         {/* Mobile Overlay */}
         <div
           className={cn(
@@ -348,7 +460,7 @@ export const Sidebar = ({
                 </h1>
                 {/* ✅ Access Level Badge */}
                 {accessLevel === "FREE" && !isSuperAdmin && (
-                  <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+                  <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">
                     FREE
                   </span>
                 )}
@@ -366,7 +478,7 @@ export const Sidebar = ({
             {/* Active Navigation */}
             {navigation.map((item, index) => renderNavLink(item, index))}
 
-            {/* ✅ Locked Features Section (for FREE users) */}
+            {/* ✅ Premium Features Section (for FREE users) */}
             {accessLevel === "FREE" && !isSuperAdmin && (
               <>
                 <Separator className="my-3 bg-border dark:bg-border" />
@@ -374,8 +486,8 @@ export const Sidebar = ({
                 {(!isCollapsed || isMobile) && (
                   <div className="px-1 py-2">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                      <Lock className="w-3 h-3" />
-                      Full Access Features
+                      <Crown className="w-3 h-3 text-primary" />
+                      Premium Features
                     </p>
                   </div>
                 )}
@@ -387,28 +499,44 @@ export const Sidebar = ({
                 {/* Upgrade Button */}
                 {(!isCollapsed || isMobile) && (
                   <div className="pt-3">
-                    <div className="p-3 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-lg border border-primary/20">
+                    <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/20">
                       <div className="flex items-center gap-2 mb-2">
                         <Sparkles className="w-4 h-4 text-primary" />
                         <span className="text-xs font-semibold text-foreground dark:text-white">
-                          Unlock All Features
+                          Unlock Premium
                         </span>
                       </div>
                       <p className="text-[10px] text-muted-foreground mb-2">
-                        Get bookings, fleet management, invoicing & more
+                        Get full access to all features
                       </p>
                       <Button
                         size="sm"
-                        className="w-full h-7 text-xs bg-primary hover:bg-primary/90"
+                        className="w-full h-7 text-xs"
                         onClick={() => {
-                          // TODO: Add contact/upgrade flow
-                          window.open(
-                            "mailto:sales@freightsynq.com?subject=Full Access Request",
-                            "_blank"
-                          );
+                          // Show generic premium popup
+                          setSelectedFeature({
+                            name: "All Features",
+                            icon: Sparkles,
+                            title: "Premium Access",
+                            description:
+                              "Get complete access to all FreightSynQ features and supercharge your logistics business.",
+                            features: [
+                              "Customer & Party Management",
+                              "Complete Booking System",
+                              "Fleet & Vehicle Management",
+                              "Warehouse Operations",
+                            ],
+                            featureIcons: [
+                              UsersRound,
+                              FileText,
+                              Truck,
+                              Warehouse,
+                            ],
+                          });
+                          setShowRequestModal(true);
                         }}
                       >
-                        Contact Sales
+                        Upgrade Now
                       </Button>
                     </div>
                   </div>

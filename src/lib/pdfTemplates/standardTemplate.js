@@ -1,4 +1,4 @@
-// lib/pdfTemplates/standardTemplate.js - CLEAN MATCHING LIVE PREVIEW
+// lib/pdfTemplates/standardTemplate.js - EXACT MATCH TO LIVE PREVIEW
 import {
   hexToRgb,
   parseCargoAndMaterials,
@@ -10,6 +10,7 @@ import {
 export const generateStandardLR = (doc, booking, template, company) => {
   try {
     console.log("🔄 Generating Clean Standard LR matching Live Preview...");
+    console.log("📦 Booking goods_items:", booking?.goods_items);
 
     const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
     const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
@@ -292,8 +293,11 @@ export const generateStandardLR = (doc, booking, template, company) => {
 
     yPos += 11;
 
-    // MAIN CONTENT - Clean table style
-    // LEFT - Goods Description
+    // =====================================================
+    // ✅ MAIN CONTENT - GOODS DESCRIPTION (EXACT MATCH TO PREVIEW)
+    // =====================================================
+
+    // LEFT - Goods Description Box
     doc.rect(10, yPos, halfWidth, 55);
     doc.setFillColor(245, 245, 245);
     doc.rect(10, yPos, halfWidth, 5, "F");
@@ -303,32 +307,119 @@ export const generateStandardLR = (doc, booking, template, company) => {
       align: "center",
     });
 
-    // Table with light lines
+    // Table header line
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.2);
     doc.line(10, yPos + 5, 10 + halfWidth, yPos + 5);
-    doc.line(10 + halfWidth / 2, yPos + 5, 10 + halfWidth / 2, yPos + 55);
+
+    // Vertical divider for columns (Description: 2/3, Quantity: 1/3)
+    const descColWidth = halfWidth * 0.65; // Description column wider
+    doc.line(10 + descColWidth, yPos + 5, 10 + descColWidth, yPos + 55);
+
+    // Column headers - matching preview order (Description first)
+    doc.setFillColor(250, 250, 250);
+    doc.rect(10, yPos + 5, halfWidth, 5, "F");
+    doc.line(10, yPos + 10, 10 + halfWidth, yPos + 10);
 
     doc.setFontSize(7);
     doc.setFont(fontFamily, "bold");
-    doc.text("Packages", 12, yPos + 8);
-    doc.text("Item Description", 12 + halfWidth / 2, yPos + 8);
+    doc.text("Description", 12, yPos + 8.5);
+    doc.text("Quantity", 12 + descColWidth, yPos + 8.5);
 
-    // Table content
-    const cargoData = parseCargoAndMaterials(
-      booking?.cargo_units,
-      booking?.material_description
-    );
-    let tableY = yPos + 11;
+    // ✅ Get goods items - NEW FORMAT
+    let goodsData = [];
+
+    if (
+      booking?.goods_items &&
+      Array.isArray(booking.goods_items) &&
+      booking.goods_items.length > 0
+    ) {
+      // ✅ New format - goods_items array
+      console.log("📦 Using goods_items array:", booking.goods_items);
+      goodsData = booking.goods_items.map((item) => ({
+        description: item.description || "",
+        quantity: item.quantity || "",
+      }));
+    } else {
+      // Legacy format - parse from cargo_units and material_description
+      console.log("📦 Fallback to parseCargoAndMaterials");
+      const cargoData = parseCargoAndMaterials(
+        booking?.cargo_units,
+        booking?.material_description
+      );
+      goodsData = cargoData.map((row) => ({
+        description: row.material || "",
+        quantity: row.cargo || "",
+      }));
+    }
+
+    // ✅ Fill up to 5 rows for consistent display (matching preview)
+    while (goodsData.length < 5) {
+      goodsData.push({ description: "", quantity: "" });
+    }
+
+    console.log("📋 Final goodsData for PDF:", goodsData);
+
+    // ✅ Render table rows - EXACTLY MATCHING PREVIEW
+    let tableY = yPos + 14;
+    const rowHeight = 7;
     doc.setFont(fontFamily, "normal");
+    doc.setFontSize(7);
 
-    cargoData.slice(0, 7).forEach((row) => {
-      doc.text(row.cargo || "", 12, tableY);
-      doc.text(row.material || "", 12 + halfWidth / 2, tableY);
-      tableY += 5;
+    goodsData.slice(0, 5).forEach((row, index) => {
+      // ✅ Description column - ONLY show if has value (no "-")
+      if (row.description && row.description.trim() !== "") {
+        const maxDescWidth = descColWidth - 4;
+        let descText = row.description;
+
+        // Truncate if too long
+        if (doc.getTextWidth(descText) > maxDescWidth) {
+          while (
+            doc.getTextWidth(descText + "...") > maxDescWidth &&
+            descText.length > 10
+          ) {
+            descText = descText.substring(0, descText.length - 1);
+          }
+          descText = descText + "...";
+        }
+
+        doc.text(descText, 12, tableY);
+      }
+      // If empty, leave blank (no "-")
+
+      // ✅ Quantity column - ONLY show if has value (no "-")
+      if (row.quantity && row.quantity.trim() !== "") {
+        doc.text(row.quantity, 12 + descColWidth, tableY);
+      }
+      // If empty, leave blank (no "-")
+
+      // Row separator line (light gray, matching preview border-gray-300)
+      if (index < 4) {
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.1);
+        doc.line(10, tableY + 3, 10 + halfWidth, tableY + 3);
+      }
+
+      tableY += rowHeight;
     });
 
-    // RIGHT - Billing Details
+    // ✅ Weight row at bottom if available
+    if (booking?.weight) {
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.2);
+      doc.line(10, yPos + 49, 10 + halfWidth, yPos + 49);
+
+      doc.setFillColor(250, 250, 250);
+      doc.rect(10, yPos + 49, halfWidth, 6, "F");
+
+      doc.setFont(fontFamily, "bold");
+      doc.setFontSize(7);
+      doc.text(`Total Weight: ${booking.weight} kg`, 12, yPos + 53.5);
+    }
+
+    // =====================================================
+    // ✅ RIGHT - BILLING DETAILS (FIX CURRENCY OVERFLOW)
+    // =====================================================
     doc.rect(15 + halfWidth, yPos, halfWidth, 55);
     doc.setFillColor(245, 245, 245);
     doc.rect(15 + halfWidth, yPos, halfWidth, 5, "F");
@@ -340,68 +431,79 @@ export const generateStandardLR = (doc, booking, template, company) => {
 
     doc.setFont(fontFamily, "normal");
     doc.setFontSize(7);
-    let billY = yPos + 9;
+    let billY = yPos + 10;
     const billX = 17 + halfWidth;
-    const billEndX = 10 + pageWidth - 25;
+    const billEndX = 10 + pageWidth - 27; // ✅ Give more space from edge
 
-    const freight = parseFloat(booking?.freight_charges || 15000);
-    const others = 500;
-    const total = freight + others;
-    const value = 50000;
-    const grandTotal = value + total;
+    const freight = parseFloat(booking?.freight_charges || 0);
+    const invoiceValue = parseFloat(booking?.invoice_value || 0);
 
+    // ✅ Helper function for currency - PREVENT OVERFLOW
+    const formatCurrency = (value) => {
+      if (!value || value === 0) return "-";
+      // Use "Rs." instead of ₹ to avoid encoding issues
+      return `Rs. ${value.toLocaleString("en-IN")}`;
+    };
+
+    // Date
     doc.text("DATE:", billX, billY);
     doc.text(formatDate(booking?.lr_date), billEndX, billY, { align: "right" });
     billY += 5;
 
-    doc.text("VALUE:", billX, billY);
-    doc.text(`₹ ${value.toLocaleString("en-IN")}`, billEndX, billY, {
+    // Invoice Number
+    doc.text("Invoice No:", billX, billY);
+    doc.text(booking?.invoice_number || "-", billEndX, billY, {
       align: "right",
     });
     billY += 5;
 
-    doc.text("BILLING STATION:", billX, billY);
-    doc.text("Mumbai", billEndX, billY, { align: "right" });
+    // ✅ Invoice Value - FIXED OVERFLOW
+    doc.text("Invoice Value:", billX, billY);
+    doc.text(formatCurrency(invoiceValue), billEndX, billY, { align: "right" });
     billY += 5;
 
-    doc.text("Tpt. Bill No:", billX, billY);
-    doc.text("TB2024001", billEndX, billY, { align: "right" });
-    billY += 5;
+    // E-way Bill
+    doc.text("E-way Bill:", billX, billY);
+    const ewayBill = booking?.eway_bill || booking?.eway_bill_number || "-";
+    doc.text(ewayBill, billEndX, billY, { align: "right" });
+    billY += 6;
 
-    doc.text("Others:", billX, billY);
-    doc.text(`₹ ${others}`, billEndX, billY, { align: "right" });
-    billY += 5;
-
-    // Light line
+    // ✅ Divider line (matching preview border-t)
     doc.setDrawColor(200, 200, 200);
-    doc.line(billX, billY, billEndX, billY);
-    billY += 3;
+    doc.setLineWidth(0.2);
+    doc.line(billX - 2, billY, billEndX, billY);
+    billY += 4;
 
+    // ✅ Freight - FIXED OVERFLOW
     doc.text("Freight:", billX, billY);
-    doc.text(`₹ ${freight.toLocaleString("en-IN")}`, billEndX, billY, {
-      align: "right",
-    });
+    doc.text(formatCurrency(freight), billEndX, billY, { align: "right" });
     billY += 5;
 
-    doc.text("Total Rs:", billX, billY);
-    doc.text(`₹ ${total.toLocaleString("en-IN")}`, billEndX, billY, {
+    // Payment Mode
+    doc.text("Payment Mode:", billX, billY);
+    doc.setFont(fontFamily, "bold");
+    doc.text(booking?.payment_mode || "TO_PAY", billEndX, billY, {
       align: "right",
     });
-    billY += 5;
+    billY += 6;
 
-    // Final line
+    // ✅ Final divider line
+    doc.setFont(fontFamily, "normal");
     doc.setDrawColor(150, 150, 150);
-    doc.line(billX, billY, billEndX, billY);
-    billY += 3;
+    doc.setLineWidth(0.2);
+    doc.line(billX - 2, billY, billEndX, billY);
+    billY += 4;
 
+    // ✅ TOTAL - FIXED OVERFLOW
     doc.setFont(fontFamily, "bold");
     doc.setFontSize(8);
-    doc.text("Grand Total:", billX, billY);
-    doc.text(`₹ ${grandTotal.toLocaleString("en-IN")}`, billEndX, billY, {
-      align: "right",
-    });
+    const total = freight + invoiceValue;
+    doc.text("TOTAL:", billX, billY);
+    doc.text(formatCurrency(total), billEndX, billY, { align: "right" });
 
+    // =====================================================
     // FOOTER - Clean style
+    // =====================================================
     const footerY = pageHeight - 32;
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.3);
@@ -435,11 +537,12 @@ export const generateStandardLR = (doc, booking, template, company) => {
         doc.setLineWidth(0.3);
         doc.line(x + 10, sigY, x + sigWidth - 10, sigY);
         doc.setFontSize(7);
+        doc.setFont(fontFamily, "normal");
         doc.text(label, x + sigWidth / 2, sigY + 4, { align: "center" });
       });
     }
 
-    console.log("✅ Clean Standard LR generated successfully with logo");
+    console.log("✅ Clean Standard LR generated - EXACT match to preview");
   } catch (error) {
     console.error("❌ Error in generateStandardLR:", error);
     throw error;

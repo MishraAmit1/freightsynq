@@ -1,6 +1,6 @@
 // src/pages/LRGenerator.tsx
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -19,7 +19,6 @@ import type { StandaloneLRFormData } from "@/lib/validations/standalone-lr";
 import { getCurrentTemplateWithCompany } from "@/api/lr-templates";
 import { cn } from "@/lib/utils";
 
-// Step configuration
 const STEPS = [
   { id: 1, name: "Select Template", icon: LayoutTemplate },
   { id: 2, name: "Fill Details", icon: FormInput },
@@ -28,10 +27,10 @@ const STEPS = [
 
 export const LRGenerator = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
-  // State
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [formData, setFormData] = useState<StandaloneLRFormData | null>(null);
@@ -39,7 +38,23 @@ export const LRGenerator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
 
-  // ✅ Check for edit mode on mount
+  useEffect(() => {
+    return () => {
+      setIsLoading(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/lr-generator")) {
+      setCurrentStep(1);
+      setSelectedTemplate("");
+      setFormData(null);
+      setEditingDocId(null);
+      setIsLoading(false);
+      sessionStorage.removeItem("editLRDocument");
+    }
+  }, [location.pathname]);
+
   useEffect(() => {
     const mode = searchParams.get("mode");
     if (mode === "edit") {
@@ -47,7 +62,6 @@ export const LRGenerator = () => {
     }
   }, [searchParams]);
 
-  // ✅ Load company data
   const loadCompanyData = useCallback(async () => {
     try {
       const { company } = await getCurrentTemplateWithCompany();
@@ -59,7 +73,6 @@ export const LRGenerator = () => {
     }
   }, []);
 
-  // ✅ Load document for editing
   const loadEditDocument = async () => {
     try {
       const storedDoc = sessionStorage.getItem("editLRDocument");
@@ -75,14 +88,33 @@ export const LRGenerator = () => {
 
       setIsLoading(true);
       const doc = JSON.parse(storedDoc);
+      const company = await loadCompanyData();
 
-      // Load company data
-      await loadCompanyData();
+      // Parse goods_items if it's a string
+      let goodsItems = doc.goods_items;
+      if (typeof goodsItems === "string") {
+        try {
+          goodsItems = JSON.parse(goodsItems);
+        } catch {
+          goodsItems = [];
+        }
+      }
 
-      // Set form data from document
       const editFormData: StandaloneLRFormData = {
         standalone_lr_number: doc.standalone_lr_number || "",
         lr_date: doc.lr_date || new Date().toISOString().split("T")[0],
+
+        // Company fields from saved doc or fallback
+        company_name: doc.company_name || company?.name || "",
+        company_address: doc.company_address || company?.address || "",
+        company_city: doc.company_city || company?.city || "",
+        company_state: doc.company_state || company?.state || "",
+        company_phone: doc.company_phone || company?.phone || "",
+        company_email: doc.company_email || company?.email || "",
+        company_gst: doc.company_gst || company?.gst_number || "",
+        company_pan: doc.company_pan || company?.pan_number || "",
+        company_logo_url: doc.company_logo_url || company?.logo_url || "",
+
         consignor_name: doc.consignor_name || "",
         consignor_address: doc.consignor_address || "",
         consignor_city: doc.consignor_city || "",
@@ -91,6 +123,7 @@ export const LRGenerator = () => {
         consignor_phone: doc.consignor_phone || "",
         consignor_gst: doc.consignor_gst || "",
         consignor_email: doc.consignor_email || "",
+
         consignee_name: doc.consignee_name || "",
         consignee_address: doc.consignee_address || "",
         consignee_city: doc.consignee_city || "",
@@ -99,19 +132,28 @@ export const LRGenerator = () => {
         consignee_phone: doc.consignee_phone || "",
         consignee_gst: doc.consignee_gst || "",
         consignee_email: doc.consignee_email || "",
+
         from_location: doc.from_location || "",
         to_location: doc.to_location || "",
-        material_description: doc.material_description || "",
-        packages_qty: doc.packages_qty || "",
+
+        // Goods items
+        goods_items:
+          Array.isArray(goodsItems) && goodsItems.length > 0
+            ? goodsItems
+            : [{ id: crypto.randomUUID(), description: "", quantity: "" }],
+
         weight: doc.weight || undefined,
         invoice_number: doc.invoice_number || "",
         invoice_value: doc.invoice_value || undefined,
         eway_bill_number: doc.eway_bill_number || "",
+
         vehicle_number: doc.vehicle_number || "",
         driver_name: doc.driver_name || "",
         driver_phone: doc.driver_phone || "",
+
         freight_amount: doc.freight_amount || undefined,
         payment_mode: doc.payment_mode || "TO_PAY",
+
         remarks: doc.remarks || "",
         template_code: doc.template_code || "standard",
       };
@@ -119,9 +161,8 @@ export const LRGenerator = () => {
       setFormData(editFormData);
       setSelectedTemplate(doc.template_code || "standard");
       setEditingDocId(doc.id);
-      setCurrentStep(2); // Go directly to form step
+      setCurrentStep(2);
 
-      // Clean up session storage
       sessionStorage.removeItem("editLRDocument");
 
       toast({
@@ -141,18 +182,28 @@ export const LRGenerator = () => {
     }
   };
 
-  // ✅ Handle template selection
   const handleTemplateSelect = async (templateCode: string) => {
     setSelectedTemplate(templateCode);
     setIsLoading(true);
 
-    await loadCompanyData();
+    const company = await loadCompanyData();
 
-    // Initialize form with defaults (only if not editing)
     if (!editingDocId) {
       setFormData({
         standalone_lr_number: "",
         lr_date: new Date().toISOString().split("T")[0],
+
+        // Company fields auto-filled
+        company_name: company?.name || "",
+        company_address: company?.address || "",
+        company_city: company?.city || "",
+        company_state: company?.state || "",
+        company_phone: company?.phone || "",
+        company_email: company?.email || "",
+        company_gst: company?.gst_number || "",
+        company_pan: company?.pan_number || "",
+        company_logo_url: company?.logo_url || "",
+
         consignor_name: "",
         consignor_address: "",
         consignor_city: "",
@@ -161,6 +212,7 @@ export const LRGenerator = () => {
         consignor_phone: "",
         consignor_gst: "",
         consignor_email: "",
+
         consignee_name: "",
         consignee_address: "",
         consignee_city: "",
@@ -169,19 +221,27 @@ export const LRGenerator = () => {
         consignee_phone: "",
         consignee_gst: "",
         consignee_email: "",
+
         from_location: "",
         to_location: "",
-        material_description: "",
-        packages_qty: "",
+
+        // Initialize with one empty goods item
+        goods_items: [
+          { id: crypto.randomUUID(), description: "", quantity: "" },
+        ],
+
         weight: undefined,
         invoice_number: "",
         invoice_value: undefined,
         eway_bill_number: "",
+
         vehicle_number: "",
         driver_name: "",
         driver_phone: "",
+
         freight_amount: undefined,
         payment_mode: "TO_PAY",
+
         remarks: "",
         template_code: templateCode,
       } as StandaloneLRFormData);
@@ -191,7 +251,6 @@ export const LRGenerator = () => {
     setCurrentStep(2);
   };
 
-  // ✅ Handle template change from step 2
   const handleTemplateChange = (templateCode: string) => {
     setSelectedTemplate(templateCode);
     if (formData) {
@@ -199,14 +258,11 @@ export const LRGenerator = () => {
     }
   };
 
-  // ✅ Handle form data update
   const handleFormUpdate = (data: StandaloneLRFormData) => {
     setFormData({ ...data, template_code: selectedTemplate });
   };
 
-  // ✅ Proceed to preview
   const handleProceedToPreview = (data: StandaloneLRFormData) => {
-    // Validate required fields
     if (!data.standalone_lr_number) {
       toast({
         title: "⚠️ LR Number Required",
@@ -238,28 +294,23 @@ export const LRGenerator = () => {
     setCurrentStep(3);
   };
 
-  // ✅ Go back to previous step
   const handleBack = () => {
     if (currentStep === 2) {
-      // If editing, go back to saved LRs
       if (editingDocId) {
         navigate("/saved-lrs");
         return;
       }
-      // Reset form when going back to template selection
       setFormData(null);
       setSelectedTemplate("");
     }
     setCurrentStep((prev) => Math.max(1, prev - 1));
   };
 
-  // ✅ Reset and start over
   const handleStartNew = () => {
     setCurrentStep(1);
     setSelectedTemplate("");
     setFormData(null);
     setEditingDocId(null);
-    // Clear URL params
     navigate("/lr-generator", { replace: true });
   };
 
@@ -277,7 +328,7 @@ export const LRGenerator = () => {
                 <h1 className="text-xl font-bold text-foreground dark:text-white">
                   {editingDocId ? "Edit LR" : "LR Generator"}
                 </h1>
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {editingDocId
                     ? `Editing: ${formData?.standalone_lr_number || ""}`
                     : "Create standalone Lorry Receipts"}
@@ -285,24 +336,22 @@ export const LRGenerator = () => {
               </div>
             </div>
 
-            {/* Saved LRs Button */}
             <Button
               variant="outline"
               onClick={() => navigate("/saved-lrs")}
-              className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+              className="border-border hover:bg-accent dark:hover:bg-secondary"
             >
               <FolderOpen className="w-4 h-4 mr-2" />
               View Saved LRs
             </Button>
           </div>
 
-          {/* Step Progress - Show only if not in edit mode at step 2, or show always except when editing */}
+          {/* Step Progress */}
           {!editingDocId && (
             <div className="mt-6 flex items-center justify-center">
               <div className="flex items-center gap-2 md:gap-4">
                 {STEPS.map((step, index) => (
                   <div key={step.id} className="flex items-center">
-                    {/* Step Circle */}
                     <div
                       className={cn(
                         "flex items-center gap-2 px-3 py-2 rounded-full transition-all",
@@ -326,14 +375,13 @@ export const LRGenerator = () => {
                       </span>
                     </div>
 
-                    {/* Connector Line */}
                     {index < STEPS.length - 1 && (
                       <div
                         className={cn(
                           "w-8 md:w-12 h-0.5 mx-2",
                           currentStep > step.id
                             ? "bg-green-400 dark:bg-green-600"
-                            : "bg-border dark:bg-border"
+                            : "bg-border"
                         )}
                       />
                     )}
@@ -343,7 +391,7 @@ export const LRGenerator = () => {
             </div>
           )}
 
-          {/* Edit Mode Progress Bar */}
+          {/* Edit Mode Progress */}
           {editingDocId && (
             <div className="mt-6 flex items-center justify-center">
               <div className="flex items-center gap-4">
@@ -383,9 +431,8 @@ export const LRGenerator = () => {
         </div>
       </div>
 
-      {/* Step Content */}
+      {/* Content */}
       <div className="px-4 md:px-6 py-6">
-        {/* Loading State */}
         {isLoading && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
@@ -395,12 +442,10 @@ export const LRGenerator = () => {
           </div>
         )}
 
-        {/* Step 1: Template Selection */}
         {!isLoading && currentStep === 1 && !editingDocId && (
           <TemplateSelectionStep onSelect={handleTemplateSelect} />
         )}
 
-        {/* Step 2: Form with Preview */}
         {!isLoading && currentStep === 2 && formData && (
           <LRFormStep
             initialData={formData}
@@ -414,7 +459,6 @@ export const LRGenerator = () => {
           />
         )}
 
-        {/* Step 3: Preview */}
         {!isLoading && currentStep === 3 && formData && (
           <LRPreviewStep
             formData={formData}

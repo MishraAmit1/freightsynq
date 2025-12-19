@@ -1,4 +1,4 @@
-// lib/pdfTemplates/minimalTemplate.js
+// lib/pdfTemplates/minimalTemplate.js - COMPLETE FIX
 import {
   hexToRgb,
   parseCargoAndMaterials,
@@ -9,7 +9,8 @@ import {
 
 export const generateMinimalLR = (doc, booking, template, company) => {
   try {
-    console.log("🔄 Generating Minimal LR with booking data:", booking);
+    console.log("🔄 Generating Minimal LR with goods_items...");
+    console.log("📦 Booking goods_items:", booking?.goods_items);
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -20,12 +21,6 @@ export const generateMinimalLR = (doc, booking, template, company) => {
     const fontSize = 9;
     const fontFamily =
       template?.style_config?.font_family?.toLowerCase() || "helvetica";
-
-    // Parse cargo and materials for proper table display
-    const cargoData = parseCargoAndMaterials(
-      booking?.cargo_units,
-      booking?.material_description
-    );
 
     // Light border
     doc.setLineWidth(0.3);
@@ -143,7 +138,7 @@ export const generateMinimalLR = (doc, booking, template, company) => {
     doc.setDrawColor(0, 0, 0);
     doc.line(10, 32, pageWidth - 10, 32);
 
-    // TRANSPORT DETAILS ROW - Using actual booking data
+    // TRANSPORT DETAILS ROW
     let yPos = 35;
     doc.setFillColor(250, 250, 250);
     doc.rect(10, yPos, pageWidth - 20, 8, "F");
@@ -181,7 +176,7 @@ export const generateMinimalLR = (doc, booking, template, company) => {
 
     yPos += 11;
 
-    // FROM-TO SECTION with actual booking data
+    // FROM-TO SECTION
     const halfWidth = (pageWidth - 25) / 2;
 
     // FROM Section
@@ -199,7 +194,6 @@ export const generateMinimalLR = (doc, booking, template, company) => {
     ) {
       doc.setFont(fontFamily, "normal");
       doc.setFontSize(7);
-      // Extract first part of from_location
       const fromParts = booking.from_location.split(",");
       doc.text(fromParts[0] || booking.from_location, 12, yPos + 8);
     }
@@ -240,7 +234,6 @@ export const generateMinimalLR = (doc, booking, template, company) => {
     ) {
       doc.setFont(fontFamily, "normal");
       doc.setFontSize(7);
-      // Extract first part of to_location
       const toParts = booking.to_location.split(",");
       doc.text(toParts[0] || booking.to_location, 17 + halfWidth, yPos + 8);
     }
@@ -278,7 +271,9 @@ export const generateMinimalLR = (doc, booking, template, company) => {
 
     yPos += 31;
 
-    // GOODS & CHARGES TABLE - PROPER TABLE WITH ACTUAL DATA
+    // =====================================================
+    // ✅ GOODS & CHARGES TABLE - WITH goods_items SUPPORT
+    // =====================================================
     doc.rect(10, yPos, pageWidth - 20, 50);
 
     // Table Header
@@ -289,96 +284,145 @@ export const generateMinimalLR = (doc, booking, template, company) => {
 
     // Column positions
     const col1 = 12;
-    const col2 = 60;
+    const col2 = 55;
     const col3 = 150;
     const col4 = 180;
 
-    doc.text("No. of Packages", col1, yPos + 4);
+    doc.text("Quantity", col1, yPos + 4);
     doc.text("Description of Goods", col2, yPos + 4);
     doc.text("Rate/Unit", col3, yPos + 4);
     doc.text("Amount (₹)", col4, yPos + 4);
 
-    // Table Content - Display parsed cargo data
+    // ✅ Get goods items
+    let goodsData = [];
+
+    if (
+      booking?.goods_items &&
+      Array.isArray(booking.goods_items) &&
+      booking.goods_items.length > 0
+    ) {
+      console.log("📦 Using goods_items array");
+      goodsData = booking.goods_items.map((item) => ({
+        quantity: item.quantity || "",
+        description: item.description || "",
+        rate: item.rate || "",
+        amount: item.amount || "",
+      }));
+    } else {
+      console.log("📦 Fallback to parseCargoAndMaterials");
+      const cargoData = parseCargoAndMaterials(
+        booking?.cargo_units,
+        booking?.material_description
+      );
+      goodsData = cargoData.map((row) => ({
+        quantity: row.cargo || "",
+        description: row.material || "",
+        rate: "",
+        amount: "",
+      }));
+    }
+
+    // Fill to 4 rows minimum
+    while (goodsData.length < 4) {
+      goodsData.push({ quantity: "", description: "", rate: "", amount: "" });
+    }
+
+    // Table Content
     doc.setFont(fontFamily, "normal");
     let tableY = yPos + 10;
 
-    // Draw cargo data rows
-    cargoData.forEach((row, index) => {
-      if (index < 5) {
-        // Limit to 5 rows to fit in space
-        doc.text(row.cargo || "-", col1, tableY);
-        doc.text(row.material || "-", col2, tableY);
-        doc.text("-", col3, tableY);
-        doc.text("-", col4, tableY);
-        tableY += 4;
+    goodsData.slice(0, 4).forEach((row, index) => {
+      // ✅ Only show if has value (no "-")
+      if (row.quantity && row.quantity.trim() !== "") {
+        doc.text(row.quantity, col1, tableY);
       }
+
+      if (row.description && row.description.trim() !== "") {
+        // Truncate if too long
+        let descText = row.description;
+        const maxWidth = 90;
+        if (doc.getTextWidth(descText) > maxWidth) {
+          descText = descText.substring(0, 45) + "...";
+        }
+        doc.text(descText, col2, tableY);
+      }
+
+      if (row.rate && row.rate.trim() !== "") {
+        doc.text(row.rate, col3, tableY);
+      }
+
+      if (row.amount && row.amount.trim() !== "") {
+        doc.text(row.amount, col4, tableY);
+      }
+
+      tableY += 5;
     });
 
-    // If no data, show at least one row
-    if (cargoData.length === 0) {
-      doc.text("-", col1, tableY);
-      doc.text("-", col2, tableY);
-      doc.text("-", col3, tableY);
-      doc.text("-", col4, tableY);
-    }
-
-    // Charges Section - Bottom part of table
+    // Charges Section
     doc.setDrawColor(100, 100, 100);
     doc.line(10, yPos + 30, pageWidth - 10, yPos + 30);
 
     let chargeY = yPos + 35;
 
-    // Left side - Booking details
+    // Left side
     doc.setFontSize(7);
+    doc.setFont(fontFamily, "normal");
     doc.text("Pickup Date:", 12, chargeY);
     doc.text(
       booking?.pickup_date ? formatDate(booking.pickup_date) : "-",
-      50,
+      45,
       chargeY
     );
 
     doc.text("Status:", 12, chargeY + 4);
     doc.setFont(fontFamily, "bold");
-    doc.text(booking?.status || "DRAFT", 50, chargeY + 4);
+    doc.text(booking?.status || "DRAFT", 45, chargeY + 4);
     doc.setFont(fontFamily, "normal");
 
     doc.text("Payment Mode:", 12, chargeY + 8);
-    doc.text(booking?.payment_mode || "TO PAY", 50, chargeY + 8);
+    doc.text(booking?.payment_mode || "TO PAY", 45, chargeY + 8);
 
-    // Right side - Charges
+    // Right side - Charges with proper formatting
     const rightX = pageWidth / 2 + 10;
+    const rightEndX = pageWidth - 15;
+
+    const freight = parseFloat(booking?.freight_charges || 0);
+    const loading = 500;
+    const gst = (freight + loading) * 0.05;
+    const total = freight + loading + gst;
+
+    // Helper for currency
+    const formatCurrency = (value) => {
+      if (!value || value === 0) return "-";
+      return `Rs. ${value.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    };
+
     doc.text("Basic Freight:", rightX, chargeY);
-    doc.text(
-      `₹ ${(booking?.freight_charges || 15000).toLocaleString("en-IN")}`,
-      rightX + 40,
-      chargeY
-    );
+    doc.text(formatCurrency(freight), rightEndX, chargeY, { align: "right" });
 
     doc.text("Loading/Unloading:", rightX, chargeY + 4);
-    doc.text("₹ 500", rightX + 40, chargeY + 4);
+    doc.text(formatCurrency(loading), rightEndX, chargeY + 4, {
+      align: "right",
+    });
 
     doc.text("GST @ 5%:", rightX, chargeY + 8);
-    const gst = ((booking?.freight_charges || 15000) + 500) * 0.05;
-    doc.text(`₹ ${gst.toFixed(2)}`, rightX + 40, chargeY + 8);
+    doc.text(formatCurrency(gst), rightEndX, chargeY + 8, { align: "right" });
 
     doc.setDrawColor(100, 100, 100);
-    doc.line(rightX, chargeY + 10, rightX + 60, chargeY + 10);
+    doc.line(rightX, chargeY + 10, rightEndX, chargeY + 10);
 
     doc.setFont(fontFamily, "bold");
     doc.text("Total Freight:", rightX, chargeY + 14);
-    const total = (booking?.freight_charges || 15000) + 500 + gst;
-    doc.text(
-      `₹ ${total.toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-      rightX + 40,
-      chargeY + 14
-    );
+    doc.text(formatCurrency(total), rightEndX, chargeY + 14, {
+      align: "right",
+    });
 
     yPos += 53;
 
-    // DECLARATION & TERMS
+    // DECLARATION
     if (template?.footer_config?.show_terms) {
       doc.setFont(fontFamily, "bold");
       doc.setFontSize(7);
@@ -392,7 +436,7 @@ export const generateMinimalLR = (doc, booking, template, company) => {
       yPos += 4 + termsLines.length * 3;
     }
 
-    // FOOTER SIGNATURES - 4 columns
+    // SIGNATURES
     if (template?.footer_config?.show_signature) {
       doc.setDrawColor(100, 100, 100);
       doc.setLineWidth(0.3);
@@ -425,7 +469,7 @@ export const generateMinimalLR = (doc, booking, template, company) => {
       { align: "center" }
     );
 
-    console.log("✅ Minimal LR generated successfully with booking data");
+    console.log("✅ Minimal LR generated with goods_items");
   } catch (error) {
     console.error("❌ Error in generateMinimalLR:", error);
     throw error;

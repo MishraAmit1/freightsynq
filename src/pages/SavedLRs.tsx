@@ -144,11 +144,12 @@ export const SavedLRs = () => {
   const handleDownload = async (doc: StandaloneLRDocument) => {
     try {
       setDownloadingId(doc.id);
+
+      console.log("📥 Download clicked for:", doc.standalone_lr_number);
+      console.log("📦 Document goods_items:", doc.goods_items);
+
       await generateStandaloneLRPDF(
-        {
-          ...doc,
-          lr_number: doc.standalone_lr_number,
-        },
+        doc,
         companyData,
         doc.template_code || "standard"
       );
@@ -211,14 +212,14 @@ export const SavedLRs = () => {
               </p>
             </div>
           </div>
-
+          {/* 
           <Button
             onClick={() => navigate("/lr-generator")}
             className="bg-primary hover:bg-primary-hover text-primary-foreground"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create New LR
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -261,7 +262,7 @@ export const SavedLRs = () => {
                   ? "Try adjusting your search"
                   : "Create your first LR to get started"}
               </p>
-              {!searchQuery && (
+              {/* {!searchQuery && (
                 <Button
                   onClick={() => navigate("/lr-generator")}
                   className="bg-primary hover:bg-primary-hover text-primary-foreground"
@@ -269,7 +270,7 @@ export const SavedLRs = () => {
                   <Plus className="w-4 h-4 mr-2" />
                   Create New LR
                 </Button>
-              )}
+              )} */}
             </div>
           ) : (
             <div className="overflow-x-auto">

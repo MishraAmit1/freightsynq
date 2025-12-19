@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AdminRoute, ProtectedRoute } from "@/components/ProtectedRoute";
-import { FreeAccessRoute } from "@/components/FreeAccessRoute"; // ✅ NEW
+import { FreeAccessRoute } from "@/components/FreeAccessRoute";
 import { SuperAdminRoute } from "@/components/SuperAdminRoute";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { SuperAdminLayout } from "@/components/layout/SuperAdminLayout";
@@ -43,6 +43,7 @@ import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { LRGenerator } from "./pages/LRGenerator";
 import { SavedLRs } from "./pages/SavedLRs";
+import { AccessRequests } from "./pages/super-admin/AccessRequests";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,11 @@ const AppRouter = () => {
               <SuperAdminLayout>
                 <Routes>
                   <Route path="/" element={<SuperAdminDashboard />} />
+                  <Route
+                    path="/access-requests"
+                    element={<AccessRequests />}
+                  />{" "}
+                  {/* ✅ NEW */}
                   <Route path="/companies" element={<ManageCompanies />} />
                   <Route path="/stats" element={<SystemStats />} />
                 </Routes>
@@ -126,6 +132,7 @@ const AppRouter = () => {
                   <Route path="/tracking" element={<Tracking />} />
                   <Route path="/lr-generator" element={<LRGenerator />} />
                   <Route path="/saved-lrs" element={<SavedLRs />} />
+                  <Route path="/company-profile" element={<CompanyProfile />} />
                   {/* ✅ HERE - No wrapper */}
                   {/* ✅ FULL Access ONLY Routes */}
                   <Route
@@ -224,16 +231,6 @@ const AppRouter = () => {
                       <FreeAccessRoute>
                         <AdminRoute>
                           <CompanySettings />
-                        </AdminRoute>
-                      </FreeAccessRoute>
-                    }
-                  />
-                  <Route
-                    path="/company-profile"
-                    element={
-                      <FreeAccessRoute>
-                        <AdminRoute>
-                          <CompanyProfile />
                         </AdminRoute>
                       </FreeAccessRoute>
                     }

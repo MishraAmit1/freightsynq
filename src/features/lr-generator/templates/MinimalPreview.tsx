@@ -1,6 +1,12 @@
 // src/features/lr-generator/templates/MinimalPreview.tsx
 import { parseCargoAndMaterials, formatDate } from "./helpers";
 
+interface GoodsItem {
+  id: string;
+  description?: string;
+  quantity?: string;
+}
+
 interface PreviewProps {
   customization: any;
   booking?: any;
@@ -10,10 +16,38 @@ export const LiveMinimalPreview = ({
   customization,
   booking,
 }: PreviewProps) => {
-  const cargoData = parseCargoAndMaterials(
-    booking?.cargo_units || "10 boxes",
-    booking?.material_description || "Sample goods"
-  );
+  // ✅ Get goods items - NEW FORMAT
+  let goodsData: GoodsItem[] = [];
+
+  if (
+    booking?.goods_items &&
+    Array.isArray(booking.goods_items) &&
+    booking.goods_items.length > 0
+  ) {
+    // New format - goods_items array
+    goodsData = booking.goods_items;
+  } else {
+    // Legacy format - parse from cargo_units and material_description
+    const cargoData = parseCargoAndMaterials(
+      booking?.cargo_units || "10 boxes",
+      booking?.material_description || "Sample goods"
+    );
+    goodsData = cargoData.map((row, idx) => ({
+      id: `legacy-${idx}`,
+      description: row.material || "",
+      quantity: row.cargo || "",
+    }));
+  }
+
+  // ✅ Fill to minimum 4 rows for consistent display
+  const displayItems = [...goodsData];
+  while (displayItems.length < 4) {
+    displayItems.push({
+      id: `empty-${displayItems.length}`,
+      description: "",
+      quantity: "",
+    });
+  }
 
   return (
     <div
@@ -160,29 +194,41 @@ export const LiveMinimalPreview = ({
         </div>
       </div>
 
-      {/* GOODS TABLE */}
+      {/* ✅ GOODS TABLE - UPDATED WITH goods_items */}
       <div className="border border-gray-400 mb-2">
         <div className="grid grid-cols-12 bg-gray-100 p-1 text-xs font-bold border-b border-gray-400">
-          <div className="col-span-3">Packages</div>
+          <div className="col-span-3">Quantity</div>
           <div className="col-span-5">Description</div>
           <div className="col-span-2 text-center">Weight</div>
           <div className="col-span-2 text-right">Value (₹)</div>
         </div>
 
         <div className="p-1">
-          {cargoData.slice(0, 4).map((row, index) => (
+          {displayItems.slice(0, 4).map((item, index) => (
             <div
-              key={index}
+              key={item.id || index}
               className="grid grid-cols-12 text-xs py-1 border-b border-gray-100 last:border-b-0"
             >
-              <div className="col-span-3">{row.cargo}</div>
-              <div className="col-span-5">{row.material}</div>
-              <div className="col-span-2 text-center">-</div>
-              <div className="col-span-2 text-right">-</div>
+              {/* ✅ Quantity - only show if has value */}
+              <div className="col-span-3">
+                {item.quantity || <span className="text-gray-300">-</span>}
+              </div>
+
+              {/* ✅ Description - only show if has value */}
+              <div className="col-span-5">
+                {item.description || <span className="text-gray-300">-</span>}
+              </div>
+
+              {/* Weight - placeholder */}
+              <div className="col-span-2 text-center text-gray-300">-</div>
+
+              {/* Value - placeholder */}
+              <div className="col-span-2 text-right text-gray-300">-</div>
             </div>
           ))}
         </div>
 
+        {/* BILLING SECTION */}
         <div className="border-t border-gray-400 p-1">
           <div className="grid grid-cols-2 gap-4">
             <div className="text-xs space-y-1">
@@ -198,11 +244,15 @@ export const LiveMinimalPreview = ({
             <div className="text-xs space-y-1">
               <div className="flex justify-between">
                 <span>Freight:</span>
-                <span>₹ {booking?.freight_charges || "0"}</span>
+                <span>
+                  ₹ {booking?.freight_charges?.toLocaleString("en-IN") || "0"}
+                </span>
               </div>
               <div className="flex justify-between font-bold border-t pt-1">
                 <span>Total:</span>
-                <span>₹ {booking?.freight_charges || "0"}</span>
+                <span>
+                  ₹ {booking?.freight_charges?.toLocaleString("en-IN") || "0"}
+                </span>
               </div>
             </div>
           </div>
@@ -233,10 +283,6 @@ export const LiveMinimalPreview = ({
           </div>
         </div>
       )}
-
-      {/* <div className="text-center text-xs text-gray-500 mt-2">
-        Computer generated receipt
-      </div> */}
     </div>
   );
 };
