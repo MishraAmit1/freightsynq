@@ -104,7 +104,52 @@ const createJourneyNumberedIcon = (number: number, isLast: boolean = false) => {
     className: "journey-numbered-marker",
   });
 };
+// Add this helper function at the top of FleetMap.tsx
+const formatCrossingTime = (
+  dateStr: string | Date | null | undefined
+): string => {
+  if (!dateStr) return "Unknown time";
 
+  try {
+    const str = String(dateStr);
+
+    // Clean the string - handle "2025-12-20 11:51:29.000" or "2025-12-20T11:51:29.000Z"
+    const cleanStr = str
+      .replace("T", " ")
+      .replace("Z", "")
+      .split(".")[0]
+      .split("+")[0];
+    const [datePart, timePart] = cleanStr.split(" ");
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hours, minutes] = (timePart || "00:00").split(":").map(Number);
+
+    // Format manually - NO timezone conversion!
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const hour12 = hours % 12 || 12;
+    const ampm = hours >= 12 ? "pm" : "am";
+
+    return `${day.toString().padStart(2, "0")} ${
+      monthNames[month - 1]
+    } ${year}, ${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+  } catch (e) {
+    console.error("Date format error:", e, dateStr);
+    return String(dateStr) || "Unknown time";
+  }
+};
 export const FleetMap: React.FC<FleetMapProps> = ({
   mode,
   groupedVehicles,
@@ -244,18 +289,9 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         <Clock className="w-3 h-3 inline mr-1" />
-                        {selectedRandomSearch.last_crossing_time
-                          ? new Date(
-                              selectedRandomSearch.last_crossing_time
-                            ).toLocaleString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                            })
-                          : "Unknown time"}
+                        {formatCrossingTime(
+                          selectedRandomSearch.last_crossing_time
+                        )}
                       </p>
                       <Badge variant="secondary" className="mt-2 text-xs">
                         Random Search
@@ -281,9 +317,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                           #{index + 1} {crossing.toll_plaza_name}
                         </p>
                         <p className="text-xs text-muted-foreground mb-1">
-                          {new Date(crossing.crossing_time).toLocaleString(
-                            "en-IN"
-                          )}
+                          {formatCrossingTime(crossing.crossing_time)}
                         </p>
                         {index ===
                           selectedRandomSearch.toll_crossings.length - 1 && (

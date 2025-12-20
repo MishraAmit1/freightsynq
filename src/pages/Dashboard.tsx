@@ -1337,7 +1337,6 @@ export const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
-
       {/* Booking Form Modal */}
       <BookingFormModal
         isOpen={isBookingFormOpen}
