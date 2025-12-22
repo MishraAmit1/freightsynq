@@ -41,7 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AccessRequestModal } from "@/components/AccessRequestModal"; // ✅ NEW IMPORT
+import { AccessRequestModal } from "@/components/AccessRequestModal";
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -116,7 +116,7 @@ const lockedFeaturesDetails: Record<string, LockedFeatureDetails> = {
   },
 };
 
-import companyLogoSmall from "../../../public/FS1.png";
+import companyLogoSmall from "../../../public/logo.png";
 
 export const Sidebar = ({
   isOpen = true,

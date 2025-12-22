@@ -6,19 +6,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
-import { supabase } from '@/lib/supabase'
+import { supabase } from "@/lib/supabase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Loader2,
-  Check,
-  ChevronDown,
-  Plus,
-  X
-} from "lucide-react";
+import { Loader2, Check, ChevronDown, Plus, X } from "lucide-react";
 import {
   fetchAvailableOwnedVehicles,
   fetchAvailableHiredVehicles,
@@ -27,7 +21,7 @@ import {
   fetchBrokers,
   createOwnedVehicle,
   createHiredVehicle,
-  createBroker
+  createBroker,
 } from "@/api/vehicles";
 import { createDriver } from "@/api/drivers";
 import { AddVehicleModal } from "../vehicles/AddVehicleModal";
@@ -46,8 +40,8 @@ const SimpleSearchSelect = ({
   renderItem,
   onAddNew,
   addNewText = "Add New",
-  searchKeys = ['name'],
-  className = ""
+  searchKeys = ["name"],
+  className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -55,17 +49,17 @@ const SimpleSearchSelect = ({
   const inputRef = useRef(null);
 
   // Filter items
-  const filteredItems = items.filter(item => {
+  const filteredItems = items.filter((item) => {
     if (!search.trim()) return true;
     const searchLower = search.toLowerCase();
-    return searchKeys.some(key => {
+    return searchKeys.some((key) => {
       const value = item[key];
       return value && value.toString().toLowerCase().includes(searchLower);
     });
   });
 
   // Get selected item
-  const selectedItem = items.find(item => item.id === value);
+  const selectedItem = items.find((item) => item.id === value);
 
   // Close on outside click
   useEffect(() => {
@@ -76,11 +70,11 @@ const SimpleSearchSelect = ({
     };
 
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
 
@@ -111,9 +105,13 @@ const SimpleSearchSelect = ({
         <Input
           ref={inputRef}
           type="text"
-          value={isOpen ? search : (selectedItem ?
-            (selectedItem.vehicle_number || selectedItem.name || '') : ''
-          )}
+          value={
+            isOpen
+              ? search
+              : selectedItem
+              ? selectedItem.vehicle_number || selectedItem.name || ""
+              : ""
+          }
           onChange={(e) => setSearch(e.target.value)}
           onClick={handleInputClick}
           placeholder={placeholder}
@@ -131,10 +129,12 @@ const SimpleSearchSelect = ({
               <X className="h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
             </button>
           )}
-          <ChevronDown className={cn(
-            "h-4 w-4 text-muted-foreground dark:text-muted-foreground transition-transform",
-            isOpen && "rotate-180"
-          )} />
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground dark:text-muted-foreground transition-transform",
+              isOpen && "rotate-180"
+            )}
+          />
         </div>
       </div>
 
@@ -144,7 +144,9 @@ const SimpleSearchSelect = ({
           <div className="max-h-[280px] overflow-y-auto">
             {filteredItems.length === 0 ? (
               <div className="p-3 text-center">
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No results found</p>
+                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                  No results found
+                </p>
                 {onAddNew && (
                   <Button
                     type="button"
@@ -172,7 +174,9 @@ const SimpleSearchSelect = ({
                       value === item.id && "bg-accent dark:bg-secondary"
                     )}
                   >
-                    {renderItem ? renderItem(item, value === item.id) : (
+                    {renderItem ? (
+                      renderItem(item, value === item.id)
+                    ) : (
                       <div className="flex items-center justify-between">
                         <span className="text-foreground dark:text-white">
                           {item.name || item.vehicle_number}
@@ -220,7 +224,7 @@ export const EnhancedVehicleAssignmentModal = ({
   isOpen,
   onClose,
   onAssign,
-  bookingId
+  bookingId,
 }: EnhancedVehicleAssignmentModalProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -232,8 +236,10 @@ export const EnhancedVehicleAssignmentModal = ({
   const [dataLoading, setDataLoading] = useState(true);
 
   // Sub-modal states
-  const [isAddOwnedVehicleModalOpen, setIsAddOwnedVehicleModalOpen] = useState(false);
-  const [isAddHiredVehicleModalOpen, setIsAddHiredVehicleModalOpen] = useState(false);
+  const [isAddOwnedVehicleModalOpen, setIsAddOwnedVehicleModalOpen] =
+    useState(false);
+  const [isAddHiredVehicleModalOpen, setIsAddHiredVehicleModalOpen] =
+    useState(false);
   const [isAddBrokerModalOpen, setIsAddBrokerModalOpen] = useState(false);
   const [isAddDriverModalOpen, setIsAddDriverModalOpen] = useState(false);
 
@@ -264,23 +270,24 @@ export const EnhancedVehicleAssignmentModal = ({
   const loadData = async () => {
     try {
       setDataLoading(true);
-      const [ownedData, hiredData, driversData, brokersData] = await Promise.all([
-        fetchAvailableOwnedVehicles(),
-        fetchAvailableHiredVehicles(),
-        fetchDrivers(),
-        fetchBrokers()
-      ]);
+      const [ownedData, hiredData, driversData, brokersData] =
+        await Promise.all([
+          fetchAvailableOwnedVehicles(),
+          fetchAvailableHiredVehicles(),
+          fetchDrivers(),
+          fetchBrokers(),
+        ]);
 
       setOwnedVehicles(ownedData || []);
       setHiredVehicles(hiredData || []);
       setDrivers(driversData || []);
       setBrokers(brokersData || []);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
       toast({
         title: "Error",
         description: "Failed to load data",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setDataLoading(false);
@@ -290,7 +297,9 @@ export const EnhancedVehicleAssignmentModal = ({
   useEffect(() => {
     if (selectedVehicleId) {
       const allVehicles = [...ownedVehicles, ...hiredVehicles];
-      const selectedVehicle = allVehicles.find(v => v.id === selectedVehicleId);
+      const selectedVehicle = allVehicles.find(
+        (v) => v.id === selectedVehicleId
+      );
 
       if (selectedVehicle?.default_driver) {
         setSelectedDriverId(selectedVehicle.default_driver.id);
@@ -313,7 +322,7 @@ export const EnhancedVehicleAssignmentModal = ({
       toast({
         title: "Selection Required",
         description: "Please select both vehicle and driver",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -322,7 +331,7 @@ export const EnhancedVehicleAssignmentModal = ({
       toast({
         title: "Broker Required",
         description: "Please select a broker for hired vehicle",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -332,15 +341,15 @@ export const EnhancedVehicleAssignmentModal = ({
 
       if (activeTab === "hired") {
         const { error: updateError } = await supabase
-          .from('hired_vehicles')
+          .from("hired_vehicles")
           .update({
             broker_id: selectedBrokerId,
-            status: 'OCCUPIED'
+            status: "OCCUPIED",
           })
-          .eq('id', selectedVehicleId);
+          .eq("id", selectedVehicleId);
 
         if (updateError) {
-          console.error('Error updating hired vehicle broker:', updateError);
+          console.error("Error updating hired vehicle broker:", updateError);
           throw updateError;
         }
 
@@ -350,23 +359,28 @@ export const EnhancedVehicleAssignmentModal = ({
         });
       } else {
         await supabase
-          .from('owned_vehicles')
-          .update({ status: 'OCCUPIED' })
-          .eq('id', selectedVehicleId);
+          .from("owned_vehicles")
+          .update({ status: "OCCUPIED" })
+          .eq("id", selectedVehicleId);
       }
 
       await assignVehicleToBooking({
         booking_id: bookingId,
-        vehicle_type: activeTab === 'owned' ? 'OWNED' : 'HIRED',
+        vehicle_type: activeTab === "owned" ? "OWNED" : "HIRED",
         vehicle_id: selectedVehicleId,
         driver_id: selectedDriverId,
         broker_id: activeTab === "hired" ? selectedBrokerId : undefined,
       });
 
       const allVehicles = [...ownedVehicles, ...hiredVehicles];
-      const selectedVehicle = allVehicles.find(v => v.id === selectedVehicleId);
-      const selectedDriver = drivers.find(d => d.id === selectedDriverId);
-      const selectedBroker = activeTab === "hired" ? brokers.find(b => b.id === selectedBrokerId) : null;
+      const selectedVehicle = allVehicles.find(
+        (v) => v.id === selectedVehicleId
+      );
+      const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
+      const selectedBroker =
+        activeTab === "hired"
+          ? brokers.find((b) => b.id === selectedBrokerId)
+          : null;
 
       if (selectedVehicle && selectedDriver) {
         const assignment = {
@@ -374,13 +388,13 @@ export const EnhancedVehicleAssignmentModal = ({
           vehicleNumber: selectedVehicle.vehicle_number,
           vehicleType: selectedVehicle.vehicle_type,
           capacity: selectedVehicle.capacity,
-          isOwned: activeTab === 'owned',
+          isOwned: activeTab === "owned",
           broker: selectedBroker,
           driver: {
             id: selectedDriver.id,
             name: selectedDriver.name,
             phone: selectedDriver.phone,
-          }
+          },
         };
 
         onAssign(assignment);
@@ -393,11 +407,11 @@ export const EnhancedVehicleAssignmentModal = ({
         onClose();
       }
     } catch (error) {
-      console.error('Error assigning vehicle:', error);
+      console.error("Error assigning vehicle:", error);
       toast({
         title: "❌ Error",
         description: "Failed to assign vehicle",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -420,7 +434,7 @@ export const EnhancedVehicleAssignmentModal = ({
       const newVehicle = await createOwnedVehicle(vehiclePayload);
 
       if (documents && documents.files.length > 0) {
-        const { uploadVehicleDocument } = await import('@/api/vehicleDocument');
+        const { uploadVehicleDocument } = await import("@/api/vehicleDocument");
 
         for (let i = 0; i < documents.files.length; i++) {
           const file = documents.files[i];
@@ -429,10 +443,10 @@ export const EnhancedVehicleAssignmentModal = ({
           try {
             await uploadVehicleDocument({
               vehicle_id: newVehicle.id,
-              vehicle_type: 'OWNED',
+              vehicle_type: "OWNED",
               document_type: metadata.document_type,
               file: file,
-              expiry_date: metadata.expiry_date
+              expiry_date: metadata.expiry_date,
             });
           } catch (error) {
             console.error(`❌ Failed to upload: ${file.name}`, error);
@@ -458,7 +472,7 @@ export const EnhancedVehicleAssignmentModal = ({
       toast({
         title: "Error",
         description: "Failed to add vehicle",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -469,13 +483,20 @@ export const EnhancedVehicleAssignmentModal = ({
         vehicle_number: vehicleData.vehicleNumber,
         vehicle_type: vehicleData.vehicleType,
         capacity: vehicleData.capacity,
-        broker_id: vehicleData.brokerId === "none" ? null : vehicleData.brokerId,
-        default_driver_id: vehicleData.default_driver_id === "none" ? null : vehicleData.default_driver_id,
-        rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
+        broker_id:
+          vehicleData.brokerId === "none" ? null : vehicleData.brokerId,
+        default_driver_id:
+          vehicleData.default_driver_id === "none"
+            ? null
+            : vehicleData.default_driver_id,
+        rate_per_trip: vehicleData.ratePerTrip
+          ? parseFloat(vehicleData.ratePerTrip)
+          : undefined,
       });
 
       await loadData();
-      if (vehicleData.brokerId !== "none") setSelectedBrokerId(vehicleData.brokerId);
+      if (vehicleData.brokerId !== "none")
+        setSelectedBrokerId(vehicleData.brokerId);
       setSelectedVehicleId(newVehicle.id);
 
       if (newVehicle.default_driver_id) {
@@ -493,7 +514,7 @@ export const EnhancedVehicleAssignmentModal = ({
       toast({
         title: "Error",
         description: "Failed to add hired vehicle",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -505,7 +526,7 @@ export const EnhancedVehicleAssignmentModal = ({
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
         email: brokerData.email || undefined,
-        city: brokerData.city || undefined
+        city: brokerData.city || undefined,
       });
 
       await loadData();
@@ -517,7 +538,7 @@ export const EnhancedVehicleAssignmentModal = ({
         description: `${brokerData.name} has been added as a broker`,
       });
     } catch (error) {
-      console.error('Error adding broker:', error);
+      console.error("Error adding broker:", error);
       toast({
         title: "❌ Error",
         description: "Failed to add broker",
@@ -547,7 +568,7 @@ export const EnhancedVehicleAssignmentModal = ({
       toast({
         title: "Error",
         description: "Failed to add driver",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -558,14 +579,16 @@ export const EnhancedVehicleAssignmentModal = ({
         <DialogContent className="sm:max-w-2xl bg-card border-border dark:border-border">
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-2 text-foreground dark:text-white">Loading...</span>
+            <span className="ml-2 text-foreground dark:text-white">
+              Loading...
+            </span>
           </div>
         </DialogContent>
       </Dialog>
     );
   }
 
-  const selectedBroker = brokers.find(b => b.id === selectedBrokerId);
+  const selectedBroker = brokers.find((b) => b.id === selectedBrokerId);
 
   return (
     <>
@@ -610,7 +633,7 @@ export const EnhancedVehicleAssignmentModal = ({
                     value={selectedVehicleId}
                     onSelect={setSelectedVehicleId}
                     placeholder="Search vehicle number..."
-                    searchKeys={['vehicle_number', 'vehicle_type']}
+                    searchKeys={["vehicle_number", "vehicle_type"]}
                     onAddNew={() => setIsAddOwnedVehicleModalOpen(true)}
                     addNewText="Add New Vehicle"
                     renderItem={(vehicle, isSelected) => (
@@ -624,7 +647,9 @@ export const EnhancedVehicleAssignmentModal = ({
                               {vehicle.vehicle_type} • {vehicle.capacity}
                             </div>
                           </div>
-                          {isSelected && <Check className="h-4 w-4 text-primary" />}
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-primary" />
+                          )}
                         </div>
                       </div>
                     )}
@@ -642,7 +667,7 @@ export const EnhancedVehicleAssignmentModal = ({
                     value={selectedBrokerId}
                     onSelect={setSelectedBrokerId}
                     placeholder="Search broker name..."
-                    searchKeys={['name', 'contact_person']}
+                    searchKeys={["name", "contact_person"]}
                     onAddNew={() => setIsAddBrokerModalOpen(true)}
                     addNewText="Add New Broker"
                     renderItem={(broker, isSelected) => (
@@ -656,7 +681,9 @@ export const EnhancedVehicleAssignmentModal = ({
                               {broker.contact_person} • {broker.phone}
                             </div>
                           </div>
-                          {isSelected && <Check className="h-4 w-4 text-primary" />}
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-primary" />
+                          )}
                         </div>
                       </div>
                     )}
@@ -673,7 +700,7 @@ export const EnhancedVehicleAssignmentModal = ({
                       value={selectedVehicleId}
                       onSelect={setSelectedVehicleId}
                       placeholder="Search vehicle number..."
-                      searchKeys={['vehicle_number', 'vehicle_type']}
+                      searchKeys={["vehicle_number", "vehicle_type"]}
                       onAddNew={() => setIsAddHiredVehicleModalOpen(true)}
                       addNewText="Add New Vehicle"
                       renderItem={(vehicle, isSelected) => (
@@ -687,7 +714,9 @@ export const EnhancedVehicleAssignmentModal = ({
                                 {vehicle.vehicle_type} • {vehicle.capacity}
                               </div>
                             </div>
-                            {isSelected && <Check className="h-4 w-4 text-primary" />}
+                            {isSelected && (
+                              <Check className="h-4 w-4 text-primary" />
+                            )}
                           </div>
                         </div>
                       )}
@@ -708,7 +737,7 @@ export const EnhancedVehicleAssignmentModal = ({
                   value={selectedDriverId}
                   onSelect={setSelectedDriverId}
                   placeholder="Search driver name or phone..."
-                  searchKeys={['name', 'phone']}
+                  searchKeys={["name", "phone"]}
                   onAddNew={() => setIsAddDriverModalOpen(true)}
                   addNewText="Add New Driver"
                   renderItem={(driver, isSelected) => (
@@ -719,10 +748,13 @@ export const EnhancedVehicleAssignmentModal = ({
                             {driver.name}
                           </div>
                           <div className="text-sm text-muted-foreground dark:text-muted-foreground">
-                            {driver.phone} • {driver.experience || 'No experience'}
+                            {driver.phone} •{" "}
+                            {driver.experience || "No experience"}
                           </div>
                         </div>
-                        {isSelected && <Check className="h-4 w-4 text-primary" />}
+                        {isSelected && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
                       </div>
                     </div>
                   )}

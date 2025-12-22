@@ -30,7 +30,7 @@ import {
 import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
-import { VehicleTrackingMap } from '@/components/VehicleTrackingMap';
+import { VehicleTrackingMap } from "@/components/VehicleTrackingMap";
 import { JourneyView } from "@/components/JourneyView";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -126,43 +126,51 @@ interface BookingDetail {
 const statusConfig = {
   DRAFT: {
     label: "Draft",
-    color: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
-    icon: Edit
+    color:
+      "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+    icon: Edit,
   },
   QUOTED: {
     label: "Quoted",
-    color: "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-[#F38810]/10 dark:text-primary dark:border-[#F38810]/30",
-    icon: FileText
+    color:
+      "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-[#F38810]/10 dark:text-primary dark:border-[#F38810]/30",
+    icon: FileText,
   },
   CONFIRMED: {
     label: "Confirmed",
-    color: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
-    icon: CheckCircle2
+    color:
+      "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
+    icon: CheckCircle2,
   },
   AT_WAREHOUSE: {
     label: "At Warehouse",
-    color: "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-[#F67C09]/10 dark:text-primary dark:border-[#F67C09]/30",
-    icon: Package
+    color:
+      "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-[#F67C09]/10 dark:text-primary dark:border-[#F67C09]/30",
+    icon: Package,
   },
   DISPATCHED: {
     label: "Dispatched",
-    color: "bg-[#FFF8E1] text-primary dark:text-primary border-primary/40 dark:bg-[#F38810]/15 dark:text-primary dark:border-[#F38810]/40",
-    icon: Truck
+    color:
+      "bg-[#FFF8E1] text-primary dark:text-primary border-primary/40 dark:bg-[#F38810]/15 dark:text-primary dark:border-[#F38810]/40",
+    icon: Truck,
   },
   IN_TRANSIT: {
     label: "In Transit",
-    color: "bg-[#FFF3E0] text-primary dark:text-primary border-[#F38810]/40 dark:bg-[#F67C09]/15 dark:text-primary dark:border-[#F67C09]/40",
-    icon: TrendingUp
+    color:
+      "bg-[#FFF3E0] text-primary dark:text-primary border-[#F38810]/40 dark:bg-[#F67C09]/15 dark:text-primary dark:border-[#F67C09]/40",
+    icon: TrendingUp,
   },
   DELIVERED: {
     label: "Delivered",
-    color: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
-    icon: CheckCircle2
+    color:
+      "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
+    icon: CheckCircle2,
   },
   CANCELLED: {
     label: "Cancelled",
-    color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
-    icon: AlertCircle
+    color:
+      "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
+    icon: AlertCircle,
   },
 };
 
@@ -193,7 +201,8 @@ export const BookingDetail = () => {
       const data = await fetchBookingById(bookingId);
 
       if (data) {
-        const hasActiveAssignment = data.vehicle_assignments &&
+        const hasActiveAssignment =
+          data.vehicle_assignments &&
           Array.isArray(data.vehicle_assignments) &&
           data.vehicle_assignments.length > 0 &&
           data.vehicle_assignments[0].vehicle;
@@ -221,20 +230,26 @@ export const BookingDetail = () => {
           branch_city: data.branch?.city,
           current_warehouse: data.current_warehouse,
           eway_bill_details: data.eway_bill_details || [],
-          assignedVehicle: hasActiveAssignment ? {
-            id: data.vehicle_assignments[0].vehicle.id,
-            regNumber: data.vehicle_assignments[0].vehicle.vehicle_number,
-            type: data.vehicle_assignments[0].vehicle.vehicle_type,
-            capacity: data.vehicle_assignments[0].vehicle.capacity,
-            driver: data.vehicle_assignments[0].driver ? {
-              name: data.vehicle_assignments[0].driver.name,
-              phone: data.vehicle_assignments[0].driver.phone,
-              email: data.vehicle_assignments[0].driver.email,
-              experience: data.vehicle_assignments[0].driver.experience || "N/A",
-              license_number: data.vehicle_assignments[0].driver.license_number,
-            } : undefined,
-            assignedAt: data.vehicle_assignments[0].created_at
-          } : undefined,
+          assignedVehicle: hasActiveAssignment
+            ? {
+                id: data.vehicle_assignments[0].vehicle.id,
+                regNumber: data.vehicle_assignments[0].vehicle.vehicle_number,
+                type: data.vehicle_assignments[0].vehicle.vehicle_type,
+                capacity: data.vehicle_assignments[0].vehicle.capacity,
+                driver: data.vehicle_assignments[0].driver
+                  ? {
+                      name: data.vehicle_assignments[0].driver.name,
+                      phone: data.vehicle_assignments[0].driver.phone,
+                      email: data.vehicle_assignments[0].driver.email,
+                      experience:
+                        data.vehicle_assignments[0].driver.experience || "N/A",
+                      license_number:
+                        data.vehicle_assignments[0].driver.license_number,
+                    }
+                  : undefined,
+                assignedAt: data.vehicle_assignments[0].created_at,
+              }
+            : undefined,
           broker: data.vehicle_assignments?.[0]?.broker,
           consignor: data.consignor,
           consignee: data.consignee,
@@ -251,7 +266,7 @@ export const BookingDetail = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading booking details:', error);
+      console.error("Error loading booking details:", error);
       toast({
         title: "Error",
         description: "Failed to load booking details",
@@ -265,11 +280,11 @@ export const BookingDetail = () => {
   const loadBookingTimeline = async (bookingId: string) => {
     try {
       setTimelineLoading(true);
-      const { fetchBookingTimeline } = await import('@/api/bookings');
+      const { fetchBookingTimeline } = await import("@/api/bookings");
       const data = await fetchBookingTimeline(bookingId);
       setBookingTimeline(data);
     } catch (error) {
-      console.error('Error loading timeline:', error);
+      console.error("Error loading timeline:", error);
     } finally {
       setTimelineLoading(false);
     }
@@ -278,26 +293,26 @@ export const BookingDetail = () => {
   const loadTollCrossings = async (assignmentId: string) => {
     try {
       const { data, error } = await supabase
-        .from('fastag_crossings')
-        .select('id, toll_plaza_name, crossing_time, latitude, longitude')
-        .eq('vehicle_assignment_id', assignmentId)
-        .order('crossing_time', { ascending: false })
+        .from("fastag_crossings")
+        .select("id, toll_plaza_name, crossing_time, latitude, longitude")
+        .eq("vehicle_assignment_id", assignmentId)
+        .order("crossing_time", { ascending: false })
         .limit(3);
 
       if (error) throw error;
       setTollCrossings(data || []);
     } catch (error) {
-      console.error('Error loading toll crossings:', error);
+      console.error("Error loading toll crossings:", error);
       setTollCrossings([]);
     }
   };
 
   const handleVehicleUnassign = async () => {
     try {
-      const { unassignVehicle } = await import('@/api/vehicles');
+      const { unassignVehicle } = await import("@/api/vehicles");
       await unassignVehicle(booking!.id);
 
-      setBooking(prev => {
+      setBooking((prev) => {
         if (!prev) return null;
         return { ...prev, assignedVehicle: undefined };
       });
@@ -310,7 +325,7 @@ export const BookingDetail = () => {
         description: "Vehicle has been removed from this booking",
       });
     } catch (error) {
-      console.error('Error unassigning vehicle:', error);
+      console.error("Error unassigning vehicle:", error);
       toast({
         title: "Error",
         description: "Failed to unassign vehicle",
@@ -321,24 +336,30 @@ export const BookingDetail = () => {
 
   const getEventDescription = (event: any) => {
     switch (event.action) {
-      case 'BOOKING_CREATED': return 'Booking Created';
-      case 'VEHICLE_ASSIGNED': return 'Vehicle Assigned';
-      case 'VEHICLE_UNASSIGNED': return 'Vehicle Unassigned';
-      case 'ARRIVED_AT_WAREHOUSE': return `Arrived at ${event.warehouse?.name}`;
-      case 'DEPARTED_FROM_WAREHOUSE': return `Departed from ${event.warehouse?.name}`;
-      default: return event.description || event.action;
+      case "BOOKING_CREATED":
+        return "Booking Created";
+      case "VEHICLE_ASSIGNED":
+        return "Vehicle Assigned";
+      case "VEHICLE_UNASSIGNED":
+        return "Vehicle Unassigned";
+      case "ARRIVED_AT_WAREHOUSE":
+        return `Arrived at ${event.warehouse?.name}`;
+      case "DEPARTED_FROM_WAREHOUSE":
+        return `Departed from ${event.warehouse?.name}`;
+      default:
+        return event.description || event.action;
     }
   };
 
   const getEventColor = (action: string) => {
     const colors: Record<string, string> = {
-      BOOKING_CREATED: 'bg-primary',
-      VEHICLE_ASSIGNED: 'bg-[#F38810]',
-      VEHICLE_UNASSIGNED: 'bg-gray-400',
-      ARRIVED_AT_WAREHOUSE: 'bg-[#F67C09]',
-      DEPARTED_FROM_WAREHOUSE: 'bg-primary',
+      BOOKING_CREATED: "bg-primary",
+      VEHICLE_ASSIGNED: "bg-[#F38810]",
+      VEHICLE_UNASSIGNED: "bg-gray-400",
+      ARRIVED_AT_WAREHOUSE: "bg-[#F67C09]",
+      DEPARTED_FROM_WAREHOUSE: "bg-primary",
     };
-    return colors[action] || 'bg-gray-400 dark:bg-gray-600';
+    return colors[action] || "bg-gray-400 dark:bg-gray-600";
   };
 
   const handleDownloadLR = async () => {
@@ -364,7 +385,7 @@ export const BookingDetail = () => {
         description: `LR ${booking.lrNumber} has been downloaded successfully`,
       });
     } catch (error) {
-      console.error('Error generating LR:', error);
+      console.error("Error generating LR:", error);
       toast({
         title: "❌ Download Failed",
         description: "Failed to generate LR PDF. Please try again.",
@@ -391,7 +412,7 @@ export const BookingDetail = () => {
       lrDate: booking.lrDate,
       bilti_number: booking.bilti_number,
       invoice_number: booking.invoice_number,
-      eway_bill_details: booking.eway_bill_details || []
+      eway_bill_details: booking.eway_bill_details || [],
     };
 
     setEditingBooking(formattedBooking);
@@ -404,7 +425,7 @@ export const BookingDetail = () => {
     lrData: any
   ) => {
     try {
-      const { updateBooking, updateBookingLR } = await import('@/api/bookings');
+      const { updateBooking, updateBookingLR } = await import("@/api/bookings");
       await updateBooking(bookingId, generalData);
       await updateBookingLR(bookingId, lrData);
       await loadBookingDetails(bookingId);
@@ -417,7 +438,7 @@ export const BookingDetail = () => {
       setIsEditModalOpen(false);
       setEditingBooking(null);
     } catch (error) {
-      console.error('Error saving booking:', error);
+      console.error("Error saving booking:", error);
       toast({
         title: "❌ Error",
         description: "Failed to save booking details",
@@ -446,10 +467,14 @@ export const BookingDetail = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Booking Not Found</h2>
-          <p className="text-muted-foreground mb-4">The requested booking could not be found.</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            Booking Not Found
+          </h2>
+          <p className="text-muted-foreground mb-4">
+            The requested booking could not be found.
+          </p>
           <Button
-            onClick={() => navigate('/bookings')}
+            onClick={() => navigate("/bookings")}
             className="bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-primary dark:hover:bg-primary/90 dark:text-primary-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -459,7 +484,9 @@ export const BookingDetail = () => {
       </div>
     );
   }
-  const status = statusConfig[booking.status as keyof typeof statusConfig] || statusConfig.DRAFT;
+  const status =
+    statusConfig[booking.status as keyof typeof statusConfig] ||
+    statusConfig.DRAFT;
   const StatusIcon = status.icon;
   return (
     <div className="space-y-6 pb-8">
@@ -472,14 +499,16 @@ export const BookingDetail = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/bookings')}
+                onClick={() => navigate("/bookings")}
                 className="shrink-0"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-3xl font-bold text-foreground dark:text-white">{booking.bookingId}</h1>
+                  <h1 className="text-3xl font-bold text-foreground dark:text-white">
+                    {booking.bookingId}
+                  </h1>
                   <Badge className={cn("text-sm border", status.color)}>
                     <StatusIcon className="w-4 h-4 mr-1" />
                     {status.label}
@@ -495,7 +524,9 @@ export const BookingDetail = () => {
                       <span>•</span>
                       <span className="flex items-center gap-2">
                         <Building2 className="w-4 h-4" />
-                        <Badge variant="outline" className="border-primary/30">{booking.branch_code}</Badge>
+                        <Badge variant="outline" className="border-primary/30">
+                          {booking.branch_code}
+                        </Badge>
                         {booking.branch_name}
                       </span>
                     </>
@@ -547,8 +578,12 @@ export const BookingDetail = () => {
             <Navigation className="w-5 h-5 text-primary shrink-0" />
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">Route</p>
-              <p className="font-medium text-sm truncate">{booking.fromLocation}</p>
-              <p className="text-xs text-muted-foreground truncate">→ {booking.toLocation}</p>
+              <p className="font-medium text-sm truncate">
+                {booking.fromLocation}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                → {booking.toLocation}
+              </p>
             </div>
           </div>
 
@@ -557,7 +592,9 @@ export const BookingDetail = () => {
             <div>
               <p className="text-xs text-muted-foreground">Cargo</p>
               <p className="font-semibold">{booking.cargoUnits} Units</p>
-              <p className="text-xs text-muted-foreground">{booking.serviceType}</p>
+              <p className="text-xs text-muted-foreground">
+                {booking.serviceType}
+              </p>
             </div>
           </div>
 
@@ -566,7 +603,9 @@ export const BookingDetail = () => {
             <div>
               <p className="text-xs text-muted-foreground">Pickup</p>
               <p className="font-medium text-sm">
-                {booking.pickupDate ? formatDate(booking.pickupDate) : 'Not Scheduled'}
+                {booking.pickupDate
+                  ? formatDate(booking.pickupDate)
+                  : "Not Scheduled"}
               </p>
             </div>
           </div>
@@ -587,19 +626,34 @@ export const BookingDetail = () => {
         {/* TABS */}
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="bg-muted border border-border">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger
+              value="overview"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               Overview
             </TabsTrigger>
-            <TabsTrigger value="parties" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger
+              value="parties"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               Parties
             </TabsTrigger>
-            <TabsTrigger value="vehicle" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger
+              value="vehicle"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               Vehicle & Tracking
             </TabsTrigger>
-            <TabsTrigger value="documents" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger
+              value="documents"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               Documents
             </TabsTrigger>
-            <TabsTrigger value="timeline" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger
+              value="timeline"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
               Timeline
             </TabsTrigger>
           </TabsList>
@@ -617,16 +671,24 @@ export const BookingDetail = () => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Consignor</p>
-                      <p className="font-semibold text-lg">{booking.consignorName}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Consignor
+                      </p>
+                      <p className="font-semibold text-lg">
+                        {booking.consignorName}
+                      </p>
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {booking.fromLocation}
                       </p>
                     </div>
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Consignee</p>
-                      <p className="font-semibold text-lg">{booking.consigneeName}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Consignee
+                      </p>
+                      <p className="font-semibold text-lg">
+                        {booking.consigneeName}
+                      </p>
                       <p className="text-sm text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         {booking.toLocation}
@@ -643,19 +705,29 @@ export const BookingDetail = () => {
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Material</p>
-                      <p className="font-medium">{booking.materialDescription}</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Material
+                      </p>
+                      <p className="font-medium">
+                        {booking.materialDescription}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Units</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Units
+                      </p>
                       <p className="font-bold text-xl">{booking.cargoUnits}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Service</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Service
+                      </p>
                       <Badge variant="secondary">{booking.serviceType}</Badge>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Status</p>
+                      <p className="text-xs text-muted-foreground mb-1">
+                        Status
+                      </p>
                       <Badge className={cn("border", status.color)}>
                         <StatusIcon className="w-3 h-3 mr-1" />
                         {status.label}
@@ -665,34 +737,45 @@ export const BookingDetail = () => {
                 </div>
 
                 {/* E-way Bills */}
-                {booking.eway_bill_details && booking.eway_bill_details.length > 0 && (
-                  <div className="p-6 rounded-xl border border-border bg-card">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Zap className="w-5 h-5 text-primary" />
-                      E-way Bills
-                    </h3>
-                    <div className="space-y-2">
-                      {booking.eway_bill_details.map((ewb: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <FileText className="w-4 h-4 text-primary" />
-                            <div>
-                              <p className="font-medium text-sm">{ewb.number}</p>
-                              {ewb.valid_until && (
-                                <p className="text-xs text-muted-foreground">
-                                  Valid until: {formatDate(ewb.valid_until)}
-                                </p>
-                              )}
+                {booking.eway_bill_details &&
+                  booking.eway_bill_details.length > 0 && (
+                    <div className="p-6 rounded-xl border border-border bg-card">
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-primary" />
+                        E-way Bills
+                      </h3>
+                      <div className="space-y-2">
+                        {booking.eway_bill_details.map(
+                          (ewb: any, index: number) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                            >
+                              <div className="flex items-center gap-3">
+                                <FileText className="w-4 h-4 text-primary" />
+                                <div>
+                                  <p className="font-medium text-sm">
+                                    {ewb.number}
+                                  </p>
+                                  {ewb.valid_until && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Valid until: {formatDate(ewb.valid_until)}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className="text-xs border-green-300 text-green-700 dark:border-green-800 dark:text-green-400"
+                              >
+                                Active
+                              </Badge>
                             </div>
-                          </div>
-                          <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:border-green-800 dark:text-green-400">
-                            Active
-                          </Badge>
-                        </div>
-                      ))}
+                          )
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
 
               {/* Right Column */}
@@ -704,12 +787,16 @@ export const BookingDetail = () => {
                       <Package className="w-5 h-5 text-primary" />
                       <p className="font-semibold">Current Location</p>
                     </div>
-                    <p className="font-bold text-lg">{booking.current_warehouse.name}</p>
+                    <p className="font-bold text-lg">
+                      {booking.current_warehouse.name}
+                    </p>
                     <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                       <MapPin className="w-3 h-3" />
                       {booking.current_warehouse.city}
                     </p>
-                    <Badge className="mt-3 bg-primary text-primary-foreground">At Warehouse</Badge>
+                    <Badge className="mt-3 bg-primary text-primary-foreground">
+                      At Warehouse
+                    </Badge>
                   </div>
                 )}
 
@@ -725,8 +812,12 @@ export const BookingDetail = () => {
                         <div key={toll.id} className="flex gap-3">
                           <div className="w-2 h-2 rounded-full mt-2 bg-primary" />
                           <div>
-                            <p className="text-sm font-medium">Crossed {toll.toll_name}</p>
-                            <p className="text-xs text-muted-foreground">{formatDateTime(toll.crossed_at)}</p>
+                            <p className="text-sm font-medium">
+                              Crossed {toll.toll_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDateTime(toll.crossed_at)}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -735,15 +826,26 @@ export const BookingDetail = () => {
                     <div className="space-y-3">
                       {bookingTimeline.slice(0, 3).map((event, index) => (
                         <div key={index} className="flex gap-3">
-                          <div className={cn("w-2 h-2 rounded-full mt-2", getEventColor(event.action))} />
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full mt-2",
+                              getEventColor(event.action)
+                            )}
+                          />
                           <div>
-                            <p className="text-sm font-medium">{getEventDescription(event)}</p>
-                            <p className="text-xs text-muted-foreground">{formatDateTime(event.created_at)}</p>
+                            <p className="text-sm font-medium">
+                              {getEventDescription(event)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDateTime(event.created_at)}
+                            </p>
                           </div>
                         </div>
                       ))}
                       {bookingTimeline.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-4">No activity yet</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No activity yet
+                        </p>
                       )}
                     </div>
                   )}
@@ -764,21 +866,26 @@ export const BookingDetail = () => {
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Name</p>
-                    <p className="font-semibold text-lg">{booking.consignorName}</p>
+                    <p className="font-semibold text-lg">
+                      {booking.consignorName}
+                    </p>
                   </div>
                   {booking.consignor?.address && (
                     <div>
                       <p className="text-xs text-muted-foreground">Address</p>
                       <p className="font-medium">{booking.consignor.address}</p>
                       <p className="text-sm text-muted-foreground">
-                        {booking.consignor.city}, {booking.consignor.state} - {booking.consignor.pincode}
+                        {booking.consignor.city}, {booking.consignor.state} -{" "}
+                        {booking.consignor.pincode}
                       </p>
                     </div>
                   )}
                   {booking.consignor?.gstin && (
                     <div>
                       <p className="text-xs text-muted-foreground">GSTIN</p>
-                      <p className="font-mono font-medium">{booking.consignor.gstin}</p>
+                      <p className="font-mono font-medium">
+                        {booking.consignor.gstin}
+                      </p>
                     </div>
                   )}
                   {(booking.consignor?.phone || booking.consignor?.email) && (
@@ -816,21 +923,26 @@ export const BookingDetail = () => {
                 <div className="space-y-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Name</p>
-                    <p className="font-semibold text-lg">{booking.consigneeName}</p>
+                    <p className="font-semibold text-lg">
+                      {booking.consigneeName}
+                    </p>
                   </div>
                   {booking.consignee?.address && (
                     <div>
                       <p className="text-xs text-muted-foreground">Address</p>
                       <p className="font-medium">{booking.consignee.address}</p>
                       <p className="text-sm text-muted-foreground">
-                        {booking.consignee.city}, {booking.consignee.state} - {booking.consignee.pincode}
+                        {booking.consignee.city}, {booking.consignee.state} -{" "}
+                        {booking.consignee.pincode}
                       </p>
                     </div>
                   )}
                   {booking.consignee?.gstin && (
                     <div>
                       <p className="text-xs text-muted-foreground">GSTIN</p>
-                      <p className="font-mono font-medium">{booking.consignee.gstin}</p>
+                      <p className="font-mono font-medium">
+                        {booking.consignee.gstin}
+                      </p>
                     </div>
                   )}
                   {(booking.consignee?.phone || booking.consignee?.email) && (
@@ -874,7 +986,10 @@ export const BookingDetail = () => {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Branch Code</p>
-                    <Badge variant="outline" className="font-mono border-primary/30 text-primary">
+                    <Badge
+                      variant="outline"
+                      className="font-mono border-primary/30 text-primary"
+                    >
                       {booking.branch_code}
                     </Badge>
                   </div>
@@ -896,25 +1011,41 @@ export const BookingDetail = () => {
                   <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-center gap-2 mb-4">
                       <CheckCircle2 className="w-5 h-5 text-green-600" />
-                      <p className="font-semibold text-green-700 dark:text-green-300">Vehicle Assigned</p>
+                      <p className="font-semibold text-green-700 dark:text-green-300">
+                        Vehicle Assigned
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Vehicle Number</p>
-                        <p className="font-bold text-lg">{booking.assignedVehicle.regNumber}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Vehicle Number
+                        </p>
+                        <p className="font-bold text-lg">
+                          {booking.assignedVehicle.regNumber}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Type</p>
-                        <p className="font-medium">{booking.assignedVehicle.type}</p>
+                        <p className="font-medium">
+                          {booking.assignedVehicle.type}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Capacity</p>
-                        <p className="font-medium">{booking.assignedVehicle.capacity}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Capacity
+                        </p>
+                        <p className="font-medium">
+                          {booking.assignedVehicle.capacity}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Assigned On</p>
-                        <p className="text-sm">{formatDate(booking.assignedVehicle.assignedAt!)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Assigned On
+                        </p>
+                        <p className="text-sm">
+                          {formatDate(booking.assignedVehicle.assignedAt!)}
+                        </p>
                       </div>
                     </div>
 
@@ -924,24 +1055,41 @@ export const BookingDetail = () => {
                         <Separator className="my-4 bg-green-200 dark:bg-green-800" />
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                           <div>
-                            <p className="text-xs text-muted-foreground">Driver</p>
-                            <p className="font-semibold">{booking.assignedVehicle.driver.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Driver
+                            </p>
+                            <p className="font-semibold">
+                              {booking.assignedVehicle.driver.name}
+                            </p>
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground">Phone</p>
-                            <a href={`tel:${booking.assignedVehicle.driver.phone}`} className="text-primary font-medium">
+                            <p className="text-xs text-muted-foreground">
+                              Phone
+                            </p>
+                            <a
+                              href={`tel:${booking.assignedVehicle.driver.phone}`}
+                              className="text-primary font-medium"
+                            >
                               {booking.assignedVehicle.driver.phone}
                             </a>
                           </div>
                           {booking.assignedVehicle.driver.email && (
                             <div>
-                              <p className="text-xs text-muted-foreground">Email</p>
-                              <p className="text-sm">{booking.assignedVehicle.driver.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Email
+                              </p>
+                              <p className="text-sm">
+                                {booking.assignedVehicle.driver.email}
+                              </p>
                             </div>
                           )}
                           <div>
-                            <p className="text-xs text-muted-foreground">Experience</p>
-                            <p className="font-medium">{booking.assignedVehicle.driver.experience}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Experience
+                            </p>
+                            <p className="font-medium">
+                              {booking.assignedVehicle.driver.experience}
+                            </p>
                           </div>
                         </div>
                       </>
@@ -953,19 +1101,32 @@ export const BookingDetail = () => {
                         <Separator className="my-4 bg-green-200 dark:bg-green-800" />
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div>
-                            <p className="text-xs text-muted-foreground">Broker</p>
-                            <p className="font-semibold">{booking.broker.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Broker
+                            </p>
+                            <p className="font-semibold">
+                              {booking.broker.name}
+                            </p>
                           </div>
                           {booking.broker.company && (
                             <div>
-                              <p className="text-xs text-muted-foreground">Company</p>
-                              <p className="font-medium">{booking.broker.company}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Company
+                              </p>
+                              <p className="font-medium">
+                                {booking.broker.company}
+                              </p>
                             </div>
                           )}
                           {booking.broker.phone && (
                             <div>
-                              <p className="text-xs text-muted-foreground">Contact</p>
-                              <a href={`tel:${booking.broker.phone}`} className="text-primary font-medium">
+                              <p className="text-xs text-muted-foreground">
+                                Contact
+                              </p>
+                              <a
+                                href={`tel:${booking.broker.phone}`}
+                                className="text-primary font-medium"
+                              >
                                 {booking.broker.phone}
                               </a>
                             </div>
@@ -978,13 +1139,19 @@ export const BookingDetail = () => {
                     <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-green-200 dark:border-green-800">
                       {booking.assignedVehicle.driver && (
                         <Button variant="outline" size="sm" asChild>
-                          <a href={`tel:${booking.assignedVehicle.driver.phone}`}>
+                          <a
+                            href={`tel:${booking.assignedVehicle.driver.phone}`}
+                          >
                             <Phone className="w-4 h-4 mr-2" />
                             Call Driver
                           </a>
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" onClick={() => setShowVehicleAssignModal(true)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowVehicleAssignModal(true)}
+                      >
                         <Truck className="w-4 h-4 mr-2" />
                         Replace
                       </Button>
@@ -1014,8 +1181,12 @@ export const BookingDetail = () => {
                   <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
                     <Truck className="w-8 h-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">No Vehicle Assigned</h3>
-                  <p className="text-muted-foreground mb-4">Assign a vehicle to start tracking</p>
+                  <h3 className="text-xl font-semibold mb-2">
+                    No Vehicle Assigned
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Assign a vehicle to start tracking
+                  </p>
                   <Button onClick={() => setShowVehicleAssignModal(true)}>
                     <Truck className="w-4 h-4 mr-2" />
                     Assign Vehicle
@@ -1029,7 +1200,9 @@ export const BookingDetail = () => {
           <TabsContent value="documents" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="p-6 rounded-xl border border-border bg-card">
-                <h3 className="font-semibold text-lg mb-4">Generated Documents</h3>
+                <h3 className="font-semibold text-lg mb-4">
+                  Generated Documents
+                </h3>
                 {booking.lrNumber ? (
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-3">
@@ -1037,11 +1210,16 @@ export const BookingDetail = () => {
                       <div>
                         <p className="font-semibold">Lorry Receipt (LR)</p>
                         <p className="text-sm text-muted-foreground">
-                          {booking.lrNumber} • {booking.lrDate && formatDate(booking.lrDate)}
+                          {booking.lrNumber} •{" "}
+                          {booking.lrDate && formatDate(booking.lrDate)}
                         </p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={handleDownloadLR}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleDownloadLR}
+                    >
                       <Download className="w-4 h-4" />
                     </Button>
                   </div>
@@ -1057,8 +1235,12 @@ export const BookingDetail = () => {
                 <h3 className="font-semibold text-lg mb-4">Upload Documents</h3>
                 <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
                   <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground mb-2">Drop files or click to browse</p>
-                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG (Max 10MB)</p>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Drop files or click to browse
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    PDF, JPG, PNG (Max 10MB)
+                  </p>
                 </div>
               </div>
             </div>
@@ -1081,15 +1263,24 @@ export const BookingDetail = () => {
                   {bookingTimeline.map((event, index) => (
                     <div key={index} className="flex gap-4">
                       <div className="relative">
-                        <div className={cn("w-3 h-3 rounded-full mt-1.5", getEventColor(event.action))} />
+                        <div
+                          className={cn(
+                            "w-3 h-3 rounded-full mt-1.5",
+                            getEventColor(event.action)
+                          )}
+                        />
                         {index < bookingTimeline.length - 1 && (
                           <div className="absolute left-1.5 top-5 w-px h-full bg-border" />
                         )}
                       </div>
                       <div className="flex-1 pb-4">
                         <div className="flex items-center justify-between">
-                          <p className="font-semibold">{getEventDescription(event)}</p>
-                          <span className="text-sm text-muted-foreground">{formatDateTime(event.created_at)}</span>
+                          <p className="font-semibold">
+                            {getEventDescription(event)}
+                          </p>
+                          <span className="text-sm text-muted-foreground">
+                            {formatDateTime(event.created_at)}
+                          </span>
                         </div>
                         {event.warehouse && (
                           <p className="text-sm text-muted-foreground">
@@ -1101,7 +1292,9 @@ export const BookingDetail = () => {
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-8">No timeline events</p>
+                <p className="text-center text-muted-foreground py-8">
+                  No timeline events
+                </p>
               )}
             </div>
 
@@ -1114,7 +1307,7 @@ export const BookingDetail = () => {
                 actual_delivery: booking.actual_delivery,
                 pod_uploaded_at: booking.pod_uploaded_at,
                 billed_at: booking.billed_at,
-                status: booking.status
+                status: booking.status,
               }}
             />
           </TabsContent>

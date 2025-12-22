@@ -155,9 +155,6 @@ export const fetchVehicleTollHistory = async (
 };
 
 /**
- * Get time ago string from timestamp
- */
-/**
  * Get time ago string from timestamp (Handles future dates & timezone issues)
  */
 export const getTimeAgo = (timestamp: string): string => {
@@ -192,6 +189,3 @@ export const getTimeAgo = (timestamp: string): string => {
         return `${diffDays}d ago`;
     }
 };
-
-
-

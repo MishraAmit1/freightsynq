@@ -138,7 +138,6 @@ const formatCrossingTime = (
       "Nov",
       "Dec",
     ];
-
     const hour12 = hours % 12 || 12;
     const ampm = hours >= 12 ? "pm" : "am";
 

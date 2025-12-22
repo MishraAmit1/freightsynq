@@ -1,4 +1,3 @@
-// src/api/access-requests.ts
 import { supabase } from '@/lib/supabase';
 
 export interface AccessRequest {
