@@ -12,7 +12,7 @@ import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -40,11 +40,13 @@ import {
   PhoneCall,
   User,
   Loader2,
+  Hourglass,
+  Target,
 } from "lucide-react";
 import { trackVehicle, TollCrossing } from "@/api/tracking";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -69,6 +71,7 @@ interface SimLocation {
   speed?: number;
   recorded_at: string;
   time_ago?: string;
+  api_provider?: string;
 }
 
 interface SimRegistration {
@@ -81,6 +84,10 @@ interface SimRegistration {
   days_remaining?: number;
   tracking_type?: string;
   daily_cost?: number;
+  lorryinfo_contact_id?: string;
+  consent_status?: string;
+  consent_approved?: boolean;
+  lorryinfo_tracking_status?: string;
 }
 
 interface VehicleTrackingMapProps {
@@ -143,40 +150,30 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   } | null>(null);
   const [showRegisterDialog, setShowRegisterDialog] = useState(false);
   const [registeringSimTracking, setRegisteringSimTracking] = useState(false);
-  const [simTrackingDays, setSimTrackingDays] = useState(1);
+  const [simDataSource, setSimDataSource] = useState<"LIVE" | "MOCK">("MOCK");
 
-  // 🆕 Page visibility state
+  // Page visibility state
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
 
-  // 🆕 Initial load flag to prevent duplicate calls
+  // Initial load flag
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // ═══════════════════════════════════════════════════════════
-  // 🆕 PAGE VISIBILITY HANDLER
+  // PAGE VISIBILITY HANDLER
   // ═══════════════════════════════════════════════════════════
 
   useEffect(() => {
     const handleVisibilityChange = () => {
       setIsPageVisible(!document.hidden);
-
-      if (!document.hidden) {
-        console.log("📱 Page became visible");
-        // Optionally refresh data when page becomes visible
-        // But we won't auto-fetch to save API calls
-      } else {
-        console.log("📱 Page hidden");
-      }
     };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
-
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
   // ═══════════════════════════════════════════════════════════
-  // 🆕 COMBINED INITIAL DATA LOAD (Single Effect)
+  // COMBINED INITIAL DATA LOAD
   // ═══════════════════════════════════════════════════════════
 
   useEffect(() => {
@@ -186,19 +183,14 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       console.log("📊 Loading initial data for booking:", bookingId);
 
       try {
-        // 1. Check tracking status
         await checkTrackingStatus();
-
-        // 2. Load monthly usage & cost in parallel
         await Promise.all([loadMonthlyUsage(), loadMonthlyCost()]);
 
-        // 3. Load mode-specific data
         if (trackingMode === "FASTAG") {
           await loadCachedData();
         }
 
         setInitialLoadDone(true);
-        console.log("✅ Initial data loaded");
       } catch (error) {
         console.error("Error loading initial data:", error);
       }
@@ -217,7 +209,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     if (trackingMode === "SIM") {
       checkSimRegistrationStatus();
     } else if (trackingMode === "FASTAG") {
-      // Load cached FASTag data if switching back
       if (tollCrossings.length === 0) {
         loadCachedData();
       }
@@ -228,7 +219,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   // MAP AUTO-ADJUST EFFECTS
   // ═══════════════════════════════════════════════════════════
 
-  // Auto-adjust for SIM locations
   useEffect(() => {
     if (trackingMode === "SIM" && simLocations.length > 0) {
       adjustMapBounds(
@@ -240,7 +230,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     }
   }, [simLocations, trackingMode]);
 
-  // Auto-adjust for FASTag
   useEffect(() => {
     if (trackingMode === "FASTAG" && tollCrossings.length > 0) {
       adjustMapBounds(
@@ -251,10 +240,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       );
     }
   }, [tollCrossings, trackingMode]);
-
-  // ═══════════════════════════════════════════════════════════
-  // HELPER FUNCTIONS
-  // ═══════════════════════════════════════════════════════════
 
   const adjustMapBounds = useCallback(
     (points: { latitude: number; longitude: number }[]) => {
@@ -277,6 +262,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         const centerLng = (bounds.minLng + bounds.maxLng) / 2;
         setMapCenter([centerLat, centerLng]);
 
+        // Simple zoom logic based on spread
         const latDiff = bounds.maxLat - bounds.minLat;
         const lngDiff = bounds.maxLng - bounds.minLng;
         const maxDiff = Math.max(latDiff, lngDiff);
@@ -292,29 +278,23 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     },
     []
   );
+
   // ═══════════════════════════════════════════════════════════
-  // SIM TRACKING FUNCTIONS - FIXED
+  // SIM TRACKING FUNCTIONS
   // ═══════════════════════════════════════════════════════════
 
   const checkSimRegistrationStatus = async () => {
     try {
       console.log("📱 Checking SIM registration status...");
 
-      // Fetch registration status, driver details, AND location history in parallel
       const [regResult, driverResult, locationResult] = await Promise.all([
         supabase.rpc("check_sim_tracking_status", { p_booking_id: bookingId }),
         supabase
           .from("vehicle_assignments")
-          .select(
-            `
-                    id,
-                    drivers!inner(id, name, phone)
-                `
-          )
+          .select(`id, drivers!inner(id, name, phone)`)
           .eq("booking_id", bookingId)
           .eq("status", "ACTIVE")
           .single(),
-        // 🆕 Also fetch location history directly here
         supabase
           .from("sim_tracking_locations")
           .select("*")
@@ -323,65 +303,25 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           .limit(50),
       ]);
 
-      // Handle registration
       if (regResult.data) {
         setSimRegistration(regResult.data);
         setIsSimRegistered(regResult.data?.registered || false);
-        console.log(
-          "✅ SIM registration:",
-          regResult.data?.registered ? "Active" : "Not registered"
-        );
       }
 
-      // Handle driver details
       if (driverResult.data?.drivers) {
         setDriverDetails(driverResult.data.drivers);
-        console.log("📞 Driver:", driverResult.data.drivers.name);
       }
 
-      // 🆕 Handle location history - load even if registration check
       if (locationResult.data && locationResult.data.length > 0) {
-        console.log(
-          `📍 Found ${locationResult.data.length} cached SIM locations`
-        );
         setSimLocations(locationResult.data);
-        setCurrentSimLocation(locationResult.data[0]); // Latest is first
+        setCurrentSimLocation(locationResult.data[0]);
         setLastUpdated(new Date(locationResult.data[0].recorded_at));
-      } else {
-        console.log("⚠️ No SIM locations in database for this booking");
+
+        const lastProvider = locationResult.data[0].api_provider;
+        setSimDataSource(lastProvider === "LORRYINFO" ? "LIVE" : "MOCK");
       }
     } catch (error) {
       console.error("Error in checkSimRegistrationStatus:", error);
-    }
-  };
-
-  // This function is now backup - main loading happens in checkSimRegistrationStatus
-  const loadSimLocationHistory = async () => {
-    try {
-      console.log("📍 Loading SIM location history from DB...");
-
-      const { data, error } = await supabase
-        .from("sim_tracking_locations")
-        .select("*")
-        .eq("booking_id", bookingId)
-        .order("recorded_at", { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error("Error loading SIM history:", error);
-        return;
-      }
-
-      console.log("📊 SIM locations found:", data?.length || 0);
-
-      if (data && data.length > 0) {
-        setSimLocations(data);
-        setCurrentSimLocation(data[0]);
-        setLastUpdated(new Date(data[0].recorded_at));
-        console.log(`✅ Loaded ${data.length} cached SIM locations`);
-      }
-    } catch (error) {
-      console.error("Error in loadSimLocationHistory:", error);
     }
   };
 
@@ -397,8 +337,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
     try {
       setRegisteringSimTracking(true);
-
-      console.log("📱 Registering SIM tracking...");
+      console.log("📱 Requesting Single Hit Tracking...");
 
       const { data, error } = await supabase.functions.invoke(
         "register-sim-tracking",
@@ -407,7 +346,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             bookingId,
             phoneNumber: driverDetails.phone,
             driverName: driverDetails.name,
-            trackingDays: simTrackingDays,
+            // trackingDays removed for Single Hit
           },
         }
       );
@@ -415,11 +354,13 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       if (error) throw error;
 
       if (data?.success) {
+        const msg = data.data?.reusedExisting
+          ? `Status refreshed for ${driverDetails.name}`
+          : `SMS sent to ${driverDetails.name}. Waiting for consent.`;
+
         toast({
-          title: "✅ SIM Tracking Enabled",
-          description: data.data?.reusedExisting
-            ? `Using existing registration for ${driverDetails.name}`
-            : `Tracking enabled for ${driverDetails.name} for ${simTrackingDays} day(s)`,
+          title: "✅ Request Sent",
+          description: msg,
         });
 
         setShowRegisterDialog(false);
@@ -430,8 +371,8 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     } catch (error: any) {
       console.error("Registration error:", error);
       toast({
-        title: "❌ Registration Failed",
-        description: error.message || "Failed to enable SIM tracking",
+        title: "❌ Request Failed",
+        description: error.message || "Failed to send tracking request",
         variant: "destructive",
       });
     } finally {
@@ -439,7 +380,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     }
   };
 
-  // 🆕 Manual fetch only (no auto-refresh)
   const fetchSimLocation = async () => {
     if (!isSimRegistered || !simRegistration?.phone_number) {
       toast({
@@ -447,12 +387,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         description: "Please enable SIM tracking first",
         variant: "destructive",
       });
-      return;
-    }
-
-    // Check page visibility
-    if (document.hidden) {
-      console.log("⏸️ Page hidden, skipping fetch");
       return;
     }
 
@@ -473,22 +407,57 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       if (error) throw error;
 
       if (data?.success) {
-        if (data.current) {
-          setCurrentSimLocation(data.current);
+        // Update registration status
+        if (data.registration) {
+          setSimRegistration((prev) => ({
+            ...prev!,
+            ...data.registration,
+            consent_status: data.consent_status,
+            consent_approved: data.consent_approved,
+            lorryinfo_tracking_status: data.tracking_status,
+          }));
         }
 
-        if (data.history && data.history.length > 0) {
-          setSimLocations(data.history);
+        if (data.consent_pending) {
+          toast({
+            title: "⏳ Consent Pending",
+            description: "SMS sent to driver. Waiting for reply 'YES'.",
+            variant: "warning",
+          });
+        } else if (data.tracking_expired) {
+          // If we have current data, just show it as complete
+          if (data.current) {
+            setCurrentSimLocation(data.current);
+            if (data.history) setSimLocations(data.history);
+            setLastUpdated(new Date());
+            setSimDataSource(data.source);
+            toast({
+              title: "📍 Track Complete",
+              description: "Location fetched successfully.",
+            });
+          } else {
+            toast({
+              title: "⚠️ Request Completed",
+              description: "Click 'New Request' for fresh location (₹1).",
+              variant: "default",
+            });
+          }
+        } else {
+          if (data.current) {
+            setCurrentSimLocation(data.current);
+          }
+          if (data.history) {
+            setSimLocations(data.history);
+          }
+          setLastUpdated(new Date());
+          setSimDataSource(data.source);
+
+          toast({
+            title: "📍 Location Updated",
+            description:
+              data.current?.location_name || "Location fetched successfully",
+          });
         }
-
-        setLastUpdated(new Date());
-
-        toast({
-          title:
-            data.source === "MOCK" ? "🔧 Mock Location" : "📍 Location Updated",
-          description:
-            data.current?.location_name || "Location fetched successfully",
-        });
       }
     } catch (error: any) {
       console.error("Error fetching SIM location:", error);
@@ -503,7 +472,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   };
 
   // ═══════════════════════════════════════════════════════════
-  // FASTAG FUNCTIONS
+  // FASTAG FUNCTIONS (RESTORED COMPLETELY)
   // ═══════════════════════════════════════════════════════════
 
   const checkTrackingStatus = async () => {
@@ -754,40 +723,21 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   const formatTimeAgo = (dateString: string) => {
     try {
       if (!dateString) return "Unknown";
-
-      let crossingTime: number;
-
       if (dateString.includes(" ")) {
         const [datePart, timePart] = dateString.split(" ");
         const [year, month, day] = datePart.split("-").map(Number);
         const [hour, minute, second] = timePart.split(":").map(Number);
-        crossingTime = new Date(
+        const date = new Date(
           year,
           month - 1,
           day,
           hour,
           minute,
           Math.floor(second)
-        ).getTime();
-      } else {
-        crossingTime = new Date(dateString).getTime();
+        );
+        return formatDistanceToNow(date, { addSuffix: true });
       }
-
-      if (isNaN(crossingTime)) return "Invalid date";
-
-      const diff = Date.now() - crossingTime;
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-      if (hours > 24) {
-        return `${Math.floor(hours / 24)} days ago`;
-      } else if (hours > 0) {
-        return `${hours}h ${minutes}m ago`;
-      } else if (minutes > 0) {
-        return `${minutes} min ago`;
-      } else {
-        return "Just now";
-      }
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
     } catch (error) {
       return "Unknown";
     }
@@ -830,26 +780,26 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
     return L.divIcon({
       html: `
-                <div style="
-                    background: ${bgColor};
-                    color: white;
-                    width: ${size}px;
-                    height: ${size}px;
-                    border-radius: 50%;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    border: 3px solid white;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-                    font-size: 11px;
-                    font-weight: bold;
-                    ${isLatest ? "animation: pulse 2s infinite;" : ""}
-                ">
-                    <div style="font-size: 18px;">${count}</div>
-                    <div style="font-size: 9px;">visits</div>
-                </div>
-            `,
+        <div style="
+            background: ${bgColor};
+            color: white;
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            font-size: 11px;
+            font-weight: bold;
+            ${isLatest ? "animation: pulse 2s infinite;" : ""}
+        ">
+            <div style="font-size: 18px;">${count}</div>
+            <div style="font-size: 9px;">visits</div>
+        </div>
+      `,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
       className: "cluster-marker",
@@ -913,7 +863,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 </Badge>
               )}
 
-              {/* 🆕 Page visibility indicator */}
               {!isPageVisible && (
                 <Badge
                   variant="outline"
@@ -951,10 +900,16 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     <>
                       <Badge
                         variant="outline"
-                        className="gap-1 border-green-600 text-green-600"
+                        className={
+                          simRegistration?.consent_approved
+                            ? "gap-1 border-green-600 text-green-600"
+                            : "gap-1 border-orange-600 text-orange-600"
+                        }
                       >
                         <CheckCircle className="w-3 h-3" />
-                        Active
+                        {simRegistration?.consent_approved
+                          ? "Active"
+                          : "Pending Consent"}
                       </Badge>
                       <Button
                         onClick={fetchSimLocation}
@@ -969,6 +924,19 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         />
                         Refresh Location
                       </Button>
+
+                      {/* NEW REQUEST BUTTON FOR EXPIRED SINGLE HIT */}
+                      {simRegistration?.lorryinfo_tracking_status ===
+                        "COMPLETED" && (
+                        <Button
+                          onClick={() => setShowRegisterDialog(true)}
+                          size="sm"
+                          variant="outline"
+                          className="border-blue-600 text-blue-600"
+                        >
+                          <Target className="w-4 h-4 mr-2" /> New Request (₹1)
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <Button
@@ -979,7 +947,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       className="bg-blue-600 hover:bg-blue-700"
                     >
                       <Smartphone className="w-4 h-4 mr-2" />
-                      Enable SIM Tracking (₹10/day)
+                      One-Time Track (₹1)
                     </Button>
                   )}
                 </>
@@ -1013,10 +981,28 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   </div>
                 </div>
                 <div className="text-right space-y-1">
-                  <Badge variant="secondary" className="text-xs">
-                    {simRegistration.days_remaining} days left
-                  </Badge>
-                  <div className="text-xs text-muted-foreground">
+                  {/* CONSENT STATUS DISPLAY */}
+                  {simRegistration.consent_status === "PENDING" && (
+                    <Badge
+                      variant="warning"
+                      className="text-xs bg-orange-100 text-orange-800 border-orange-200"
+                    >
+                      <Hourglass className="w-3 h-3 mr-1" />
+                      Waiting for Consent (SMS Sent)
+                    </Badge>
+                  )}
+                  {simRegistration.lorryinfo_tracking_status ===
+                    "COMPLETED" && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs bg-gray-100 text-gray-600"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Tracking Complete
+                    </Badge>
+                  )}
+
+                  <div className="text-xs text-muted-foreground mt-1">
                     Expires:{" "}
                     {simRegistration.expires_at &&
                       format(
@@ -1049,13 +1035,20 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   </>
                 )}
                 {trackingMode === "SIM" && (
-                  <Badge
-                    variant="outline"
-                    className="ml-2 text-xs border-blue-600 text-blue-600"
-                  >
-                    <Wifi className="w-3 h-3 mr-1" />
-                    Manual
-                  </Badge>
+                  <>
+                    {simDataSource === "LIVE" ? (
+                      <Badge
+                        variant="default"
+                        className="ml-2 text-xs bg-green-600"
+                      >
+                        LIVE
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        MOCK
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1490,7 +1483,9 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                             No Location Data Yet
                           </h3>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            Click "Refresh Location" to get current position
+                            {simRegistration?.consent_status === "PENDING"
+                              ? "Waiting for driver consent. Driver must reply YES to SMS."
+                              : 'Click "Refresh Location" to get current position'}
                           </p>
                           <Button
                             onClick={fetchSimLocation}
@@ -1754,111 +1749,51 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Smartphone className="w-5 h-5 text-blue-600" />
-              Enable SIM-Based Tracking
-            </DialogTitle>
+            <DialogTitle>One-Time SIM Tracking</DialogTitle>
             <DialogDescription>
-              Track vehicle location using driver's mobile network
+              Get current location instantly using driver's network.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
-              <h4 className="font-medium mb-2">Driver Details</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Name:</span>
-                  <span className="font-medium">{driverDetails?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phone:</span>
-                  <span className="font-medium">{driverDetails?.phone}</span>
-                </div>
+          <div className="py-4 space-y-4">
+            <div className="bg-blue-50 p-3 rounded text-sm">
+              <div>
+                <strong>Driver:</strong> {driverDetails?.name}
+              </div>
+              <div>
+                <strong>Phone:</strong> {driverDetails?.phone}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tracking Duration</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[1, 3, 7].map((days) => (
-                  <Button
-                    key={days}
-                    variant={simTrackingDays === days ? "default" : "outline"}
-                    onClick={() => setSimTrackingDays(days)}
-                    className="w-full"
-                  >
-                    {days} Day{days > 1 ? "s" : ""}
-                  </Button>
-                ))}
-              </div>
+            <div className="bg-green-50 p-3 rounded text-green-700 flex justify-between items-center">
+              <span>Cost per Request</span>
+              <span className="font-bold text-lg">₹1.00</span>
             </div>
-
-            <div className="bg-gray-50 dark:bg-gray-900/20 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Total Cost:</span>
-                <span className="text-lg font-bold">
-                  ₹{simTrackingDays * 10}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                ₹10 per day • Manual refresh
-              </p>
+            <div className="text-xs text-muted-foreground">
+              * SMS will be sent to driver for consent. Once approved, location
+              is fetched.
             </div>
-
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>How it works</AlertTitle>
-              <AlertDescription className="text-xs">
-                We'll track the vehicle using mobile network triangulation.
-                Click "Refresh Location" to get the latest position.
-              </AlertDescription>
-            </Alert>
           </div>
-
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setShowRegisterDialog(false)}
-              disabled={registeringSimTracking}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSimRegistration}
               disabled={registeringSimTracking}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600"
             >
               {registeringSimTracking ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Enabling...
-                </>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : (
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Enable Tracking (₹{simTrackingDays * 10})
-                </>
+                <CheckCircle className="w-4 h-4 mr-2" />
               )}
+              Get Location (₹1)
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* CSS for animations */}
-      <style>{`
-                @keyframes pulse {
-                    0% {
-                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-                    }
-                    70% {
-                        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-                    }
-                    100% {
-                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-                    }
-                }
-            `}</style>
     </div>
   );
 };

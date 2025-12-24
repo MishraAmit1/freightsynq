@@ -1,8 +1,9 @@
-// src/api/gst-lookup.ts
-
 import { supabase } from '@/lib/supabase';
 
-// Interface for GST data - Updated with new fields
+// ============================================
+// ✅ GST LOOKUP API WITH CACHING
+// ============================================
+
 export interface GSTData {
     success: boolean;
     gstin?: string;
@@ -21,145 +22,252 @@ export interface GSTData {
     eInvoiceEnabled?: boolean;
     jurisdiction?: string;
     error?: string;
-    serviceDown?: boolean;      // 🔥 Flag for service down
-    userMessage?: string;        // 🔥 User-friendly message
-    technicalError?: string;     // 🔥 For debugging
+    serviceDown?: boolean;
+    userMessage?: string;
+    technicalError?: string;
+    gstStatus?: string;
 }
 
-// Function to call the edge function
-export const lookupGST = async (gstin: string): Promise<GSTData> => {
-    try {
-        console.log('🔍 Starting GST lookup for:', gstin);
+// ============================================
+// ✅ CACHING SYSTEM
+// ============================================
 
-        const { data, error } = await supabase.functions.invoke<any>('gst-lookup', {
-            body: { gstin }
+// Memory Cache (Session - faster access)
+const memoryCache = new Map<string, { data: GSTData; timestamp: number }>();
+
+// Cache duration: 24 hours
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
+
+// LocalStorage key
+const CACHE_KEY = 'gst_verified_cache';
+
+// API Call tracking
+let apiCallCount = 0;
+let cacheHitCount = 0;
+
+// ✅ Get from cache (Memory + LocalStorage)
+export const getCachedGST = (gstin: string): GSTData | null => {
+    const normalizedGST = gstin.toUpperCase().trim();
+    
+    // 1. Check memory cache first (fastest)
+    const memoryData = memoryCache.get(normalizedGST);
+    if (memoryData && Date.now() - memoryData.timestamp < CACHE_DURATION) {
+        cacheHitCount++;
+        console.log(`✅ CACHE HIT (Memory): ${normalizedGST}`);
+        console.log(`📊 Stats: ${cacheHitCount} cache hits, ${apiCallCount} API calls`);
+        return memoryData.data;
+    }
+
+    // 2. Check localStorage (persistent)
+    try {
+        const stored = localStorage.getItem(CACHE_KEY);
+        if (stored) {
+            const cacheData = JSON.parse(stored);
+            const gstEntry = cacheData[normalizedGST];
+            
+            if (gstEntry && Date.now() - gstEntry.timestamp < CACHE_DURATION) {
+                // Restore to memory cache for faster future access
+                memoryCache.set(normalizedGST, {
+                    data: gstEntry.data,
+                    timestamp: gstEntry.timestamp
+                });
+                
+                cacheHitCount++;
+                console.log(`✅ CACHE HIT (LocalStorage): ${normalizedGST}`);
+                console.log(`📊 Stats: ${cacheHitCount} cache hits, ${apiCallCount} API calls`);
+                return gstEntry.data;
+            }
+        }
+    } catch (error) {
+        console.error('Cache read error:', error);
+    }
+
+    console.log(`❌ CACHE MISS: ${normalizedGST} - Will call API`);
+    return null;
+};
+
+// ✅ Save to cache (Memory + LocalStorage)
+const setCachedGST = (gstin: string, data: GSTData): void => {
+    const normalizedGST = gstin.toUpperCase().trim();
+    const timestamp = Date.now();
+
+    // 1. Save to memory cache
+    memoryCache.set(normalizedGST, { data, timestamp });
+
+    // 2. Save to localStorage
+    try {
+        const stored = localStorage.getItem(CACHE_KEY);
+        const cacheData = stored ? JSON.parse(stored) : {};
+        
+        cacheData[normalizedGST] = { data, timestamp };
+        
+        // Keep only last 100 entries to prevent storage overflow
+        const entries = Object.entries(cacheData);
+        if (entries.length > 100) {
+            const sorted = entries.sort((a: any, b: any) => b[1].timestamp - a[1].timestamp);
+            const trimmed = Object.fromEntries(sorted.slice(0, 100));
+            localStorage.setItem(CACHE_KEY, JSON.stringify(trimmed));
+        } else {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+        }
+        
+        console.log(`💾 CACHED: ${normalizedGST} (Valid for 24 hours)`);
+    } catch (error) {
+        console.error('Cache write error:', error);
+    }
+};
+
+// ============================================
+// ✅ MAIN LOOKUP FUNCTION (WITH CACHING)
+// ============================================
+
+export const lookupGST = async (gstin: string): Promise<GSTData> => {
+    const normalizedGST = gstin.toUpperCase().trim();
+    
+    console.log('');
+    console.log('🔍 ═══════════════════════════════════════');
+    console.log(`🔍 GST LOOKUP: ${normalizedGST}`);
+    console.log('🔍 ═══════════════════════════════════════');
+
+    // ✅ CHECK CACHE FIRST
+    const cached = getCachedGST(normalizedGST);
+    if (cached) {
+        console.log('✅ Returning cached data - NO API CALL! 💰');
+        console.log('🔍 ═══════════════════════════════════════');
+        console.log('');
+        return cached;
+    }
+
+    // ✅ MAKE API CALL (Only if not cached)
+    apiCallCount++;
+    console.log(`📡 API CALL #${apiCallCount}: ${normalizedGST}`);
+    console.log('📡 Calling Supabase Edge Function...');
+
+    try {
+        const { data, error } = await supabase.functions.invoke<GSTData>('gst-lookup', {
+            body: { gstin: normalizedGST }
         });
 
-        console.log('📦 Edge function response:', { data, error });
+        console.log('📦 Edge function response received');
 
-        // 🔥 Handle Edge Function errors
         if (error) {
-            console.error('❌ Supabase function invoke error:', error);
-
-            // Check if error message indicates service down
-            if (error.message?.includes('503') ||
-                error.message?.includes('Service Unavailable') ||
-                error.message?.includes('service is down')) {
-
-                console.log('🔴 Service down detected from error');
-                return {
-                    success: false,
-                    error: 'GST verification service is temporarily unavailable',
-                    serviceDown: true,
-                    userMessage: 'The government GST service is currently down. You can proceed with manual entry.'
-                };
-            }
-
-            // Check for Edge Function specific errors
-            if (error.message?.includes('Edge Function returned a non-2xx status code')) {
-                console.log('⚠️ Edge function non-2xx status, checking data...');
-
-                // Sometimes data is still available even with error
-                if (data) {
-                    return handleResponseData(data);
-                }
-
-                return {
-                    success: false,
-                    error: 'GST verification service is experiencing issues',
-                    serviceDown: true,
-                    userMessage: 'Unable to verify GST at this time. You can proceed with manual entry.'
-                };
-            }
-
-            return {
+            console.error('❌ Supabase function error:', error);
+            const errorData: GSTData = {
                 success: false,
-                error: error.message || 'GST verification failed',
-                serviceDown: false
+                error: 'Unable to connect to GST service',
+                serviceDown: true,
+                userMessage: 'Network error. You can proceed with manual entry.'
             };
+            // Don't cache network errors
+            return errorData;
         }
 
-        // 🔥 Handle successful response
-        return handleResponseData(data);
+        if (!data) {
+            const noDataError: GSTData = {
+                success: false,
+                error: 'No response from GST service',
+                serviceDown: true,
+                userMessage: 'Service not responding. You can proceed with manual entry.'
+            };
+            // Don't cache no-response errors
+            return noDataError;
+        }
+
+        // ✅ CACHE THE RESPONSE
+        if (data.success) {
+            console.log(`✅ GST VERIFIED: ${data.tradeName}`);
+            setCachedGST(normalizedGST, data);
+        } else if (!data.serviceDown) {
+            // Cache invalid GST responses too (to avoid re-checking)
+            console.log(`⚠️ GST Invalid: ${data.error}`);
+            setCachedGST(normalizedGST, data);
+        }
+        // Don't cache serviceDown responses
+
+        console.log('🔍 ═══════════════════════════════════════');
+        console.log('');
+
+        return data;
 
     } catch (err: any) {
-        console.error('💥 Unexpected error during GST lookup:', err);
-
-        // More user-friendly error messages
-        let userError = 'Unable to verify GST number';
-        let isServiceDown = false;
-
-        if (err.message?.includes('Failed to fetch') ||
-            err.message?.includes('NetworkError')) {
-            userError = 'Network error - please check your internet connection';
-            isServiceDown = true;
-        } else if (err.message?.includes('timeout')) {
-            userError = 'Request timed out - please try again';
-            isServiceDown = true;
-        }
-
+        console.error('💥 Unexpected error:', err);
         return {
             success: false,
-            error: userError,
-            serviceDown: isServiceDown,
-            userMessage: isServiceDown ?
-                'Unable to connect to GST service. You can proceed with manual entry.' :
-                'Please check the GST number and try again.',
+            error: 'Unable to verify GST number',
+            serviceDown: true,
+            userMessage: 'Something went wrong. You can proceed with manual entry.',
             technicalError: err.message
         };
     }
 };
 
-// 🔥 Helper function to handle response data
-function handleResponseData(data: any): GSTData {
-    if (!data) {
-        console.warn('⚠️ No data received from edge function');
-        return {
-            success: false,
-            error: 'No response received from verification service',
-            serviceDown: true,
-            userMessage: 'Service is not responding. You can proceed with manual entry.'
-        };
-    }
+// ============================================
+// ✅ UTILITY FUNCTIONS
+// ============================================
 
-    console.log('🔍 Processing response data:', data);
+// Get cache statistics
+export const getGSTCacheStats = () => {
+    const totalRequests = apiCallCount + cacheHitCount;
+    const savingsPercent = totalRequests > 0 
+        ? ((cacheHitCount / totalRequests) * 100).toFixed(1) 
+        : '0';
+    
+    let cachedEntries = 0;
+    try {
+        const stored = localStorage.getItem(CACHE_KEY);
+        if (stored) {
+            cachedEntries = Object.keys(JSON.parse(stored)).length;
+        }
+    } catch (e) {}
 
-    // Check if service is down
-    if (data.serviceDown === true) {
-        console.log('🔴 Service down flag detected in response');
-        return {
-            success: false,
-            error: data.error || 'GST verification service is temporarily unavailable',
-            serviceDown: true,
-            userMessage: data.userMessage || 'The government GST service is currently unavailable. You can proceed with manual entry.',
-            technicalError: data.technicalError
-        };
-    }
+    return {
+        totalRequests,
+        apiCalls: apiCallCount,
+        cacheHits: cacheHitCount,
+        savingsPercent: savingsPercent + '%',
+        cachedEntries,
+        memoryCacheSize: memoryCache.size
+    };
+};
 
-    // Check for other errors
-    if (!data.success) {
-        console.warn('❌ GST lookup API returned an error:', data.error);
-        return {
-            success: false,
-            error: data.error || 'GST verification failed',
-            serviceDown: false,
-            technicalError: data.technicalError
-        };
-    }
+// Log statistics to console
+export const logGSTStats = () => {
+    const stats = getGSTCacheStats();
+    console.log('');
+    console.log('📊 ═══════════════════════════════════════');
+    console.log('📊 GST API USAGE STATISTICS');
+    console.log('📊 ═══════════════════════════════════════');
+    console.log(`📊 Total Requests:    ${stats.totalRequests}`);
+    console.log(`📊 API Calls (₹):     ${stats.apiCalls}`);
+    console.log(`📊 Cache Hits (Free): ${stats.cacheHits}`);
+    console.log(`📊 Cost Savings:      ${stats.savingsPercent}`);
+    console.log(`📊 Cached Entries:    ${stats.cachedEntries}`);
+    console.log('📊 ═══════════════════════════════════════');
+    console.log('');
+    return stats;
+};
 
-    // Success case
-    console.log('✅ GST verification successful');
-    return data;
-}
+// Clear all cache
+export const clearGSTCache = () => {
+    memoryCache.clear();
+    localStorage.removeItem(CACHE_KEY);
+    console.log('🗑️ GST cache cleared');
+};
 
-// 🔥 Optional - Function to check if service is available
+// Check if GST is already cached
+export const isGSTCached = (gstin: string): boolean => {
+    return getCachedGST(gstin) !== null;
+};
+
+// ============================================
+// ✅ EXISTING FUNCTIONS (UNCHANGED)
+// ============================================
+
+// Check if service is available
 export const checkGSTServiceStatus = async (): Promise<boolean> => {
     try {
-        // Test with a known valid GST number
-        const testGST = '27AADCK0528K1ZJ'; // Example GST
+        const testGST = '27AADCK0528K1ZJ';
         const result = await lookupGST(testGST);
-
-        // If service is down, it will have the serviceDown flag
         return !result.serviceDown;
     } catch (err) {
         console.error('Error checking GST service status:', err);
@@ -167,7 +275,7 @@ export const checkGSTServiceStatus = async (): Promise<boolean> => {
     }
 };
 
-// 🔥 Optional - Retry mechanism with better error handling
+// Retry mechanism
 export const lookupGSTWithRetry = async (
     gstin: string,
     maxRetries: number = 2,
@@ -178,18 +286,15 @@ export const lookupGSTWithRetry = async (
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         if (attempt > 0) {
             console.log(`🔄 Retry attempt ${attempt} for GST: ${gstin}`);
-            // Wait before retry
             await new Promise(resolve => setTimeout(resolve, retryDelay));
         }
 
         const result = await lookupGST(gstin);
 
-        // If successful, return immediately
         if (result.success) {
             return result;
         }
 
-        // If service is down, don't retry
         if (result.serviceDown) {
             console.log('🔴 Service is down, skipping retries');
             return result;
@@ -198,7 +303,6 @@ export const lookupGSTWithRetry = async (
         lastError = result;
     }
 
-    // Return last error after all retries
     return lastError || {
         success: false,
         error: 'GST verification failed after multiple attempts',
