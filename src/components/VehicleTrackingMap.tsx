@@ -47,6 +47,7 @@ import { trackVehicle, TollCrossing } from "@/api/tracking";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { format, formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -262,7 +263,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         const centerLng = (bounds.minLng + bounds.maxLng) / 2;
         setMapCenter([centerLat, centerLng]);
 
-        // Simple zoom logic based on spread
         const latDiff = bounds.maxLat - bounds.minLat;
         const lngDiff = bounds.maxLng - bounds.minLng;
         const maxDiff = Math.max(latDiff, lngDiff);
@@ -346,7 +346,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             bookingId,
             phoneNumber: driverDetails.phone,
             driverName: driverDetails.name,
-            // trackingDays removed for Single Hit
           },
         }
       );
@@ -407,7 +406,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       if (error) throw error;
 
       if (data?.success) {
-        // Update registration status
         if (data.registration) {
           setSimRegistration((prev) => ({
             ...prev!,
@@ -422,10 +420,8 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           toast({
             title: "⏳ Consent Pending",
             description: "SMS sent to driver. Waiting for reply 'YES'.",
-            variant: "warning",
           });
         } else if (data.tracking_expired) {
-          // If we have current data, just show it as complete
           if (data.current) {
             setCurrentSimLocation(data.current);
             if (data.history) setSimLocations(data.history);
@@ -439,7 +435,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             toast({
               title: "⚠️ Request Completed",
               description: "Click 'New Request' for fresh location (₹1).",
-              variant: "default",
             });
           }
         } else {
@@ -472,7 +467,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   };
 
   // ═══════════════════════════════════════════════════════════
-  // FASTAG FUNCTIONS (RESTORED COMPLETELY)
+  // FASTAG FUNCTIONS
   // ═══════════════════════════════════════════════════════════
 
   const checkTrackingStatus = async () => {
@@ -615,7 +610,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         toast({
           title: "⏱️ Rate Limited",
           description: `Please wait ${result.waitTime} seconds before refreshing again`,
-          variant: "default",
         });
 
         const interval = setInterval(() => {
@@ -691,7 +685,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
       if (isNaN(date.getTime())) return dateString;
 
-      const day = date.getDate();
+      const dayNum = date.getDate();
       const months = [
         "Jan",
         "Feb",
@@ -714,7 +708,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       const ampm = hours >= 12 ? "pm" : "am";
       hours = hours % 12 || 12;
 
-      return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
+      return `${dayNum} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
     } catch (error) {
       return dateString;
     }
@@ -835,18 +829,19 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     <div className="space-y-4">
       {/* Header Card */}
       <Card
-        className={`border-primary/20 ${
-          !isTrackingEnabled ? "opacity-75" : ""
-        }`}
+        className={cn(
+          "bg-card border border-border dark:border-border rounded-xl shadow-sm",
+          !isTrackingEnabled && "opacity-75"
+        )}
       >
-        <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-transparent">
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-foreground dark:text-white">
               {isTrackingEnabled ? (
                 trackingMode === "FASTAG" ? (
                   <Navigation className="w-5 h-5 text-primary animate-pulse" />
                 ) : (
-                  <Smartphone className="w-5 h-5 text-blue-600 animate-pulse" />
+                  <Smartphone className="w-5 h-5 text-primary animate-pulse" />
                 )
               ) : (
                 <Lock className="w-5 h-5 text-muted-foreground" />
@@ -857,7 +852,10 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             </CardTitle>
             <div className="flex items-center gap-2">
               {vehicleNumber && (
-                <Badge variant="secondary" className="gap-1">
+                <Badge
+                  variant="secondary"
+                  className="gap-1 bg-muted text-foreground dark:text-white border border-border"
+                >
                   <Truck className="w-3 h-3" />
                   {vehicleNumber}
                 </Badge>
@@ -866,7 +864,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               {!isPageVisible && (
                 <Badge
                   variant="outline"
-                  className="gap-1 text-orange-600 border-orange-600"
+                  className="gap-1 text-orange-600 border-orange-300 dark:border-orange-800"
                 >
                   ⏸️ Paused
                 </Badge>
@@ -884,6 +882,11 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       ? "outline"
                       : "default"
                   }
+                  className={cn(
+                    waitTime === 0 &&
+                      isTrackingEnabled &&
+                      "bg-primary hover:bg-primary-hover text-primary-foreground"
+                  )}
                 >
                   <RefreshCw
                     className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
@@ -899,12 +902,12 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   {isSimRegistered ? (
                     <>
                       <Badge
-                        variant="outline"
-                        className={
+                        className={cn(
+                          "gap-1 text-xs",
                           simRegistration?.consent_approved
-                            ? "gap-1 border-green-600 text-green-600"
-                            : "gap-1 border-orange-600 text-orange-600"
-                        }
+                            ? "bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30"
+                            : "bg-[#FEF3C7] text-[#D97706] border border-[#FCD34D] dark:bg-[#D97706]/15 dark:text-[#FBBF24] dark:border-[#D97706]/30"
+                        )}
                       >
                         <CheckCircle className="w-3 h-3" />
                         {simRegistration?.consent_approved
@@ -915,7 +918,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         onClick={fetchSimLocation}
                         disabled={simLoading || !isTrackingEnabled}
                         size="sm"
-                        variant="default"
+                        className="bg-primary hover:bg-primary-hover text-primary-foreground"
                       >
                         <RefreshCw
                           className={`w-4 h-4 mr-2 ${
@@ -925,14 +928,13 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         Refresh Location
                       </Button>
 
-                      {/* NEW REQUEST BUTTON FOR EXPIRED SINGLE HIT */}
                       {simRegistration?.lorryinfo_tracking_status ===
                         "COMPLETED" && (
                         <Button
                           onClick={() => setShowRegisterDialog(true)}
                           size="sm"
                           variant="outline"
-                          className="border-blue-600 text-blue-600"
+                          className="border-primary text-primary hover:bg-primary/10"
                         >
                           <Target className="w-4 h-4 mr-2" /> New Request (₹1)
                         </Button>
@@ -943,8 +945,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       onClick={() => setShowRegisterDialog(true)}
                       disabled={!isTrackingEnabled || !driverDetails}
                       size="sm"
-                      variant="default"
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-primary hover:bg-primary-hover text-primary-foreground"
                     >
                       <Smartphone className="w-4 h-4 mr-2" />
                       One-Time Track (₹1)
@@ -956,47 +957,42 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           </div>
 
           {!isTrackingEnabled && trackingEndReason && (
-            <Alert className="mt-2 border-warning/50 bg-warning/10">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{trackingEndReason}</AlertDescription>
+            <Alert className="mt-2 border-[#FCD34D] bg-[#FEF3C7] dark:bg-[#D97706]/10 dark:border-[#D97706]/30">
+              <AlertCircle className="h-4 w-4 text-[#D97706]" />
+              <AlertDescription className="text-[#92400E] dark:text-[#FBBF24]">
+                {trackingEndReason}
+              </AlertDescription>
             </Alert>
           )}
 
           {/* SIM Registration Info */}
           {trackingMode === "SIM" && isSimRegistered && simRegistration && (
-            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="mt-3 p-3 bg-muted dark:bg-secondary rounded-lg border border-border dark:border-border">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-blue-600" />
-                    <span className="font-medium text-sm">
+                    <User className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-sm text-foreground dark:text-white">
                       {simRegistration.driver_name}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <PhoneCall className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm">
+                    <PhoneCall className="w-4 h-4 text-primary" />
+                    <span className="text-sm text-muted-foreground">
                       {simRegistration.phone_number}
                     </span>
                   </div>
                 </div>
                 <div className="text-right space-y-1">
-                  {/* CONSENT STATUS DISPLAY */}
                   {simRegistration.consent_status === "PENDING" && (
-                    <Badge
-                      variant="warning"
-                      className="text-xs bg-orange-100 text-orange-800 border-orange-200"
-                    >
+                    <Badge className="text-xs bg-[#FEF3C7] text-[#D97706] border border-[#FCD34D] dark:bg-[#D97706]/15 dark:text-[#FBBF24] dark:border-[#D97706]/30">
                       <Hourglass className="w-3 h-3 mr-1" />
-                      Waiting for Consent (SMS Sent)
+                      Waiting for Consent
                     </Badge>
                   )}
                   {simRegistration.lorryinfo_tracking_status ===
                     "COMPLETED" && (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs bg-gray-100 text-gray-600"
-                    >
+                    <Badge className="text-xs bg-muted text-muted-foreground border border-border">
                       <CheckCircle className="w-3 h-3 mr-1" />
                       Tracking Complete
                     </Badge>
@@ -1023,12 +1019,15 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 {trackingMode === "FASTAG" && (
                   <>
                     {dataSource === "real" && (
-                      <Badge variant="default" className="ml-2 text-xs">
+                      <Badge className="ml-2 text-xs bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30">
                         LIVE
                       </Badge>
                     )}
                     {dataSource === "cached" && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 text-xs bg-muted text-muted-foreground border border-border"
+                      >
                         CACHED
                       </Badge>
                     )}
@@ -1037,14 +1036,14 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 {trackingMode === "SIM" && (
                   <>
                     {simDataSource === "LIVE" ? (
-                      <Badge
-                        variant="default"
-                        className="ml-2 text-xs bg-green-600"
-                      >
+                      <Badge className="ml-2 text-xs bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30">
                         LIVE
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="ml-2 text-xs">
+                      <Badge
+                        variant="secondary"
+                        className="ml-2 text-xs bg-muted text-muted-foreground border border-border"
+                      >
                         MOCK
                       </Badge>
                     )}
@@ -1068,9 +1067,9 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       {trackingMode === "FASTAG" &&
         tollCrossings.length > 0 &&
         shouldRefreshData(tollCrossings[tollCrossings.length - 1]) && (
-          <Alert className="border-info/50 bg-info/5">
-            <Info className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className="border-primary/30 bg-primary/5 dark:bg-primary/10">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-foreground dark:text-white">
               Last crossing was{" "}
               {formatTimeAgo(
                 tollCrossings[tollCrossings.length - 1].crossing_time
@@ -1081,10 +1080,10 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         )}
 
       {/* Live Map */}
-      <Card className="border-border overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-primary/5 to-transparent">
+      <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
+        <CardHeader className="border-b border-border dark:border-border">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-foreground dark:text-white">
               <MapPin className="w-5 h-5 text-primary" />
               Live Route Map (
               {trackingMode === "FASTAG"
@@ -1093,7 +1092,10 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               )
             </CardTitle>
             {trackingMode === "FASTAG" && lastCrossing && (
-              <Badge variant="outline" className="gap-1">
+              <Badge
+                variant="outline"
+                className="gap-1 border-border text-muted-foreground"
+              >
                 <Activity className="w-3 h-3" />
                 Last: {formatTimeAgo(lastCrossing.crossing_time)}
               </Badge>
@@ -1101,7 +1103,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             {trackingMode === "SIM" && currentSimLocation && (
               <Badge
                 variant="outline"
-                className="gap-1 border-blue-600 text-blue-600"
+                className="gap-1 border-primary text-primary"
               >
                 <Signal className="w-3 h-3" />
                 {currentSimLocation.speed
@@ -1112,17 +1114,18 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="relative h-[500px] w-full bg-gray-100 dark:bg-gray-900/50">
+          <div className="relative h-[500px] w-full bg-muted dark:bg-secondary">
             {/* Toggle Buttons */}
-            <div className="absolute top-4 right-4 z-[1000] bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 flex gap-1">
+            <div className="absolute top-4 right-4 z-[1000] bg-card/95 dark:bg-card/95 backdrop-blur-sm p-1 rounded-lg shadow-lg border border-border dark:border-border flex gap-1">
               <Button
                 size="sm"
                 variant={trackingMode === "FASTAG" ? "default" : "ghost"}
-                className={`h-7 text-xs font-medium transition-all ${
+                className={cn(
+                  "h-8 text-xs font-medium transition-all",
                   trackingMode === "FASTAG"
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                )}
                 onClick={() => setTrackingMode("FASTAG")}
               >
                 <MapPin className="w-3 h-3 mr-1.5" />
@@ -1131,11 +1134,12 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               <Button
                 size="sm"
                 variant={trackingMode === "SIM" ? "default" : "ghost"}
-                className={`h-7 text-xs font-medium transition-all ${
+                className={cn(
+                  "h-8 text-xs font-medium transition-all",
                   trackingMode === "SIM"
-                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                )}
                 onClick={() => setTrackingMode("SIM")}
               >
                 <Smartphone className="w-3 h-3 mr-1.5" />
@@ -1158,7 +1162,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   />
 
-                  {/* Plot FASTag markers */}
                   {(() => {
                     const locationGroups = groupCrossingsByLocation();
                     const plottedLocations = new Set();
@@ -1218,7 +1221,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                         className={`border-l-2 pl-2 py-1 ${
                                           globalIndex ===
                                           tollCrossings.length - 1
-                                            ? "border-red-500 bg-red-50 dark:bg-red-950/20"
+                                            ? "border-red-500 bg-red-50"
                                             : "border-primary"
                                         }`}
                                       >
@@ -1251,7 +1254,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       .filter(Boolean);
                   })()}
 
-                  {/* Draw route line */}
                   {tollCrossings.length > 1 && (
                     <>
                       <Polyline
@@ -1281,7 +1283,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
                     <div className="text-center">
                       <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-                      <p className="mt-2 text-sm font-medium">
+                      <p className="mt-2 text-sm font-medium text-foreground dark:text-white">
                         Fetching latest toll crossings...
                       </p>
                     </div>
@@ -1291,8 +1293,10 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 {!loading && tollCrossings.length === 0 && (
                   <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
                     <div className="text-center p-6">
-                      <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto" />
-                      <h3 className="mt-4 text-lg font-semibold">
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                        <AlertCircle className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
                         No Tracking Data
                       </h3>
                       <p className="mt-2 text-sm text-muted-foreground">
@@ -1300,7 +1304,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       </p>
                       <Button
                         onClick={loadTrackingData}
-                        className="mt-4"
+                        className="mt-4 bg-primary hover:bg-primary-hover text-primary-foreground"
                         size="sm"
                         disabled={!isTrackingEnabled}
                       >
@@ -1317,13 +1321,12 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             {trackingMode === "SIM" && (
               <>
                 {!isSimRegistered ? (
-                  // Not Registered UI
-                  <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-950">
-                    <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6">
-                      <Smartphone className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                  <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-b from-muted to-background dark:from-secondary dark:to-background">
+                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                      <Smartphone className="w-10 h-10 text-primary" />
                     </div>
 
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                    <h3 className="text-2xl font-bold text-foreground dark:text-white mb-3">
                       SIM-Based Tracking
                     </h3>
 
@@ -1334,16 +1337,20 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                           mobile number
                         </p>
 
-                        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <div className="bg-card rounded-lg p-4 border border-border dark:border-border">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Driver:</span>
-                            <span className="text-sm">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Driver:
+                            </span>
+                            <span className="text-sm text-foreground dark:text-white">
                               {driverDetails.name}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Phone:</span>
-                            <span className="text-sm">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Phone:
+                            </span>
+                            <span className="text-sm text-foreground dark:text-white">
                               {driverDetails.phone}
                             </span>
                           </div>
@@ -1351,7 +1358,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
                         <Button
                           onClick={() => setShowRegisterDialog(true)}
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-primary hover:bg-primary-hover text-primary-foreground"
                         >
                           <Smartphone className="w-4 h-4 mr-2" />
                           Enable SIM Tracking
@@ -1369,28 +1376,33 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mt-8">
-                      <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
-                        <div className="p-2 bg-green-50 rounded-lg mb-2">
-                          <Signal className="w-5 h-5 text-green-600" />
+                      <div className="p-4 bg-card rounded-xl border border-border dark:border-border shadow-sm flex flex-col items-center">
+                        <div className="p-2 bg-[#ECFDF5] dark:bg-[#059669]/15 rounded-lg mb-2">
+                          <Signal className="w-5 h-5 text-[#059669] dark:text-[#34D399]" />
                         </div>
-                        <p className="text-xs font-semibold">Network Based</p>
+                        <p className="text-xs font-semibold text-foreground dark:text-white">
+                          Network Based
+                        </p>
                       </div>
-                      <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
-                        <div className="p-2 bg-orange-50 rounded-lg mb-2">
-                          <Clock className="w-5 h-5 text-orange-600" />
+                      <div className="p-4 bg-card rounded-xl border border-border dark:border-border shadow-sm flex flex-col items-center">
+                        <div className="p-2 bg-[#FEF3C7] dark:bg-[#D97706]/15 rounded-lg mb-2">
+                          <Clock className="w-5 h-5 text-[#D97706] dark:text-[#FBBF24]" />
                         </div>
-                        <p className="text-xs font-semibold">Manual Refresh</p>
+                        <p className="text-xs font-semibold text-foreground dark:text-white">
+                          Manual Refresh
+                        </p>
                       </div>
-                      <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col items-center">
-                        <div className="p-2 bg-blue-50 rounded-lg mb-2">
-                          <DollarSign className="w-5 h-5 text-blue-600" />
+                      <div className="p-4 bg-card rounded-xl border border-border dark:border-border shadow-sm flex flex-col items-center">
+                        <div className="p-2 bg-primary/10 rounded-lg mb-2">
+                          <DollarSign className="w-5 h-5 text-primary" />
                         </div>
-                        <p className="text-xs font-semibold">₹10/day</p>
+                        <p className="text-xs font-semibold text-foreground dark:text-white">
+                          ₹10/day
+                        </p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  // Registered - Show Map
                   <>
                     <MapContainer
                       center={mapCenter}
@@ -1404,7 +1416,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       />
 
-                      {/* Plot SIM locations */}
                       {simLocations.map((location, index) => {
                         const isLatest = index === 0;
 
@@ -1422,7 +1433,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                             <Popup>
                               <div className="p-2 min-w-[200px]">
                                 <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
-                                  <Smartphone className="w-4 h-4 text-blue-600" />
+                                  <Smartphone className="w-4 h-4 text-primary" />
                                   {isLatest
                                     ? "Current Location"
                                     : `Location ${index + 1}`}
@@ -1449,7 +1460,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         );
                       })}
 
-                      {/* Draw path line */}
                       {simLocations.length > 1 && (
                         <Polyline
                           positions={simLocations.map((loc) => [
@@ -1467,8 +1477,8 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     {simLoading && (
                       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
                         <div className="text-center">
-                          <Smartphone className="w-8 h-8 animate-pulse text-blue-600 mx-auto" />
-                          <p className="mt-2 text-sm font-medium">
+                          <Smartphone className="w-8 h-8 animate-pulse text-primary mx-auto" />
+                          <p className="mt-2 text-sm font-medium text-foreground dark:text-white">
                             Fetching location...
                           </p>
                         </div>
@@ -1478,8 +1488,10 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     {!simLoading && simLocations.length === 0 && (
                       <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
                         <div className="text-center p-6">
-                          <Signal className="w-12 h-12 text-muted-foreground mx-auto" />
-                          <h3 className="mt-4 text-lg font-semibold">
+                          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                            <Signal className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
                             No Location Data Yet
                           </h3>
                           <p className="mt-2 text-sm text-muted-foreground">
@@ -1489,7 +1501,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                           </p>
                           <Button
                             onClick={fetchSimLocation}
-                            className="mt-4"
+                            className="mt-4 bg-primary hover:bg-primary-hover text-primary-foreground"
                             size="sm"
                           >
                             <RefreshCw className="w-4 h-4 mr-2" />
@@ -1510,28 +1522,32 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {trackingMode === "FASTAG" ? (
           <>
-            <Card className="border-border">
+            <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Total Crossings
                     </p>
-                    <p className="text-2xl font-bold">{tollCrossings.length}</p>
+                    <p className="text-2xl font-bold text-foreground dark:text-white">
+                      {tollCrossings.length}
+                    </p>
                   </div>
-                  <MapPin className="w-8 h-8 text-primary/20" />
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <MapPin className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border">
+            <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Journey Time
                     </p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-2xl font-bold text-foreground dark:text-white">
                       {tollCrossings.length > 1
                         ? Math.round(
                             (Date.now() -
@@ -1544,67 +1560,81 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       h
                     </p>
                   </div>
-                  <Clock className="w-8 h-8 text-primary/20" />
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Clock className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border">
+            <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       API Cost Today
                     </p>
-                    <p className="text-2xl font-bold">₹{totalApiCost}</p>
+                    <p className="text-2xl font-bold text-foreground dark:text-white">
+                      ₹{totalApiCost}
+                    </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-primary/20" />
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <DollarSign className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </>
         ) : (
           <>
-            <Card className="border-border">
+            <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Total Updates
                     </p>
-                    <p className="text-2xl font-bold">{simLocations.length}</p>
+                    <p className="text-2xl font-bold text-foreground dark:text-white">
+                      {simLocations.length}
+                    </p>
                   </div>
-                  <Signal className="w-8 h-8 text-blue-600/20" />
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Signal className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border">
+            <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       Current Speed
                     </p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-2xl font-bold text-foreground dark:text-white">
                       {currentSimLocation?.speed || 0} km/h
                     </p>
                   </div>
-                  <Navigation className="w-8 h-8 text-blue-600/20" />
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <Navigation className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border">
+            <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Daily Cost</p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-2xl font-bold text-foreground dark:text-white">
                       ₹{simRegistration?.daily_cost || 10}
                     </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-blue-600/20" />
+                  <div className="p-3 bg-primary/10 rounded-lg">
+                    <DollarSign className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1613,15 +1643,15 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       </div>
 
       {/* Timeline */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="text-lg">
+      <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm">
+        <CardHeader className="border-b border-border dark:border-border">
+          <CardTitle className="text-lg text-foreground dark:text-white">
             {trackingMode === "FASTAG"
               ? "Journey Timeline"
               : "Location History"}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {trackingMode === "FASTAG" ? (
             tollCrossings.length > 0 ? (
               <div className="space-y-0 max-h-[400px] overflow-y-auto">
@@ -1629,11 +1659,12 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   <div key={`timeline-${index}`} className="flex gap-4 group">
                     <div className="relative flex flex-col items-center">
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
+                        className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all",
                           index === tollCrossings.length - 1
                             ? "bg-primary text-primary-foreground shadow-lg scale-110"
                             : "bg-muted text-muted-foreground group-hover:bg-primary/20"
-                        }`}
+                        )}
                       >
                         {index + 1}
                       </div>
@@ -1645,7 +1676,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     <div className="flex-1 pb-6 pt-1">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h4 className="font-semibold text-sm flex items-center gap-2">
+                          <h4 className="font-semibold text-sm flex items-center gap-2 text-foreground dark:text-white">
                             {crossing.toll_plaza_name}
                             {index === tollCrossings.length - 1 && (
                               <Badge variant="destructive" className="text-xs">
@@ -1667,8 +1698,12 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               </div>
             ) : (
               <div className="text-center py-8">
-                <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto" />
-                <h3 className="mt-4 text-lg font-semibold">No Journey Data</h3>
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                  <AlertCircle className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
+                  No Journey Data
+                </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Start tracking to see journey timeline
                 </p>
@@ -1680,33 +1715,34 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 <div key={`sim-timeline-${index}`} className="flex gap-4 group">
                   <div className="relative flex flex-col items-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center transition-all",
                         index === 0
-                          ? "bg-blue-600 shadow-lg scale-110"
-                          : "bg-blue-100 dark:bg-blue-900/30 group-hover:bg-blue-200"
-                      }`}
+                          ? "bg-primary shadow-lg scale-110"
+                          : "bg-primary/10 group-hover:bg-primary/20"
+                      )}
                     >
                       <Wifi
-                        className={`w-4 h-4 ${
-                          index === 0 ? "text-white" : "text-blue-600"
-                        }`}
+                        className={cn(
+                          "w-4 h-4",
+                          index === 0
+                            ? "text-primary-foreground"
+                            : "text-primary"
+                        )}
                       />
                     </div>
                     {index < simLocations.length - 1 && (
-                      <div className="w-0.5 h-16 bg-blue-200 dark:bg-blue-800 mt-2"></div>
+                      <div className="w-0.5 h-16 bg-primary/20 mt-2"></div>
                     )}
                   </div>
 
                   <div className="flex-1 pb-6 pt-1">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <h4 className="font-semibold text-sm flex items-center gap-2 text-foreground dark:text-white">
                           {location.location_name || "Location Update"}
                           {index === 0 && (
-                            <Badge
-                              variant="default"
-                              className="text-xs bg-blue-600"
-                            >
+                            <Badge className="text-xs bg-primary text-primary-foreground">
                               Latest
                             </Badge>
                           )}
@@ -1719,7 +1755,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                             Speed: {location.speed} km/h
                           </p>
                         )}
-                        <p className="text-xs text-blue-600 mt-1">
+                        <p className="text-xs text-primary mt-1">
                           {location.time_ago ||
                             formatTimeAgo(location.recorded_at)}
                         </p>
@@ -1731,8 +1767,10 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             </div>
           ) : (
             <div className="text-center py-8">
-              <Signal className="w-8 h-8 text-muted-foreground mx-auto" />
-              <h3 className="mt-4 text-lg font-semibold">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                <Signal className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
                 No Location History
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -1747,42 +1785,59 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
       {/* SIM Registration Dialog */}
       <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
-        <DialogContent>
+        <DialogContent className="bg-card border-border dark:border-border">
           <DialogHeader>
-            <DialogTitle>One-Time SIM Tracking</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground dark:text-white">
+              One-Time SIM Tracking
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Get current location instantly using driver's network.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            <div className="bg-blue-50 p-3 rounded text-sm">
-              <div>
-                <strong>Driver:</strong> {driverDetails?.name}
+            <div className="bg-muted p-4 rounded-lg border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Driver:
+                </span>
+                <span className="text-sm font-medium text-foreground dark:text-white">
+                  {driverDetails?.name}
+                </span>
               </div>
-              <div>
-                <strong>Phone:</strong> {driverDetails?.phone}
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Phone:
+                </span>
+                <span className="text-sm font-medium text-foreground dark:text-white">
+                  {driverDetails?.phone}
+                </span>
               </div>
             </div>
-            <div className="bg-green-50 p-3 rounded text-green-700 flex justify-between items-center">
-              <span>Cost per Request</span>
-              <span className="font-bold text-lg">₹1.00</span>
+            <div className="bg-[#ECFDF5] dark:bg-[#059669]/10 p-4 rounded-lg border border-[#A7F3D0] dark:border-[#059669]/30 flex justify-between items-center">
+              <span className="text-[#065F46] dark:text-[#34D399] font-medium">
+                Cost per Request
+              </span>
+              <span className="font-bold text-lg text-[#059669] dark:text-[#34D399]">
+                ₹1.00
+              </span>
             </div>
-            <div className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               * SMS will be sent to driver for consent. Once approved, location
               is fetched.
-            </div>
+            </p>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setShowRegisterDialog(false)}
+              className="border-border hover:bg-muted"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSimRegistration}
               disabled={registeringSimTracking}
-              className="bg-blue-600"
+              className="bg-primary hover:bg-primary-hover text-primary-foreground"
             >
               {registeringSimTracking ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />

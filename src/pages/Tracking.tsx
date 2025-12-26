@@ -13,6 +13,7 @@ import {
   Navigation,
   Lock,
   Sparkles,
+  Smartphone,
 } from "lucide-react";
 import { FleetMap } from "@/components/tracking/FleetMap";
 import { VehicleSearchModal } from "@/components/tracking/VehicleSearchModal";
@@ -26,6 +27,9 @@ import {
 import {
   fetchRandomSearches,
   deleteRandomSearch,
+  fetchSimLocation,
+  updateSimSearchLocation,
+  checkExistingSimRegistration,
   RandomSearch,
 } from "@/api/randomSearch";
 import { useToast } from "@/hooks/use-toast";
@@ -119,13 +123,29 @@ export const Tracking = () => {
   const handleSearchComplete = async (searchId: string) => {
     await loadRandomSearches();
     setActiveTab("random");
-    const newSearch = randomSearches.find((s) => s.id === searchId);
-    if (newSearch) setSelectedSearch(newSearch);
+
+    const updatedSearches = await fetchRandomSearches();
+    const newSearch = updatedSearches.find((s) => s.id === searchId);
+    if (newSearch) {
+      setRandomSearches(updatedSearches);
+      setSelectedSearch(newSearch);
+    }
   };
 
   const handleViewSearch = (search: RandomSearch) => {
     setSelectedSearch(search);
-    toast({ title: "🗺️ Viewing", description: `${search.vehicle_number}` });
+
+    if (search.tracking_mode === "SIM") {
+      toast({
+        title: "📱 Viewing",
+        description: search.phone_number || "SIM Tracking",
+      });
+    } else {
+      toast({
+        title: "🗺️ Viewing",
+        description: search.vehicle_number || "Vehicle",
+      });
+    }
   };
 
   const handleDeleteSearch = async (searchId: string) => {
@@ -145,7 +165,125 @@ export const Tracking = () => {
     }
   };
 
+  // ═══════════════════════════════════════════════════════════
+  // REFRESH SEARCH - HANDLES BOTH FASTAG AND SIM
+  // ═══════════════════════════════════════════════════════════
+
   const handleRefreshSearch = async (search: RandomSearch) => {
+    // ═══════════════════════════════════════════════════════════
+    // SIM TRACKING REFRESH
+    // ═══════════════════════════════════════════════════════════
+    console.log("🔍 REFRESH SEARCH DEBUG:", {
+      id: search.id,
+      tracking_mode: search.tracking_mode,
+      phone_number: search.phone_number,
+      vehicle_number: search.vehicle_number,
+    });
+    if (search.tracking_mode === "SIM") {
+      if (!search.phone_number) {
+        toast({
+          title: "❌ Error",
+          description: "Phone number not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        toast({
+          title: "🔄 Checking...",
+          description: "Checking consent status",
+        });
+
+        const existingCheck = await checkExistingSimRegistration(
+          search.phone_number
+        );
+
+        if (!existingCheck.exists) {
+          toast({
+            title: "❌ Not Found",
+            description: "No registration found. Please search again.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (existingCheck.consentPending && !existingCheck.contactId) {
+          toast({
+            title: "⏳ Still Pending",
+            description: "Driver hasn't approved yet. SMS was sent.",
+          });
+          return;
+        }
+
+        const result = await fetchSimLocation({
+          phoneNumber: search.phone_number,
+          isRandomSearch: true,
+          lorryinfoContactId: existingCheck.contactId,
+        });
+
+        if (result.consentPending) {
+          toast({
+            title: "⏳ Consent Still Pending",
+            description: "Driver hasn't replied YES yet.",
+          });
+          return;
+        }
+
+        if (!result.success || !result.location) {
+          toast({
+            title: "❌ Failed",
+            description: result.error || "Failed to get location",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (result.location.latitude === 0 && result.location.longitude === 0) {
+          toast({
+            title: "⏳ Location Not Available",
+            description: "Consent may be pending or location not yet fetched.",
+          });
+          return;
+        }
+
+        await updateSimSearchLocation(search.id, result.location);
+
+        const updatedSearches = await fetchRandomSearches();
+        setRandomSearches(updatedSearches);
+
+        const updatedSearch = updatedSearches.find((s) => s.id === search.id);
+        if (updatedSearch) setSelectedSearch(updatedSearch);
+
+        toast({
+          title: "📍 Location Found!",
+          description:
+            result.location.location_name || "Location fetched successfully",
+        });
+      } catch (error: any) {
+        toast({
+          title: "❌ Error",
+          description: error.message || "Failed to refresh",
+          variant: "destructive",
+        });
+      }
+
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FASTAG TRACKING REFRESH
+    // ═══════════════════════════════════════════════════════════
+
+    if (!search.vehicle_number) {
+      toast({
+        title: "❌ Error",
+        description: "Vehicle number not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (
       !window.confirm(
         `Fetch fresh data for ${search.vehicle_number}?\n\nThis will cost ₹4 for API call.`
@@ -154,7 +292,7 @@ export const Tracking = () => {
       return;
 
     try {
-      toast({ title: "🔄 Updating...", description: `Fetching latest data` });
+      toast({ title: "🔄 Updating...", description: "Fetching latest data" });
 
       const { data, error } = await supabase.functions.invoke("track-fastag", {
         body: { vehicleNumber: search.vehicle_number },
@@ -247,7 +385,7 @@ export const Tracking = () => {
       await Promise.all(randomSearches.map((s) => deleteRandomSearch(s.id)));
       setRandomSearches([]);
       setSelectedSearch(null);
-      toast({ title: "🗑️ All Cleared", description: `Deleted all searches` });
+      toast({ title: "🗑️ All Cleared", description: "Deleted all searches" });
     } catch (error: any) {
       toast({
         title: "❌ Clear Failed",
@@ -265,17 +403,15 @@ export const Tracking = () => {
 
   const randomStats = {
     total: randomSearches.length,
-    live: randomSearches.filter((s) => s.search_type === "live").length,
-    journey: randomSearches.filter((s) => s.search_type === "journey").length,
+    fastag: randomSearches.filter((s) => s.tracking_mode === "FASTAG").length,
+    sim: randomSearches.filter((s) => s.tracking_mode === "SIM").length,
   };
 
   return (
     <div className="space-y-6 pb-8">
-      {/* ========== ACTION BAR ========== */}
-      {/* ========== ACTION BAR ========== */}
+      {/* ACTION BAR */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         {!isFreeUser ? (
-          // ✅ FULL USER - Tab Toggle
           <div className="inline-flex items-center bg-muted dark:bg-secondary p-1 rounded-lg">
             <button
               onClick={() => setActiveTab("fleet")}
@@ -301,9 +437,7 @@ export const Tracking = () => {
             </button>
           </div>
         ) : (
-          // ✅ FREE USER - Full Width Stats Cards
           <div className="flex items-center gap-4 flex-1">
-            {/* Total Searches */}
             <Card className="flex-1 border-border dark:border-border bg-card dark:bg-card shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -322,38 +456,36 @@ export const Tracking = () => {
               </CardContent>
             </Card>
 
-            {/* Live Searches */}
             <Card className="flex-1 border-border dark:border-border bg-card dark:bg-card shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                    <MapPin className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Truck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground dark:text-muted-foreground uppercase tracking-wide">
-                      Live Searches
+                      FASTag
                     </p>
                     <p className="text-2xl font-bold text-foreground dark:text-white">
-                      {randomStats.live}
+                      {randomStats.fastag}
                     </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Journey Searches */}
             <Card className="flex-1 border-border dark:border-border bg-card dark:bg-card shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <Smartphone className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground dark:text-muted-foreground uppercase tracking-wide">
-                      Journey Searches
+                      SIM Track
                     </p>
                     <p className="text-2xl font-bold text-foreground dark:text-white">
-                      {randomStats.journey}
+                      {randomStats.sim}
                     </p>
                   </div>
                 </div>
@@ -362,7 +494,6 @@ export const Tracking = () => {
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="flex items-center gap-2">
           <Button
             onClick={() => setSearchModalOpen(true)}
@@ -386,10 +517,9 @@ export const Tracking = () => {
         </div>
       </div>
 
-      {/* ========== FLEET VIEW - ONLY FOR FULL USERS ========== */}
+      {/* FLEET VIEW */}
       {activeTab === "fleet" && !isFreeUser && (
         <div className="space-y-6">
-          {/* Fleet Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="border-border dark:border-border bg-card dark:bg-card">
               <CardContent className="pt-6">
@@ -446,7 +576,6 @@ export const Tracking = () => {
             </Card>
           </div>
 
-          {/* Fleet Map */}
           <Card className="border-border dark:border-border overflow-hidden">
             <CardContent className="p-0">
               {fleetLoading ? (
@@ -474,10 +603,9 @@ export const Tracking = () => {
         </div>
       )}
 
-      {/* ========== RANDOM VIEW - VISIBLE FOR ALL ========== */}
+      {/* RANDOM VIEW */}
       {(activeTab === "random" || isFreeUser) && (
         <div className="space-y-6">
-          {/* ✅ Stats Cards - Only for FULL users (FREE users already have inline stats) */}
           {!isFreeUser && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card className="border-border dark:border-border bg-card dark:bg-card">
@@ -503,14 +631,14 @@ export const Tracking = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-                        Live Searches
+                        FASTag Searches
                       </p>
                       <p className="text-3xl font-bold text-foreground dark:text-white">
-                        {randomStats.live}
+                        {randomStats.fastag}
                       </p>
                     </div>
-                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-xl">
-                      <MapPin className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                      <Truck className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                     </div>
                   </div>
                 </CardContent>
@@ -521,14 +649,14 @@ export const Tracking = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-                        Journey Searches
+                        SIM Searches
                       </p>
                       <p className="text-3xl font-bold text-foreground dark:text-white">
-                        {randomStats.journey}
+                        {randomStats.sim}
                       </p>
                     </div>
-                    <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
-                      <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                      <Smartphone className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                   </div>
                 </CardContent>
@@ -536,9 +664,7 @@ export const Tracking = () => {
             </div>
           )}
 
-          {/* Random Search Panel + Map */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Search Panel */}
             <div className="lg:col-span-1">
               <RandomSearchPanel
                 searches={randomSearches}
@@ -549,7 +675,6 @@ export const Tracking = () => {
               />
             </div>
 
-            {/* Map */}
             <div className="lg:col-span-2">
               <Card className="border-border dark:border-border overflow-hidden">
                 <CardContent className="p-0">
@@ -567,7 +692,7 @@ export const Tracking = () => {
                         No Searches Yet
                       </h3>
                       <p className="text-muted-foreground dark:text-muted-foreground text-center max-w-md mb-4">
-                        Search for any vehicle to track its location.
+                        Search for any vehicle using FASTag or SIM tracking.
                       </p>
                       <Button
                         onClick={() => setSearchModalOpen(true)}
@@ -595,7 +720,6 @@ export const Tracking = () => {
             </div>
           </div>
 
-          {/* ✅ UPGRADE PROMPT - Only for FREE users */}
           {isFreeUser && (
             <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20">
               <CardContent className="py-6">
@@ -639,7 +763,6 @@ export const Tracking = () => {
         </div>
       )}
 
-      {/* Search Modal */}
       <VehicleSearchModal
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}

@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { MapPin, RefreshCw, Navigation, Phone } from 'lucide-react';
-import { Location } from '@/features/vehicles/vehicles.api';
+import { useEffect, useState, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { MapPin, RefreshCw, Navigation, Phone } from "lucide-react";
+import { Location } from "@/features/vehicles/vehicles.api";
 
 interface TrackingMapProps {
   vehicleId: string;
@@ -15,8 +15,14 @@ interface TrackingMapProps {
   initialLocation?: Location;
 }
 
-export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: TrackingMapProps) => {
-  const [location, setLocation] = useState<Location | null>(initialLocation || null);
+export const TrackingMap = ({
+  vehicleId,
+  vehicleInfo,
+  initialLocation,
+}: TrackingMapProps) => {
+  const [location, setLocation] = useState<Location | null>(
+    initialLocation || null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -24,38 +30,40 @@ export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: Trackin
   // Mock function to simulate API call for vehicle location
   const fetchLocation = async (vehicleId: string): Promise<Location> => {
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     // Mock location data with slight variation for movement simulation
     const baseLocation = initialLocation || {
-      lat: 19.0760,
+      lat: 19.076,
       lng: 72.8777,
       lastUpdated: new Date().toISOString(),
-      source: 'FASTAG' as const
+      source: "FASTAG" as const,
     };
-    
+
     // Add small random variation to simulate vehicle movement
     const variation = 0.001;
     return {
       lat: baseLocation.lat + (Math.random() - 0.5) * variation,
       lng: baseLocation.lng + (Math.random() - 0.5) * variation,
       lastUpdated: new Date().toISOString(),
-      source: ['FASTAG', 'GPS', 'SIM'][Math.floor(Math.random() * 3)] as Location['source']
+      source: ["FASTAG", "GPS", "SIM"][
+        Math.floor(Math.random() * 3)
+      ] as Location["source"],
     };
   };
 
   const updateLocation = async () => {
     if (isLoading) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const newLocation = await fetchLocation(vehicleId);
       setLocation(newLocation);
     } catch (err) {
-      setError('Failed to fetch location data');
-      console.error('Location fetch error:', err);
+      setError("Failed to fetch location data");
+      console.error("Location fetch error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +76,7 @@ export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: Trackin
       if (!location) {
         updateLocation();
       }
-      
+
       // Set up polling every 10 seconds
       intervalRef.current = setInterval(() => {
         updateLocation();
@@ -84,9 +92,9 @@ export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: Trackin
 
   const getSourceColor = (source: string) => {
     const colors = {
-      FASTAG: 'bg-success/10 text-success',
-      GPS: 'bg-info/10 text-info',
-      SIM: 'bg-warning/10 text-warning'
+      FASTAG: "bg-success/10 text-success",
+      GPS: "bg-info/10 text-info",
+      SIM: "bg-warning/10 text-warning",
     };
     return colors[source as keyof typeof colors] || colors.GPS;
   };
@@ -105,12 +113,20 @@ export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: Trackin
             <div className="w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-4">
               <MapPin className="w-6 h-6 text-destructive" />
             </div>
-            <p className="text-destructive font-medium mb-2">Location Data Unavailable</p>
+            <p className="text-destructive font-medium mb-2">
+              Location Data Unavailable
+            </p>
             <p className="text-muted-foreground text-sm mb-4">
               Unable to fetch real-time location for this vehicle.
             </p>
-            <Button variant="outline" onClick={updateLocation} disabled={isLoading}>
-              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <Button
+              variant="outline"
+              onClick={updateLocation}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+              />
               Retry
             </Button>
           </div>
@@ -153,7 +169,9 @@ export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: Trackin
               onClick={updateLocation}
               disabled={isLoading}
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
         </div>
@@ -188,9 +206,13 @@ export const TrackingMap = ({ vehicleId, vehicleInfo, initialLocation }: Trackin
             </div>
             <p className="font-medium text-foreground mb-2">Live Map View</p>
             <p className="text-sm text-muted-foreground">
-              Vehicle location: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+              Vehicle location: {location.lat.toFixed(4)},{" "}
+              {location.lng.toFixed(4)}
             </p>
-            <Badge className={getSourceColor(location.source)} variant="outline">
+            <Badge
+              className={getSourceColor(location.source)}
+              variant="outline"
+            >
               {location.source} Data
             </Badge>
           </div>

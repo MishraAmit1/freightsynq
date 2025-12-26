@@ -1,3 +1,7 @@
+// =============================================
+// FLEET MAP - FASTAG + SIM SUPPORT
+// =============================================
+
 import React, { useEffect } from "react";
 import {
   MapContainer,
@@ -5,6 +9,7 @@ import {
   Marker,
   Popup,
   Polyline,
+  CircleMarker,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -13,7 +18,20 @@ import { GroupedVehicle } from "@/api/fleet";
 import { RandomSearch } from "@/api/randomSearch";
 import { Badge } from "@/components/ui/badge";
 import { getTimeAgo } from "@/api/fleet";
-import { Truck, MapPin, Clock, Navigation } from "lucide-react";
+import {
+  Truck,
+  MapPin,
+  Clock,
+  Navigation,
+  Smartphone,
+  Phone,
+  User,
+  Signal,
+} from "lucide-react";
+
+// =============================================
+// LEAFLET ICON FIX
+// =============================================
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -25,11 +43,19 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
+// =============================================
+// INTERFACES
+// =============================================
+
 interface FleetMapProps {
   mode: "fleet" | "random";
   groupedVehicles?: GroupedVehicle[];
   selectedRandomSearch?: RandomSearch;
 }
+
+// =============================================
+// AUTO FIT BOUNDS COMPONENT
+// =============================================
 
 const AutoFitBounds: React.FC<{
   mode: "fleet" | "random";
@@ -49,16 +75,27 @@ const AutoFitBounds: React.FC<{
       randomSearch &&
       randomSearch.toll_crossings.length > 0
     ) {
-      const bounds = randomSearch.toll_crossings.map(
-        (c) => [c.latitude, c.longitude] as [number, number]
+      // Filter out invalid coordinates (0,0 means waiting for consent)
+      const validCrossings = randomSearch.toll_crossings.filter(
+        (c) => c.latitude !== 0 && c.longitude !== 0
       );
-      const maxZoom = randomSearch.search_type === "live" ? 13 : 10;
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: maxZoom });
+
+      if (validCrossings.length > 0) {
+        const bounds = validCrossings.map(
+          (c) => [c.latitude, c.longitude] as [number, number]
+        );
+        const maxZoom = randomSearch.search_type === "live" ? 13 : 10;
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: maxZoom });
+      }
     }
   }, [mode, groupedVehicles, randomSearch, map]);
 
   return null;
 };
+
+// =============================================
+// ICON CREATORS - FLEET
+// =============================================
 
 const createFleetSingleIcon = () => {
   return L.divIcon({
@@ -77,6 +114,10 @@ const createFleetClusteredIcon = (count: number) => {
     className: "fleet-cluster-marker",
   });
 };
+
+// =============================================
+// ICON CREATORS - FASTAG RANDOM
+// =============================================
 
 const createRandomLiveIcon = () => {
   return L.divIcon({
@@ -104,7 +145,42 @@ const createJourneyNumberedIcon = (number: number, isLast: boolean = false) => {
     className: "journey-numbered-marker",
   });
 };
-// Add this helper function at the top of FleetMap.tsx
+
+// =============================================
+// ICON CREATORS - SIM
+// =============================================
+
+const createSimLiveIcon = () => {
+  return L.divIcon({
+    html: `<div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.6); font-size: 22px; animation: pulse-purple 2s infinite;">📱</div>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    className: "sim-live-marker",
+  });
+};
+
+const createSimHistoryIcon = (index: number, isLatest: boolean) => {
+  if (isLatest) {
+    return L.divIcon({
+      html: `<div style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 8px rgba(139, 92, 246, 0.6); font-size: 16px; font-weight: bold; animation: pulse-purple 2s infinite;">${index}</div>`,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      className: "sim-latest-marker",
+    });
+  }
+
+  return L.divIcon({
+    html: `<div style="background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-size: 12px; font-weight: bold;">${index}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    className: "sim-history-marker",
+  });
+};
+
+// =============================================
+// HELPER FUNCTIONS
+// =============================================
+
 const formatCrossingTime = (
   dateStr: string | Date | null | undefined
 ): string => {
@@ -149,6 +225,11 @@ const formatCrossingTime = (
     return String(dateStr) || "Unknown time";
   }
 };
+
+// =============================================
+// MAIN COMPONENT
+// =============================================
+
 export const FleetMap: React.FC<FleetMapProps> = ({
   mode,
   groupedVehicles,
@@ -157,8 +238,57 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   const [mapCenter] = React.useState<[number, number]>([20.5937, 78.9629]);
   const [mapZoom] = React.useState(5);
 
+  // Check if SIM tracking
+  const isSim = selectedRandomSearch?.tracking_mode === "SIM";
+
+  // Check if waiting for consent (coordinates are 0,0)
+  const isWaitingForConsent =
+    isSim &&
+    selectedRandomSearch?.toll_crossings?.length === 1 &&
+    selectedRandomSearch?.toll_crossings[0]?.latitude === 0 &&
+    selectedRandomSearch?.toll_crossings[0]?.longitude === 0;
+
+  // Filter valid crossings (non-zero coordinates)
+  const validCrossings =
+    selectedRandomSearch?.toll_crossings?.filter(
+      (c) => c.latitude !== 0 && c.longitude !== 0
+    ) || [];
+
   return (
     <div className="relative h-[600px] w-full rounded-lg overflow-hidden border border-border z-0">
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* WAITING FOR CONSENT OVERLAY (SIM) */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+
+      {isWaitingForConsent && (
+        <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex flex-col items-center justify-center z-[1000]">
+          <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mb-4">
+            <Smartphone className="w-10 h-10 text-yellow-600 dark:text-yellow-400 animate-pulse" />
+          </div>
+          <h3 className="text-xl font-semibold text-foreground dark:text-white mb-2">
+            Waiting for Driver Consent
+          </h3>
+          <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+            SMS sent to <strong>{selectedRandomSearch?.phone_number}</strong>
+            {selectedRandomSearch?.driver_name && (
+              <> ({selectedRandomSearch.driver_name})</>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Driver must reply <strong>YES</strong> to the SMS to enable tracking
+          </p>
+          <div className="mt-6 p-4 bg-muted dark:bg-secondary rounded-lg text-center">
+            <p className="text-xs text-muted-foreground">
+              Click <strong>Refresh</strong> button after driver approves
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* MAP */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
@@ -176,6 +306,10 @@ export const FleetMap: React.FC<FleetMapProps> = ({
           groupedVehicles={groupedVehicles}
           randomSearch={selectedRandomSearch}
         />
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* FLEET MODE */}
+        {/* ═══════════════════════════════════════════════════════════ */}
 
         {mode === "fleet" &&
           groupedVehicles &&
@@ -261,7 +395,11 @@ export const FleetMap: React.FC<FleetMapProps> = ({
             </Marker>
           ))}
 
-        {mode === "random" && selectedRandomSearch && (
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* RANDOM MODE - FASTAG */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+
+        {mode === "random" && selectedRandomSearch && !isSim && (
           <>
             {selectedRandomSearch.search_type === "live" ? (
               selectedRandomSearch.last_latitude &&
@@ -278,6 +416,10 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                       <div className="flex items-center gap-2 mb-2">
                         <Navigation className="w-4 h-4 text-green-600" />
                         <p className="font-bold text-sm">Live Location</p>
+                        <Badge variant="secondary" className="text-xs ml-auto">
+                          <Truck className="w-3 h-3 mr-1" />
+                          FASTag
+                        </Badge>
                       </div>
                       <p className="font-mono font-semibold mb-2">
                         {selectedRandomSearch.vehicle_number}
@@ -292,9 +434,6 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                           selectedRandomSearch.last_crossing_time
                         )}
                       </p>
-                      <Badge variant="secondary" className="mt-2 text-xs">
-                        Random Search
-                      </Badge>
                     </div>
                   </Popup>
                 </Marker>
@@ -354,7 +493,156 @@ export const FleetMap: React.FC<FleetMapProps> = ({
             )}
           </>
         )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* RANDOM MODE - SIM */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+
+        {mode === "random" &&
+          selectedRandomSearch &&
+          isSim &&
+          !isWaitingForConsent && (
+            <>
+              {/* Single location (Live) */}
+              {validCrossings.length === 1 && (
+                <Marker
+                  position={[
+                    validCrossings[0].latitude,
+                    validCrossings[0].longitude,
+                  ]}
+                  icon={createSimLiveIcon()}
+                >
+                  <Popup>
+                    <div className="p-3 min-w-[220px]">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Signal className="w-4 h-4 text-purple-600" />
+                        <p className="font-bold text-sm">SIM Location</p>
+                        <Badge className="text-xs ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                          <Smartphone className="w-3 h-3 mr-1" />
+                          Live
+                        </Badge>
+                      </div>
+
+                      {/* Phone Number */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Phone className="w-4 h-4 text-purple-600" />
+                        <span className="font-mono font-semibold">
+                          {selectedRandomSearch.phone_number}
+                        </span>
+                      </div>
+
+                      {/* Driver Name */}
+                      {selectedRandomSearch.driver_name && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <User className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm">
+                            {selectedRandomSearch.driver_name}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Vehicle Reference */}
+                      {selectedRandomSearch.vehicle_number && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <Truck className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm font-mono">
+                            {selectedRandomSearch.vehicle_number}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            ref
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* Location */}
+                      <p className="text-xs text-muted-foreground mb-1">
+                        <MapPin className="w-3 h-3 inline mr-1" />
+                        {validCrossings[0].toll_plaza_name || "SIM Location"}
+                      </p>
+
+                      {/* Time */}
+                      <p className="text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3 inline mr-1" />
+                        {formatCrossingTime(validCrossings[0].crossing_time)}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* Multiple locations (History) */}
+              {validCrossings.length > 1 && (
+                <>
+                  {validCrossings.map((crossing, index) => {
+                    const isLatest = index === validCrossings.length - 1;
+
+                    return (
+                      <Marker
+                        key={index}
+                        position={[crossing.latitude, crossing.longitude]}
+                        icon={createSimHistoryIcon(index + 1, isLatest)}
+                      >
+                        <Popup>
+                          <div className="p-2 min-w-[200px]">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Smartphone className="w-4 h-4 text-purple-600" />
+                              <p className="font-bold text-sm">
+                                {isLatest
+                                  ? "Current Location"
+                                  : `Location #${index + 1}`}
+                              </p>
+                            </div>
+
+                            <p className="text-xs mb-1">
+                              <MapPin className="w-3 h-3 inline mr-1" />
+                              {crossing.toll_plaza_name || "SIM Location"}
+                            </p>
+
+                            <p className="text-xs text-muted-foreground">
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              {formatCrossingTime(crossing.crossing_time)}
+                            </p>
+
+                            {isLatest && (
+                              <Badge className="mt-2 text-xs bg-purple-600 text-white">
+                                Latest
+                              </Badge>
+                            )}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
+
+                  {/* Polyline for SIM history */}
+                  <Polyline
+                    positions={validCrossings.map((c) => [
+                      c.latitude,
+                      c.longitude,
+                    ])}
+                    color="#8b5cf6"
+                    weight={3}
+                    opacity={0.7}
+                  />
+                  <Polyline
+                    positions={validCrossings.map((c) => [
+                      c.latitude,
+                      c.longitude,
+                    ])}
+                    color="#7c3aed"
+                    weight={2}
+                    opacity={0.5}
+                    dashArray="8, 12"
+                  />
+                </>
+              )}
+            </>
+          )}
       </MapContainer>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* ANIMATIONS CSS */}
+      {/* ═══════════════════════════════════════════════════════════ */}
 
       <style>{`
         @keyframes pulse-green {
@@ -364,6 +652,10 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         @keyframes pulse-orange {
           0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
           50% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+        }
+        @keyframes pulse-purple {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
+          50% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
         }
       `}</style>
     </div>

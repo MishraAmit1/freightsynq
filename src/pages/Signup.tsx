@@ -28,7 +28,6 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { lookupGST, GSTData } from "@/api/gst-lookup";
-
 export const Signup = () => {
   const [formData, setFormData] = useState({
     email: "",
