@@ -15,6 +15,7 @@ import {
 export type BookingStage =
     | 'DRAFT'           // Just created, no vehicle
     | 'DISPATCHED'      // Vehicle assigned
+    | 'LR_READY'
     | 'IN_TRANSIT'      // LR created, on the road
     | 'DELIVERED'       // Reached destination
     | 'VEHICLE_ASSIGNED' // Vehicle assigned
@@ -46,6 +47,13 @@ export const stageConfig: Record<BookingStage, {
         textColor: "text-indigo-700 dark:text-indigo-300",
         borderColor: "border-indigo-200 dark:border-indigo-800",
     },
+    LR_READY: { 
+    label: "LR Ready",
+    color: "amber",
+    bgColor: "bg-amber-100 dark:bg-amber-900/30",
+    textColor: "text-amber-700 dark:text-amber-300",
+    borderColor: "border-amber-200 dark:border-amber-800",
+},
     DISPATCHED: {
         label: "Dispatched",
         color: "yellow",
@@ -87,7 +95,8 @@ export const stageConfig: Record<BookingStage, {
         bgColor: "bg-purple-100 dark:bg-purple-900/30",
         textColor: "text-purple-700 dark:text-purple-300",
         borderColor: "border-purple-200 dark:border-purple-800",
-    }
+    },
+    
 };
 
 // ============================================
@@ -101,42 +110,64 @@ export interface ProgressiveAction {
     stage: BookingStage;
 }
 
-export const getBookingStage = (booking: any): BookingStage => {
-    // Reverse order - check latest stages first
+// REPLACE ENTIRE FUNCTION:
 
-    // Stage 6: Billed (final stage)
-    // ✅ FIX: Only consider BILLED if billed_at is set
+export const getBookingStage = (booking: any): BookingStage => {
+    // Get vehicle status
+    const hasActiveVehicle = booking.vehicle_assignments?.some(
+        (va: any) => va.status === 'ACTIVE'
+    ) || booking.assignedVehicle;
+    
+    const hasLR = !!(booking.lrNumber || booking.lr_number);
+    const hasPOD = !!(booking.pod_uploaded_at || booking.podUploadedAt || 
+                     booking.pod_file_url || booking.podFileUrl);
+
+    // Priority order - check from final to initial stage
+
+    // Stage 7: Billed
     if (booking.billed_at || booking.billedAt) {
         return 'BILLED';
     }
 
-    // Stage 5: POD Uploaded
-    if (booking.pod_uploaded_at || booking.podUploadedAt || booking.pod_file_url || booking.podFileUrl) {
+    // Stage 6: POD Uploaded
+    if (hasPOD) {
         return 'POD_UPLOADED';
     }
 
-    // Stage 4: Delivered
-    if (booking.status === 'DELIVERED' || booking.actual_delivery || booking.actualDelivery) {
+    // Stage 5: Delivered
+    if (booking.status === 'DELIVERED') {
         return 'DELIVERED';
     }
 
-    // ✅ Stage 3: In Transit (LR created)
-    if (booking.lrNumber || booking.lr_number || booking.status === 'IN_TRANSIT') {
-        return 'IN_TRANSIT';
+    // Stage 4: In Transit (both vehicle AND LR required) ✅
+    if (hasActiveVehicle && hasLR) {
+        return 'IN_TRANSIT';  // ✅ REMOVED status check
     }
 
-    // Stage 2: Dispatched (vehicle assigned)
-    if (booking.assignedVehicle || booking.vehicle_assignments?.length > 0 || booking.status === 'DISPATCHED') {
+    // Stage 3.5: LR Ready (LR created but NO vehicle) 🆕
+    if (hasLR && !hasActiveVehicle) {
+        return 'LR_READY';
+    }
+
+    // Stage 3: At Warehouse
+    if (booking.current_warehouse) {
+        return 'WAREHOUSE';
+    }
+
+    // Stage 2: Dispatched (vehicle assigned but no LR)
+    if (hasActiveVehicle && !hasLR) {
         return 'DISPATCHED';
     }
 
-    // Stage 1: Draft (default)
+    // Stage 1: Draft
     return 'DRAFT';
 };
 
 // ============================================
 // Get Progressive Action Button
 // ============================================
+// REPLACE ENTIRE FUNCTION:
+
 export const getProgressiveAction = (
     stage: BookingStage,
     booking: any
@@ -147,14 +178,35 @@ export const getProgressiveAction = (
         return null;
     }
 
+    // Check what exists
+    const hasActiveVehicle = booking.vehicle_assignments?.some(
+        (va: any) => va.status === 'ACTIVE'
+    ) || booking.assignedVehicle;
+    
+    const hasLR = !!(booking.lrNumber || booking.lr_number);
+
     switch (stage) {
         case 'DRAFT':
+            // Show different button based on what can be done next
+            if (!hasLR && !hasActiveVehicle) {
+                // Both options available - prefer vehicle first
+                return {
+                    label: 'Assign Vehicle',
+                    icon: Truck,
+                    color: 'bg-orange-500 hover:bg-orange-600 text-white',
+                    variant: 'default',
+                    stage: 'DRAFT'
+                };
+            }
+            return null;
+
+        case 'LR_READY': // 🆕 NEW CASE
             return {
                 label: 'Assign Vehicle',
                 icon: Truck,
-                color: 'bg-orange-500 hover:bg-orange-600 text-white',
+                color: 'bg-amber-500 hover:bg-amber-600 text-white',
                 variant: 'default',
-                stage: 'DRAFT'
+                stage: 'LR_READY'
             };
 
         case 'DISPATCHED':
@@ -165,6 +217,19 @@ export const getProgressiveAction = (
                 variant: 'default',
                 stage: 'DISPATCHED'
             };
+
+        case 'WAREHOUSE':
+            // At warehouse - might need vehicle or continue
+            if (!hasActiveVehicle) {
+                return {
+                    label: 'Assign Vehicle',
+                    icon: Truck,
+                    color: 'bg-indigo-500 hover:bg-indigo-600 text-white',
+                    variant: 'default',
+                    stage: 'WAREHOUSE'
+                };
+            }
+            return null;
 
         case 'IN_TRANSIT':
             return {
@@ -210,10 +275,13 @@ export const getProgressiveAction = (
 // ============================================
 // Helper: Get Stage Progress Percentage
 // ============================================
+// UPDATE the progress object:
+
 export const getStageProgress = (stage: BookingStage): number => {
     const progress: Record<BookingStage, number> = {
         DRAFT: 14,
         VEHICLE_ASSIGNED: 28,
+        LR_READY: 25,        // 🆕 ADD THIS LINE
         WAREHOUSE: 42,
         DISPATCHED: 33,
         IN_TRANSIT: 50,

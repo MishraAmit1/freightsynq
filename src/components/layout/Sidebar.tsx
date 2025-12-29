@@ -138,7 +138,7 @@ export const Sidebar = ({
     { name: "Dashboard", href: "/", icon: BarChart3 },
     { name: "Tracking", href: "/tracking", icon: Locate },
     { name: "LR Generator", href: "/lr-generator", icon: FilePlus2 },
-    { name: "Saved LRs", href: "/saved-lrs", icon: FileText },
+    { name: "Saved LRs", href: "/lr-generator", icon: FileText },
   ];
 
   // ✅ FULL tier navigation - All features
@@ -151,7 +151,7 @@ export const Sidebar = ({
     { name: "Vehicles", href: "/vehicles", icon: Truck },
     { name: "Drivers", href: "/drivers", icon: UserCog },
     { name: "Warehouses", href: "/warehouses", icon: Warehouse },
-    { name: "Saved LRs", href: "/saved-lrs", icon: FolderOpen },
+    { name: "Saved LRs", href: "/lr-generator", icon: FolderOpen },
     {
       name: "Company Settings",
       href: "/company-settings",

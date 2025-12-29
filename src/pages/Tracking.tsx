@@ -169,16 +169,15 @@ export const Tracking = () => {
   // REFRESH SEARCH - HANDLES BOTH FASTAG AND SIM
   // ═══════════════════════════════════════════════════════════
 
+  // ═══════════════════════════════════════════════════════════
+  // REFRESH SEARCH - HANDLES BOTH FASTAG AND SIM
+  // ═══════════════════════════════════════════════════════════
+
   const handleRefreshSearch = async (search: RandomSearch) => {
     // ═══════════════════════════════════════════════════════════
     // SIM TRACKING REFRESH
     // ═══════════════════════════════════════════════════════════
-    console.log("🔍 REFRESH SEARCH DEBUG:", {
-      id: search.id,
-      tracking_mode: search.tracking_mode,
-      phone_number: search.phone_number,
-      vehicle_number: search.vehicle_number,
-    });
+
     if (search.tracking_mode === "SIM") {
       if (!search.phone_number) {
         toast({
@@ -189,66 +188,65 @@ export const Tracking = () => {
         return;
       }
 
-      try {
+      // Check if we have contact ID stored
+      if (!search.lorryinfo_contact_id) {
         toast({
-          title: "🔄 Checking...",
-          description: "Checking consent status",
+          title: "❌ Contact ID Missing",
+          description: "Delete this search and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        toast({ title: "🔄 Fetching...", description: "Getting location" });
+
+        console.log("🔍 SIM Refresh:", {
+          phone: search.phone_number,
+          contactId: search.lorryinfo_contact_id,
         });
 
-        const existingCheck = await checkExistingSimRegistration(
-          search.phone_number
-        );
-
-        if (!existingCheck.exists) {
-          toast({
-            title: "❌ Not Found",
-            description: "No registration found. Please search again.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        if (existingCheck.consentPending && !existingCheck.contactId) {
-          toast({
-            title: "⏳ Still Pending",
-            description: "Driver hasn't approved yet. SMS was sent.",
-          });
-          return;
-        }
-
+        // Fetch location using stored contact ID
         const result = await fetchSimLocation({
           phoneNumber: search.phone_number,
           isRandomSearch: true,
-          lorryinfoContactId: existingCheck.contactId,
+          lorryinfoContactId: search.lorryinfo_contact_id,
         });
 
+        console.log("📍 Result:", result);
+
+        // Handle consent pending
         if (result.consentPending) {
           toast({
-            title: "⏳ Consent Still Pending",
+            title: "⏳ Consent Pending",
             description: "Driver hasn't replied YES yet.",
           });
           return;
         }
 
+        // Check if location fetch succeeded
         if (!result.success || !result.location) {
           toast({
-            title: "❌ Failed",
+            title: "❌ No Location",
             description: result.error || "Failed to get location",
             variant: "destructive",
           });
           return;
         }
 
+        // Check for zero coordinates
         if (result.location.latitude === 0 && result.location.longitude === 0) {
           toast({
-            title: "⏳ Location Not Available",
-            description: "Consent may be pending or location not yet fetched.",
+            title: "⏳ Waiting",
+            description: "Location not available yet",
           });
           return;
         }
 
+        // Update search with new location
         await updateSimSearchLocation(search.id, result.location);
 
+        // Refresh UI
         const updatedSearches = await fetchRandomSearches();
         setRandomSearches(updatedSearches);
 
@@ -256,14 +254,14 @@ export const Tracking = () => {
         if (updatedSearch) setSelectedSearch(updatedSearch);
 
         toast({
-          title: "📍 Location Found!",
-          description:
-            result.location.location_name || "Location fetched successfully",
+          title: "📍 Updated!",
+          description: result.location.location_name || "Location found",
         });
       } catch (error: any) {
+        console.error("❌ Error:", error);
         toast({
           title: "❌ Error",
-          description: error.message || "Failed to refresh",
+          description: error.message,
           variant: "destructive",
         });
       }
@@ -272,7 +270,7 @@ export const Tracking = () => {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // FASTAG TRACKING REFRESH
+    // FASTAG REFRESH - SAME AS BEFORE
     // ═══════════════════════════════════════════════════════════
 
     if (!search.vehicle_number) {
@@ -286,7 +284,7 @@ export const Tracking = () => {
 
     if (
       !window.confirm(
-        `Fetch fresh data for ${search.vehicle_number}?\n\nThis will cost ₹4 for API call.`
+        `Fetch fresh data for ${search.vehicle_number}?\n\nThis will cost ₹4.`
       )
     )
       return;
@@ -370,7 +368,7 @@ export const Tracking = () => {
       });
     } catch (error: any) {
       toast({
-        title: "❌ Update Failed",
+        title: "❌ Failed",
         description: error.message,
         variant: "destructive",
       });

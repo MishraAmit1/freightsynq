@@ -43,6 +43,7 @@ export interface RandomSearch {
     tracking_mode: 'FASTAG' | 'SIM';
     phone_number?: string;
     driver_name?: string;
+     lorryinfo_contact_id?: string;
 }
 
 // =============================================
@@ -74,6 +75,7 @@ export const saveRandomSearch = async (params: {
             p_tracking_mode: 'FASTAG',
             p_phone_number: null,
             p_driver_name: null,
+            p_lorryinfo_contact_id: null, // ✅ ALWAYS NULL for FASTAG
         });
 
         if (error) throw error;
@@ -93,6 +95,7 @@ export const saveSimSearch = async (params: {
     driverName?: string;
     vehicleNumber?: string;  // Optional - just for reference
     location: SimLocation;
+     lorryinfoContactId?: string;
 }): Promise<string> => {
     try {
         // Convert SIM location to toll_crossings format for consistency
@@ -117,6 +120,7 @@ export const saveSimSearch = async (params: {
             p_tracking_mode: 'SIM',
             p_phone_number: params.phoneNumber,
             p_driver_name: params.driverName || null,
+            p_lorryinfo_contact_id: params.lorryinfoContactId || null,
         });
 
         if (error) throw error;
@@ -156,6 +160,7 @@ export const fetchRandomSearches = async (): Promise<RandomSearch[]> => {
             tracking_mode: row.out_tracking_mode || 'FASTAG',
             phone_number: row.out_phone_number,
             driver_name: row.out_driver_name,
+            lorryinfo_contact_id: row.out_lorryinfo_contact_id,
         }));
     } catch (error: any) {
         console.error('Error fetching random searches:', error);

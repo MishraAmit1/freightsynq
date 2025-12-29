@@ -304,7 +304,6 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
   // ═══════════════════════════════════════════════════════════
 
   // In handleSimSearch function, REPLACE the Step 2 location fetch part:
-
   const handleSimSearch = async () => {
     const cleanPhone = phoneNumber.replace(/[\s\-\+]/g, "");
 
@@ -322,7 +321,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
       setStep("processing");
 
       // ═══════════════════════════════════════════════════════════
-      // 🆕 STEP 0: CHECK IF ALREADY REGISTERED (Before API call)
+      // STEP 0: CHECK IF ALREADY REGISTERED (Before API call)
       // ═══════════════════════════════════════════════════════════
 
       toast({
@@ -330,14 +329,12 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
         description: "Looking for existing registration",
       });
 
-      // Check if this phone already has a pending/active registration
       const existingCheck = await checkExistingSimRegistration(cleanPhone);
 
       if (existingCheck.exists) {
         console.log("📱 Found existing registration:", existingCheck);
 
         if (existingCheck.consentPending) {
-          // Already pending - DON'T call API again!
           setStep("consent");
           toast({
             title: "⏳ Already Pending",
@@ -345,7 +342,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               "Consent request already sent. Waiting for driver reply.",
           });
 
-          // Save to search history (if not already there)
+          // Save to search history
           const searchId = await saveSimSearch({
             phoneNumber: cleanPhone,
             driverName: driverName || undefined,
@@ -356,6 +353,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               location_name: "Waiting for consent...",
               recorded_at: new Date().toISOString(),
             },
+            lorryinfoContactId: existingCheck.contactId, // ✅ Use existingCheck here
           });
 
           setTimeout(() => {
@@ -366,7 +364,6 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
         }
 
         if (existingCheck.consentApproved && existingCheck.contactId) {
-          // Consent approved - Fetch location directly!
           toast({
             title: "✅ Consent Approved!",
             description: "Fetching location...",
@@ -384,6 +381,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               driverName: driverName || existingCheck.driverName,
               vehicleNumber: simVehicleNumber || undefined,
               location: locResult.location,
+              lorryinfoContactId: existingCheck.contactId, // ✅ Use existingCheck here
             });
 
             toast({
@@ -419,7 +417,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
 
       console.log("✅ Registration result:", regResult);
 
-      // Check if consent is pending
+      // Check if consent is pending (no contactId means pending)
       if (!regResult.contactId) {
         setStep("consent");
         toast({
@@ -437,6 +435,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             location_name: "Waiting for consent...",
             recorded_at: new Date().toISOString(),
           },
+          lorryinfoContactId: undefined, // ✅ No contactId yet
         });
 
         setTimeout(() => {
@@ -447,7 +446,10 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
         return;
       }
 
-      // Step 2: If we have contact ID, try to fetch location
+      // ═══════════════════════════════════════════════════════════
+      // STEP 2: We have contactId - Try to fetch location
+      // ═══════════════════════════════════════════════════════════
+
       toast({
         title: "✅ Request Sent!",
         description: "Fetching location...",
@@ -476,6 +478,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             location_name: "Waiting for consent...",
             recorded_at: new Date().toISOString(),
           },
+          lorryinfoContactId: regResult.contactId, // ✅ Use regResult here
         });
 
         setTimeout(() => {
@@ -490,11 +493,16 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
         throw new Error(locResult.error || "Failed to get location");
       }
 
+      // ═══════════════════════════════════════════════════════════
+      // SUCCESS - Got location
+      // ═══════════════════════════════════════════════════════════
+
       const searchId = await saveSimSearch({
         phoneNumber: cleanPhone,
         driverName: driverName || undefined,
         vehicleNumber: simVehicleNumber || undefined,
         location: locResult.location,
+        lorryinfoContactId: regResult.contactId, // ✅ Use regResult here
       });
 
       toast({
