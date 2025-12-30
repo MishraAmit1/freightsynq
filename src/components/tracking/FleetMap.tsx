@@ -1,15 +1,14 @@
 // =============================================
-// FLEET MAP - FASTAG + SIM SUPPORT
+// FLEET MAP - FASTAG + SIM + FROM/TO MARKERS
 // =============================================
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
   Polyline,
-  CircleMarker,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -27,7 +26,9 @@ import {
   Phone,
   User,
   Signal,
+  Loader2,
 } from "lucide-react";
+import { getCityCoordinates, getCityCoordinatesAsync } from "@/utils/geocode";
 
 // =============================================
 // LEAFLET ICON FIX
@@ -53,6 +54,12 @@ interface FleetMapProps {
   selectedRandomSearch?: RandomSearch;
 }
 
+interface LocationCoords {
+  from: { lat: number; lng: number } | null;
+  to: { lat: number; lng: number } | null;
+  loading: boolean;
+}
+
 // =============================================
 // AUTO FIT BOUNDS COMPONENT
 // =============================================
@@ -61,7 +68,8 @@ const AutoFitBounds: React.FC<{
   mode: "fleet" | "random";
   groupedVehicles?: GroupedVehicle[];
   randomSearch?: RandomSearch;
-}> = ({ mode, groupedVehicles, randomSearch }) => {
+  fromToCoords?: LocationCoords;
+}> = ({ mode, groupedVehicles, randomSearch, fromToCoords }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -75,20 +83,30 @@ const AutoFitBounds: React.FC<{
       randomSearch &&
       randomSearch.toll_crossings.length > 0
     ) {
-      // Filter out invalid coordinates (0,0 means waiting for consent)
       const validCrossings = randomSearch.toll_crossings.filter(
         (c) => c.latitude !== 0 && c.longitude !== 0
       );
 
-      if (validCrossings.length > 0) {
-        const bounds = validCrossings.map(
-          (c) => [c.latitude, c.longitude] as [number, number]
-        );
-        const maxZoom = randomSearch.search_type === "live" ? 13 : 10;
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: maxZoom });
+      const allPoints: [number, number][] = [];
+
+      validCrossings.forEach((c) => {
+        allPoints.push([c.latitude, c.longitude]);
+      });
+
+      // Include FROM/TO in bounds
+      if (fromToCoords?.from) {
+        allPoints.push([fromToCoords.from.lat, fromToCoords.from.lng]);
+      }
+      if (fromToCoords?.to) {
+        allPoints.push([fromToCoords.to.lat, fromToCoords.to.lng]);
+      }
+
+      if (allPoints.length > 0) {
+        const maxZoom = randomSearch.search_type === "live" ? 13 : 8;
+        map.fitBounds(allPoints, { padding: [50, 50], maxZoom: maxZoom });
       }
     }
-  }, [mode, groupedVehicles, randomSearch, map]);
+  }, [mode, groupedVehicles, randomSearch, fromToCoords, map]);
 
   return null;
 };
@@ -178,6 +196,90 @@ const createSimHistoryIcon = (index: number, isLatest: boolean) => {
 };
 
 // =============================================
+// ICON CREATORS - FROM/TO LOCATIONS
+// =============================================
+
+const createFromLocationIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative;">
+        <div style="
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 4px solid white;
+          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.5);
+          font-size: 18px;
+        ">
+          <span style="font-weight: bold; color: white;">A</span>
+        </div>
+        <div style="
+          position: absolute;
+          top: 48px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #22c55e;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: bold;
+          white-space: nowrap;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        ">FROM</div>
+      </div>
+    `,
+    iconSize: [44, 70],
+    iconAnchor: [22, 22],
+    className: "from-location-marker",
+  });
+};
+
+const createToLocationIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative;">
+        <div style="
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 4px solid white;
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+          font-size: 18px;
+        ">
+          <span style="font-weight: bold; color: white;">B</span>
+        </div>
+        <div style="
+          position: absolute;
+          top: 48px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #ef4444;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: bold;
+          white-space: nowrap;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        ">TO</div>
+      </div>
+    `,
+    iconSize: [44, 70],
+    iconAnchor: [22, 22],
+    className: "to-location-marker",
+  });
+};
+
+// =============================================
 // HELPER FUNCTIONS
 // =============================================
 
@@ -188,8 +290,6 @@ const formatCrossingTime = (
 
   try {
     const str = String(dateStr);
-
-    // Clean the string - handle "2025-12-20 11:51:29.000" or "2025-12-20T11:51:29.000Z"
     const cleanStr = str
       .replace("T", " ")
       .replace("Z", "")
@@ -199,7 +299,6 @@ const formatCrossingTime = (
     const [year, month, day] = datePart.split("-").map(Number);
     const [hours, minutes] = (timePart || "00:00").split(":").map(Number);
 
-    // Format manually - NO timezone conversion!
     const monthNames = [
       "Jan",
       "Feb",
@@ -238,24 +337,128 @@ export const FleetMap: React.FC<FleetMapProps> = ({
   const [mapCenter] = React.useState<[number, number]>([20.5937, 78.9629]);
   const [mapZoom] = React.useState(5);
 
+  // FROM/TO Coordinates State
+  const [fromToCoords, setFromToCoords] = useState<LocationCoords>({
+    from: null,
+    to: null,
+    loading: false,
+  });
+
   // Check if SIM tracking
   const isSim = selectedRandomSearch?.tracking_mode === "SIM";
 
-  // Check if waiting for consent (coordinates are 0,0)
+  // Check if waiting for consent
   const isWaitingForConsent =
     isSim &&
     selectedRandomSearch?.toll_crossings?.length === 1 &&
     selectedRandomSearch?.toll_crossings[0]?.latitude === 0 &&
     selectedRandomSearch?.toll_crossings[0]?.longitude === 0;
 
-  // Filter valid crossings (non-zero coordinates)
+  // Filter valid crossings
   const validCrossings =
     selectedRandomSearch?.toll_crossings?.filter(
       (c) => c.latitude !== 0 && c.longitude !== 0
     ) || [];
 
+  // ═══════════════════════════════════════════════════════════
+  // FETCH FROM/TO COORDINATES (with API fallback)
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    const fetchFromToCoordinates = async () => {
+      if (
+        mode !== "random" ||
+        !selectedRandomSearch ||
+        selectedRandomSearch.search_type !== "journey" ||
+        isSim
+      ) {
+        setFromToCoords({ from: null, to: null, loading: false });
+        return;
+      }
+
+      setFromToCoords((prev) => ({ ...prev, loading: true }));
+
+      try {
+        // Try sync first (local DB)
+        let fromCoords = getCityCoordinates(
+          selectedRandomSearch.from_location || ""
+        );
+        let toCoords = getCityCoordinates(
+          selectedRandomSearch.to_location || ""
+        );
+
+        // If not found in local DB, try async (API)
+        if (!fromCoords && selectedRandomSearch.from_location) {
+          console.log(
+            `🔍 FROM not in DB, trying API: ${selectedRandomSearch.from_location}`
+          );
+          fromCoords = await getCityCoordinatesAsync(
+            selectedRandomSearch.from_location
+          );
+        }
+
+        if (!toCoords && selectedRandomSearch.to_location) {
+          console.log(
+            `🔍 TO not in DB, trying API: ${selectedRandomSearch.to_location}`
+          );
+          toCoords = await getCityCoordinatesAsync(
+            selectedRandomSearch.to_location
+          );
+        }
+
+        setFromToCoords({
+          from: fromCoords,
+          to: toCoords,
+          loading: false,
+        });
+
+        // Log results
+        if (fromCoords) {
+          console.log(
+            `✅ FROM: ${selectedRandomSearch.from_location} →`,
+            fromCoords
+          );
+        } else {
+          console.warn(
+            `⚠️ FROM not found: ${selectedRandomSearch.from_location}`
+          );
+        }
+
+        if (toCoords) {
+          console.log(`✅ TO: ${selectedRandomSearch.to_location} →`, toCoords);
+        } else {
+          console.warn(`⚠️ TO not found: ${selectedRandomSearch.to_location}`);
+        }
+      } catch (error) {
+        console.error("Error fetching coordinates:", error);
+        setFromToCoords({ from: null, to: null, loading: false });
+      }
+    };
+
+    fetchFromToCoordinates();
+  }, [
+    mode,
+    selectedRandomSearch?.id,
+    selectedRandomSearch?.from_location,
+    selectedRandomSearch?.to_location,
+    isSim,
+  ]);
+
   return (
     <div className="relative h-[600px] w-full rounded-lg overflow-hidden border border-border z-0">
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* LOADING OVERLAY FOR FROM/TO */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+
+      {fromToCoords.loading && (
+        <div className="absolute top-4 right-4 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <span className="text-xs text-muted-foreground">
+            Loading locations...
+          </span>
+        </div>
+      )}
+
       {/* ═══════════════════════════════════════════════════════════ */}
       {/* WAITING FOR CONSENT OVERLAY (SIM) */}
       {/* ═══════════════════════════════════════════════════════════ */}
@@ -305,6 +508,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
           mode={mode}
           groupedVehicles={groupedVehicles}
           randomSearch={selectedRandomSearch}
+          fromToCoords={fromToCoords}
         />
 
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -440,6 +644,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
               )
             ) : (
               <>
+                {/* Journey Toll Markers */}
                 {selectedRandomSearch.toll_crossings.map((crossing, index) => (
                   <Marker
                     key={index}
@@ -468,6 +673,7 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                   </Marker>
                 ))}
 
+                {/* Journey Polyline */}
                 {selectedRandomSearch.toll_crossings.length > 1 && (
                   <>
                     <Polyline
@@ -493,6 +699,70 @@ export const FleetMap: React.FC<FleetMapProps> = ({
             )}
           </>
         )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* FROM/TO LOCATION MARKERS (Journey Mode - FASTAG) */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+
+        {mode === "random" &&
+          selectedRandomSearch &&
+          !isSim &&
+          selectedRandomSearch.search_type === "journey" &&
+          !fromToCoords.loading && (
+            <>
+              {/* FROM Location Marker */}
+              {fromToCoords.from && (
+                <Marker
+                  position={[fromToCoords.from.lat, fromToCoords.from.lng]}
+                  icon={createFromLocationIcon()}
+                  zIndexOffset={1000}
+                >
+                  <Popup>
+                    <div className="p-3 min-w-[180px] text-center">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                          A
+                        </div>
+                        <span className="font-bold text-green-600">START</span>
+                      </div>
+                      <p className="font-semibold text-lg">
+                        {selectedRandomSearch.from_location}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Journey Starting Point
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* TO Location Marker */}
+              {fromToCoords.to && (
+                <Marker
+                  position={[fromToCoords.to.lat, fromToCoords.to.lng]}
+                  icon={createToLocationIcon()}
+                  zIndexOffset={1000}
+                >
+                  <Popup>
+                    <div className="p-3 min-w-[180px] text-center">
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">
+                          B
+                        </div>
+                        <span className="font-bold text-red-600">END</span>
+                      </div>
+                      <p className="font-semibold text-lg">
+                        {selectedRandomSearch.to_location}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Journey Destination
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+            </>
+          )}
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* RANDOM MODE - SIM */}
@@ -523,7 +793,6 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                         </Badge>
                       </div>
 
-                      {/* Phone Number */}
                       <div className="flex items-center gap-2 mb-2">
                         <Phone className="w-4 h-4 text-purple-600" />
                         <span className="font-mono font-semibold">
@@ -531,7 +800,6 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                         </span>
                       </div>
 
-                      {/* Driver Name */}
                       {selectedRandomSearch.driver_name && (
                         <div className="flex items-center gap-2 mb-2">
                           <User className="w-4 h-4 text-muted-foreground" />
@@ -541,7 +809,6 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                         </div>
                       )}
 
-                      {/* Vehicle Reference */}
                       {selectedRandomSearch.vehicle_number && (
                         <div className="flex items-center gap-2 mb-2">
                           <Truck className="w-4 h-4 text-muted-foreground" />
@@ -554,13 +821,11 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                         </div>
                       )}
 
-                      {/* Location */}
                       <p className="text-xs text-muted-foreground mb-1">
                         <MapPin className="w-3 h-3 inline mr-1" />
                         {validCrossings[0].toll_plaza_name || "SIM Location"}
                       </p>
 
-                      {/* Time */}
                       <p className="text-xs text-muted-foreground">
                         <Clock className="w-3 h-3 inline mr-1" />
                         {formatCrossingTime(validCrossings[0].crossing_time)}
@@ -614,7 +879,6 @@ export const FleetMap: React.FC<FleetMapProps> = ({
                     );
                   })}
 
-                  {/* Polyline for SIM history */}
                   <Polyline
                     positions={validCrossings.map((c) => [
                       c.latitude,
@@ -656,6 +920,11 @@ export const FleetMap: React.FC<FleetMapProps> = ({
         @keyframes pulse-purple {
           0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.7); }
           50% { box-shadow: 0 0 0 10px rgba(139, 92, 246, 0); }
+        }
+        
+        .from-location-marker,
+        .to-location-marker {
+          z-index: 1000 !important;
         }
       `}</style>
     </div>

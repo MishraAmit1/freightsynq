@@ -740,7 +740,7 @@ export const Signup = () => {
 
           {/* Brand Name */}
           <h2 className="text-4xl font-bold text-white mb-2">
-            Freight<span className="text-[#FCC52C]">SynQ</span>
+            Freight<span className="text-[#FCC52C]"> SynQ</span>
           </h2>
           <p className="text-gray-400 text-lg mb-10">
             Complete logistics management platform
