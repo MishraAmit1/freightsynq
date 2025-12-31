@@ -134,16 +134,22 @@ export const Sidebar = ({
     useState<LockedFeatureDetails | null>(null);
 
   // ✅ FREE tier navigation - Limited features
+  // ✅ FREE tier navigation - FIXED ROUTES
   const freeNavigation = [
-    { name: "Dashboard", href: "/", icon: BarChart3 },
+    { name: "Dashboard", href: "/", icon: BarChart3, exact: true },
     { name: "Tracking", href: "/tracking", icon: Locate },
-    { name: "LR Generator", href: "/lr-generator", icon: FilePlus2 },
-    { name: "Saved LRs", href: "/lr-generator", icon: FileText },
+    {
+      name: "LR Generator",
+      href: "/lr-generator",
+      icon: FilePlus2,
+      exact: true,
+    },
+    { name: "Saved LRs", href: "/saved-lrs", icon: FileText, exact: true },
   ];
 
-  // ✅ FULL tier navigation - All features
+  // ✅ FULL tier navigation - FIXED
   const fullNavigation = [
-    { name: "Dashboard", href: "/", icon: BarChart3 },
+    { name: "Dashboard", href: "/", icon: BarChart3, exact: true },
     { name: "Customers", href: "/customers", icon: UsersRound },
     { name: "Bookings", href: "/bookings", icon: FileText },
     { name: "Tracking", href: "/tracking", icon: Locate },
@@ -151,7 +157,7 @@ export const Sidebar = ({
     { name: "Vehicles", href: "/vehicles", icon: Truck },
     { name: "Drivers", href: "/drivers", icon: UserCog },
     { name: "Warehouses", href: "/warehouses", icon: Warehouse },
-    { name: "Saved LRs", href: "/lr-generator", icon: FolderOpen },
+    { name: "Saved LRs", href: "/saved-lrs", icon: FolderOpen, exact: true },
     {
       name: "Company Settings",
       href: "/company-settings",
@@ -205,11 +211,12 @@ export const Sidebar = ({
       setShowRequestModal(true); // ✅ CHANGED from setShowPremiumAlert
     }
   };
-
   const renderNavLink = (item: any, index: number) => {
-    const isActive =
-      location.pathname === item.href ||
-      (item.href !== "/" && location.pathname.startsWith(item.href));
+    // ✅ IMPROVED isActive check
+    const isActive = item.exact
+      ? location.pathname === item.href // Exact match only
+      : location.pathname === item.href ||
+        (item.href !== "/" && location.pathname.startsWith(item.href));
 
     const linkContent = (
       <NavLink
