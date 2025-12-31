@@ -232,6 +232,30 @@ export const RandomSearchPanel: React.FC<RandomSearchPanelProps> = ({
 // SEARCH ITEM COMPONENT
 // =============================================
 
+// =============================================
+// SEARCH ITEM COMPONENT - FIXED WITH ALL BUTTONS
+// =============================================
+
+// =============================================
+// SEARCH ITEM COMPONENT - FIXED ALL ICONS
+// =============================================
+
+// =============================================
+// SEARCH ITEM COMPONENT - DEBUG VERSION
+// =============================================
+
+// =============================================
+// SEARCH ITEM COMPONENT - FIXED FOR SIM
+// =============================================
+
+// =============================================
+// SEARCH ITEM COMPONENT - WORKING VERSION
+// =============================================
+
+// =============================================
+// SEARCH ITEM COMPONENT - GRID LAYOUT (GUARANTEED FIX)
+// =============================================
+
 const SearchItem: React.FC<{
   search: RandomSearch;
   onView: () => void;
@@ -241,26 +265,18 @@ const SearchItem: React.FC<{
   const isSim = search.tracking_mode === "SIM";
   const isLive = search.search_type === "live";
 
-  // Calculate age in hours
   const ageHours = Math.floor(
     (Date.now() - new Date(search.searched_at).getTime()) / (1000 * 60 * 60)
   );
-
-  // Determine if stale (>1 hour)
   const isStale = ageHours >= 1;
-
-  // Get display identifier (vehicle number for FASTAG, phone for SIM)
-  const displayIdentifier = isSim
-    ? search.phone_number || "Unknown Phone"
-    : search.vehicle_number || "Unknown Vehicle";
-
-  // Cost for refresh
   const refreshCost = isSim ? "₹1" : "₹4";
 
   return (
     <div className="p-3 border border-border dark:border-border rounded-lg hover:bg-accent/50 dark:hover:bg-secondary/50 transition-colors">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
+      {/* GRID LAYOUT - 2 columns */}
+      <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+        {/* COLUMN 1: Content */}
+        <div className="min-w-0">
           {/* Primary Identifier + Tracking Mode Badge */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* Tracking Mode Icon */}
@@ -282,13 +298,11 @@ const SearchItem: React.FC<{
             {/* Primary Identifier */}
             <p className="font-mono font-semibold text-sm text-foreground dark:text-white">
               {isSim ? (
-                // SIM: Show phone number
                 <span className="flex items-center gap-1">
                   <Phone className="w-3 h-3" />
                   {search.phone_number}
                 </span>
               ) : (
-                // FASTAG: Show vehicle number
                 search.vehicle_number
               )}
             </p>
@@ -311,28 +325,24 @@ const SearchItem: React.FC<{
 
           {/* Secondary Info */}
           {isSim ? (
-            // SIM: Show driver name + optional vehicle
             <div className="mt-1.5 space-y-1">
-              {/* Driver Name */}
               {search.driver_name && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <User className="w-3 h-3 flex-shrink-0" />
-                  <span>{search.driver_name}</span>
+                  <span className="truncate">{search.driver_name}</span>
                 </p>
               )}
 
-              {/* Vehicle Reference (if provided) */}
               {search.vehicle_number && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Truck className="w-3 h-3 flex-shrink-0" />
-                  <span>{search.vehicle_number}</span>
+                  <span className="truncate">{search.vehicle_number}</span>
                   <Badge variant="secondary" className="text-xs ml-1">
                     ref
                   </Badge>
                 </p>
               )}
 
-              {/* Last Location */}
               {search.last_toll_name &&
                 search.last_toll_name !== "Waiting for consent..." && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -341,7 +351,6 @@ const SearchItem: React.FC<{
                   </p>
                 )}
 
-              {/* Consent Pending Warning */}
               {search.last_toll_name === "Waiting for consent..." && (
                 <div className="flex items-center gap-1 mt-1">
                   <Clock className="w-3 h-3 text-yellow-500" />
@@ -352,7 +361,6 @@ const SearchItem: React.FC<{
               )}
             </div>
           ) : (
-            // FASTAG: Existing logic
             <>
               {isLive ? (
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
@@ -389,55 +397,65 @@ const SearchItem: React.FC<{
           </p>
 
           {/* STALE WARNING */}
-          {isStale && search.last_toll_name !== "Waiting for consent..." && (
-            <div className="mt-2 flex items-start gap-1">
-              <AlertCircle className="w-3 h-3 text-orange-500 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-orange-600 dark:text-orange-400">
-                {ageHours}h old - Click 🔄 to update ({refreshCost})
-              </p>
-            </div>
-          )}
+          {isStale &&
+            onRefresh &&
+            search.last_toll_name !== "Waiting for consent..." && (
+              <div className="mt-2 flex items-start gap-1">
+                <AlertCircle className="w-3 h-3 text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-orange-600 dark:text-orange-400">
+                  {ageHours}h old - Click refresh ({refreshCost})
+                </p>
+              </div>
+            )}
         </div>
 
-        {/* Actions - ALWAYS VISIBLE */}
-        <div className="flex gap-1 flex-shrink-0">
-          {/* Refresh Button */}
+        {/* COLUMN 2: ACTION BUTTONS - Auto width, won't shrink */}
+        <div className="flex items-center gap-1">
+          {/* REFRESH Button */}
           {onRefresh && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onRefresh}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRefresh();
+              }}
               className={cn(
-                "h-8 w-8 p-0",
-                isStale ? "text-orange-500 hover:text-orange-600" : ""
+                "inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors",
+                isStale
+                  ? "text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30"
+                  : "text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               )}
-              title={`Update with fresh data (${refreshCost} cost)`}
+              title={`Refresh (${refreshCost})`}
             >
               <RefreshCw className="w-4 h-4" />
-            </Button>
+            </button>
           )}
 
-          {/* View Button */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onView}
-            className="h-8 w-8 p-0"
+          {/* VIEW Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onView();
+            }}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
             title="View on map"
           >
             <Eye className="w-4 h-4" />
-          </Button>
+          </button>
 
-          {/* Delete Button */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onDelete}
-            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+          {/* DELETE Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
             title="Delete"
           >
             <Trash2 className="w-4 h-4" />
-          </Button>
+          </button>
         </div>
       </div>
     </div>
