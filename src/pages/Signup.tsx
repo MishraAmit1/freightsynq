@@ -168,24 +168,43 @@ export const Signup = () => {
   const setupRecaptcha = async () => {
     try {
       // Clear any existing verifier
-      if ((window as any).recaptchaVerifier) {
-        (window as any).recaptchaVerifier.clear();
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (e) {
+          console.log("Failed to clear existing verifier", e);
+        }
       }
 
-      // Create new verifier - keep it simple
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
+      // Make sure container exists
+      const recaptchaContainer = document.getElementById("recaptcha-container");
+      if (!recaptchaContainer) {
+        throw new Error("Recaptcha container not found in DOM");
+      }
+
+      // Create new verifier with explicit container reference
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        recaptchaContainer, // Use the direct element reference
         {
-          size: "normal", // Use normal so it's visible and user can solve it
-        }
+          size: "normal",
+          callback: () => {
+            console.log("reCAPTCHA solved");
+          },
+          "expired-callback": () => {
+            console.log("reCAPTCHA expired");
+          },
+        },
+        auth // Pass auth as third parameter
       );
 
-      await (window as any).recaptchaVerifier.render();
+      console.log("Rendering reCAPTCHA...");
+      await window.recaptchaVerifier.render();
+      console.log("reCAPTCHA rendered successfully");
+
       setRecaptchaRendered(true);
       setLoading(false);
-    } catch (error: any) {
-      console.error("reCAPTCHA setup error:", error);
+    } catch (error) {
+      console.error("reCAPTCHA setup detailed error:", error);
       setError(`Verification error: ${error.message}`);
       setLoading(false);
     }
