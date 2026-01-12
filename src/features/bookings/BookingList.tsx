@@ -1189,49 +1189,48 @@ export const BookingList = () => {
           <Table className="booking-table">
             <TableHeader>
               <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground pl-6">
+                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground pl-6">
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4" />
                     Booking
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Parties & Routes
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
                     Stage
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Truck className="w-4 h-4" />
                     Dispatch Status
                   </div>
                 </TableHead>
-
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4" />
                     Documents
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                <TableHead className="font-semibold text-[12px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
                     Distance & ETA
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground text-center pr-6">
+                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground text-center pr-6">
                   Actions
                 </TableHead>
               </TableRow>
@@ -1278,7 +1277,7 @@ export const BookingList = () => {
                     >
                       {/* COLUMN 1: Booking ID + Pickup Date + Branch Code */}
                       <TableCell className="font-mono py-3 pl-6">
-                        <div className="space-y-1.5 ">
+                        <div className="space-y-1.5 ml-6">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="link"
@@ -1355,7 +1354,7 @@ export const BookingList = () => {
 
                       {/* COLUMN 2: Parties & Route */}
                       <TableCell className="py-3">
-                        <div className="space-y-2.5">
+                        <div className="space-y-2.5 ml-6">
                           <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0" />
                             <span
@@ -1395,19 +1394,21 @@ export const BookingList = () => {
 
                       {/* COLUMN 3: Stage */}
                       <TableCell className="py-3">
-                        <Badge
-                          className={cn(
-                            stageConf.bgColor,
-                            stageConf.textColor,
-                            "text-[10px] px-2 py-1 font-bold border-2 shadow-sm"
-                          )}
-                        >
-                          {stageConf.label}
-                        </Badge>
+                        <div className="ml-6">
+                          <Badge
+                            className={cn(
+                              stageConf.bgColor,
+                              stageConf.textColor,
+                              "text-[10px] px-2 py-1 font-bold border-2 shadow-sm"
+                            )}
+                          >
+                            {stageConf.label}
+                          </Badge>
+                        </div>
                       </TableCell>
                       {/* ✅ COLUMN 4: Dispatch Status - WITH Warehouse Button */}
                       <TableCell className="py-3">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 ml-6">
                           {dispatch.type === "TRACKING" && (
                             <>
                               {/* Vehicle Number */}
@@ -1571,7 +1572,7 @@ export const BookingList = () => {
                       {/* ✅ COLUMN 5: Documents (Simplified) */}
                       {/* ✅ COLUMN 5: Documents with Create LR Button */}
                       <TableCell className="py-3">
-                        <div className="space-y-0.5 text-xs">
+                        <div className="space-y-0.5 text-xs ml-6">
                           {/* LR Row - with Create button */}
                           <div className="flex items-center gap-1">
                             {booking.lrNumber ? (

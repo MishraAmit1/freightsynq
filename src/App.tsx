@@ -44,6 +44,7 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { LRGenerator } from "./pages/LRGenerator";
 import { SavedLRs } from "./pages/SavedLRs";
 import { AccessRequests } from "./pages/super-admin/AccessRequests";
+import { VerifyOtp } from "./pages/VerifyOtp";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,15 +100,12 @@ const AppRouter = () => {
       </Routes>
     );
   }
-
-  // ✅ REGULAR USER ROUTES (FREE + FULL)
-  // Inside AppRouter component, update the Routes:
-
   // ✅ REGULAR USER ROUTES (FREE + FULL)
   return (
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/employee-signup" element={<EmployeeSignup />} />
       <Route path="/verification-pending" element={<VerificationPending />} />

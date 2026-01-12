@@ -148,19 +148,48 @@ const createRandomLiveIcon = () => {
 
 const createJourneyNumberedIcon = (number: number, isLast: boolean = false) => {
   if (isLast) {
+    // CURRENT LOCATION - Truck Icon
     return L.divIcon({
-      html: `<div style="background: linear-gradient(135deg, #f97316, #ea580c); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 4px 8px rgba(249, 115, 22, 0.6); font-size: 16px; font-weight: bold; animation: pulse-orange 2s infinite;">${number}</div>`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      html: `
+        <div style="position: relative; width: 44px; height: 44px;">
+          <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Shadow -->
+            <ellipse cx="22" cy="40" rx="12" ry="3" fill="rgba(0,0,0,0.2)"/>
+            <!-- Circle Background -->
+            <circle cx="22" cy="20" r="18" fill="#f97316"/>
+            <circle cx="22" cy="20" r="15" fill="white"/>
+            <!-- Truck Icon -->
+            <g transform="translate(10, 10)">
+              <path d="M20 8H17V4H3C1.9 4 1 4.9 1 6V15H3C3 16.66 4.34 18 6 18C7.66 18 9 16.66 9 15H15C15 16.66 16.34 18 18 18C19.66 18 21 16.66 21 15H23V11L20 8ZM6 16.5C5.17 16.5 4.5 15.83 4.5 15C4.5 14.17 5.17 13.5 6 13.5C6.83 13.5 7.5 14.17 7.5 15C7.5 15.83 6.83 16.5 6 16.5ZM19.5 9.5L21.46 12H17V9.5H19.5ZM18 16.5C17.17 16.5 16.5 15.83 16.5 15C16.5 14.17 17.17 13.5 18 13.5C18.83 13.5 19.5 14.17 19.5 15C19.5 15.83 18.83 16.5 18 16.5Z" fill="#f97316"/>
+            </g>
+          </svg>
+          <!-- Pulse Animation -->
+          <div style="position: absolute; top: 2px; left: 4px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid #f97316; animation: pulse-ring 1.5s ease-out infinite;"></div>
+        </div>
+      `,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -22],
       className: "journey-current-marker",
     });
   }
 
+  // PAST LOCATIONS - Small hollow circle
   return L.divIcon({
-    html: `<div style="background: linear-gradient(135deg, #fb923c, #f97316); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-size: 14px; font-weight: bold;">${number}</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    className: "journey-numbered-marker",
+    html: `
+      <div style="position: relative; width: 16px; height: 16px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Outer Circle -->
+          <circle cx="8" cy="8" r="7" fill="white" stroke="#f97316" stroke-width="2"/>
+          <!-- Inner Dot -->
+          <circle cx="8" cy="8" r="3" fill="#f97316"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8],
+    className: "journey-past-marker",
   });
 };
 
@@ -202,39 +231,22 @@ const createSimHistoryIcon = (index: number, isLatest: boolean) => {
 const createFromLocationIcon = () => {
   return L.divIcon({
     html: `
-      <div style="position: relative;">
-        <div style="
-          background: linear-gradient(135deg, #22c55e, #16a34a);
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 4px solid white;
-          box-shadow: 0 4px 12px rgba(34, 197, 94, 0.5);
-          font-size: 18px;
-        ">
-          <span style="font-weight: bold; color: white;">A</span>
-        </div>
-        <div style="
-          position: absolute;
-          top: 48px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: #22c55e;
-          color: white;
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 10px;
-          font-weight: bold;
-          white-space: nowrap;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        ">FROM</div>
+      <div style="position: relative; width: 30px; height: 42px;">
+        <svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shadow -->
+          <ellipse cx="15" cy="40" rx="8" ry="2" fill="rgba(0,0,0,0.2)"/>
+          <!-- Pin Body -->
+          <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27s15-16.5 15-27C30 6.716 23.284 0 15 0z" fill="#22c55e"/>
+          <!-- Inner Circle -->
+          <circle cx="15" cy="15" r="6" fill="white"/>
+          <!-- Center Dot -->
+          <circle cx="15" cy="15" r="3" fill="#22c55e"/>
+        </svg>
       </div>
     `,
-    iconSize: [44, 70],
-    iconAnchor: [22, 22],
+    iconSize: [30, 42],
+    iconAnchor: [15, 42],
+    popupAnchor: [0, -42],
     className: "from-location-marker",
   });
 };
@@ -242,39 +254,22 @@ const createFromLocationIcon = () => {
 const createToLocationIcon = () => {
   return L.divIcon({
     html: `
-      <div style="position: relative;">
-        <div style="
-          background: linear-gradient(135deg, #ef4444, #dc2626);
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 4px solid white;
-          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
-          font-size: 18px;
-        ">
-          <span style="font-weight: bold; color: white;">B</span>
-        </div>
-        <div style="
-          position: absolute;
-          top: 48px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: #ef4444;
-          color: white;
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 10px;
-          font-weight: bold;
-          white-space: nowrap;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        ">TO</div>
+      <div style="position: relative; width: 30px; height: 42px;">
+        <svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Shadow -->
+          <ellipse cx="15" cy="40" rx="8" ry="2" fill="rgba(0,0,0,0.2)"/>
+          <!-- Pin Body -->
+          <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27s15-16.5 15-27C30 6.716 23.284 0 15 0z" fill="#ef4444"/>
+          <!-- Inner Circle -->
+          <circle cx="15" cy="15" r="6" fill="white"/>
+          <!-- Center Dot -->
+          <circle cx="15" cy="15" r="3" fill="#ef4444"/>
+        </svg>
       </div>
     `,
-    iconSize: [44, 70],
-    iconAnchor: [22, 22],
+    iconSize: [30, 42],
+    iconAnchor: [15, 42],
+    popupAnchor: [0, -42],
     className: "to-location-marker",
   });
 };
@@ -763,7 +758,6 @@ export const FleetMap: React.FC<FleetMapProps> = ({
               )}
             </>
           )}
-
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* RANDOM MODE - SIM */}
         {/* ═══════════════════════════════════════════════════════════ */}
