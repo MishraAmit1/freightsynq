@@ -32,6 +32,14 @@ import {
   signInWithPhoneNumber,
 } from "firebase/auth";
 
+// Global declarations for TypeScript
+declare global {
+  interface Window {
+    recaptchaVerifier: any;
+    confirmationResult: any;
+  }
+}
+
 // Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyA-EL3yeq4yAlFUplq6_OgglXF_88mpaow",
@@ -42,21 +50,15 @@ const firebaseConfig = {
   appId: "1:628191998718:web:f7315366476a1d45876baf",
 };
 
-// Initialize Firebase
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-console.log("Firebase initialized", !!auth);
+// Initialize Firebase (exactly like the tutorial)
+console.log("[INIT] Starting Firebase initialization");
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+console.log("[INIT] Firebase initialized successfully:", !!auth);
 
-// Global window declarations
-declare global {
-  interface Window {
-    recaptchaVerifier: any;
-    confirmationResult: any;
-  }
-}
-
-// Real SMS for production
+// Set to false to enable real SMS
 const isTestMode = false;
+console.log("[CONFIG] Test Mode:", isTestMode);
 
 // Types
 interface SignupFormData {
@@ -70,6 +72,8 @@ interface SignupFormData {
 }
 
 export const Signup = () => {
+  console.log("[RENDER] Signup component rendering");
+
   const [formData, setFormData] = useState<SignupFormData>({
     fullName: "",
     username: "",
@@ -89,30 +93,28 @@ export const Signup = () => {
   const [checkingUsername, setCheckingUsername] = useState<boolean>(false);
   const [recaptchaRendered, setRecaptchaRendered] = useState<boolean>(false);
 
-  // Create a ref for the recaptcha container
-  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
-
   const navigate = useNavigate();
   const { user } = useAuth();
 
   // Clean up reCAPTCHA on component unmount
   useEffect(() => {
-    console.log("Component mounted");
+    console.log("[LIFECYCLE] Component mounted");
 
-    // Clean up on unmount
     return () => {
-      console.log("Component unmounting, clearing reCAPTCHA");
+      console.log("[LIFECYCLE] Component unmounting, clearing reCAPTCHA");
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
+          console.log("[RECAPTCHA] Successfully cleared verifier on unmount");
         } catch (e) {
-          console.error("Error clearing reCAPTCHA:", e);
+          console.error("[RECAPTCHA] Error clearing verifier:", e);
         }
       }
     };
   }, []);
 
   if (user) {
+    console.log("[AUTH] User already logged in, redirecting to home");
     return <Navigate to="/" replace />;
   }
 
@@ -127,6 +129,7 @@ export const Signup = () => {
     setError("");
 
     try {
+      console.log("[USERNAME] Checking availability for:", username);
       // Direct query to check username
       const { data, error } = await supabase
         .from("users")
@@ -135,20 +138,22 @@ export const Signup = () => {
         .limit(1);
 
       if (error) {
-        console.error("Username check error:", error);
+        console.error("[USERNAME] Check error:", error);
         setUsernameAvailable(false);
         return;
       }
 
       if (data && data.length > 0) {
+        console.log("[USERNAME] Already taken");
         setUsernameAvailable(false);
         setError("Username already taken. Please choose another.");
       } else {
+        console.log("[USERNAME] Available");
         setUsernameAvailable(true);
         setError("");
       }
     } catch (err) {
-      console.error("Username check error:", err);
+      console.error("[USERNAME] Error during check:", err);
       setUsernameAvailable(false);
     } finally {
       setCheckingUsername(false);
@@ -168,77 +173,168 @@ export const Signup = () => {
     }
   };
 
-  // Completely revised reCAPTCHA setup with better error handling
-  // Simplified reCAPTCHA setup
+  // reCAPTCHA setup matching the tutorial exactly
   const setupRecaptcha = async () => {
-    console.log("Setting up reCAPTCHA...");
+    console.log("[RECAPTCHA] Setting up...");
 
     try {
-      // Clear any existing verifiers
+      // Clear any existing verifier
       if (window.recaptchaVerifier) {
+        console.log("[RECAPTCHA] Clearing existing verifier");
         try {
           window.recaptchaVerifier.clear();
-        } catch (err) {}
+        } catch (err) {
+          console.warn("[RECAPTCHA] Failed to clear existing verifier:", err);
+        }
       }
 
-      // TEMPORARY SOLUTION: Switch to test mode since reCAPTCHA isn't working properly
-      // This will let your demo work immediately
-      console.log("Switching to test mode temporarily");
+      console.log("[RECAPTCHA] Checking if container exists");
+      const recaptchaContainer = document.getElementById("recaptcha-container");
+      console.log("[RECAPTCHA] Container exists:", !!recaptchaContainer);
 
-      const signupData = {
-        fullName: formData.fullName,
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        isTestMode: true, // Force test mode
-      };
+      if (!recaptchaContainer) {
+        console.error("[RECAPTCHA] Container not found in DOM");
+        throw new Error("reCAPTCHA container not found in DOM");
+      }
 
-      localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
-      localStorage.setItem("testOtp", "123456");
+      console.log("[RECAPTCHA] Creating new verifier with auth:", !!auth);
 
-      toast.success("Verification code ready!", {
-        description: "Please click 'Send Verification Code' to continue",
-      });
+      // Create verifier exactly like the tutorial
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth, // First parameter: auth
+        "recaptcha-container", // Second parameter: container ID
+        {
+          size: "invisible", // Use invisible like the tutorial
+          callback: (response: string) => {
+            console.log(
+              "[RECAPTCHA] Verified successfully, response token exists:",
+              !!response
+            );
+            console.log("[RECAPTCHA] Response token length:", response?.length);
+            setRecaptchaRendered(true);
+          },
+          "expired-callback": () => {
+            console.log("[RECAPTCHA] Token expired");
+            setError(
+              "Verification expired. Please refresh the page and try again."
+            );
+          },
+        }
+      );
 
-      // Set as rendered so the Send button appears
+      console.log("[RECAPTCHA] Verifier created, rendering...");
+      await window.recaptchaVerifier.render();
+      console.log("[RECAPTCHA] Rendered successfully");
+
       setRecaptchaRendered(true);
       setLoading(false);
-    } catch (error) {
-      console.error("Setup failed:", error);
-      setError(`Verification error: ${error.message}`);
+    } catch (error: any) {
+      console.error("[RECAPTCHA] Setup error:", error);
+      console.error("[RECAPTCHA] Error details:", error.message, error.stack);
+      setError(`Verification system error: ${error.message}`);
       setLoading(false);
     }
   };
 
-  // Completely revised send OTP function
+  // Send OTP function matching tutorial approach
   const sendOtp = async () => {
+    console.log("[OTP] Sending OTP initiated");
+
+    if (!recaptchaRendered) {
+      console.log("[OTP] reCAPTCHA not rendered yet");
+      setError("Please complete the verification first");
+      return;
+    }
+
     setLoading(true);
-    console.log("Sending verification code...");
 
     try {
-      // Always use test mode temporarily to get the demo working
-      console.log("Using test mode for demo");
+      if (isTestMode) {
+        console.log("[OTP] Using TEST MODE");
+        const signupData = {
+          fullName: formData.fullName,
+          username: formData.username,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          isTestMode: true,
+        };
+
+        localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
+        localStorage.setItem("testOtp", "123456");
+
+        toast.success("Test OTP sent!", {
+          description: "For testing, use code: 123456",
+        });
+
+        navigate("/verify-otp");
+        return;
+      }
+
+      // Real SMS verification
+      console.log("[OTP] Using REAL SMS mode");
+      const formattedPhone = `+91${formData.phone}`;
+      console.log("[OTP] Sending to:", formattedPhone);
+
+      // Make sure reCAPTCHA verifier exists
+      if (!window.recaptchaVerifier) {
+        console.error("[OTP] reCAPTCHA verifier not initialized");
+        throw new Error("reCAPTCHA not initialized");
+      }
+
+      console.log("[OTP] Calling signInWithPhoneNumber with auth:", !!auth);
+
+      // Send the verification code
+      const confirmationResult = await signInWithPhoneNumber(
+        auth,
+        formattedPhone,
+        window.recaptchaVerifier
+      );
+
+      console.log("[OTP] SMS sent successfully!");
+
+      // Store for verification page
+      window.confirmationResult = confirmationResult;
+      console.log("[OTP] Confirmation result stored:", !!confirmationResult);
+
+      // Save signup data
       const signupData = {
         fullName: formData.fullName,
         username: formData.username,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
-        isTestMode: true,
+        isTestMode: false,
       };
-
       localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
-      localStorage.setItem("testOtp", "123456");
+      console.log("[OTP] Signup data saved to localStorage");
 
       toast.success("Verification code sent!", {
-        description: "For the demo, use code: 123456",
+        description: `An OTP has been sent to +91 ${formData.phone}`,
       });
 
       navigate("/verify-otp");
-    } catch (error) {
-      console.error("Error:", error);
-      setError(`Failed: ${error.message}`);
+    } catch (error: any) {
+      console.error("[OTP] Send error:", error);
+      console.error("[OTP] Error code:", error.code);
+      console.error("[OTP] Error message:", error.message);
+      console.error("[OTP] Error stack:", error.stack);
+
+      // Handle specific Firebase errors like in the tutorial
+      if (error.code === "auth/invalid-phone-number") {
+        setError("Please enter a valid phone number");
+      } else if (error.code === "auth/too-many-requests") {
+        setError("Too many attempts. Please try again later.");
+      } else if (error.code === "auth/captcha-check-failed") {
+        setError("Verification challenge failed. Please try again.");
+      } else if (error.code === "auth/quota-exceeded") {
+        setError("SMS quota exceeded. Please try again tomorrow.");
+      } else if (error.code === "auth/invalid-app-credential") {
+        setError("Verification failed. Please refresh the page and try again.");
+      } else {
+        setError(`Failed to send code: ${error.message}`);
+      }
+
       setLoading(false);
     }
   };
@@ -246,14 +342,15 @@ export const Signup = () => {
   // Form validation and submission
   const handleSubmit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
+    console.log("[FORM] Submit initiated");
 
     if (loading) return;
 
     setLoading(true);
     setError("");
-    console.log("Starting form validation");
 
     // Validation checks
+    console.log("[FORM] Validating form data");
     if (!formData.fullName.trim()) {
       setError("Full name is required");
       setLoading(false);
@@ -306,7 +403,7 @@ export const Signup = () => {
 
     try {
       // Check if email already exists
-      console.log("Checking if email exists");
+      console.log("[FORM] Checking if email exists:", formData.email);
       const { data: existingUsers, error: emailCheckError } = await supabase
         .from("users")
         .select("id")
@@ -314,10 +411,12 @@ export const Signup = () => {
         .limit(1);
 
       if (emailCheckError) {
+        console.error("[FORM] Email check error:", emailCheckError);
         throw emailCheckError;
       }
 
       if (existingUsers && existingUsers.length > 0) {
+        console.log("[FORM] Email already registered");
         setError(
           "Email already registered. Please use a different email or login."
         );
@@ -326,10 +425,10 @@ export const Signup = () => {
       }
 
       // If all validation passes, setup reCAPTCHA
-      console.log("All validations passed, setting up reCAPTCHA");
+      console.log("[FORM] All validations passed, setting up reCAPTCHA");
       await setupRecaptcha();
     } catch (error: any) {
-      console.error("Signup error:", error);
+      console.error("[FORM] Signup error:", error);
       setError(error.message || "An error occurred during signup");
       setLoading(false);
     }
@@ -565,10 +664,10 @@ export const Signup = () => {
                       </Label>
                     </div>
 
-                    {/* Always have a recaptcha container in the DOM - with ref */}
+                    {/* IMPORTANT: Always have the recaptcha container in the DOM */}
                     <div
-                      ref={recaptchaContainerRef}
-                      className="flex justify-center min-h-[75px] border-dashed border border-gray-200 dark:border-gray-700 rounded-md p-2"
+                      id="recaptcha-container"
+                      className="flex justify-center"
                     ></div>
 
                     {!recaptchaRendered ? (
@@ -599,7 +698,7 @@ export const Signup = () => {
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                               {isTestMode
                                 ? "Verification ready - click to receive test code"
-                                : "Complete the verification above, then click to receive OTP"}
+                                : "Verification ready - click to receive OTP on your phone"}
                             </p>
                           </div>
                         </div>

@@ -26,6 +26,23 @@ import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
 } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyA-EL3yeq4yAlFUplq6_OgglXF_88mpaow",
+  authDomain: "freightsynq123.firebaseapp.com",
+  projectId: "freightsynq123",
+  storageBucket: "freightsynq123.firebasestorage.app",
+  messagingSenderId: "628191998718",
+  appId: "1:628191998718:web:f7315366476a1d45876baf",
+};
+
+// Initialize Firebase for this page
+console.log("[VERIFY_OTP] Initializing Firebase");
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+console.log("[VERIFY_OTP] Firebase initialized:", !!auth);
 
 // Types
 interface SignupData {
@@ -38,6 +55,8 @@ interface SignupData {
 }
 
 export const VerifyOtp = () => {
+  console.log("[VERIFY_OTP] Component rendering");
+
   const [otp, setOtp] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -49,9 +68,12 @@ export const VerifyOtp = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("[VERIFY_OTP] Component mounted");
+
     // Get signup data from localStorage
     const data = localStorage.getItem("pendingSignupData");
     if (!data) {
+      console.log("[VERIFY_OTP] No pending signup data found");
       toast.error("Session expired", {
         description: "Please return to the signup page",
       });
@@ -65,17 +87,23 @@ export const VerifyOtp = () => {
 
       // Check if we're in test mode
       setIsTestMode(!!parsedData.isTestMode);
-      console.log("Test mode:", !!parsedData.isTestMode);
+      console.log("[VERIFY_OTP] Test mode:", !!parsedData.isTestMode);
+      console.log("[VERIFY_OTP] Phone:", parsedData.phone);
     } catch (err) {
-      console.error("Failed to parse signup data", err);
+      console.error("[VERIFY_OTP] Failed to parse signup data:", err);
       navigate("/signup");
       return;
     }
 
     // Start countdown for resend button
+    console.log("[VERIFY_OTP] Starting resend timer");
     const timerCleanup = startResendTimer();
 
-    return () => timerCleanup();
+    // Clear on unmount
+    return () => {
+      console.log("[VERIFY_OTP] Component unmounting");
+      timerCleanup();
+    };
   }, [navigate]);
 
   const startResendTimer = () => {
@@ -100,11 +128,13 @@ export const VerifyOtp = () => {
   const handleResendOtp = async () => {
     if (resendDisabled || !signupData) return;
 
+    console.log("[VERIFY_OTP] Resending OTP");
     setLoading(true);
 
     try {
       // Test mode handling
       if (isTestMode) {
+        console.log("[VERIFY_OTP] Resending in test mode");
         // For development, use fixed code
         localStorage.setItem("testOtp", "123456");
 
@@ -119,16 +149,27 @@ export const VerifyOtp = () => {
       }
 
       // Production mode - resend OTP
+      console.log("[VERIFY_OTP] Resending real SMS OTP");
+
       // Clear any existing verifier
-      if ((window as any).recaptchaVerifier) {
-        (window as any).recaptchaVerifier.clear();
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (err) {
+          console.warn("[VERIFY_OTP] Failed to clear existing verifier:", err);
+        }
       }
 
-      // Initialize Firebase Auth
-      const auth = getAuth();
+      // Create container if not exists
+      if (!document.getElementById("recaptcha-container")) {
+        console.log("[VERIFY_OTP] Creating recaptcha container");
+        const containerDiv = document.createElement("div");
+        containerDiv.id = "recaptcha-container";
+        document.body.appendChild(containerDiv);
+      }
 
       // Create a new RecaptchaVerifier
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(
+      window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
         {
@@ -136,16 +177,24 @@ export const VerifyOtp = () => {
         }
       );
 
-      const appVerifier = (window as any).recaptchaVerifier;
+      console.log("[VERIFY_OTP] Verifier created");
+      const appVerifier = window.recaptchaVerifier;
       const formattedPhone = `+91${signupData.phone}`;
+      console.log("[VERIFY_OTP] Sending to:", formattedPhone);
 
       // Send OTP
-      const confirmationResult = await signInWithPhoneNumber(
-        auth,
-        formattedPhone,
-        appVerifier
-      );
-      (window as any).confirmationResult = confirmationResult;
+      try {
+        const confirmationResult = await signInWithPhoneNumber(
+          auth,
+          formattedPhone,
+          appVerifier
+        );
+        window.confirmationResult = confirmationResult;
+        console.log("[VERIFY_OTP] OTP sent successfully");
+      } catch (smsError) {
+        console.error("[VERIFY_OTP] SMS sending error:", smsError);
+        throw smsError;
+      }
 
       toast.success("OTP sent again!", {
         description: `A new verification code has been sent to ${signupData.phone}`,
@@ -154,7 +203,9 @@ export const VerifyOtp = () => {
       // Reset timer
       startResendTimer();
     } catch (error: any) {
-      console.error("Resend OTP error:", error);
+      console.error("[VERIFY_OTP] Resend error:", error);
+      console.error("[VERIFY_OTP] Error code:", error.code);
+      console.error("[VERIFY_OTP] Error message:", error.message);
       setError(error.message || "Failed to resend OTP");
     } finally {
       setLoading(false);
@@ -170,6 +221,7 @@ export const VerifyOtp = () => {
 
   // Handle verification button click
   const handleSubmitOtp = () => {
+    console.log("[VERIFY_OTP] Submit button clicked");
     if (otp.length === 6) {
       handleVerifyOtp();
     } else {
@@ -186,28 +238,40 @@ export const VerifyOtp = () => {
       return;
     }
 
+    console.log("[VERIFY_OTP] Verifying OTP:", otp);
     setLoading(true);
     setError("");
 
     try {
-      console.log("Verifying OTP:", otp);
-
       // TEST MODE - Just verify the OTP is 123456
       if (isTestMode) {
+        console.log("[VERIFY_OTP] Verifying in test mode");
         if (otp !== "123456") {
+          console.log("[VERIFY_OTP] Invalid test OTP");
           throw new Error("Invalid OTP code. For testing, use 123456.");
         }
-        console.log("Test OTP verified successfully!");
+        console.log("[VERIFY_OTP] Test OTP verified successfully!");
       } else {
         // PRODUCTION MODE - Verify with Firebase
-        const confirmationResult = (window as any).confirmationResult;
+        console.log("[VERIFY_OTP] Verifying real SMS OTP");
+        const confirmationResult = window.confirmationResult;
         if (!confirmationResult) {
+          console.error("[VERIFY_OTP] No confirmation result found");
           throw new Error("Verification session expired. Please try again.");
         }
-        await confirmationResult.confirm(otp);
+
+        try {
+          console.log("[VERIFY_OTP] Confirming OTP with Firebase");
+          await confirmationResult.confirm(otp);
+          console.log("[VERIFY_OTP] OTP confirmed successfully");
+        } catch (confirmError) {
+          console.error("[VERIFY_OTP] OTP confirmation error:", confirmError);
+          throw new Error("Invalid verification code. Please try again.");
+        }
       }
 
       // Create auth user
+      console.log("[VERIFY_OTP] Creating Supabase auth user");
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
@@ -220,6 +284,7 @@ export const VerifyOtp = () => {
       });
 
       if (authError && !authError.message.includes("already registered")) {
+        console.error("[VERIFY_OTP] Auth error:", authError);
         throw authError;
       }
 
@@ -228,23 +293,31 @@ export const VerifyOtp = () => {
 
       if (authData?.user) {
         userId = authData.user.id;
+        console.log("[VERIFY_OTP] New user created with ID:", userId);
       } else {
         // Try to sign in to get the user ID
+        console.log("[VERIFY_OTP] User may already exist, signing in");
         const { data: signInData, error: signInError } =
           await supabase.auth.signInWithPassword({
             email: signupData.email,
             password: signupData.password,
           });
 
-        if (signInError) throw signInError;
+        if (signInError) {
+          console.error("[VERIFY_OTP] Sign in error:", signInError);
+          throw signInError;
+        }
         userId = signInData.user?.id;
+        console.log("[VERIFY_OTP] Signed in with user ID:", userId);
       }
 
       if (!userId) {
+        console.error("[VERIFY_OTP] Failed to get user ID");
         throw new Error("Failed to get user ID");
       }
 
       // Create company
+      console.log("[VERIFY_OTP] Creating company");
       const { data: company, error: companyError } = await supabase
         .from("companies")
         .insert({
@@ -255,10 +328,15 @@ export const VerifyOtp = () => {
         .select()
         .single();
 
-      if (companyError) throw companyError;
+      if (companyError) {
+        console.error("[VERIFY_OTP] Company creation error:", companyError);
+        throw companyError;
+      }
+      console.log("[VERIFY_OTP] Company created with ID:", company.id);
 
       try {
         // Try to update first (in case user exists)
+        console.log("[VERIFY_OTP] Updating user record");
         const { error: updateError } = await supabase
           .from("users")
           .update({
@@ -272,6 +350,7 @@ export const VerifyOtp = () => {
           .eq("id", userId);
 
         if (updateError) {
+          console.log("[VERIFY_OTP] Update failed, trying insert");
           // If update fails, try insert
           const { error: insertError } = await supabase.from("users").insert({
             id: userId,
@@ -283,12 +362,19 @@ export const VerifyOtp = () => {
             role: "admin",
           });
 
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error("[VERIFY_OTP] Insert error:", insertError);
+            throw insertError;
+          }
+          console.log("[VERIFY_OTP] User inserted successfully");
+        } else {
+          console.log("[VERIFY_OTP] User updated successfully");
         }
       } catch (dbError: any) {
-        console.error("Database error:", dbError);
+        console.error("[VERIFY_OTP] Database error:", dbError);
 
         // If both update and insert fail, use RPC fallback
+        console.log("[VERIFY_OTP] Trying RPC fallback");
         const { error: rpcError } = await supabase.rpc(
           "create_or_update_user",
           {
@@ -302,20 +388,26 @@ export const VerifyOtp = () => {
           }
         );
 
-        if (rpcError) throw rpcError;
+        if (rpcError) {
+          console.error("[VERIFY_OTP] RPC error:", rpcError);
+          throw rpcError;
+        }
+        console.log("[VERIFY_OTP] User created/updated via RPC");
       }
 
       // Clear localStorage
+      console.log("[VERIFY_OTP] Cleaning up localStorage");
       localStorage.removeItem("pendingSignupData");
       localStorage.removeItem("testOtp");
 
+      console.log("[VERIFY_OTP] Account creation successful!");
       toast.success("Account created successfully!", {
         description: "Welcome to Freight SynQ",
       });
 
       navigate("/");
     } catch (error: any) {
-      console.error("OTP verification error:", error);
+      console.error("[VERIFY_OTP] Verification error:", error);
       setError(error.message || "Failed to verify OTP");
     } finally {
       setLoading(false);
@@ -422,7 +514,7 @@ export const VerifyOtp = () => {
           </div>
 
           {/* Hidden recaptcha container */}
-          <div id="recaptcha-container"></div>
+          <div id="recaptcha-container" style={{ display: "none" }}></div>
         </CardContent>
       </Card>
     </div>
