@@ -18,7 +18,6 @@ import {
   RefreshCw,
   ShieldCheck,
   CheckCircle,
-  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -68,15 +67,14 @@ export const VerifyOtp = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [resendDisabled, setResendDisabled] = useState<boolean>(true);
-  const [countdown, setCountdown] = useState<number>(30);
+  const [countdown, setCountdown] = useState<number>(180); // 3 minutes instead of 30 seconds
   const [signupData, setSignupData] = useState<SignupData | null>(null);
   const [isTestMode, setIsTestMode] = useState<boolean>(false);
   const [verificationSuccess, setVerificationSuccess] =
     useState<boolean>(false);
 
-  // NEW: OTP Expiration Timer states
-  const [otpExpiry, setOtpExpiry] = useState(180); // 3 minutes in seconds
-  const [otpExpired, setOtpExpired] = useState(false);
+  // For auto-clearing error messages
+  const errorTimeoutRef = useRef<number | null>(null);
 
   // References for input fields to enable auto-focus
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -85,6 +83,31 @@ export const VerifyOtp = () => {
 
   // Combined OTP value
   const otp = otpDigits.join("");
+
+  // Add this useEffect to handle cleanup of the timeout
+  useEffect(() => {
+    return () => {
+      if (errorTimeoutRef.current) {
+        window.clearTimeout(errorTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Create a function to set errors that auto-clear after 5 seconds
+  const setTimedError = (message: string) => {
+    // Clear any existing timeout
+    if (errorTimeoutRef.current) {
+      window.clearTimeout(errorTimeoutRef.current);
+    }
+
+    // Set the error
+    setError(message);
+
+    // Set timeout to clear the error after 5 seconds
+    errorTimeoutRef.current = window.setTimeout(() => {
+      setError("");
+    }, 5000); // 5 seconds
+  };
 
   // Initial setup when component loads
   useEffect(() => {
@@ -102,10 +125,8 @@ export const VerifyOtp = () => {
       const parsedData = JSON.parse(data) as SignupData;
       setSignupData(parsedData);
       setIsTestMode(!!parsedData.isTestMode);
-      console.log("[VERIFY_OTP] Phone:", parsedData.phone);
-      console.log("[VERIFY_OTP] Test mode:", !!parsedData.isTestMode);
     } catch (err) {
-      console.error("[VERIFY_OTP] Failed to parse signup data:", err);
+      console.error("Failed to parse signup data:", err);
       navigate("/signup");
       return;
     }
@@ -123,30 +144,16 @@ export const VerifyOtp = () => {
     return () => timerCleanup();
   }, [navigate]);
 
-  // NEW: OTP expiration timer
-  useEffect(() => {
-    if (otpExpiry <= 0) {
-      setOtpExpired(true);
-      return;
-    }
-
-    const expiryTimer = setInterval(() => {
-      setOtpExpiry((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(expiryTimer);
-  }, [otpExpiry]);
-
   // Auto-submit when all digits are filled
   useEffect(() => {
-    if (otp.length === 6 && !loading && !verificationSuccess && !otpExpired) {
+    if (otp.length === 6 && !loading && !verificationSuccess) {
       handleVerifyOtp();
     }
   }, [otp]);
 
   const startResendTimer = () => {
     setResendDisabled(true);
-    setCountdown(30);
+    setCountdown(180); // 3 minutes
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -162,10 +169,15 @@ export const VerifyOtp = () => {
     return () => clearInterval(timer);
   };
 
+  // Format time for display
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   // Handle input change for each OTP digit
   const handleDigitChange = (index: number, value: string) => {
-    if (otpExpired) return; // Don't allow changes if OTP is expired
-
     if (value.length > 1) {
       value = value.charAt(0);
     }
@@ -201,8 +213,6 @@ export const VerifyOtp = () => {
 
   // Handle pasting OTP
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    if (otpExpired) return; // Don't allow paste if OTP is expired
-
     e.preventDefault();
     const pasteData = e.clipboardData.getData("text").trim().slice(0, 6);
 
@@ -234,23 +244,17 @@ export const VerifyOtp = () => {
   const handleResendOtp = async () => {
     if (resendDisabled || !signupData) return;
 
-    console.log("[VERIFY_OTP] Resending OTP");
     setLoading(true);
 
     try {
       // Test mode handling
       if (isTestMode) {
-        console.log("[VERIFY_OTP] Resending in test mode");
         // For development, use fixed code
         localStorage.setItem("testOtp", "123456");
 
         toast.success("Verification code resent", {
           description: "Use code 123456 for testing",
         });
-
-        // NEW: Reset OTP expiry timer
-        setOtpExpiry(180);
-        setOtpExpired(false);
 
         // Reset input fields
         setOtpDigits(Array(6).fill(""));
@@ -265,20 +269,15 @@ export const VerifyOtp = () => {
       }
 
       // Production mode - resend OTP
-      console.log("[VERIFY_OTP] Resending real SMS OTP");
-
       // Clear any existing verifier
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
-        } catch (err) {
-          console.warn("[VERIFY_OTP] Failed to clear existing verifier:", err);
-        }
+        } catch (err) {}
       }
 
       // Create container if not exists
       if (!document.getElementById("recaptcha-container")) {
-        console.log("[VERIFY_OTP] Creating recaptcha container");
         const containerDiv = document.createElement("div");
         containerDiv.id = "recaptcha-container";
         document.body.appendChild(containerDiv);
@@ -293,10 +292,8 @@ export const VerifyOtp = () => {
         }
       );
 
-      console.log("[VERIFY_OTP] Verifier created");
       const appVerifier = window.recaptchaVerifier;
       const formattedPhone = `+91${signupData.phone}`;
-      console.log("[VERIFY_OTP] Sending to:", formattedPhone);
 
       // Send OTP
       try {
@@ -306,19 +303,13 @@ export const VerifyOtp = () => {
           appVerifier
         );
         window.confirmationResult = confirmationResult;
-        console.log("[VERIFY_OTP] OTP sent successfully");
       } catch (smsError) {
-        console.error("[VERIFY_OTP] SMS sending error:", smsError);
         throw smsError;
       }
 
       toast.success("Verification code resent", {
         description: `A new code has been sent to +91 ${signupData.phone}`,
       });
-
-      // NEW: Reset OTP expiry timer and clear expired state
-      setOtpExpiry(180);
-      setOtpExpired(false);
 
       // Clear OTP inputs
       setOtpDigits(Array(6).fill(""));
@@ -332,10 +323,7 @@ export const VerifyOtp = () => {
       // Reset timer
       startResendTimer();
     } catch (error: any) {
-      console.error("[VERIFY_OTP] Resend error:", error);
-      console.error("[VERIFY_OTP] Error code:", error.code);
-      console.error("[VERIFY_OTP] Error message:", error.message);
-      setError(error.message || "Failed to resend verification code");
+      setTimedError(error.message || "Failed to resend verification code");
     } finally {
       setLoading(false);
     }
@@ -346,20 +334,11 @@ export const VerifyOtp = () => {
     if (loading || otp.length !== 6 || !signupData || verificationSuccess)
       return;
 
-    // NEW: Check if OTP has expired
-    if (otpExpired) {
-      setError(
-        "This verification code has expired. Please request a new code."
-      );
-      return;
-    }
-
-    console.log("[VERIFY_OTP] Verifying OTP:", otp);
     setLoading(true);
     setError("");
 
     try {
-      // NEW: Get and increment fail count from localStorage
+      // Get and increment fail count from localStorage
       const currentFailCount = parseInt(
         localStorage.getItem("failCount") || "0"
       );
@@ -371,33 +350,23 @@ export const VerifyOtp = () => {
 
       // TEST MODE - Just verify the OTP is 123456
       if (isTestMode) {
-        console.log("[VERIFY_OTP] Verifying in test mode");
         if (otp !== "123456") {
-          // NEW: Track failed attempt
+          // Track failed attempt
           localStorage.setItem("failCount", (currentFailCount + 1).toString());
-
-          console.log("[VERIFY_OTP] Invalid test OTP");
           throw new Error("Invalid verification code. Please try again.");
         }
-        console.log("[VERIFY_OTP] Test OTP verified successfully!");
       } else {
         // PRODUCTION MODE - Verify with Firebase
-        console.log("[VERIFY_OTP] Verifying real SMS OTP");
         const confirmationResult = window.confirmationResult;
         if (!confirmationResult) {
-          console.error("[VERIFY_OTP] No confirmation result found");
           throw new Error("Verification session expired. Please try again.");
         }
 
         try {
-          console.log("[VERIFY_OTP] Confirming OTP with Firebase");
           await confirmationResult.confirm(otp);
-          console.log("[VERIFY_OTP] OTP confirmed successfully");
         } catch (confirmError) {
-          // NEW: Track failed attempt
+          // Track failed attempt
           localStorage.setItem("failCount", (currentFailCount + 1).toString());
-
-          console.error("[VERIFY_OTP] OTP confirmation error:", confirmError);
           throw new Error("Invalid verification code. Please try again.");
         }
       }
@@ -405,11 +374,10 @@ export const VerifyOtp = () => {
       // Show verification success indicator
       setVerificationSuccess(true);
 
-      // NEW: Clear fail count on success
+      // Clear fail count on success
       localStorage.removeItem("failCount");
 
       // Create auth user
-      console.log("[VERIFY_OTP] Creating Supabase auth user");
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
@@ -422,7 +390,6 @@ export const VerifyOtp = () => {
       });
 
       if (authError && !authError.message.includes("already registered")) {
-        console.error("[VERIFY_OTP] Auth error:", authError);
         throw authError;
       }
 
@@ -431,31 +398,23 @@ export const VerifyOtp = () => {
 
       if (authData?.user) {
         userId = authData.user.id;
-        console.log("[VERIFY_OTP] New user created with ID:", userId);
       } else {
         // Try to sign in to get the user ID
-        console.log("[VERIFY_OTP] User may already exist, signing in");
         const { data: signInData, error: signInError } =
           await supabase.auth.signInWithPassword({
             email: signupData.email,
             password: signupData.password,
           });
 
-        if (signInError) {
-          console.error("[VERIFY_OTP] Sign in error:", signInError);
-          throw signInError;
-        }
+        if (signInError) throw signInError;
         userId = signInData.user?.id;
-        console.log("[VERIFY_OTP] Signed in with user ID:", userId);
       }
 
       if (!userId) {
-        console.error("[VERIFY_OTP] Failed to get user ID");
         throw new Error("Failed to get user ID");
       }
 
       // Create company
-      console.log("[VERIFY_OTP] Creating company");
       const { data: company, error: companyError } = await supabase
         .from("companies")
         .insert({
@@ -466,15 +425,10 @@ export const VerifyOtp = () => {
         .select()
         .single();
 
-      if (companyError) {
-        console.error("[VERIFY_OTP] Company creation error:", companyError);
-        throw companyError;
-      }
-      console.log("[VERIFY_OTP] Company created with ID:", company.id);
+      if (companyError) throw companyError;
 
       try {
         // Try to update first (in case user exists)
-        console.log("[VERIFY_OTP] Updating user record");
         const { error: updateError } = await supabase
           .from("users")
           .update({
@@ -488,7 +442,6 @@ export const VerifyOtp = () => {
           .eq("id", userId);
 
         if (updateError) {
-          console.log("[VERIFY_OTP] Update failed, trying insert");
           // If update fails, try insert
           const { error: insertError } = await supabase.from("users").insert({
             id: userId,
@@ -500,19 +453,10 @@ export const VerifyOtp = () => {
             role: "admin",
           });
 
-          if (insertError) {
-            console.error("[VERIFY_OTP] Insert error:", insertError);
-            throw insertError;
-          }
-          console.log("[VERIFY_OTP] User inserted successfully");
-        } else {
-          console.log("[VERIFY_OTP] User updated successfully");
+          if (insertError) throw insertError;
         }
       } catch (dbError: any) {
-        console.error("[VERIFY_OTP] Database error:", dbError);
-
         // If both update and insert fail, use RPC fallback
-        console.log("[VERIFY_OTP] Trying RPC fallback");
         const { error: rpcError } = await supabase.rpc(
           "create_or_update_user",
           {
@@ -526,20 +470,14 @@ export const VerifyOtp = () => {
           }
         );
 
-        if (rpcError) {
-          console.error("[VERIFY_OTP] RPC error:", rpcError);
-          throw rpcError;
-        }
-        console.log("[VERIFY_OTP] User created/updated via RPC");
+        if (rpcError) throw rpcError;
       }
 
       // Clear localStorage
-      console.log("[VERIFY_OTP] Cleaning up localStorage");
       localStorage.removeItem("pendingSignupData");
       localStorage.removeItem("testOtp");
       localStorage.removeItem("failCount");
 
-      console.log("[VERIFY_OTP] Account creation successful!");
       toast.success("Account created successfully!", {
         description: "Welcome to Freight SynQ",
       });
@@ -549,26 +487,19 @@ export const VerifyOtp = () => {
         navigate("/");
       }, 1500);
     } catch (error: any) {
-      console.error("[VERIFY_OTP] Verification error:", error);
+      // NEW: Use setTimedError instead of setError
+      setTimedError(error.message || "Failed to verify code");
 
-      // NEW: Add progressive delay based on fail count
+      // Add progressive delay based on fail count
       const failCount = parseInt(localStorage.getItem("failCount") || "0");
       if (failCount > 0) {
         const delayTime = Math.min(failCount * 1000, 5000); // Max 5 seconds delay
         await new Promise((resolve) => setTimeout(resolve, delayTime));
       }
 
-      setError(error.message || "Failed to verify code");
       setLoading(false);
       setVerificationSuccess(false);
     }
-  };
-
-  // Format time for display
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -605,30 +536,6 @@ export const VerifyOtp = () => {
               </>
             )}
           </CardDescription>
-
-          {/* NEW: OTP Expiration Timer */}
-          {!verificationSuccess && !otpExpired && (
-            <div
-              className={`flex items-center justify-center gap-1 mt-1 text-sm font-medium ${
-                otpExpiry < 30
-                  ? "text-red-500 dark:text-red-400"
-                  : otpExpiry < 60
-                  ? "text-amber-500 dark:text-amber-400"
-                  : "text-muted-foreground"
-              }`}
-            >
-              <Clock className="w-3 h-3" />
-              <span>Code expires in {formatTime(otpExpiry)}</span>
-            </div>
-          )}
-
-          {/* Show expired message */}
-          {otpExpired && !verificationSuccess && (
-            <div className="text-red-500 dark:text-red-400 text-sm font-medium flex items-center justify-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              <span>Code expired. Please request a new one.</span>
-            </div>
-          )}
         </CardHeader>
 
         <CardContent className="space-y-6">
@@ -654,12 +561,10 @@ export const VerifyOtp = () => {
                     onChange={(e) => handleDigitChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     onPaste={index === 0 ? handlePaste : undefined}
-                    disabled={loading || verificationSuccess || otpExpired}
+                    disabled={loading || verificationSuccess}
                     className={`w-full aspect-square text-center text-2xl rounded-md border ${
                       verificationSuccess
                         ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 dark:border-green-700"
-                        : otpExpired
-                        ? "border-red-300 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700"
                         : "border-input bg-background"
                     } focus:border-primary focus:ring-1 focus:ring-primary focus-visible:outline-none disabled:opacity-50`}
                   />
@@ -672,7 +577,7 @@ export const VerifyOtp = () => {
               {/* Verify Button */}
               <Button
                 onClick={handleVerifyOtp}
-                disabled={loading || otp.length !== 6 || otpExpired}
+                disabled={loading || otp.length !== 6}
                 className="w-full h-11"
               >
                 {loading ? (
@@ -680,8 +585,6 @@ export const VerifyOtp = () => {
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Verifying...
                   </>
-                ) : otpExpired ? (
-                  "Code Expired"
                 ) : (
                   "Verify & Continue"
                 )}
@@ -690,29 +593,21 @@ export const VerifyOtp = () => {
               {/* Resend OTP Section */}
               <div className="text-center space-y-1 pt-2">
                 <p className="text-sm text-muted-foreground">
-                  {otpExpired
-                    ? "Code expired. Request a new one:"
-                    : "Didn't receive the code?"}
+                  Didn't receive the code?
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleResendOtp}
                   disabled={resendDisabled || loading}
-                  className={`h-9 ${
-                    otpExpired
-                      ? "border-amber-500 text-amber-600 dark:border-amber-700 dark:text-amber-400"
-                      : ""
-                  }`}
+                  className="h-9"
                 >
                   {resendDisabled ? (
-                    <>Resend in {countdown}s</>
+                    <>Resend in {formatTime(countdown)}</>
                   ) : (
                     <>
                       <RefreshCw className="mr-1 h-3 w-3" />
-                      {otpExpired
-                        ? "Request new code"
-                        : "Resend verification code"}
+                      Resend code
                     </>
                   )}
                 </Button>
