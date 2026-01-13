@@ -1,5 +1,5 @@
 // src/pages/Signup.tsx
-import { useState, FormEvent, useEffect, useRef } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,6 @@ import {
   Mail,
   Lock,
   CheckCircle2,
-  Shield,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -42,22 +41,22 @@ declare global {
 
 // Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyA-EL3yeq4yAlFUplq6_OgglXF_88mpaow",
-  authDomain: "freightsynq123.firebaseapp.com",
-  projectId: "freightsynq123",
-  storageBucket: "freightsynq123.firebasestorage.app",
-  messagingSenderId: "628191998718",
-  appId: "1:628191998718:web:f7315366476a1d45876baf",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase (exactly like the tutorial)
+// Initialize Firebase
 console.log("[INIT] Starting Firebase initialization");
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 console.log("[INIT] Firebase initialized successfully:", !!auth);
 
 // Set to false to enable real SMS
-const isTestMode = false;
+const isTestMode = import.meta.env.VITE_SMS_MODE === "test";
 console.log("[CONFIG] Test Mode:", isTestMode);
 
 // Types
@@ -72,8 +71,6 @@ interface SignupFormData {
 }
 
 export const Signup = () => {
-  console.log("[RENDER] Signup component rendering");
-
   const [formData, setFormData] = useState<SignupFormData>({
     fullName: "",
     username: "",
@@ -91,30 +88,31 @@ export const Signup = () => {
     null
   );
   const [checkingUsername, setCheckingUsername] = useState<boolean>(false);
-  const [recaptchaRendered, setRecaptchaRendered] = useState<boolean>(false);
-
+  useEffect(() => {
+    console.log("ENV VARS CHECK:");
+    console.log("SMS Mode:", import.meta.env.VITE_SMS_MODE);
+    console.log(
+      "Is Test Mode (computed):",
+      import.meta.env.VITE_SMS_MODE === "test"
+    );
+  }, []);
   const navigate = useNavigate();
   const { user } = useAuth();
 
   // Clean up reCAPTCHA on component unmount
   useEffect(() => {
-    console.log("[LIFECYCLE] Component mounted");
-
     return () => {
-      console.log("[LIFECYCLE] Component unmounting, clearing reCAPTCHA");
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
-          console.log("[RECAPTCHA] Successfully cleared verifier on unmount");
         } catch (e) {
-          console.error("[RECAPTCHA] Error clearing verifier:", e);
+          console.error("Error clearing reCAPTCHA:", e);
         }
       }
     };
   }, []);
 
   if (user) {
-    console.log("[AUTH] User already logged in, redirecting to home");
     return <Navigate to="/" replace />;
   }
 
@@ -129,7 +127,6 @@ export const Signup = () => {
     setError("");
 
     try {
-      console.log("[USERNAME] Checking availability for:", username);
       // Direct query to check username
       const { data, error } = await supabase
         .from("users")
@@ -138,22 +135,20 @@ export const Signup = () => {
         .limit(1);
 
       if (error) {
-        console.error("[USERNAME] Check error:", error);
+        console.error("Username check error:", error);
         setUsernameAvailable(false);
         return;
       }
 
       if (data && data.length > 0) {
-        console.log("[USERNAME] Already taken");
         setUsernameAvailable(false);
         setError("Username already taken. Please choose another.");
       } else {
-        console.log("[USERNAME] Available");
         setUsernameAvailable(true);
         setError("");
       }
     } catch (err) {
-      console.error("[USERNAME] Error during check:", err);
+      console.error("Username check error:", err);
       setUsernameAvailable(false);
     } finally {
       setCheckingUsername(false);
@@ -173,176 +168,9 @@ export const Signup = () => {
     }
   };
 
-  // reCAPTCHA setup matching the tutorial exactly
-  const setupRecaptcha = async () => {
-    console.log("[RECAPTCHA] Setting up...");
-
-    try {
-      // Clear any existing verifier
-      if (window.recaptchaVerifier) {
-        console.log("[RECAPTCHA] Clearing existing verifier");
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (err) {
-          console.warn("[RECAPTCHA] Failed to clear existing verifier:", err);
-        }
-      }
-
-      console.log("[RECAPTCHA] Checking if container exists");
-      const recaptchaContainer = document.getElementById("recaptcha-container");
-      console.log("[RECAPTCHA] Container exists:", !!recaptchaContainer);
-
-      if (!recaptchaContainer) {
-        console.error("[RECAPTCHA] Container not found in DOM");
-        throw new Error("reCAPTCHA container not found in DOM");
-      }
-
-      console.log("[RECAPTCHA] Creating new verifier with auth:", !!auth);
-
-      // Create verifier exactly like the tutorial
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth, // First parameter: auth
-        "recaptcha-container", // Second parameter: container ID
-        {
-          size: "invisible", // Use invisible like the tutorial
-          callback: (response: string) => {
-            console.log(
-              "[RECAPTCHA] Verified successfully, response token exists:",
-              !!response
-            );
-            console.log("[RECAPTCHA] Response token length:", response?.length);
-            setRecaptchaRendered(true);
-          },
-          "expired-callback": () => {
-            console.log("[RECAPTCHA] Token expired");
-            setError(
-              "Verification expired. Please refresh the page and try again."
-            );
-          },
-        }
-      );
-
-      console.log("[RECAPTCHA] Verifier created, rendering...");
-      await window.recaptchaVerifier.render();
-      console.log("[RECAPTCHA] Rendered successfully");
-
-      setRecaptchaRendered(true);
-      setLoading(false);
-    } catch (error: any) {
-      console.error("[RECAPTCHA] Setup error:", error);
-      console.error("[RECAPTCHA] Error details:", error.message, error.stack);
-      setError(`Verification system error: ${error.message}`);
-      setLoading(false);
-    }
-  };
-
-  // Send OTP function matching tutorial approach
-  const sendOtp = async () => {
-    console.log("[OTP] Sending OTP initiated");
-
-    if (!recaptchaRendered) {
-      console.log("[OTP] reCAPTCHA not rendered yet");
-      setError("Please complete the verification first");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      if (isTestMode) {
-        console.log("[OTP] Using TEST MODE");
-        const signupData = {
-          fullName: formData.fullName,
-          username: formData.username,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          isTestMode: true,
-        };
-
-        localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
-        localStorage.setItem("testOtp", "123456");
-
-        toast.success("Test OTP sent!", {
-          description: "For testing, use code: 123456",
-        });
-
-        navigate("/verify-otp");
-        return;
-      }
-
-      // Real SMS verification
-      console.log("[OTP] Using REAL SMS mode");
-      const formattedPhone = `+91${formData.phone}`;
-      console.log("[OTP] Sending to:", formattedPhone);
-
-      // Make sure reCAPTCHA verifier exists
-      if (!window.recaptchaVerifier) {
-        console.error("[OTP] reCAPTCHA verifier not initialized");
-        throw new Error("reCAPTCHA not initialized");
-      }
-
-      console.log("[OTP] Calling signInWithPhoneNumber with auth:", !!auth);
-
-      // Send the verification code
-      const confirmationResult = await signInWithPhoneNumber(
-        auth,
-        formattedPhone,
-        window.recaptchaVerifier
-      );
-
-      console.log("[OTP] SMS sent successfully!");
-
-      // Store for verification page
-      window.confirmationResult = confirmationResult;
-      console.log("[OTP] Confirmation result stored:", !!confirmationResult);
-
-      // Save signup data
-      const signupData = {
-        fullName: formData.fullName,
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        isTestMode: false,
-      };
-      localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
-      console.log("[OTP] Signup data saved to localStorage");
-
-      toast.success("Verification code sent!", {
-        description: `An OTP has been sent to +91 ${formData.phone}`,
-      });
-
-      navigate("/verify-otp");
-    } catch (error: any) {
-      console.error("[OTP] Send error:", error);
-      console.error("[OTP] Error code:", error.code);
-      console.error("[OTP] Error message:", error.message);
-      console.error("[OTP] Error stack:", error.stack);
-
-      // Handle specific Firebase errors like in the tutorial
-      if (error.code === "auth/invalid-phone-number") {
-        setError("Please enter a valid phone number");
-      } else if (error.code === "auth/too-many-requests") {
-        setError("Too many attempts. Please try again later.");
-      } else if (error.code === "auth/captcha-check-failed") {
-        setError("Verification challenge failed. Please try again.");
-      } else if (error.code === "auth/quota-exceeded") {
-        setError("SMS quota exceeded. Please try again tomorrow.");
-      } else if (error.code === "auth/invalid-app-credential") {
-        setError("Verification failed. Please refresh the page and try again.");
-      } else {
-        setError(`Failed to send code: ${error.message}`);
-      }
-
-      setLoading(false);
-    }
-  };
-
-  // Form validation and submission
+  // Streamlined single-step approach
   const handleSubmit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
-    console.log("[FORM] Submit initiated");
 
     if (loading) return;
 
@@ -350,7 +178,6 @@ export const Signup = () => {
     setError("");
 
     // Validation checks
-    console.log("[FORM] Validating form data");
     if (!formData.fullName.trim()) {
       setError("Full name is required");
       setLoading(false);
@@ -403,20 +230,15 @@ export const Signup = () => {
 
     try {
       // Check if email already exists
-      console.log("[FORM] Checking if email exists:", formData.email);
       const { data: existingUsers, error: emailCheckError } = await supabase
         .from("users")
         .select("id")
         .eq("email", formData.email.trim().toLowerCase())
         .limit(1);
 
-      if (emailCheckError) {
-        console.error("[FORM] Email check error:", emailCheckError);
-        throw emailCheckError;
-      }
+      if (emailCheckError) throw emailCheckError;
 
       if (existingUsers && existingUsers.length > 0) {
-        console.log("[FORM] Email already registered");
         setError(
           "Email already registered. Please use a different email or login."
         );
@@ -424,19 +246,106 @@ export const Signup = () => {
         return;
       }
 
-      // If all validation passes, setup reCAPTCHA
-      console.log("[FORM] All validations passed, setting up reCAPTCHA");
-      await setupRecaptcha();
+      // Setup invisible reCAPTCHA
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+        } catch (err) {}
+      }
+
+      // Create container if not exists
+      if (!document.getElementById("recaptcha-container")) {
+        const containerDiv = document.createElement("div");
+        containerDiv.id = "recaptcha-container";
+        containerDiv.style.display = "none";
+        document.body.appendChild(containerDiv);
+      }
+
+      // Create invisible reCAPTCHA verifier
+      window.recaptchaVerifier = new RecaptchaVerifier(
+        auth,
+        "recaptcha-container",
+        {
+          size: "invisible",
+          callback: () => {
+            console.log("reCAPTCHA verified");
+          },
+        }
+      );
+
+      // Now directly send OTP
+      if (isTestMode) {
+        // Test mode - use fixed code
+        const signupData = {
+          fullName: formData.fullName,
+          username: formData.username,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          isTestMode: true,
+        };
+
+        localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
+        localStorage.setItem("testOtp", "123456");
+
+        toast.success("Verification code sent", {
+          description: "Please check your phone for the verification code",
+        });
+
+        navigate("/verify-otp");
+        return;
+      }
+
+      // Production mode - send real SMS
+      const formattedPhone = `+91${formData.phone}`;
+      const confirmationResult = await signInWithPhoneNumber(
+        auth,
+        formattedPhone,
+        window.recaptchaVerifier
+      );
+
+      // Store confirmation result for verification
+      window.confirmationResult = confirmationResult;
+
+      // Save signup data
+      const signupData = {
+        fullName: formData.fullName,
+        username: formData.username,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        isTestMode: false,
+      };
+      localStorage.setItem("pendingSignupData", JSON.stringify(signupData));
+
+      toast.success("Verification code sent", {
+        description: "Please check your phone for the verification code",
+      });
+
+      navigate("/verify-otp");
     } catch (error: any) {
-      console.error("[FORM] Signup error:", error);
-      setError(error.message || "An error occurred during signup");
+      console.error("Error:", error);
+
+      if (error.code === "auth/invalid-phone-number") {
+        setError("Please enter a valid phone number");
+      } else if (error.code === "auth/too-many-requests") {
+        setError(
+          "Too many attempts. Please try again later or use a different phone number."
+        );
+      } else if (error.code === "auth/quota-exceeded") {
+        setError("SMS quota exceeded. Please try again tomorrow.");
+      } else if (error.code === "auth/invalid-app-credential") {
+        setError("Verification failed. Please refresh the page and try again.");
+      } else {
+        setError(error.message || "An error occurred during signup");
+      }
+
       setLoading(false);
     }
   };
 
   return (
     <div className="h-screen w-full flex overflow-hidden">
-      {/* GLOBAL SCROLLBAR HIDE CSS */}
       <style>{`
         html, body, #root {
             height: 100%;
@@ -544,6 +453,9 @@ export const Signup = () => {
                         />
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
                       </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        We'll send a verification code to this number
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -664,65 +576,30 @@ export const Signup = () => {
                       </Label>
                     </div>
 
-                    {/* IMPORTANT: Always have the recaptcha container in the DOM */}
+                    {/* Hidden recaptcha container */}
                     <div
                       id="recaptcha-container"
-                      className="flex justify-center"
+                      style={{ display: "none" }}
                     ></div>
 
-                    {!recaptchaRendered ? (
-                      <Button
-                        type="submit"
-                        className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold"
-                        disabled={
-                          loading ||
-                          !formData.termsAccepted ||
-                          usernameAvailable === false
-                        }
-                      >
-                        {loading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Verifying...
-                          </>
-                        ) : (
-                          <>Verify & Continue</>
-                        )}
-                      </Button>
-                    ) : (
-                      <>
-                        {/* After reCAPTCHA is shown, display "Send OTP" button */}
-                        <div className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900/30 mb-2">
-                          <div className="flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              {isTestMode
-                                ? "Verification ready - click to receive test code"
-                                : "Verification ready - click to receive OTP on your phone"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Button
-                          type="button"
-                          onClick={sendOtp}
-                          className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold"
-                          disabled={loading}
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Sending OTP...
-                            </>
-                          ) : (
-                            <>
-                              Send Verification Code
-                              <ArrowRight className="ml-2 h-4 w-4" />
-                            </>
-                          )}
-                        </Button>
-                      </>
-                    )}
+                    <Button
+                      type="submit"
+                      className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold"
+                      disabled={
+                        loading ||
+                        !formData.termsAccepted ||
+                        usernameAvailable === false
+                      }
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending Verification Code...
+                        </>
+                      ) : (
+                        <>Continue with Phone Verification</>
+                      )}
+                    </Button>
 
                     <p className="text-center text-sm text-[#737373] dark:text-[#A1A1AA]">
                       Already have an account?{" "}
