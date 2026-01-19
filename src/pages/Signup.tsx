@@ -11,7 +11,6 @@ import {
   Loader2,
   Truck,
   User,
-  ArrowRight,
   AlertTriangle,
   Eye,
   EyeOff,
@@ -85,7 +84,7 @@ export const Signup = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
-    null
+    null,
   );
   const [checkingUsername, setCheckingUsername] = useState<boolean>(false);
   useEffect(() => {
@@ -93,7 +92,7 @@ export const Signup = () => {
     console.log("SMS Mode:", import.meta.env.VITE_SMS_MODE);
     console.log(
       "Is Test Mode (computed):",
-      import.meta.env.VITE_SMS_MODE === "test"
+      import.meta.env.VITE_SMS_MODE === "test",
     );
   }, []);
   const navigate = useNavigate();
@@ -240,7 +239,7 @@ export const Signup = () => {
 
       if (existingUsers && existingUsers.length > 0) {
         setError(
-          "Email already registered. Please use a different email or login."
+          "Email already registered. Please use a different email or login.",
         );
         setLoading(false);
         return;
@@ -270,7 +269,7 @@ export const Signup = () => {
           callback: () => {
             console.log("reCAPTCHA verified");
           },
-        }
+        },
       );
 
       // Now directly send OTP
@@ -301,7 +300,7 @@ export const Signup = () => {
       const confirmationResult = await signInWithPhoneNumber(
         auth,
         formattedPhone,
-        window.recaptchaVerifier
+        window.recaptchaVerifier,
       );
 
       // Store confirmation result for verification
@@ -330,7 +329,7 @@ export const Signup = () => {
         setError("Please enter a valid phone number");
       } else if (error.code === "auth/too-many-requests") {
         setError(
-          "Too many attempts. Please try again later or use a different phone number."
+          "Too many attempts. Please try again later or use a different phone number.",
         );
       } else if (error.code === "auth/quota-exceeded") {
         setError("SMS quota exceeded. Please try again tomorrow.");
@@ -482,7 +481,7 @@ export const Signup = () => {
                             usernameAvailable === true &&
                               "border-green-500 dark:border-green-600",
                             usernameAvailable === false &&
-                              "border-red-500 dark:border-red-600"
+                              "border-red-500 dark:border-red-600",
                           )}
                           minLength={3}
                         />

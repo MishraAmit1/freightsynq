@@ -199,7 +199,7 @@ export const VerifyOtp = () => {
   // Handle digit backspace
   const handleKeyDown = (
     index: number,
-    e: React.KeyboardEvent<HTMLInputElement>
+    e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
     if (
       e.key === "Backspace" &&
@@ -289,7 +289,7 @@ export const VerifyOtp = () => {
         "recaptcha-container",
         {
           size: "invisible",
-        }
+        },
       );
 
       const appVerifier = window.recaptchaVerifier;
@@ -300,7 +300,7 @@ export const VerifyOtp = () => {
         const confirmationResult = await signInWithPhoneNumber(
           auth,
           formattedPhone,
-          appVerifier
+          appVerifier,
         );
         window.confirmationResult = confirmationResult;
       } catch (smsError) {
@@ -340,7 +340,7 @@ export const VerifyOtp = () => {
     try {
       // Get and increment fail count from localStorage
       const currentFailCount = parseInt(
-        localStorage.getItem("failCount") || "0"
+        localStorage.getItem("failCount") || "0",
       );
 
       // Check if too many failed attempts
@@ -377,13 +377,17 @@ export const VerifyOtp = () => {
       // Clear fail count on success
       localStorage.removeItem("failCount");
 
-      // Create auth user
+      // ✅ UPDATED: Create auth user with proper metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
         options: {
           emailRedirectTo: null,
           data: {
+            // ✅ PASS ALL USER DATA HERE
+            name: signupData.fullName,
+            username: signupData.username,
+            phone: signupData.phone,
             phone_verified: true,
           },
         },
@@ -427,8 +431,9 @@ export const VerifyOtp = () => {
 
       if (companyError) throw companyError;
 
+      // ✅ UPDATED: Try to update user (trigger might have already created it)
       try {
-        // Try to update first (in case user exists)
+        // First try to update
         const { error: updateError } = await supabase
           .from("users")
           .update({
@@ -442,7 +447,7 @@ export const VerifyOtp = () => {
           .eq("id", userId);
 
         if (updateError) {
-          // If update fails, try insert
+          // If update fails, try insert (in case trigger didn't create it)
           const { error: insertError } = await supabase.from("users").insert({
             id: userId,
             name: signupData.fullName,
@@ -456,7 +461,8 @@ export const VerifyOtp = () => {
           if (insertError) throw insertError;
         }
       } catch (dbError: any) {
-        // If both update and insert fail, use RPC fallback
+        console.error("Database error:", dbError);
+        // If both fail, use RPC fallback
         const { error: rpcError } = await supabase.rpc(
           "create_or_update_user",
           {
@@ -467,7 +473,7 @@ export const VerifyOtp = () => {
             p_username: signupData.username,
             p_company_id: company.id,
             p_role: "admin",
-          }
+          },
         );
 
         if (rpcError) throw rpcError;
@@ -487,7 +493,6 @@ export const VerifyOtp = () => {
         navigate("/");
       }, 1500);
     } catch (error: any) {
-      // NEW: Use setTimedError instead of setError
       setTimedError(error.message || "Failed to verify code");
 
       // Add progressive delay based on fail count

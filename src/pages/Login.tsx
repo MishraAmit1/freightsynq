@@ -71,7 +71,7 @@ export const Login = () => {
           "get_email_by_username",
           {
             p_username: identifier.trim().toLowerCase(),
-          }
+          },
         );
 
         if (lookupError || !emailResult) {
@@ -91,17 +91,6 @@ export const Login = () => {
         } else {
           setError(signInError.message);
         }
-        setLoading(false);
-        return;
-      }
-
-      if (data?.user && !data.user.email_confirmed_at) {
-        setError("Please verify your email before logging in.");
-        localStorage.setItem("pendingVerificationEmail", emailToUse);
-        await supabase.auth.signOut();
-        setTimeout(() => {
-          window.location.href = "/verification-pending";
-        }, 2000);
         setLoading(false);
         return;
       }
