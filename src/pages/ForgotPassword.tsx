@@ -59,7 +59,7 @@ export const ForgotPassword = () => {
           "get_email_by_username",
           {
             p_username: identifier.trim().toLowerCase(),
-          }
+          },
         );
 
         if (!lookupError && emailResult) {
@@ -83,14 +83,14 @@ export const ForgotPassword = () => {
         emailToUse,
         {
           redirectTo: `${window.location.origin}/reset-password`,
-        }
+        },
       );
 
       if (resetError) {
         console.error("Reset email error:", resetError);
         if (resetError.message.includes("Email rate limit exceeded")) {
           setError(
-            "Too many requests. Please wait a few minutes and try again."
+            "Too many requests. Please wait a few minutes and try again.",
           );
           setLoading(false);
           return;
