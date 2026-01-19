@@ -397,13 +397,12 @@ export const VerifyOtp = () => {
         throw authError;
       }
 
-      // Get user ID - either from new signup or try signing in
+      // Get user ID
       let userId;
-
       if (authData?.user) {
         userId = authData.user.id;
       } else {
-        // Try to sign in to get the user ID
+        // Try signing in if already exists
         const { data: signInData, error: signInError } =
           await supabase.auth.signInWithPassword({
             email: signupData.email,
@@ -425,59 +424,54 @@ export const VerifyOtp = () => {
           name: `${signupData.fullName}'s Company`,
           email: signupData.email,
           phone: signupData.phone,
+          status: "ACTIVE",
         })
         .select()
         .single();
 
       if (companyError) throw companyError;
 
-      // ✅ UPDATED: Try to update user (trigger might have already created it)
-      try {
-        // First try to update
-        const { error: updateError } = await supabase
-          .from("users")
-          .update({
-            name: signupData.fullName,
-            email: signupData.email,
-            phone: signupData.phone,
-            username: signupData.username,
-            company_id: company.id,
-            role: "admin",
-          })
-          .eq("id", userId);
+      // ✅ FIXED: Create user profile
+      console.log("Creating user profile...");
+      const { error: userCreateError } = await supabase.from("users").insert({
+        id: userId,
+        name: signupData.fullName,
+        email: signupData.email,
+        phone: signupData.phone,
+        username: signupData.username,
+        company_id: company.id,
+        role: "admin",
+        status: "ACTIVE",
+      });
 
-        if (updateError) {
-          // If update fails, try insert (in case trigger didn't create it)
-          const { error: insertError } = await supabase.from("users").insert({
-            id: userId,
-            name: signupData.fullName,
-            email: signupData.email,
-            phone: signupData.phone,
-            username: signupData.username,
-            company_id: company.id,
-            role: "admin",
-          });
+      if (userCreateError) {
+        console.error("User creation error:", userCreateError);
 
-          if (insertError) throw insertError;
+        // Handle duplicate key error
+        if (userCreateError.code === "23505") {
+          console.log("User exists, updating...");
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({
+              company_id: company.id,
+              name: signupData.fullName,
+              phone: signupData.phone,
+              username: signupData.username,
+              role: "admin",
+              status: "ACTIVE",
+            })
+            .eq("id", userId);
+
+          if (updateError) {
+            console.error("Update error:", updateError);
+            throw new Error("Failed to update user profile");
+          }
+        } else {
+          throw new Error(`Failed to create user: ${userCreateError.message}`);
         }
-      } catch (dbError: any) {
-        console.error("Database error:", dbError);
-        // If both fail, use RPC fallback
-        const { error: rpcError } = await supabase.rpc(
-          "create_or_update_user",
-          {
-            p_id: userId,
-            p_name: signupData.fullName,
-            p_email: signupData.email,
-            p_phone: signupData.phone,
-            p_username: signupData.username,
-            p_company_id: company.id,
-            p_role: "admin",
-          },
-        );
-
-        if (rpcError) throw rpcError;
       }
+
+      console.log("✅ User profile created successfully");
 
       // Clear localStorage
       localStorage.removeItem("pendingSignupData");
@@ -488,20 +482,13 @@ export const VerifyOtp = () => {
         description: "Welcome to Freight SynQ",
       });
 
-      // Redirect after a short delay to show the success animation
+      // Redirect to dashboard
       setTimeout(() => {
-        navigate("/");
+        window.location.href = "/"; // Use window.location for hard refresh
       }, 1500);
     } catch (error: any) {
+      console.error("Verification error:", error);
       setTimedError(error.message || "Failed to verify code");
-
-      // Add progressive delay based on fail count
-      const failCount = parseInt(localStorage.getItem("failCount") || "0");
-      if (failCount > 0) {
-        const delayTime = Math.min(failCount * 1000, 5000); // Max 5 seconds delay
-        await new Promise((resolve) => setTimeout(resolve, delayTime));
-      }
-
       setLoading(false);
       setVerificationSuccess(false);
     }
