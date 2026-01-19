@@ -73,7 +73,8 @@ const AppRouter = () => {
       <Routes>
         <Route path="/login" element={<Navigate to="/super-admin" replace />} />
         <Route path="/" element={<Navigate to="/super-admin" replace />} />
-
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         {/* Super Admin Protected Routes */}
         <Route
           path="/super-admin/*"
