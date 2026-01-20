@@ -284,7 +284,7 @@ const getDispatchDisplay = (booking: Booking) => {
 
   // Priority 2 & 3: Vehicle (with or without tracking)
   const activeAssignment = booking.vehicle_assignments?.find(
-    (v) => v.status === "ACTIVE"
+    (v) => v.status === "ACTIVE",
   );
 
   if (activeAssignment?.vehicle) {
@@ -327,8 +327,8 @@ const getDispatchDisplay = (booking: Booking) => {
         dotColor: isFresh
           ? "bg-green-500"
           : isStale
-          ? "bg-yellow-500"
-          : "bg-gray-400",
+            ? "bg-yellow-500"
+            : "bg-gray-400",
       };
     }
 
@@ -373,11 +373,11 @@ export const BookingList = () => {
   const [isEditFullBookingModalOpen, setIsEditFullBookingModalOpen] =
     useState(false);
   const [editingFullBooking, setEditingFullBooking] = useState<Booking | null>(
-    null
+    null,
   );
   const [nextLRNumber, setNextLRNumber] = useState(1001);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(
-    null
+    null,
   );
   const [podModal, setPodModal] = useState<{
     isOpen: boolean;
@@ -427,7 +427,7 @@ export const BookingList = () => {
 
       // Try Indian format: "24/11/2025 11:59:00 PM"
       const indianMatch = dateStr.match(
-        /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i
+        /(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)/i,
       );
       if (indianMatch) {
         const [, day, month, year, hour, minute, second, meridiem] =
@@ -448,7 +448,7 @@ export const BookingList = () => {
           parseInt(day),
           hours,
           parseInt(minute),
-          parseInt(second)
+          parseInt(second),
         );
       }
 
@@ -462,7 +462,7 @@ export const BookingList = () => {
           parseInt(day),
           23, // End of day
           59,
-          59
+          59,
         );
       }
 
@@ -615,7 +615,7 @@ export const BookingList = () => {
 
       const convertedBookings: Booking[] = bookingsData.map((booking) => {
         const activeAssignment = (booking.vehicle_assignments || []).find(
-          (va) => va.status === "ACTIVE"
+          (va) => va.status === "ACTIVE",
         );
 
         let vehicle = null;
@@ -631,7 +631,7 @@ export const BookingList = () => {
 
         if (booking.status === "DELIVERED" && !booking.pod_uploaded_at) {
           const deliveryTime = new Date(
-            booking.actual_delivery || booking.updated_at
+            booking.actual_delivery || booking.updated_at,
           );
           const hoursSinceDelivery =
             (now.getTime() - deliveryTime.getTime()) / (1000 * 60 * 60);
@@ -641,7 +641,7 @@ export const BookingList = () => {
               type: "POD_PENDING",
               severity: "critical",
               message: `POD pending for ${Math.floor(
-                hoursSinceDelivery
+                hoursSinceDelivery,
               )} hours`,
             });
           }
@@ -686,10 +686,10 @@ export const BookingList = () => {
                   message:
                     hoursLeft < 1
                       ? `E-way bill ${ewb.number} expires in ${Math.floor(
-                          hoursLeft * 60
+                          hoursLeft * 60,
                         )}m`
                       : `E-way bill ${ewb.number} expires in ${Math.floor(
-                          hoursLeft
+                          hoursLeft,
                         )}h`,
                 });
               }
@@ -771,7 +771,7 @@ export const BookingList = () => {
   const handleWarehouseChange = async (
     bookingId: string,
     warehouseId: string,
-    warehouseName: string
+    warehouseName: string,
   ) => {
     try {
       if (warehouseId === "remove") {
@@ -841,7 +841,7 @@ export const BookingList = () => {
           totalPages - 3,
           totalPages - 2,
           totalPages - 1,
-          totalPages
+          totalPages,
         );
       } else {
         pages.push(
@@ -851,7 +851,7 @@ export const BookingList = () => {
           currentPage,
           currentPage + 1,
           "...",
-          totalPages
+          totalPages,
         );
       }
     }
@@ -861,7 +861,7 @@ export const BookingList = () => {
 
   const handleVehicleAssignment = async (
     bookingId: string,
-    vehicleAssignment: any
+    vehicleAssignment: any,
   ) => {
     try {
       await loadData();
@@ -916,7 +916,7 @@ export const BookingList = () => {
       service_type: "FTL" | "PTL";
       pickup_date?: string;
     },
-    lrData: LRData
+    lrData: LRData,
   ) => {
     try {
       await updateBooking(bookingId, generalData);
@@ -1012,7 +1012,7 @@ export const BookingList = () => {
             }
             return cellStr;
           })
-          .join(",")
+          .join(","),
       )
       .join("\n");
 
@@ -1329,7 +1329,7 @@ export const BookingList = () => {
                             <span>
                               {booking.pickupDate
                                 ? new Date(
-                                    booking.pickupDate
+                                    booking.pickupDate,
                                   ).toLocaleDateString("en-GB", {
                                     day: "2-digit",
                                     month: "short",
@@ -1399,7 +1399,7 @@ export const BookingList = () => {
                             className={cn(
                               stageConf.bgColor,
                               stageConf.textColor,
-                              "text-[10px] px-2 py-1 font-bold border-2 shadow-sm"
+                              "text-[10px] px-2 py-1 font-bold border-2 shadow-sm",
                             )}
                           >
                             {stageConf.label}
@@ -1427,8 +1427,8 @@ export const BookingList = () => {
                                     dispatch.isFresh
                                       ? "text-orange-600 dark:text-orange-400"
                                       : dispatch.isStale
-                                      ? "text-yellow-600 dark:text-yellow-400"
-                                      : "text-gray-500 dark:text-gray-400"
+                                        ? "text-yellow-600 dark:text-yellow-400"
+                                        : "text-gray-500 dark:text-gray-400",
                                   )}
                                 />
                                 <div className="flex-1 min-w-0">
@@ -1442,7 +1442,7 @@ export const BookingList = () => {
                                     <span
                                       className={cn(
                                         "w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse",
-                                        dispatch.dotColor
+                                        dispatch.dotColor,
                                       )}
                                     />
                                     <span className="text-[9px] text-muted-foreground">
@@ -1653,17 +1653,17 @@ export const BookingList = () => {
                                           (ewb: any) => {
                                             if (!ewb.valid_until) return false;
                                             const validUntil = parseEwayDate(
-                                              ewb.valid_until
+                                              ewb.valid_until,
                                             );
                                             if (!validUntil) return false;
                                             return validUntil < new Date();
-                                          }
+                                          },
                                         );
                                       return hasExpired
                                         ? "text-red-600 dark:text-red-400"
                                         : "text-foreground dark:text-white";
                                     })()
-                                  : "text-muted-foreground"
+                                  : "text-muted-foreground",
                               )}
                             >
                               {booking.eway_bill_details?.[0]?.number
@@ -1727,13 +1727,13 @@ export const BookingList = () => {
                                       }
 
                                       const deliveryTime = new Date(
-                                        actualDelivery
+                                        actualDelivery,
                                       );
                                       const etaTime = new Date(originalETA);
                                       const diffHours = Math.round(
                                         (etaTime.getTime() -
                                           deliveryTime.getTime()) /
-                                          (1000 * 60 * 60)
+                                          (1000 * 60 * 60),
                                       );
 
                                       return (
@@ -1742,7 +1742,7 @@ export const BookingList = () => {
                                             "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
                                             diffHours >= 0
                                               ? "bg-green-100 text-green-700 border-green-200"
-                                              : "bg-red-100 text-red-700 border-red-200"
+                                              : "bg-red-100 text-red-700 border-red-200",
                                           )}
                                         >
                                           {diffHours >= 0 ? (
@@ -1788,7 +1788,7 @@ export const BookingList = () => {
                                           </span>
                                           <span className="font-medium">
                                             {formatETAWithTime(
-                                              booking.estimated_arrival
+                                              booking.estimated_arrival,
                                             )}
                                           </span>
                                         </div>
@@ -1804,7 +1804,7 @@ export const BookingList = () => {
                                           <span className="font-bold text-green-600">
                                             {formatETAWithTime(
                                               booking.actual_delivery ||
-                                                booking.updated_at!
+                                                booking.updated_at!,
                                             )}
                                           </span>
                                         </div>
@@ -1822,13 +1822,13 @@ export const BookingList = () => {
                                           return null;
 
                                         const deliveryTime = new Date(
-                                          actualDelivery
+                                          actualDelivery,
                                         );
                                         const etaTime = new Date(originalETA);
                                         const diffHours = Math.round(
                                           (etaTime.getTime() -
                                             deliveryTime.getTime()) /
-                                            (1000 * 60 * 60)
+                                            (1000 * 60 * 60),
                                         );
 
                                         return (
@@ -1841,7 +1841,7 @@ export const BookingList = () => {
                                                 "font-bold",
                                                 diffHours >= 0
                                                   ? "text-green-600"
-                                                  : "text-red-600"
+                                                  : "text-red-600",
                                               )}
                                             >
                                               {diffHours >= 0 ? "✅ " : "⚠️ "}
@@ -1850,7 +1850,7 @@ export const BookingList = () => {
                                                   ? `${diffHours}h early`
                                                   : "On time"
                                                 : `${Math.abs(
-                                                    diffHours
+                                                    diffHours,
                                                   )}h late`}
                                             </span>
                                           </div>
@@ -1864,7 +1864,7 @@ export const BookingList = () => {
                                         <span className="text-green-600 font-medium">
                                           ✓ POD uploaded{" "}
                                           {getETAUpdateAge(
-                                            booking.pod_uploaded_at
+                                            booking.pod_uploaded_at,
                                           )}
                                         </span>
                                       </div>
@@ -1886,7 +1886,7 @@ export const BookingList = () => {
                                       <>
                                         <span className="text-[10px] line-through text-muted-foreground">
                                           {formatETA(
-                                            booking.estimated_arrival!
+                                            booking.estimated_arrival!,
                                           )}
                                         </span>
                                         <ArrowRight className="w-2.5 h-2.5 text-muted-foreground" />
@@ -1895,17 +1895,17 @@ export const BookingList = () => {
                                             "text-[10px] font-bold",
                                             new Date(booking.dynamic_eta) <
                                               new Date(
-                                                booking.estimated_arrival || ""
+                                                booking.estimated_arrival || "",
                                               )
                                               ? "text-green-600 dark:text-green-400"
-                                              : "text-red-600 dark:text-red-400"
+                                              : "text-red-600 dark:text-red-400",
                                           )}
                                         >
                                           {formatETA(booking.dynamic_eta)}
                                         </span>
                                         {new Date(booking.dynamic_eta) <
                                         new Date(
-                                          booking.estimated_arrival || ""
+                                          booking.estimated_arrival || "",
                                         ) ? (
                                           <Sparkles className="w-3 h-3 text-amber-500" />
                                         ) : (
@@ -1940,7 +1940,7 @@ export const BookingList = () => {
                                         <span className="font-medium">
                                           {booking.estimated_arrival
                                             ? formatETAWithTime(
-                                                booking.estimated_arrival
+                                                booking.estimated_arrival,
                                               )
                                             : "N/A"}
                                         </span>
@@ -1957,14 +1957,14 @@ export const BookingList = () => {
                                               new Date(booking.dynamic_eta) <
                                                 new Date(
                                                   booking.estimated_arrival ||
-                                                    ""
+                                                    "",
                                                 )
                                                 ? "text-green-600"
-                                                : "text-red-600"
+                                                : "text-red-600",
                                             )}
                                           >
                                             {formatETAWithTime(
-                                              booking.dynamic_eta
+                                              booking.dynamic_eta,
                                             )}
                                           </span>
                                         </div>
@@ -1986,7 +1986,7 @@ export const BookingList = () => {
                                                     "font-bold",
                                                     diff.isImproved
                                                       ? "text-green-600"
-                                                      : "text-red-600"
+                                                      : "text-red-600",
                                                   )}
                                                 >
                                                   {diff.isImproved
@@ -2004,7 +2004,7 @@ export const BookingList = () => {
                                       <div className="border-t border-border pt-2 text-[10px] text-muted-foreground">
                                         Updated{" "}
                                         {getETAUpdateAge(
-                                          booking.eta_last_updated_at
+                                          booking.eta_last_updated_at,
                                         )}
                                       </div>
                                     )}
@@ -2032,7 +2032,7 @@ export const BookingList = () => {
                                       const bestETA = getBestETA(booking);
                                       const sla = getSLAStatus(
                                         bestETA,
-                                        booking.status
+                                        booking.status,
                                       );
                                       const progress =
                                         getProgressPercentage(booking);
@@ -2043,7 +2043,7 @@ export const BookingList = () => {
                                             "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold border cursor-help",
                                             sla.bgColor,
                                             sla.color,
-                                            "border-current/20"
+                                            "border-current/20",
                                           )}
                                         >
                                           <span>{sla.icon}</span>
@@ -2056,7 +2056,7 @@ export const BookingList = () => {
                                               </span>
                                               <span>
                                                 {Math.round(
-                                                  booking.current_speed
+                                                  booking.current_speed,
                                                 )}{" "}
                                                 km/hr
                                               </span>
@@ -2107,14 +2107,14 @@ export const BookingList = () => {
                                               className={cn(
                                                 "h-full transition-all",
                                                 getProgressPercentage(
-                                                  booking
+                                                  booking,
                                                 ) >= 80
                                                   ? "bg-green-500"
-                                                  : "bg-blue-500"
+                                                  : "bg-blue-500",
                                               )}
                                               style={{
                                                 width: `${getProgressPercentage(
-                                                  booking
+                                                  booking,
                                                 )}%`,
                                               }}
                                             />
@@ -2153,7 +2153,7 @@ export const BookingList = () => {
                                             </span>
                                             <span className="font-bold text-blue-600">
                                               {Math.round(
-                                                booking.current_speed
+                                                booking.current_speed,
                                               )}{" "}
                                               km/hr
                                             </span>
@@ -2164,7 +2164,7 @@ export const BookingList = () => {
                                       {(() => {
                                         const sla = getSLAStatus(
                                           getBestETA(booking),
-                                          booking.status
+                                          booking.status,
                                         );
                                         return (
                                           <div className="border-t border-border pt-2">
@@ -2175,7 +2175,7 @@ export const BookingList = () => {
                                               <span
                                                 className={cn(
                                                   "font-bold",
-                                                  sla.color
+                                                  sla.color,
                                                 )}
                                               >
                                                 {sla.icon} {sla.label}
@@ -2454,7 +2454,7 @@ export const BookingList = () => {
                 <span className="font-medium text-foreground dark:text-white">
                   {Math.min(
                     currentPage * itemsPerPage,
-                    filteredBookings.length
+                    filteredBookings.length,
                   )}
                 </span>{" "}
                 of{" "}
@@ -2507,12 +2507,12 @@ export const BookingList = () => {
                           "h-9 w-9 p-0 border-border dark:border-border",
                           currentPage === page
                             ? "bg-primary border-primary text-primary-foreground hover:text-primary-foreground font-medium hover:bg-primary-hover"
-                            : "bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                            : "bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white",
                         )}
                       >
                         {page}
                       </Button>
-                    )
+                    ),
                   )}
                 </div>
 
@@ -2598,7 +2598,7 @@ export const BookingList = () => {
         onSave={handleSaveLR}
         booking={(() => {
           const foundBooking = filteredBookings.find(
-            (b) => b.id === lrModal.bookingId
+            (b) => b.id === lrModal.bookingId,
           );
           if (!foundBooking) return null;
           return {
@@ -2691,7 +2691,7 @@ export const BookingList = () => {
           handleWarehouseChange(
             warehouseModal.bookingId,
             warehouseId,
-            warehouseName
+            warehouseName,
           )
         }
         currentWarehouseId={warehouseModal.currentWarehouseId}
@@ -2707,7 +2707,7 @@ export const BookingList = () => {
         onClose={() => setPodModal({ isOpen: false, bookingId: "" })}
         booking={(() => {
           const found = filteredBookings.find(
-            (b) => b.id === podModal.bookingId
+            (b) => b.id === podModal.bookingId,
           );
           return found ? { id: found.id, bookingId: found.bookingId } : null;
         })()}
@@ -2726,7 +2726,7 @@ export const BookingList = () => {
         onClose={() => setInvoiceModal({ isOpen: false, bookingId: "" })}
         booking={(() => {
           const found = filteredBookings.find(
-            (b) => b.id === invoiceModal.bookingId
+            (b) => b.id === invoiceModal.bookingId,
           );
           return found
             ? {
@@ -2747,7 +2747,7 @@ export const BookingList = () => {
         onClose={() => setRemarksModal({ isOpen: false, bookingId: "" })}
         booking={(() => {
           const found = filteredBookings.find(
-            (b) => b.id === remarksModal.bookingId
+            (b) => b.id === remarksModal.bookingId,
           );
           return found
             ? {
@@ -2819,7 +2819,7 @@ export const BookingList = () => {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
-                          }
+                          },
                         )
                       : "-"}
                   </p>
@@ -2893,7 +2893,7 @@ export const BookingList = () => {
                         {lrViewer.booking.offline_lr_uploaded_at && (
                           <span className="text-xs text-green-600">
                             {new Date(
-                              lrViewer.booking.offline_lr_uploaded_at
+                              lrViewer.booking.offline_lr_uploaded_at,
                             ).toLocaleDateString("en-GB", {
                               day: "2-digit",
                               month: "short",

@@ -23,7 +23,7 @@ import {
   BarChart3,
   Phone,
   Mail,
-  X
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,7 @@ interface ImportPreviewData {
 interface ImportProgress {
   current: number;
   total: number;
-  status: 'idle' | 'validating' | 'importing' | 'completed' | 'error';
+  status: "idle" | "validating" | "importing" | "completed" | "error";
   message: string;
 }
 
@@ -116,7 +116,7 @@ interface Warehouse {
   status: string;
 }
 
-// ✅ IMPORT MODAL - THEME APPLIED
+// ✅ IMPORT MODAL - THEME APPLIED WITH 2000PX+ RESPONSIVE
 const ImportWarehousesModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -128,17 +128,19 @@ const ImportWarehousesModal: React.FC<{
   const [progress, setProgress] = useState<ImportProgress>({
     current: 0,
     total: 0,
-    status: 'idle',
-    message: ''
+    status: "idle",
+    message: "",
   });
-  const [step, setStep] = useState<'upload' | 'preview' | 'importing'>('upload');
+  const [step, setStep] = useState<"upload" | "preview" | "importing">(
+    "upload",
+  );
 
   useEffect(() => {
     if (!isOpen) {
       setFile(null);
       setPreview(null);
-      setProgress({ current: 0, total: 0, status: 'idle', message: '' });
-      setStep('upload');
+      setProgress({ current: 0, total: 0, status: "idle", message: "" });
+      setStep("upload");
     }
   }, [isOpen]);
 
@@ -153,44 +155,52 @@ const ImportWarehousesModal: React.FC<{
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'text/csv': ['.csv'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
+      "text/csv": [".csv"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+        ".xlsx",
+      ],
+      "application/vnd.ms-excel": [".xls"],
     },
-    maxFiles: 1
+    maxFiles: 1,
   });
 
   const processFile = async (file: File) => {
-    setProgress({ current: 0, total: 0, status: 'validating', message: 'Reading file...' });
+    setProgress({
+      current: 0,
+      total: 0,
+      status: "validating",
+      message: "Reading file...",
+    });
 
     try {
       let data: any[] = [];
 
-      if (file.name.endsWith('.csv')) {
+      if (file.name.endsWith(".csv")) {
         const text = await file.text();
         const result = Papa.parse(text, {
           header: true,
           skipEmptyLines: true,
-          transformHeader: (header) => header.trim().toLowerCase().replace(/\s+/g, '_')
+          transformHeader: (header) =>
+            header.trim().toLowerCase().replace(/\s+/g, "_"),
         });
         data = result.data;
       } else {
         const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'array' });
+        const workbook = XLSX.read(buffer, { type: "array" });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         data = XLSX.utils.sheet_to_json(firstSheet, {
           header: 1,
-          defval: ''
+          defval: "",
         });
 
         if (data.length > 0) {
           const headers = (data[0] as any[]).map((h: string) =>
-            h.toString().trim().toLowerCase().replace(/\s+/g, '_')
+            h.toString().trim().toLowerCase().replace(/\s+/g, "_"),
           );
           data = data.slice(1).map((row: any[]) => {
             const obj: any = {};
             headers.forEach((header: string, index: number) => {
-              obj[header] = row[index]?.toString().trim() || '';
+              obj[header] = row[index]?.toString().trim() || "";
             });
             return obj;
           });
@@ -199,13 +209,18 @@ const ImportWarehousesModal: React.FC<{
 
       await validateData(data);
     } catch (error) {
-      console.error('Error processing file:', error);
+      console.error("Error processing file:", error);
       toast({
         title: "❌ Error",
         description: "Failed to process file. Please check the format.",
-        variant: "destructive"
+        variant: "destructive",
       });
-      setProgress({ current: 0, total: 0, status: 'error', message: 'Failed to process file' });
+      setProgress({
+        current: 0,
+        total: 0,
+        status: "error",
+        message: "Failed to process file",
+      });
     }
   };
 
@@ -213,84 +228,157 @@ const ImportWarehousesModal: React.FC<{
     setProgress({
       current: 0,
       total: data.length,
-      status: 'validating',
-      message: 'Validating data...'
+      status: "validating",
+      message: "Validating data...",
     });
 
     const valid: ImportWarehouseRow[] = [];
-    const invalid: { row: ImportWarehouseRow; errors: ValidationError[] }[] = [];
-    const duplicates: { row: ImportWarehouseRow; field: string; value: string }[] = [];
+    const invalid: { row: ImportWarehouseRow; errors: ValidationError[] }[] =
+      [];
+    const duplicates: {
+      row: ImportWarehouseRow;
+      field: string;
+      value: string;
+    }[] = [];
 
     const { data: existingWarehouses } = await supabase
-      .from('warehouses')
-      .select('name, manager_email');
+      .from("warehouses")
+      .select("name, manager_email");
 
-    const existingNames = existingWarehouses?.map(w => w.name.toLowerCase()) || [];
-    const existingEmails = existingWarehouses?.map(w => w.manager_email.toLowerCase()) || [];
+    const existingNames =
+      existingWarehouses?.map((w) => w.name.toLowerCase()) || [];
+    const existingEmails =
+      existingWarehouses?.map((w) => w.manager_email.toLowerCase()) || [];
 
     data.forEach((row, index) => {
       const errors: ValidationError[] = [];
       const processedRow: ImportWarehouseRow = {
-        name: row.name?.toString().trim() || '',
-        city: row.city?.toString().trim() || '',
-        state: row.state?.toString().trim() || '',
-        address: row.address?.toString().trim() || '',
-        capacity: row.capacity?.toString().trim() || '',
-        manager_name: row.manager_name?.toString().trim() || '',
-        manager_phone: row.manager_phone?.toString().trim() || '',
-        manager_email: row.manager_email?.toString().trim().toLowerCase() || '',
-        status: (row.status?.toString().trim().toUpperCase() as any) || 'ACTIVE'
+        name: row.name?.toString().trim() || "",
+        city: row.city?.toString().trim() || "",
+        state: row.state?.toString().trim() || "",
+        address: row.address?.toString().trim() || "",
+        capacity: row.capacity?.toString().trim() || "",
+        manager_name: row.manager_name?.toString().trim() || "",
+        manager_phone: row.manager_phone?.toString().trim() || "",
+        manager_email: row.manager_email?.toString().trim().toLowerCase() || "",
+        status:
+          (row.status?.toString().trim().toUpperCase() as any) || "ACTIVE",
       };
 
       // Validation
-      if (!processedRow.name) errors.push({ row: index + 1, field: 'name', message: 'Warehouse name is required' });
-      if (!processedRow.city) errors.push({ row: index + 1, field: 'city', message: 'City is required' });
-      if (!processedRow.state) errors.push({ row: index + 1, field: 'state', message: 'State is required' });
-      if (!processedRow.address) errors.push({ row: index + 1, field: 'address', message: 'Address is required' });
-      if (!processedRow.capacity) errors.push({ row: index + 1, field: 'capacity', message: 'Capacity is required' });
-      if (!processedRow.manager_name) errors.push({ row: index + 1, field: 'manager_name', message: 'Manager name is required' });
-      if (!processedRow.manager_phone) errors.push({ row: index + 1, field: 'manager_phone', message: 'Manager phone is required' });
-      if (!processedRow.manager_email) errors.push({ row: index + 1, field: 'manager_email', message: 'Manager email is required' });
+      if (!processedRow.name)
+        errors.push({
+          row: index + 1,
+          field: "name",
+          message: "Warehouse name is required",
+        });
+      if (!processedRow.city)
+        errors.push({
+          row: index + 1,
+          field: "city",
+          message: "City is required",
+        });
+      if (!processedRow.state)
+        errors.push({
+          row: index + 1,
+          field: "state",
+          message: "State is required",
+        });
+      if (!processedRow.address)
+        errors.push({
+          row: index + 1,
+          field: "address",
+          message: "Address is required",
+        });
+      if (!processedRow.capacity)
+        errors.push({
+          row: index + 1,
+          field: "capacity",
+          message: "Capacity is required",
+        });
+      if (!processedRow.manager_name)
+        errors.push({
+          row: index + 1,
+          field: "manager_name",
+          message: "Manager name is required",
+        });
+      if (!processedRow.manager_phone)
+        errors.push({
+          row: index + 1,
+          field: "manager_phone",
+          message: "Manager phone is required",
+        });
+      if (!processedRow.manager_email)
+        errors.push({
+          row: index + 1,
+          field: "manager_email",
+          message: "Manager email is required",
+        });
 
       if (processedRow.capacity && isNaN(Number(processedRow.capacity))) {
-        errors.push({ row: index + 1, field: 'capacity', message: 'Capacity must be a number' });
+        errors.push({
+          row: index + 1,
+          field: "capacity",
+          message: "Capacity must be a number",
+        });
       }
       if (processedRow.capacity && Number(processedRow.capacity) <= 0) {
-        errors.push({ row: index + 1, field: 'capacity', message: 'Capacity must be greater than 0' });
+        errors.push({
+          row: index + 1,
+          field: "capacity",
+          message: "Capacity must be greater than 0",
+        });
       }
-      if (processedRow.manager_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(processedRow.manager_email)) {
-        errors.push({ row: index + 1, field: 'manager_email', message: 'Invalid email format' });
+      if (
+        processedRow.manager_email &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(processedRow.manager_email)
+      ) {
+        errors.push({
+          row: index + 1,
+          field: "manager_email",
+          message: "Invalid email format",
+        });
       }
 
-      if (!['ACTIVE', 'INACTIVE'].includes(processedRow.status || '')) {
-        processedRow.status = 'ACTIVE';
+      if (!["ACTIVE", "INACTIVE"].includes(processedRow.status || "")) {
+        processedRow.status = "ACTIVE";
       }
 
       // Duplicates
       if (existingNames.includes(processedRow.name.toLowerCase())) {
-        duplicates.push({ row: processedRow, field: 'name', value: processedRow.name });
-      } else if (existingEmails.includes(processedRow.manager_email.toLowerCase())) {
-        duplicates.push({ row: processedRow, field: 'manager_email', value: processedRow.manager_email });
+        duplicates.push({
+          row: processedRow,
+          field: "name",
+          value: processedRow.name,
+        });
+      } else if (
+        existingEmails.includes(processedRow.manager_email.toLowerCase())
+      ) {
+        duplicates.push({
+          row: processedRow,
+          field: "manager_email",
+          value: processedRow.manager_email,
+        });
       } else if (errors.length > 0) {
         invalid.push({ row: processedRow, errors });
       } else {
         valid.push(processedRow);
       }
 
-      setProgress(prev => ({
+      setProgress((prev) => ({
         ...prev,
         current: index + 1,
-        message: `Validated ${index + 1} of ${data.length} rows`
+        message: `Validated ${index + 1} of ${data.length} rows`,
       }));
     });
 
     setPreview({ valid, invalid, duplicates });
-    setStep('preview');
+    setStep("preview");
     setProgress({
       current: data.length,
       total: data.length,
-      status: 'idle',
-      message: 'Validation complete'
+      status: "idle",
+      message: "Validation complete",
     });
   };
 
@@ -299,17 +387,17 @@ const ImportWarehousesModal: React.FC<{
       toast({
         title: "❌ No valid data",
         description: "No valid rows to import",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
-    setStep('importing');
+    setStep("importing");
     setProgress({
       current: 0,
       total: preview.valid.length,
-      status: 'importing',
-      message: 'Starting import...'
+      status: "importing",
+      message: "Starting import...",
     });
 
     const BATCH_SIZE = 25;
@@ -326,7 +414,7 @@ const ImportWarehousesModal: React.FC<{
       const batch = batches[i];
 
       try {
-        const dataToInsert = batch.map(row => ({
+        const dataToInsert = batch.map((row) => ({
           name: row.name,
           code: `W${Date.now().toString().slice(-6)}${Math.random().toString(36).substr(2, 3).toUpperCase()}`,
           city: row.city,
@@ -337,11 +425,11 @@ const ImportWarehousesModal: React.FC<{
           manager_name: row.manager_name,
           manager_phone: row.manager_phone,
           manager_email: row.manager_email,
-          status: row.status || 'ACTIVE'
+          status: row.status || "ACTIVE",
         }));
 
         const { error } = await supabase
-          .from('warehouses')
+          .from("warehouses")
           .insert(dataToInsert);
 
         if (error) throw error;
@@ -351,12 +439,11 @@ const ImportWarehousesModal: React.FC<{
         setProgress({
           current: Math.min((i + 1) * BATCH_SIZE, preview.valid.length),
           total: preview.valid.length,
-          status: 'importing',
-          message: `Imported ${successCount} of ${preview.valid.length} warehouses`
+          status: "importing",
+          message: `Imported ${successCount} of ${preview.valid.length} warehouses`,
         });
-
       } catch (error) {
-        console.error('Batch import error:', error);
+        console.error("Batch import error:", error);
         errorCount += batch.length;
       }
     }
@@ -364,13 +451,13 @@ const ImportWarehousesModal: React.FC<{
     setProgress({
       current: preview.valid.length,
       total: preview.valid.length,
-      status: 'completed',
-      message: `Import completed: ${successCount} successful, ${errorCount} failed`
+      status: "completed",
+      message: `Import completed: ${successCount} successful, ${errorCount} failed`,
     });
 
     toast({
       title: "✅ Import Completed",
-      description: `Successfully imported ${successCount} warehouses${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      description: `Successfully imported ${successCount} warehouses${errorCount > 0 ? `, ${errorCount} failed` : ""}`,
     });
 
     setTimeout(() => {
@@ -381,15 +468,45 @@ const ImportWarehousesModal: React.FC<{
 
   const downloadTemplate = () => {
     const template = [
-      ['name', 'city', 'state', 'address', 'capacity', 'manager_name', 'manager_phone', 'manager_email', 'status'],
-      ['Mumbai Central Hub', 'Mumbai', 'Maharashtra', 'Plot 123, MIDC, Andheri East', '500', 'Rahul Sharma', '9876543210', 'rahul@warehouse.com', 'ACTIVE'],
-      ['Delhi Warehouse', 'Delhi', 'Delhi', '456 Industrial Area, Okhla', '750', 'Priya Singh', '9876543211', 'priya@warehouse.com', 'ACTIVE']
+      [
+        "name",
+        "city",
+        "state",
+        "address",
+        "capacity",
+        "manager_name",
+        "manager_phone",
+        "manager_email",
+        "status",
+      ],
+      [
+        "Mumbai Central Hub",
+        "Mumbai",
+        "Maharashtra",
+        "Plot 123, MIDC, Andheri East",
+        "500",
+        "Rahul Sharma",
+        "9876543210",
+        "rahul@warehouse.com",
+        "ACTIVE",
+      ],
+      [
+        "Delhi Warehouse",
+        "Delhi",
+        "Delhi",
+        "456 Industrial Area, Okhla",
+        "750",
+        "Priya Singh",
+        "9876543211",
+        "priya@warehouse.com",
+        "ACTIVE",
+      ],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(template);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Warehouses');
-    XLSX.writeFile(wb, 'warehouses_import_template.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, "Warehouses");
+    XLSX.writeFile(wb, "warehouses_import_template.xlsx");
 
     toast({
       title: "✅ Template Downloaded",
@@ -399,29 +516,29 @@ const ImportWarehousesModal: React.FC<{
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-card border border-border dark:border-border">
-        <DialogHeader className="border-b border-border dark:border-border pb-4">
-          <DialogTitle className="text-xl flex items-center gap-2 text-foreground dark:text-white">
-            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-              <Upload className="w-5 h-5 text-primary dark:text-primary" />
+      <DialogContent className="max-w-4xl min-[2000px]:max-w-6xl max-h-[90vh] bg-card border border-border dark:border-border">
+        <DialogHeader className="border-b border-border dark:border-border pb-4 min-[2000px]:pb-6">
+          <DialogTitle className="text-xl min-[2000px]:text-2xl flex items-center gap-2 min-[2000px]:gap-3 text-foreground dark:text-white">
+            <div className="p-2 min-[2000px]:p-3 bg-accent dark:bg-primary/10 rounded-lg">
+              <Upload className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-primary dark:text-primary" />
             </div>
             Import Warehouses
           </DialogTitle>
         </DialogHeader>
 
-        {step === 'upload' && (
-          <div className="space-y-4">
+        {step === "upload" && (
+          <div className="space-y-4 min-[2000px]:space-y-6">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+              <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
                 Upload CSV or Excel file with warehouse data
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={downloadTemplate}
-                className="bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary transition-all"
+                className="h-9 min-[2000px]:h-11 min-[2000px]:text-base bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary transition-all"
               >
-                <Download className="w-4 h-4 mr-2" />
+                <Download className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                 Download Template
               </Button>
             </div>
@@ -429,50 +546,77 @@ const ImportWarehousesModal: React.FC<{
             <div
               {...getRootProps()}
               className={cn(
-                "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200",
+                "border-2 border-dashed rounded-xl p-8 min-[2000px]:p-12 text-center cursor-pointer transition-all duration-200",
                 isDragActive
                   ? "border-primary bg-accent dark:bg-primary/10 scale-[1.02]"
-                  : "border-border dark:border-border hover:border-primary/50 hover:bg-accent/50 dark:hover:bg-muted"
+                  : "border-border dark:border-border hover:border-primary/50 hover:bg-accent/50 dark:hover:bg-muted",
               )}
             >
               <input {...getInputProps()} />
-              <FileUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground dark:text-muted-foreground" />
+              <FileUp className="w-12 h-12 min-[2000px]:w-16 min-[2000px]:h-16 mx-auto mb-4 min-[2000px]:mb-6 text-muted-foreground dark:text-muted-foreground" />
               {file ? (
                 <div>
-                  <p className="font-medium text-lg text-foreground dark:text-white">{file.name}</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="font-medium text-lg min-[2000px]:text-xl text-foreground dark:text-white">
+                    {file.name}
+                  </p>
+                  <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mt-1">
                     {(file.size / 1024).toFixed(2)} KB
                   </p>
                 </div>
               ) : (
                 <div>
-                  <p className="font-medium text-foreground dark:text-white">Drop your file here, or click to browse</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="font-medium min-[2000px]:text-lg text-foreground dark:text-white">
+                    Drop your file here, or click to browse
+                  </p>
+                  <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mt-1">
                     Supports CSV and Excel files (.csv, .xlsx, .xls)
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="bg-accent dark:bg-primary/10 p-4 rounded-lg border border-primary/30">
-              <h4 className="font-medium mb-2 flex items-center gap-2 text-foreground dark:text-white">
-                <AlertCircle className="w-4 h-4 text-primary dark:text-primary" />
+            <div className="bg-accent dark:bg-primary/10 p-4 min-[2000px]:p-6 rounded-lg border border-primary/30">
+              <h4 className="font-medium mb-2 min-[2000px]:mb-3 flex items-center gap-2 min-[2000px]:gap-3 text-foreground dark:text-white min-[2000px]:text-lg">
+                <AlertCircle className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-primary dark:text-primary" />
                 Required Fields:
               </h4>
-              <ul className="text-sm text-muted-foreground dark:text-muted-foreground space-y-1 list-disc list-inside ml-6">
-                <li><span className="font-medium">Name</span> - Warehouse name (must be unique)</li>
-                <li><span className="font-medium">City & State</span> - Location details</li>
-                <li><span className="font-medium">Address</span> - Complete address</li>
-                <li><span className="font-medium">Capacity</span> - Maximum storage capacity (number)</li>
-                <li><span className="font-medium">Manager Name, Phone, Email</span> - Manager details</li>
-                <li><span className="font-medium">Status</span> (optional) - ACTIVE or INACTIVE (defaults to ACTIVE)</li>
+              <ul className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground space-y-1 min-[2000px]:space-y-2 list-disc list-inside ml-6">
+                <li>
+                  <span className="font-medium">Name</span> - Warehouse name
+                  (must be unique)
+                </li>
+                <li>
+                  <span className="font-medium">City & State</span> - Location
+                  details
+                </li>
+                <li>
+                  <span className="font-medium">Address</span> - Complete
+                  address
+                </li>
+                <li>
+                  <span className="font-medium">Capacity</span> - Maximum
+                  storage capacity (number)
+                </li>
+                <li>
+                  <span className="font-medium">
+                    Manager Name, Phone, Email
+                  </span>{" "}
+                  - Manager details
+                </li>
+                <li>
+                  <span className="font-medium">Status</span> (optional) -
+                  ACTIVE or INACTIVE (defaults to ACTIVE)
+                </li>
               </ul>
             </div>
 
-            {progress.status === 'validating' && (
-              <div className="space-y-2">
-                <Progress value={(progress.current / progress.total) * 100} className="h-2" />
-                <p className="text-sm text-center text-muted-foreground dark:text-muted-foreground animate-pulse">
+            {progress.status === "validating" && (
+              <div className="space-y-2 min-[2000px]:space-y-3">
+                <Progress
+                  value={(progress.current / progress.total) * 100}
+                  className="h-2 min-[2000px]:h-3"
+                />
+                <p className="text-sm min-[2000px]:text-base text-center text-muted-foreground dark:text-muted-foreground animate-pulse">
                   {progress.message}
                 </p>
               </div>
@@ -480,44 +624,56 @@ const ImportWarehousesModal: React.FC<{
           </div>
         )}
 
-        {step === 'preview' && preview && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+        {step === "preview" && preview && (
+          <div className="space-y-4 min-[2000px]:space-y-6">
+            <div className="grid grid-cols-3 gap-4 min-[2000px]:gap-6">
               <Card className="border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50/50 to-transparent dark:from-green-900/10">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
+                <CardContent className="pt-6 min-[2000px]:pt-8">
+                  <div className="flex items-center gap-3 min-[2000px]:gap-4">
+                    <div className="p-2 min-[2000px]:p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <CheckCircle className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-green-600">{preview.valid.length}</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Valid Rows</p>
+                      <p className="text-2xl min-[2000px]:text-3xl font-bold text-green-600">
+                        {preview.valid.length}
+                      </p>
+                      <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
+                        Valid Rows
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <Card className="border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50/50 to-transparent dark:from-red-900/10">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                      <XCircle className="w-5 h-5 text-red-600" />
+                <CardContent className="pt-6 min-[2000px]:pt-8">
+                  <div className="flex items-center gap-3 min-[2000px]:gap-4">
+                    <div className="p-2 min-[2000px]:p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                      <XCircle className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-red-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-red-600">{preview.invalid.length}</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Invalid Rows</p>
+                      <p className="text-2xl min-[2000px]:text-3xl font-bold text-red-600">
+                        {preview.invalid.length}
+                      </p>
+                      <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
+                        Invalid Rows
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <Card className="border-yellow-200 dark:border-yellow-900/50 bg-gradient-to-br from-yellow-50/50 to-transparent dark:from-yellow-900/10">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-yellow-600" />
+                <CardContent className="pt-6 min-[2000px]:pt-8">
+                  <div className="flex items-center gap-3 min-[2000px]:gap-4">
+                    <div className="p-2 min-[2000px]:p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                      <AlertCircle className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-yellow-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold text-yellow-600">{preview.duplicates.length}</p>
-                      <p className="text-sm text-muted-foreground dark:text-muted-foreground">Duplicates</p>
+                      <p className="text-2xl min-[2000px]:text-3xl font-bold text-yellow-600">
+                        {preview.duplicates.length}
+                      </p>
+                      <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
+                        Duplicates
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -525,47 +681,70 @@ const ImportWarehousesModal: React.FC<{
             </div>
 
             <Tabs defaultValue="valid" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-muted">
+              <TabsList className="grid w-full grid-cols-3 bg-muted min-[2000px]:h-12">
                 <TabsTrigger
                   value="valid"
-                  className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 dark:data-[state=active]:bg-green-900/30"
+                  className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 dark:data-[state=active]:bg-green-900/30 min-[2000px]:text-base"
                 >
                   Valid ({preview.valid.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="invalid"
-                  className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700 dark:data-[state=active]:bg-red-900/30"
+                  className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700 dark:data-[state=active]:bg-red-900/30 min-[2000px]:text-base"
                 >
                   Invalid ({preview.invalid.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="duplicates"
-                  className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700 dark:data-[state=active]:bg-yellow-900/30"
+                  className="data-[state=active]:bg-yellow-100 data-[state=active]:text-yellow-700 dark:data-[state=active]:bg-yellow-900/30 min-[2000px]:text-base"
                 >
                   Duplicates ({preview.duplicates.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="valid">
-                <ScrollArea className="h-[300px] w-full rounded-lg border border-border dark:border-border">
+                <ScrollArea className="h-[300px] min-[2000px]:h-[400px] w-full rounded-lg border border-border dark:border-border">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted hover:bg-muted dark:hover:bg-[#252530]">
-                        <TableHead className="w-[50px]">#</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Capacity</TableHead>
-                        <TableHead>Manager</TableHead>
+                        <TableHead className="w-[50px] min-[2000px]:text-base">
+                          #
+                        </TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Name
+                        </TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Location
+                        </TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Capacity
+                        </TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Manager
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {preview.valid.map((row, index) => (
-                        <TableRow key={index} className="hover:bg-accent dark:hover:bg-muted">
-                          <TableCell className="font-medium">{index + 1}</TableCell>
-                          <TableCell className="font-medium text-foreground dark:text-white">{row.name}</TableCell>
-                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{row.city}, {row.state}</TableCell>
-                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{row.capacity}</TableCell>
-                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{row.manager_name}</TableCell>
+                        <TableRow
+                          key={index}
+                          className="hover:bg-accent dark:hover:bg-muted"
+                        >
+                          <TableCell className="font-medium min-[2000px]:text-base">
+                            {index + 1}
+                          </TableCell>
+                          <TableCell className="font-medium text-foreground dark:text-white min-[2000px]:text-base">
+                            {row.name}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base">
+                            {row.city}, {row.state}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base">
+                            {row.capacity}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base">
+                            {row.manager_name}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -574,18 +753,24 @@ const ImportWarehousesModal: React.FC<{
               </TabsContent>
 
               <TabsContent value="invalid">
-                <ScrollArea className="h-[300px] w-full">
-                  <div className="space-y-2 p-2">
+                <ScrollArea className="h-[300px] min-[2000px]:h-[400px] w-full">
+                  <div className="space-y-2 min-[2000px]:space-y-3 p-2">
                     {preview.invalid.map((item, index) => (
-                      <Card key={index} className="border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10">
-                        <CardContent className="pt-4">
+                      <Card
+                        key={index}
+                        className="border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-900/10"
+                      >
+                        <CardContent className="pt-4 min-[2000px]:pt-6">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-medium text-foreground dark:text-white">
-                                Row {index + 1}: {item.row.name || 'No name'}
+                              <p className="font-medium text-foreground dark:text-white min-[2000px]:text-lg">
+                                Row {index + 1}: {item.row.name || "No name"}
                               </p>
                               {item.errors.map((error, i) => (
-                                <p key={i} className="text-sm text-red-600 mt-1">
+                                <p
+                                  key={i}
+                                  className="text-sm min-[2000px]:text-base text-red-600 mt-1"
+                                >
                                   • {error.field}: {error.message}
                                 </p>
                               ))}
@@ -599,25 +784,41 @@ const ImportWarehousesModal: React.FC<{
               </TabsContent>
 
               <TabsContent value="duplicates">
-                <ScrollArea className="h-[300px] w-full rounded-lg border border-border dark:border-border">
+                <ScrollArea className="h-[300px] min-[2000px]:h-[400px] w-full rounded-lg border border-border dark:border-border">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted hover:bg-muted dark:hover:bg-[#252530]">
-                        <TableHead>Warehouse Name</TableHead>
-                        <TableHead>Duplicate Field</TableHead>
-                        <TableHead>Value</TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Warehouse Name
+                        </TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Duplicate Field
+                        </TableHead>
+                        <TableHead className="min-[2000px]:text-base">
+                          Value
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {preview.duplicates.map((item, index) => (
-                        <TableRow key={index} className="hover:bg-accent dark:hover:bg-muted">
-                          <TableCell className="font-medium text-foreground dark:text-white">{item.row.name}</TableCell>
+                        <TableRow
+                          key={index}
+                          className="hover:bg-accent dark:hover:bg-muted"
+                        >
+                          <TableCell className="font-medium text-foreground dark:text-white min-[2000px]:text-base">
+                            {item.row.name}
+                          </TableCell>
                           <TableCell>
-                            <Badge variant="destructive">
+                            <Badge
+                              variant="destructive"
+                              className="min-[2000px]:text-sm"
+                            >
                               {item.field.toUpperCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-muted-foreground dark:text-muted-foreground">{item.value}</TableCell>
+                          <TableCell className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base">
+                            {item.value}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -628,53 +829,58 @@ const ImportWarehousesModal: React.FC<{
           </div>
         )}
 
-        {step === 'importing' && (
-          <div className="space-y-4 py-8">
+        {step === "importing" && (
+          <div className="space-y-4 min-[2000px]:space-y-6 py-8 min-[2000px]:py-12">
             <div className="text-center">
-              {progress.status === 'completed' ? (
+              {progress.status === "completed" ? (
                 <div className="relative">
-                  <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
-                  <div className="absolute inset-0 blur-xl bg-green-500/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
+                  <CheckCircle className="w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 mx-auto mb-4 min-[2000px]:mb-6 text-green-500" />
+                  <div className="absolute inset-0 blur-xl bg-green-500/20 animate-pulse rounded-full w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 mx-auto" />
                 </div>
               ) : (
                 <div className="relative">
-                  <Loader2 className="w-16 h-16 mx-auto mb-4 animate-spin text-primary" />
-                  <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full w-16 h-16 mx-auto" />
+                  <Loader2 className="w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 mx-auto mb-4 min-[2000px]:mb-6 animate-spin text-primary" />
+                  <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 mx-auto" />
                 </div>
               )}
-              <p className="text-lg font-medium text-foreground dark:text-white">{progress.message}</p>
+              <p className="text-lg min-[2000px]:text-xl font-medium text-foreground dark:text-white">
+                {progress.message}
+              </p>
             </div>
-            <Progress value={(progress.current / progress.total) * 100} className="h-2" />
-            <p className="text-sm text-center text-muted-foreground dark:text-muted-foreground">
+            <Progress
+              value={(progress.current / progress.total) * 100}
+              className="h-2 min-[2000px]:h-3"
+            />
+            <p className="text-sm min-[2000px]:text-base text-center text-muted-foreground dark:text-muted-foreground">
               {progress.current} of {progress.total} warehouses imported
             </p>
           </div>
         )}
 
-        <DialogFooter className="border-t border-border dark:border-border pt-4">
-          {step === 'preview' && (
+        <DialogFooter className="border-t border-border dark:border-border pt-4 min-[2000px]:pt-6 min-[2000px]:gap-3">
+          {step === "preview" && (
             <>
               <Button
                 variant="outline"
-                onClick={() => setStep('upload')}
-                className="bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+                onClick={() => setStep("upload")}
+                className="h-10 min-[2000px]:h-12 min-[2000px]:text-base bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
               >
                 Back
               </Button>
               <Button
                 onClick={handleImport}
                 disabled={preview?.valid.length === 0}
-                className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+                className="h-10 min-[2000px]:h-12 min-[2000px]:text-base bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
               >
                 Import {preview?.valid.length} Valid Rows
               </Button>
             </>
           )}
-          {step === 'upload' && (
+          {step === "upload" && (
             <Button
               variant="outline"
               onClick={onClose}
-              className="bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+              className="h-10 min-[2000px]:h-12 min-[2000px]:text-base bg-card border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
             >
               Cancel
             </Button>
@@ -685,7 +891,7 @@ const ImportWarehousesModal: React.FC<{
   );
 };
 
-// ✅ MAIN WAREHOUSE LIST - THEME APPLIED
+// ✅ MAIN WAREHOUSE LIST - THEME APPLIED WITH 2000PX+ RESPONSIVE
 export const WarehouseList = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -708,7 +914,7 @@ export const WarehouseList = () => {
       const data = await fetchWarehouses();
       setWarehouses(data);
     } catch (error) {
-      console.error('Error loading warehouses:', error);
+      console.error("Error loading warehouses:", error);
       toast({
         title: "❌ Error",
         description: "Failed to load warehouses",
@@ -736,11 +942,13 @@ export const WarehouseList = () => {
   };
 
   const filteredWarehouses = warehouses
-    .filter(warehouse => {
-      const matchesSearch = warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    .filter((warehouse) => {
+      const matchesSearch =
+        warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         warehouse.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
         warehouse.state.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesState = filterState === "all" || warehouse.state === filterState;
+      const matchesState =
+        filterState === "all" || warehouse.state === filterState;
       return matchesSearch && matchesState;
     })
     .sort((a, b) => {
@@ -752,23 +960,32 @@ export const WarehouseList = () => {
         case "stock":
           return b.current_stock - a.current_stock;
         case "utilization":
-          return getStockUtilization(b.current_stock, b.capacity) - getStockUtilization(a.current_stock, a.capacity);
+          return (
+            getStockUtilization(b.current_stock, b.capacity) -
+            getStockUtilization(a.current_stock, a.capacity)
+          );
         default:
           return 0;
       }
     });
 
-  const uniqueStates = [...new Set(warehouses.map(w => w.state))];
+  const uniqueStates = [...new Set(warehouses.map((w) => w.state))];
 
   const stats = {
     total: warehouses.length,
     totalCapacity: warehouses.reduce((sum, w) => sum + w.capacity, 0),
     totalStock: warehouses.reduce((sum, w) => sum + w.current_stock, 0),
-    avgUtilization: warehouses.length > 0
-      ? warehouses.reduce((sum, w) => sum + getStockUtilization(w.current_stock, w.capacity), 0) / warehouses.length
-      : 0,
-    nearCapacity: warehouses.filter(w => getStockUtilization(w.current_stock, w.capacity) > 85).length,
-    active: warehouses.filter(w => w.status === 'ACTIVE').length,
+    avgUtilization:
+      warehouses.length > 0
+        ? warehouses.reduce(
+            (sum, w) => sum + getStockUtilization(w.current_stock, w.capacity),
+            0,
+          ) / warehouses.length
+        : 0,
+    nearCapacity: warehouses.filter(
+      (w) => getStockUtilization(w.current_stock, w.capacity) > 85,
+    ).length,
+    active: warehouses.filter((w) => w.status === "ACTIVE").length,
   };
 
   const handleWarehouseClick = (warehouseId: string) => {
@@ -777,7 +994,7 @@ export const WarehouseList = () => {
 
   const handleAddWarehouse = async (warehouseData: any) => {
     try {
-      const { createWarehouse } = await import('@/api/warehouses');
+      const { createWarehouse } = await import("@/api/warehouses");
       await createWarehouse(warehouseData);
 
       await loadWarehouses();
@@ -787,7 +1004,7 @@ export const WarehouseList = () => {
         description: `${warehouseData.name} has been added to the system`,
       });
     } catch (error) {
-      console.error('Error adding warehouse:', error);
+      console.error("Error adding warehouse:", error);
       toast({
         title: "❌ Error",
         description: "Failed to add warehouse",
@@ -809,10 +1026,10 @@ export const WarehouseList = () => {
       "Manager Name",
       "Manager Phone",
       "Manager Email",
-      "Status"
+      "Status",
     ];
 
-    const rows = filteredWarehouses.map(warehouse => [
+    const rows = filteredWarehouses.map((warehouse) => [
       warehouse.name,
       warehouse.code,
       warehouse.city,
@@ -820,22 +1037,32 @@ export const WarehouseList = () => {
       warehouse.address,
       warehouse.capacity,
       warehouse.current_stock,
-      getStockUtilization(warehouse.current_stock, warehouse.capacity).toFixed(1) + "%",
+      getStockUtilization(warehouse.current_stock, warehouse.capacity).toFixed(
+        1,
+      ) + "%",
       warehouse.manager_name,
       warehouse.manager_phone,
       warehouse.manager_email,
-      warehouse.status
+      warehouse.status,
     ]);
 
     const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => {
-        const cellStr = String(cell);
-        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-          return `"${cellStr.replace(/"/g, '""')}"`;
-        }
-        return cellStr;
-      }).join(','))
-      .join('\n');
+      .map((row) =>
+        row
+          .map((cell) => {
+            const cellStr = String(cell);
+            if (
+              cellStr.includes(",") ||
+              cellStr.includes('"') ||
+              cellStr.includes("\n")
+            ) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          })
+          .join(","),
+      )
+      .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
@@ -853,12 +1080,12 @@ export const WarehouseList = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-[400px] min-[2000px]:min-h-[500px] space-y-4 min-[2000px]:space-y-6">
         <div className="relative">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <Loader2 className="w-12 h-12 min-[2000px]:w-16 min-[2000px]:h-16 animate-spin text-primary" />
           <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
         </div>
-        <p className="text-lg font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
+        <p className="text-lg min-[2000px]:text-xl font-medium text-muted-foreground dark:text-muted-foreground animate-pulse">
           Loading warehouses...
         </p>
       </div>
@@ -866,69 +1093,85 @@ export const WarehouseList = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-[2000px]:space-y-8">
       {/* STATS CARD */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-        <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-6 shadow-sm">
+      <div className="flex flex-col lg:flex-row gap-4 min-[2000px]:gap-6 lg:items-center lg:justify-between">
+        <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-6 min-[2000px]:p-8 shadow-sm">
           <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#E5E7EB] dark:divide-[#35353F]">
             {/* Total Warehouses */}
-            <div className="px-6 py-3 first:pl-0 relative">
-              <div className="absolute top-2 right-2 opacity-10">
-                <WarehouseIcon className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 first:pl-0 relative">
+              <div className="absolute top-2 min-[2000px]:top-3 right-2 min-[2000px]:right-3 opacity-10">
+                <WarehouseIcon className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Total Warehouses</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.total}</p>
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Total Warehouses
+                </p>
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
+                  {stats.total}
+                </p>
               </div>
             </div>
 
             {/* Total Capacity */}
-            <div className="px-6 py-3 relative">
-              <div className="absolute top-2 right-2 opacity-10">
-                <Package className="w-8 h-8 text-primary dark:text-primary" />
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 relative">
+              <div className="absolute top-2 min-[2000px]:top-3 right-2 min-[2000px]:right-3 opacity-10">
+                <Package className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-primary dark:text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Total Capacity</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.totalCapacity.toLocaleString()}</p>
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Total Capacity
+                </p>
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
+                  {stats.totalCapacity.toLocaleString()}
+                </p>
               </div>
             </div>
 
             {/* Current Stock */}
-            <div className="px-6 py-3 relative">
-              <div className="absolute top-2 right-2 opacity-10">
-                <Activity className="w-8 h-8 text-primary dark:text-primary" />
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 relative">
+              <div className="absolute top-2 min-[2000px]:top-3 right-2 min-[2000px]:right-3 opacity-10">
+                <Activity className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-primary dark:text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Current Stock</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.totalStock.toLocaleString()}</p>
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Current Stock
+                </p>
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
+                  {stats.totalStock.toLocaleString()}
+                </p>
               </div>
             </div>
 
             {/* Near Capacity */}
-            <div className="px-6 py-3 last:pr-0 relative">
-              <div className="absolute top-2 right-2 opacity-10">
-                <AlertTriangle className="w-8 h-8 text-primary" />
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 last:pr-0 relative">
+              <div className="absolute top-2 min-[2000px]:top-3 right-2 min-[2000px]:right-3 opacity-10">
+                <AlertTriangle className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">Near Capacity</p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">{stats.nearCapacity}</p>
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                  Near Capacity
+                </p>
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
+                  {stats.nearCapacity}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col gap-2 w-full lg:w-auto lg:min-w-[220px]">
+        <div className="flex flex-col gap-2 min-[2000px]:gap-3 w-full lg:w-auto lg:min-w-[220px] min-[2000px]:lg:min-w-[260px]">
           <Button
             size="default"
             onClick={() => setIsAddModalOpen(true)}
-            className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+            className="w-full h-10 min-[2000px]:h-12 min-[2000px]:text-lg bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
             Add Warehouse
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 min-[2000px]:gap-3">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -936,14 +1179,16 @@ export const WarehouseList = () => {
                     variant="outline"
                     size="default"
                     onClick={() => setShowImportModal(true)}
-                    className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                    className="flex-1 h-10 min-[2000px]:h-12 min-[2000px]:text-lg bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                   >
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Upload className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                     Import
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p>Import warehouses from CSV/Excel</p>
+                  <p className="min-[2000px]:text-base">
+                    Import warehouses from CSV/Excel
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -955,14 +1200,14 @@ export const WarehouseList = () => {
                     variant="outline"
                     size="default"
                     onClick={handleExport}
-                    className="flex-1 bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                    className="flex-1 h-10 min-[2000px]:h-12 min-[2000px]:text-lg bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                   >
-                    <FileDown className="w-4 h-4 mr-2" />
+                    <FileDown className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                     Export
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p>Export to CSV</p>
+                  <p className="min-[2000px]:text-base">Export to CSV</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -972,54 +1217,75 @@ export const WarehouseList = () => {
 
       {/* MAIN CONTENT CARD */}
       <div className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
-
         {/* Search & Filters */}
-        <div className="p-6 border-b border-border dark:border-border">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="p-6 min-[2000px]:p-8 border-b border-border dark:border-border">
+          <div className="flex flex-col sm:flex-row gap-3 min-[2000px]:gap-4 items-start sm:items-center justify-between">
             {/* Search Bar */}
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+            <div className="relative w-full sm:w-96 min-[2000px]:sm:w-[500px]">
+              <Search className="absolute left-3 min-[2000px]:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-muted-foreground dark:text-muted-foreground" />
               <Input
                 placeholder="Search by name, city, or state..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-10 h-10 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-sm"
+                className="pl-10 min-[2000px]:pl-12 pr-10 min-[2000px]:pr-12 h-10 min-[2000px]:h-12 min-[2000px]:text-lg border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-sm"
               />
               {searchTerm && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-accent dark:hover:bg-secondary"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 min-[2000px]:h-10 min-[2000px]:w-10 p-0 hover:bg-accent dark:hover:bg-secondary"
                   onClick={() => setSearchTerm("")}
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
                 </Button>
               )}
             </div>
 
             {/* Filters */}
-            <div className="flex gap-3 w-full sm:w-auto">
+            <div className="flex gap-3 min-[2000px]:gap-4 w-full sm:w-auto">
               <Select value={filterState} onValueChange={setFilterState}>
-                <SelectTrigger className="w-full sm:w-[180px] h-10 border-border dark:border-border bg-card text-sm">
+                <SelectTrigger className="w-full sm:w-[180px] min-[2000px]:sm:w-[220px] h-10 min-[2000px]:h-12 border-border dark:border-border bg-card text-sm min-[2000px]:text-lg">
                   <SelectValue placeholder="Filter by state" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border dark:border-border">
-                  <SelectItem value="all">All States</SelectItem>
-                  {uniqueStates.map(state => (
-                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                  <SelectItem value="all" className="min-[2000px]:text-base">
+                    All States
+                  </SelectItem>
+                  {uniqueStates.map((state) => (
+                    <SelectItem
+                      key={state}
+                      value={state}
+                      className="min-[2000px]:text-base"
+                    >
+                      {state}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full sm:w-[180px] h-10 border-border dark:border-border bg-card text-sm">
+                <SelectTrigger className="w-full sm:w-[180px] min-[2000px]:sm:w-[220px] h-10 min-[2000px]:h-12 border-border dark:border-border bg-card text-sm min-[2000px]:text-lg">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border dark:border-border">
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="capacity">Capacity</SelectItem>
-                  <SelectItem value="stock">Current Stock</SelectItem>
-                  <SelectItem value="utilization">Utilization</SelectItem>
+                  <SelectItem value="name" className="min-[2000px]:text-base">
+                    Name
+                  </SelectItem>
+                  <SelectItem
+                    value="capacity"
+                    className="min-[2000px]:text-base"
+                  >
+                    Capacity
+                  </SelectItem>
+                  <SelectItem value="stock" className="min-[2000px]:text-base">
+                    Current Stock
+                  </SelectItem>
+                  <SelectItem
+                    value="utilization"
+                    className="min-[2000px]:text-base"
+                  >
+                    Utilization
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1027,36 +1293,41 @@ export const WarehouseList = () => {
         </div>
 
         {/* Warehouse Grid */}
-        <div className="p-6">
+        <div className="p-6 min-[2000px]:p-8">
           {filteredWarehouses.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                  <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+            <div className="text-center py-16 min-[2000px]:py-20">
+              <div className="flex flex-col items-center gap-4 min-[2000px]:gap-5">
+                <div className="w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 rounded-full bg-muted flex items-center justify-center">
+                  <Package className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-muted-foreground dark:text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-base font-medium text-foreground dark:text-white">No warehouses found</p>
-                  <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                  <p className="text-base min-[2000px]:text-lg font-medium text-foreground dark:text-white">
+                    No warehouses found
+                  </p>
+                  <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mt-1">
                     {searchTerm || filterState !== "all"
                       ? "Try adjusting your search or filter criteria"
                       : "Get started by adding your first warehouse"}
                   </p>
                 </div>
-                {(!searchTerm && filterState === "all") && (
+                {!searchTerm && filterState === "all" && (
                   <Button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="mt-2 bg-primary hover:bg-primary-hover text-foreground"
+                    className="mt-2 h-10 min-[2000px]:h-12 min-[2000px]:text-base bg-primary hover:bg-primary-hover text-foreground"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                     Add Your First Warehouse
                   </Button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 min-[2000px]:gap-8">
               {filteredWarehouses.map((warehouse) => {
-                const utilization = getStockUtilization(warehouse.current_stock, warehouse.capacity);
+                const utilization = getStockUtilization(
+                  warehouse.current_stock,
+                  warehouse.capacity,
+                );
                 const isNearCapacity = utilization > 85;
 
                 return (
@@ -1065,88 +1336,117 @@ export const WarehouseList = () => {
                     className="hover:shadow-lg transition-all duration-300 cursor-pointer hover:scale-[1.02] border border-border dark:border-border bg-card"
                     onClick={() => handleWarehouseClick(warehouse.id)}
                   >
-                    <CardHeader className="pb-4">
-                      <div className="flex justify-between items-start gap-2">
+                    <CardHeader className="pb-4 min-[2000px]:pb-5">
+                      <div className="flex justify-between items-start gap-2 min-[2000px]:gap-3">
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg flex-shrink-0">
-                              <WarehouseIcon className="w-4 h-4 text-primary dark:text-primary" />
+                          <CardTitle className="text-lg min-[2000px]:text-xl font-semibold flex items-center gap-2 min-[2000px]:gap-3">
+                            <div className="p-2 min-[2000px]:p-2.5 bg-accent dark:bg-primary/10 rounded-lg flex-shrink-0">
+                              <WarehouseIcon className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-primary dark:text-primary" />
                             </div>
-                            <span className="truncate text-foreground dark:text-white">{warehouse.name}</span>
+                            <span className="truncate text-foreground dark:text-white">
+                              {warehouse.name}
+                            </span>
                           </CardTitle>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground mt-2 ml-9">
-                            <MapPin className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{warehouse.city}, {warehouse.state}</span>
+                          <div className="flex items-center gap-2 text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mt-2 ml-9 min-[2000px]:ml-10">
+                            <MapPin className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 flex-shrink-0" />
+                            <span className="truncate">
+                              {warehouse.city}, {warehouse.state}
+                            </span>
                           </div>
                         </div>
                         {isNearCapacity && (
-                          <Badge variant="destructive" className="gap-1 text-xs flex-shrink-0">
-                            <AlertTriangle className="w-3 h-3" />
+                          <Badge
+                            variant="destructive"
+                            className="gap-1 text-xs min-[2000px]:text-sm flex-shrink-0"
+                          >
+                            <AlertTriangle className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5" />
                             Near Full
                           </Badge>
                         )}
                       </div>
                     </CardHeader>
 
-                    <CardContent className="pt-0">
-                      <div className="space-y-4">
+                    <CardContent className="pt-0 min-[2000px]:px-7">
+                      <div className="space-y-4 min-[2000px]:space-y-5">
                         {/* Capacity Bar */}
                         <div>
-                          <div className="flex justify-between text-sm mb-2">
-                            <span className="text-muted-foreground dark:text-muted-foreground font-medium">Stock Utilization</span>
-                            <span className={cn("font-bold", getCapacityColor(utilization))}>
-                              {warehouse.current_stock}/{warehouse.capacity} ({utilization.toFixed(1)}%)
+                          <div className="flex justify-between text-sm min-[2000px]:text-base mb-2">
+                            <span className="text-muted-foreground dark:text-muted-foreground font-medium">
+                              Stock Utilization
+                            </span>
+                            <span
+                              className={cn(
+                                "font-bold",
+                                getCapacityColor(utilization),
+                              )}
+                            >
+                              {warehouse.current_stock}/{warehouse.capacity} (
+                              {utilization.toFixed(1)}%)
                             </span>
                           </div>
-                          <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                          <div className="w-full bg-muted rounded-full h-3 min-[2000px]:h-4 overflow-hidden">
                             <div
                               className={cn(
-                                "h-3 rounded-full transition-all duration-500",
-                                getCapacityBgColor(utilization)
+                                "h-3 min-[2000px]:h-4 rounded-full transition-all duration-500",
+                                getCapacityBgColor(utilization),
                               )}
-                              style={{ width: `${Math.min(utilization, 100)}%` }}
+                              style={{
+                                width: `${Math.min(utilization, 100)}%`,
+                              }}
                             />
                           </div>
                         </div>
 
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg flex-shrink-0">
-                              <Package className="w-4 h-4 text-primary dark:text-primary" />
+                        <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
+                          <div className="flex items-center gap-3 min-[2000px]:gap-4">
+                            <div className="p-2 min-[2000px]:p-2.5 bg-accent dark:bg-primary/10 rounded-lg flex-shrink-0">
+                              <Package className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-primary dark:text-primary" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-foreground dark:text-white">{warehouse.current_stock}</p>
-                              <p className="text-xs text-muted-foreground dark:text-muted-foreground">In Stock</p>
+                              <p className="text-sm min-[2000px]:text-base font-bold text-foreground dark:text-white">
+                                {warehouse.current_stock}
+                              </p>
+                              <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
+                                In Stock
+                              </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
-                              <Users className="w-4 h-4 text-green-600" />
+                          <div className="flex items-center gap-3 min-[2000px]:gap-4">
+                            <div className="p-2 min-[2000px]:p-2.5 bg-green-100 dark:bg-green-900/20 rounded-lg flex-shrink-0">
+                              <Users className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-green-600" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-foreground dark:text-white truncate">{warehouse.manager_name}</p>
-                              <p className="text-xs text-muted-foreground dark:text-muted-foreground">Manager</p>
+                              <p className="text-sm min-[2000px]:text-base font-bold text-foreground dark:text-white truncate">
+                                {warehouse.manager_name}
+                              </p>
+                              <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
+                                Manager
+                              </p>
                             </div>
                           </div>
                         </div>
 
                         {/* Contact Info */}
-                        <div className="pt-3 border-t border-border dark:border-border space-y-2">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
-                            <Phone className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{warehouse.manager_phone}</span>
+                        <div className="pt-3 min-[2000px]:pt-4 border-t border-border dark:border-border space-y-2 min-[2000px]:space-y-2.5">
+                          <div className="flex items-center gap-2 min-[2000px]:gap-2.5 text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
+                            <Phone className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 flex-shrink-0" />
+                            <span className="truncate">
+                              {warehouse.manager_phone}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground dark:text-muted-foreground">
-                            <Mail className="w-3 h-3 flex-shrink-0" />
-                            <span className="truncate">{warehouse.manager_email}</span>
+                          <div className="flex items-center gap-2 min-[2000px]:gap-2.5 text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
+                            <Mail className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 flex-shrink-0" />
+                            <span className="truncate">
+                              {warehouse.manager_email}
+                            </span>
                           </div>
                         </div>
 
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-sm"
+                          className="w-full h-9 min-[2000px]:h-11 min-[2000px]:text-base bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleWarehouseClick(warehouse.id);

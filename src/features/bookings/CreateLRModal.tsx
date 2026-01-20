@@ -31,17 +31,17 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
-  FileEdit
+  FileEdit,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { fetchEwayBillDetails, formatValidityDate } from '@/api/ewayBill';
+import { fetchEwayBillDetails, formatValidityDate } from "@/api/ewayBill";
 import {
   fetchLRCities,
   LRCitySequence,
-  updateLRCityNumber
-} from '@/api/lr-sequences';
+  updateLRCityNumber,
+} from "@/api/lr-sequences";
 import { cn } from "@/lib/utils";
 import { LRCityQuickSetup } from "@/components/LRCityQuickSetup";
 import { supabase } from "@/lib/supabase";
@@ -58,7 +58,7 @@ export interface LRData {
   cargoUnitsString: string;
   materialDescription: string;
   ewayBillDetails?: any[];
-  isOfflineLR?: boolean;  // ✅ NEW
+  isOfflineLR?: boolean;
 }
 
 // ============================================
@@ -73,29 +73,33 @@ const lrItemSchema = z.object({
 });
 
 const documentSchema = z.object({
-  ewayBill: z.string()
+  ewayBill: z
+    .string()
     .regex(/^\d{12}$/, "E-way bill must be exactly 12 digits")
     .or(z.literal("")),
   invoice: z.string(),
 });
 
-// ✅ Updated schema - items optional when offline
-const lrSchema = z.object({
-  lrNumber: z.string().min(1, "LR number is required"),
-  lrDate: z.string().min(1, "LR date is required"),
-  documents: z.array(documentSchema),
-  items: z.array(lrItemSchema),
-  isOfflineLR: z.boolean().default(false),
-}).refine((data) => {
-  // Items required only when NOT offline
-  if (!data.isOfflineLR && data.items.length === 0) {
-    return false;
-  }
-  return true;
-}, {
-  message: "At least one item is required for digital LR",
-  path: ["items"]
-});
+const lrSchema = z
+  .object({
+    lrNumber: z.string().min(1, "LR number is required"),
+    lrDate: z.string().min(1, "LR date is required"),
+    documents: z.array(documentSchema),
+    items: z.array(lrItemSchema),
+    isOfflineLR: z.boolean().default(false),
+  })
+  .refine(
+    (data) => {
+      if (!data.isOfflineLR && data.items.length === 0) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "At least one item is required for digital LR",
+      path: ["items"],
+    },
+  );
 
 type LRFormData = z.infer<typeof lrSchema>;
 
@@ -123,16 +127,19 @@ interface CreateLRModalProps {
 // ============================================
 
 const getNextLRNumberForCity = (city: LRCitySequence): string => {
-  const nextNumber = (city.current_lr_number + 1).toString().padStart(6, '0');
+  const nextNumber = (city.current_lr_number + 1).toString().padStart(6, "0");
   return `${city.prefix}${nextNumber}`;
 };
 
 const mapUnitType = (unit: string): "BOX" | "CARTOON" | "OTHERS" => {
   if (!unit) return "BOX";
   const upperUnit = unit.toUpperCase();
-  if (upperUnit === "BOX" || upperUnit === "BOXES" || upperUnit === "BX") return "BOX";
-  if (upperUnit === "CARTOON" || upperUnit === "CARTON" || upperUnit === "CTN") return "CARTOON";
-  if (upperUnit === "NOS" || upperUnit === "PCS" || upperUnit === "PIECES") return "OTHERS";
+  if (upperUnit === "BOX" || upperUnit === "BOXES" || upperUnit === "BX")
+    return "BOX";
+  if (upperUnit === "CARTOON" || upperUnit === "CARTON" || upperUnit === "CTN")
+    return "CARTOON";
+  if (upperUnit === "NOS" || upperUnit === "PCS" || upperUnit === "PIECES")
+    return "OTHERS";
   return "OTHERS";
 };
 
@@ -145,7 +152,7 @@ export const CreateLRModal = ({
   onClose,
   onSave,
   booking,
-  nextLRNumber
+  nextLRNumber,
 }: CreateLRModalProps) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,7 +164,6 @@ export const CreateLRModal = ({
   const [selectedCityId, setSelectedCityId] = useState<string>("");
   const [selectedCity, setSelectedCity] = useState<LRCitySequence | null>(null);
 
-  // ✅ NEW: Offline LR state
   const [isOfflineLR, setIsOfflineLR] = useState(false);
 
   const [ewayBillValidations, setEwayBillValidations] = useState<{
@@ -167,10 +173,12 @@ export const CreateLRModal = ({
       validUntil?: string;
       details?: any;
       error?: string;
-    }
+    };
   }>({});
 
-  const [ewayBillValues, setEwayBillValues] = useState<{ [key: number]: string }>({});
+  const [ewayBillValues, setEwayBillValues] = useState<{
+    [key: number]: string;
+  }>({});
 
   const {
     register,
@@ -181,31 +189,43 @@ export const CreateLRModal = ({
     setValue,
     watch,
     trigger,
-    getValues
+    getValues,
   } = useForm<LRFormData>({
     resolver: zodResolver(lrSchema),
     defaultValues: {
-      items: [{
-        quantity: 1,
-        unit_type: "BOX",
-        material_description: ""
-      }],
-      documents: [{
-        ewayBill: "",
-        invoice: ""
-      }],
-      isOfflineLR: false
-    }
+      items: [
+        {
+          quantity: 1,
+          unit_type: "BOX",
+          material_description: "",
+        },
+      ],
+      documents: [
+        {
+          ewayBill: "",
+          invoice: "",
+        },
+      ],
+      isOfflineLR: false,
+    },
   });
 
-  const { fields: itemFields, append: appendItem, remove: removeItem } = useFieldArray({
+  const {
+    fields: itemFields,
+    append: appendItem,
+    remove: removeItem,
+  } = useFieldArray({
     control,
-    name: "items"
+    name: "items",
   });
 
-  const { fields: documentFields, append: appendDocument, remove: removeDocument } = useFieldArray({
+  const {
+    fields: documentFields,
+    append: appendDocument,
+    remove: removeDocument,
+  } = useFieldArray({
     control,
-    name: "documents"
+    name: "documents",
   });
 
   // Load LR cities
@@ -215,14 +235,14 @@ export const CreateLRModal = ({
       const cities = await fetchLRCities();
       setLrCities(cities);
 
-      const activeCity = cities.find(c => c.is_active) || cities[0];
+      const activeCity = cities.find((c) => c.is_active) || cities[0];
       if (activeCity) {
         setSelectedCityId(activeCity.id);
         setSelectedCity(activeCity);
         setValue("lrNumber", getNextLRNumberForCity(activeCity));
       }
     } catch (error) {
-      console.error('Error loading LR cities:', error);
+      console.error("Error loading LR cities:", error);
       setLrCities([]);
     } finally {
       setLoadingLRCities(false);
@@ -230,7 +250,7 @@ export const CreateLRModal = ({
   };
 
   const handleCityChange = (cityId: string) => {
-    const city = lrCities.find(c => c.id === cityId);
+    const city = lrCities.find((c) => c.id === cityId);
     if (city) {
       setSelectedCityId(cityId);
       setSelectedCity(city);
@@ -238,29 +258,27 @@ export const CreateLRModal = ({
     }
   };
 
-  // ✅ NEW: Handle offline checkbox toggle
   const handleOfflineToggle = (checked: boolean) => {
     setIsOfflineLR(checked);
     setValue("isOfflineLR", checked);
 
-    // If switching to offline, clear items validation errors
     if (checked) {
-      // Set default empty items to avoid validation issues
       setValue("items", []);
     } else {
-      // Restore default item when switching back to digital
-      setValue("items", [{
-        quantity: 1,
-        unit_type: "BOX",
-        material_description: ""
-      }]);
+      setValue("items", [
+        {
+          quantity: 1,
+          unit_type: "BOX",
+          material_description: "",
+        },
+      ]);
     }
   };
 
   // E-way bill validation
   const validateEwayBill = async (ewayBillNumber: string, index: number) => {
     if (!ewayBillNumber || ewayBillNumber.length !== 12) {
-      setEwayBillValidations(prev => {
+      setEwayBillValidations((prev) => {
         const updated = { ...prev };
         delete updated[index];
         return updated;
@@ -269,14 +287,14 @@ export const CreateLRModal = ({
     }
 
     setValue(`documents.${index}.ewayBill`, ewayBillNumber);
-    setEwayBillValues(prev => ({
+    setEwayBillValues((prev) => ({
       ...prev,
-      [index]: ewayBillNumber
+      [index]: ewayBillNumber,
     }));
 
-    setEwayBillValidations(prev => ({
+    setEwayBillValidations((prev) => ({
       ...prev,
-      [index]: { loading: true, valid: false }
+      [index]: { loading: true, valid: false },
     }));
 
     try {
@@ -285,17 +303,19 @@ export const CreateLRModal = ({
       setValue(`documents.${index}.ewayBill`, ewayBillNumber);
 
       if (response.success && response.data) {
-        const { isExpired, isExpiringSoon, formatted } = formatValidityDate(response.data.valid_until);
+        const { isExpired, isExpiringSoon, formatted } = formatValidityDate(
+          response.data.valid_until,
+        );
 
-        setEwayBillValidations(prev => ({
+        setEwayBillValidations((prev) => ({
           ...prev,
           [index]: {
             loading: false,
             valid: !isExpired,
             validUntil: formatted,
             details: response.data,
-            error: isExpired ? 'E-way bill has expired' : undefined
-          }
+            error: isExpired ? "E-way bill has expired" : undefined,
+          },
         }));
 
         if (isExpired) {
@@ -317,17 +337,17 @@ export const CreateLRModal = ({
         }
       }
     } catch (error: any) {
-      console.error('E-way bill validation error:', error);
+      console.error("E-way bill validation error:", error);
 
       setValue(`documents.${index}.ewayBill`, ewayBillNumber);
 
-      setEwayBillValidations(prev => ({
+      setEwayBillValidations((prev) => ({
         ...prev,
         [index]: {
           loading: false,
           valid: false,
-          error: error.message || 'Failed to validate E-way bill'
-        }
+          error: error.message || "Failed to validate E-way bill",
+        },
       }));
 
       toast({
@@ -341,14 +361,14 @@ export const CreateLRModal = ({
   const handleLRDateChange = (date: Date | null) => {
     if (date) {
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
       const isoString = `${year}-${month}-${day}`;
 
       setValue("lrDate", isoString);
       setLrDateError(null);
     } else {
-      setValue("lrDate", '');
+      setValue("lrDate", "");
       setLrDateError("LR date is required");
     }
   };
@@ -359,7 +379,8 @@ export const CreateLRModal = ({
     if (!isValid) {
       toast({
         title: "Validation Error",
-        description: "Please fix the errors in existing E-way bills before adding new ones",
+        description:
+          "Please fix the errors in existing E-way bills before adding new ones",
         variant: "destructive",
       });
       return;
@@ -371,7 +392,8 @@ export const CreateLRModal = ({
     if (lastDoc && lastDoc.ewayBill && lastDoc.ewayBill.length !== 12) {
       toast({
         title: "Invalid E-way Bill",
-        description: "Please enter a valid 12-digit E-way bill before adding a new row",
+        description:
+          "Please enter a valid 12-digit E-way bill before adding a new row",
         variant: "destructive",
       });
       return;
@@ -386,22 +408,22 @@ export const CreateLRModal = ({
   useEffect(() => {
     if (isOpen && booking) {
       loadLRCities();
-      setValue("lrDate", new Date().toISOString().split('T')[0]);
+      setValue("lrDate", new Date().toISOString().split("T")[0]);
       setIsOfflineLR(false);
       setValue("isOfflineLR", false);
 
       if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
         const documents = booking.eway_bill_details.map((ewb, idx) => {
-          const ewayBillNumber = ewb.number || '';
+          const ewayBillNumber = ewb.number || "";
           if (ewayBillNumber) {
-            setEwayBillValues(prev => ({
+            setEwayBillValues((prev) => ({
               ...prev,
-              [idx]: ewayBillNumber
+              [idx]: ewayBillNumber,
             }));
           }
           return {
             ewayBill: ewayBillNumber,
-            invoice: ewb.document_number || ''
+            invoice: ewb.document_number || "",
           };
         });
 
@@ -409,30 +431,36 @@ export const CreateLRModal = ({
 
         const firstEway = booking.eway_bill_details[0];
 
-        if (firstEway.raw_data?.itemList && firstEway.raw_data.itemList.length > 0) {
+        if (
+          firstEway.raw_data?.itemList &&
+          firstEway.raw_data.itemList.length > 0
+        ) {
           const items = firstEway.raw_data.itemList.map((item: any) => {
             const unitType = mapUnitType(item.qtyUnit);
             return {
               quantity: item.quantity || 1,
               unit_type: unitType,
-              custom_unit_type: unitType === 'OTHERS' ? item.qtyUnit : '',
-              material_description: item.productName || item.productDesc || 'Goods'
+              custom_unit_type: unitType === "OTHERS" ? item.qtyUnit : "",
+              material_description:
+                item.productName || item.productDesc || "Goods",
             };
           });
 
           setValue("items", items);
 
           booking.eway_bill_details.forEach((ewb, index) => {
-            const { formatted, isExpired } = formatValidityDate(ewb.valid_until);
-            setEwayBillValidations(prev => ({
+            const { formatted, isExpired } = formatValidityDate(
+              ewb.valid_until,
+            );
+            setEwayBillValidations((prev) => ({
               ...prev,
               [index]: {
                 loading: false,
                 valid: !isExpired,
                 validUntil: formatted,
                 details: ewb,
-                error: isExpired ? 'E-way bill has expired' : undefined
-              }
+                error: isExpired ? "E-way bill has expired" : undefined,
+              },
             }));
           });
 
@@ -440,18 +468,22 @@ export const CreateLRModal = ({
             title: "🎉 Auto-filled from E-way Bill",
             description: `All details imported from E-way bill #${documents[0].ewayBill}`,
           });
-
         } else {
-          setValue("items", [{
-            quantity: 1,
-            unit_type: "BOX",
-            material_description: booking.materialDescription || ""
-          }]);
+          setValue("items", [
+            {
+              quantity: 1,
+              unit_type: "BOX",
+              material_description: booking.materialDescription || "",
+            },
+          ]);
         }
-
       } else {
-        const ewayBills = booking.bilti_number ? booking.bilti_number.split(',').map(num => num.trim()) : [];
-        const invoices = booking.invoice_number ? booking.invoice_number.split(',').map(num => num.trim()) : [];
+        const ewayBills = booking.bilti_number
+          ? booking.bilti_number.split(",").map((num) => num.trim())
+          : [];
+        const invoices = booking.invoice_number
+          ? booking.invoice_number.split(",").map((num) => num.trim())
+          : [];
 
         const maxLength = Math.max(ewayBills.length, invoices.length, 1);
         const documents = [];
@@ -459,36 +491,39 @@ export const CreateLRModal = ({
         for (let i = 0; i < maxLength; i++) {
           const ewayBillNumber = ewayBills[i] || "";
           if (ewayBillNumber) {
-            setEwayBillValues(prev => ({
+            setEwayBillValues((prev) => ({
               ...prev,
-              [i]: ewayBillNumber
+              [i]: ewayBillNumber,
             }));
           }
           documents.push({
             ewayBill: ewayBillNumber,
-            invoice: invoices[i] || ""
+            invoice: invoices[i] || "",
           });
         }
 
         setValue("documents", documents);
 
         if (booking.materialDescription && booking.cargoUnits) {
-          const parts = booking.cargoUnits.split(' ');
-          const quantity = parseInt(parts[0] || '1');
-          const unit = parts.slice(1).join(' ');
+          const parts = booking.cargoUnits.split(" ");
+          const quantity = parseInt(parts[0] || "1");
+          const unit = parts.slice(1).join(" ");
           const unitType = mapUnitType(unit);
 
-          setValue("items", [{
-            quantity: quantity,
-            unit_type: unitType,
-            custom_unit_type: unitType === 'OTHERS' ? unit : '',
-            material_description: booking.materialDescription
-          }]);
+          setValue("items", [
+            {
+              quantity: quantity,
+              unit_type: unitType,
+              custom_unit_type: unitType === "OTHERS" ? unit : "",
+              material_description: booking.materialDescription,
+            },
+          ]);
         } else {
-          setValue("items", [{ quantity: 1, unit_type: "BOX", material_description: "" }]);
+          setValue("items", [
+            { quantity: 1, unit_type: "BOX", material_description: "" },
+          ]);
         }
       }
-
     } else if (!isOpen) {
       reset();
       setLrDateError(null);
@@ -501,44 +536,46 @@ export const CreateLRModal = ({
     }
   }, [isOpen, booking]);
 
-  const generateCargoStrings = (items: LRFormData['items']) => {
+  const generateCargoStrings = (items: LRFormData["items"]) => {
     if (!items || items.length === 0) return { units: "", materials: "" };
 
-    const units = items.map(item => {
-      let unitType = item.unit_type;
-      if (item.unit_type === 'OTHERS' && item.custom_unit_type) {
-        unitType = item.custom_unit_type;
-      }
-      return `${item.quantity} ${unitType}`;
-    }).join(', ');
+    const units = items
+      .map((item) => {
+        let unitType = item.unit_type;
+        if (item.unit_type === "OTHERS" && item.custom_unit_type) {
+          unitType = item.custom_unit_type;
+        }
+        return `${item.quantity} ${unitType}`;
+      })
+      .join(", ");
 
-    const materials = items.map(item => item.material_description).join(', ');
+    const materials = items.map((item) => item.material_description).join(", ");
 
     return { units, materials };
   };
 
-  const generateDisplayFormat = (items: LRFormData['items']) => {
+  const generateDisplayFormat = (items: LRFormData["items"]) => {
     if (!items || items.length === 0) return "No items added";
 
-    return items.map(item => {
-      let unitType = item.unit_type;
-      if (item.unit_type === 'OTHERS' && item.custom_unit_type) {
-        unitType = item.custom_unit_type;
-      }
-      return `${item.quantity} ${unitType} - ${item.material_description}`;
-    }).join('\n');
+    return items
+      .map((item) => {
+        let unitType = item.unit_type;
+        if (item.unit_type === "OTHERS" && item.custom_unit_type) {
+          unitType = item.custom_unit_type;
+        }
+        return `${item.quantity} ${unitType} - ${item.material_description}`;
+      })
+      .join("\n");
   };
 
-  // ✅ UPDATED: Submit handler with offline support
   const onSubmit = async (data: LRFormData) => {
     setIsSubmitting(true);
 
     try {
-      // ✅ Skip cargo validation for offline LR
       if (!isOfflineLR) {
         const ewayBillsToValidate = data.documents
           .map((doc, index) => ({ number: doc.ewayBill, index }))
-          .filter(item => item.number && item.number.length === 12);
+          .filter((item) => item.number && item.number.length === 12);
 
         for (const item of ewayBillsToValidate) {
           if (!ewayBillValidations[item.index]?.details) {
@@ -550,8 +587,9 @@ export const CreateLRModal = ({
           }
         }
 
-        const invalidItems = data.items.filter(item =>
-          item.unit_type === 'OTHERS' && !item.custom_unit_type?.trim()
+        const invalidItems = data.items.filter(
+          (item) =>
+            item.unit_type === "OTHERS" && !item.custom_unit_type?.trim(),
         );
         if (invalidItems.length > 0) {
           toast({
@@ -564,18 +602,15 @@ export const CreateLRModal = ({
         }
       }
 
-      // Generate cargo strings (empty for offline)
       const { units, materials } = isOfflineLR
         ? { units: "", materials: "" }
         : generateCargoStrings(data.items);
 
-      // E-way bill details
       const ewayBillDetailsArray = data.documents
         .map((doc, index) => {
           if (doc.ewayBill && ewayBillValidations[index]?.details) {
             return ewayBillValidations[index].details;
           }
-          // For offline, just save the number without validation
           if (doc.ewayBill && isOfflineLR) {
             return { number: doc.ewayBill, is_offline: true };
           }
@@ -584,14 +619,14 @@ export const CreateLRModal = ({
         .filter(Boolean);
 
       const ewayBillsString = data.documents
-        .map(doc => doc.ewayBill)
-        .filter(eb => eb)
-        .join(',');
+        .map((doc) => doc.ewayBill)
+        .filter((eb) => eb)
+        .join(",");
 
       const invoicesString = data.documents
-        .map(doc => doc.invoice)
-        .filter(inv => inv)
-        .join(',');
+        .map((doc) => doc.invoice)
+        .filter((inv) => inv)
+        .join(",");
 
       if (booking?.id) {
         const updateData: any = {
@@ -601,8 +636,9 @@ export const CreateLRModal = ({
           invoice_number: invoicesString || null,
           cargo_units: units || null,
           material_description: materials || null,
-          eway_bill_details: ewayBillDetailsArray.length > 0 ? ewayBillDetailsArray : null,
-          is_offline_lr: isOfflineLR  // ✅ NEW: Save offline flag
+          eway_bill_details:
+            ewayBillDetailsArray.length > 0 ? ewayBillDetailsArray : null,
+          is_offline_lr: isOfflineLR,
         };
 
         if (selectedCity?.id) {
@@ -610,16 +646,15 @@ export const CreateLRModal = ({
         }
 
         const { error: updateError } = await supabase
-          .from('bookings')
+          .from("bookings")
           .update(updateData)
-          .eq('id', booking.id);
+          .eq("id", booking.id);
 
         if (updateError) {
-          console.error('Error updating booking with LR:', updateError);
+          console.error("Error updating booking with LR:", updateError);
           throw updateError;
         }
 
-        // Call onSave callback
         await onSave(booking.id, {
           lrNumber: data.lrNumber,
           lrDate: data.lrDate,
@@ -628,24 +663,30 @@ export const CreateLRModal = ({
           cargoUnitsString: units,
           materialDescription: materials,
           ewayBillDetails: ewayBillDetailsArray,
-          isOfflineLR: isOfflineLR
+          isOfflineLR: isOfflineLR,
         });
 
-        // Increment LR number
         try {
           if (selectedCity) {
-            await updateLRCityNumber(selectedCity.id, selectedCity.current_lr_number + 1);
+            await updateLRCityNumber(
+              selectedCity.id,
+              selectedCity.current_lr_number + 1,
+            );
           }
         } catch (incrementError) {
-          console.error('Warning: Failed to increment LR number:', incrementError);
+          console.error(
+            "Warning: Failed to increment LR number:",
+            incrementError,
+          );
         }
 
-        // ✅ Updated success message
         toast({
-          title: isOfflineLR ? "✅ Offline LR Created" : "✅ LR Created Successfully",
+          title: isOfflineLR
+            ? "✅ Offline LR Created"
+            : "✅ LR Created Successfully",
           description: isOfflineLR
             ? `Offline LR ${data.lrNumber} created. You can upload the physical LR later.`
-            : `LR ${data.lrNumber} created for ${selectedCity?.city_name || 'default city'}`,
+            : `LR ${data.lrNumber} created for ${selectedCity?.city_name || "default city"}`,
         });
 
         onClose();
@@ -658,7 +699,7 @@ export const CreateLRModal = ({
         setIsSubmitting(false);
       }
     } catch (error) {
-      console.error('Error in LR submission:', error);
+      console.error("Error in LR submission:", error);
       toast({
         title: "Error",
         description: "Failed to save LR. Please try again.",
@@ -688,34 +729,44 @@ export const CreateLRModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create Lorry Receipt (LR)</DialogTitle>
+      <DialogContent className="sm:max-w-3xl min-[2000px]:sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="min-[2000px]:pb-2">
+          <DialogTitle className="text-lg min-[2000px]:text-xl">
+            Create Lorry Receipt (LR)
+          </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="space-y-4 min-[2000px]:space-y-5"
+        >
           {/* Booking Info */}
-          <div className="p-3 bg-muted/50 rounded-lg text-sm">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="p-3 min-[2000px]:p-4 bg-muted/50 rounded-lg text-sm min-[2000px]:text-base">
+            <div className="grid grid-cols-2 gap-2 min-[2000px]:gap-3">
               <div>
                 <span className="text-muted-foreground">Booking:</span>
                 <span className="ml-2 font-medium">{booking.bookingId}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Route:</span>
-                <span className="ml-2">{booking.fromLocation} → {booking.toLocation}</span>
+                <span className="ml-2">
+                  {booking.fromLocation} → {booking.toLocation}
+                </span>
               </div>
             </div>
           </div>
+
           {/* LR City Selection */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
+          <div className="space-y-2 min-[2000px]:space-y-3">
+            <Label className="text-sm min-[2000px]:text-base font-medium">
               LR City <span className="text-destructive">*</span>
             </Label>
             {loadingLRCities ? (
-              <div className="flex items-center gap-2 h-10 px-3 border border-input rounded-md bg-muted">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">Loading LR cities...</span>
+              <div className="flex items-center gap-2 h-10 min-[2000px]:h-12 px-3 min-[2000px]:px-4 border border-input rounded-md bg-muted">
+                <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 animate-spin text-primary" />
+                <span className="text-sm min-[2000px]:text-base text-muted-foreground">
+                  Loading LR cities...
+                </span>
               </div>
             ) : lrCities.length > 0 ? (
               <Select
@@ -723,16 +774,19 @@ export const CreateLRModal = ({
                 onValueChange={handleCityChange}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base">
                   <SelectValue placeholder="Select LR city">
                     {selectedCity && (
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-primary" />
-                        <Badge variant="secondary" className="font-mono text-xs">
+                        <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-primary" />
+                        <Badge
+                          variant="secondary"
+                          className="font-mono text-xs min-[2000px]:text-sm min-[2000px]:h-6"
+                        >
                           {selectedCity.prefix}
                         </Badge>
                         <span>{selectedCity.city_name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">
+                        <span className="text-xs min-[2000px]:text-sm text-muted-foreground ml-auto">
                           Next: {getNextLRNumberForCity(selectedCity)}
                         </span>
                       </div>
@@ -740,20 +794,32 @@ export const CreateLRModal = ({
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {lrCities.map(city => (
-                    <SelectItem key={city.id} value={city.id}>
+                  {lrCities.map((city) => (
+                    <SelectItem
+                      key={city.id}
+                      value={city.id}
+                      className="p-2 min-[2000px]:p-3"
+                    >
                       <div className="flex items-center gap-2 w-full">
-                        <MapPin className="w-4 h-4 text-muted-foreground" />
-                        <Badge variant="secondary" className="font-mono text-xs">
+                        <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-muted-foreground" />
+                        <Badge
+                          variant="secondary"
+                          className="font-mono text-xs min-[2000px]:text-sm min-[2000px]:h-6"
+                        >
                           {city.prefix}
                         </Badge>
-                        <span>{city.city_name}</span>
+                        <span className="text-sm min-[2000px]:text-base">
+                          {city.city_name}
+                        </span>
                         {city.is_active && (
-                          <Badge variant="outline" className="text-xs text-green-600 border-green-600 ml-2">
+                          <Badge
+                            variant="outline"
+                            className="text-xs min-[2000px]:text-sm text-green-600 border-green-600 ml-2"
+                          >
                             Active
                           </Badge>
                         )}
-                        <span className="text-xs text-muted-foreground ml-auto">
+                        <span className="text-xs min-[2000px]:text-sm text-muted-foreground ml-auto">
                           Next: {getNextLRNumberForCity(city)}
                         </span>
                       </div>
@@ -767,25 +833,31 @@ export const CreateLRModal = ({
           </div>
 
           {/* LR Number & Date */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
             <div>
-              <Label>LR Number</Label>
+              <Label className="text-sm min-[2000px]:text-base">
+                LR Number
+              </Label>
               <Input
                 {...register("lrNumber")}
-                className="bg-muted"
+                className="bg-muted h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base"
               />
               {errors.lrNumber && (
-                <p className="text-sm text-destructive mt-1">{errors.lrNumber.message}</p>
+                <p className="text-sm min-[2000px]:text-base text-destructive mt-1">
+                  {errors.lrNumber.message}
+                </p>
               )}
             </div>
             <div>
-              <Label>LR Date *</Label>
+              <Label className="text-sm min-[2000px]:text-base">
+                LR Date *
+              </Label>
               <DatePicker
                 selected={watch("lrDate") ? new Date(watch("lrDate")) : null}
                 onChange={handleLRDateChange}
                 dateFormat="dd/MM/yyyy"
                 placeholderText="Select any date"
-                className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm ${(errors.lrDate || lrDateError) ? 'border-destructive' : 'border-input'}`}
+                className={`flex h-10 min-[2000px]:h-12 w-full rounded-md border bg-background px-3 min-[2000px]:px-4 py-2 min-[2000px]:py-3 text-sm min-[2000px]:text-base ${errors.lrDate || lrDateError ? "border-destructive" : "border-input"}`}
                 disabled={isSubmitting}
                 showYearDropdown
                 showMonthDropdown
@@ -797,18 +869,18 @@ export const CreateLRModal = ({
                 preventOpenOnFocus={true}
               />
               {(errors.lrDate || lrDateError) && (
-                <p className="text-sm text-destructive mt-1">
+                <p className="text-sm min-[2000px]:text-base text-destructive mt-1">
                   {errors.lrDate?.message || lrDateError}
                 </p>
               )}
             </div>
           </div>
 
-          {/* E-way Bills Section - Always visible */}
-          <div className="space-y-3">
+          {/* E-way Bills Section */}
+          <div className="space-y-3 min-[2000px]:space-y-4">
             <div className="flex justify-between items-center">
-              <Label className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
+              <Label className="flex items-center gap-2 text-sm min-[2000px]:text-base">
+                <FileText className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                 E-way Bills & Invoice Numbers
               </Label>
               <Button
@@ -817,21 +889,22 @@ export const CreateLRModal = ({
                 size="sm"
                 onClick={handleAddDocument}
                 disabled={documentFields.length >= 10}
+                className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm"
               >
-                <Plus className="w-3 h-3 mr-1" />
+                <Plus className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                 Add Row
               </Button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 min-[2000px]:space-y-3">
               {documentFields.map((field, index) => {
                 const validation = ewayBillValidations[index];
 
                 return (
                   <div key={field.id} className="space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 min-[2000px]:gap-3">
                       <div className="flex-1">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 min-[2000px]:gap-3">
                           <div className="relative flex-1">
                             <Controller
                               name={`documents.${index}.ewayBill`}
@@ -840,14 +913,22 @@ export const CreateLRModal = ({
                                 <Input
                                   placeholder="12-digit E-way bill (optional)"
                                   maxLength={12}
-                                  className={cn("pr-10", validation?.error && "border-destructive")}
-                                  value={field.value || ewayBillValues[index] || ''}
+                                  className={cn(
+                                    "pr-10 min-[2000px]:pr-12 h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base",
+                                    validation?.error && "border-destructive",
+                                  )}
+                                  value={
+                                    field.value || ewayBillValues[index] || ""
+                                  }
                                   onChange={(e) => {
-                                    const val = e.target.value.replace(/\D/g, '');
+                                    const val = e.target.value.replace(
+                                      /\D/g,
+                                      "",
+                                    );
                                     field.onChange(val);
-                                    setEwayBillValues(prev => ({
+                                    setEwayBillValues((prev) => ({
                                       ...prev,
-                                      [index]: val
+                                      [index]: val,
                                     }));
                                   }}
                                   onBlur={field.onBlur}
@@ -855,56 +936,62 @@ export const CreateLRModal = ({
                               )}
                             />
                             {validation?.loading && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                              <div className="absolute right-2 min-[2000px]:right-3 top-1/2 -translate-y-1/2">
+                                <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 animate-spin text-muted-foreground" />
                               </div>
                             )}
                             {!validation?.loading && validation?.valid && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <div className="absolute right-2 min-[2000px]:right-3 top-1/2 -translate-y-1/2">
+                                <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-green-600" />
                               </div>
                             )}
                             {!validation?.loading && validation?.error && (
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                <XCircle className="w-4 h-4 text-destructive" />
+                              <div className="absolute right-2 min-[2000px]:right-3 top-1/2 -translate-y-1/2">
+                                <XCircle className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-destructive" />
                               </div>
                             )}
                           </div>
 
-                          {/* ✅ Hide validate button for offline LR */}
                           {!isOfflineLR && (
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
                               onClick={() => {
-                                const currentValue = getValues(`documents.${index}.ewayBill`) || ewayBillValues[index] || '';
-                                if (currentValue && currentValue.length === 12) {
+                                const currentValue =
+                                  getValues(`documents.${index}.ewayBill`) ||
+                                  ewayBillValues[index] ||
+                                  "";
+                                if (
+                                  currentValue &&
+                                  currentValue.length === 12
+                                ) {
                                   validateEwayBill(currentValue, index);
                                 } else {
                                   toast({
                                     title: "❌ Invalid Format",
-                                    description: "E-way bill must be exactly 12 digits",
+                                    description:
+                                      "E-way bill must be exactly 12 digits",
                                     variant: "destructive",
                                   });
                                 }
                               }}
                               disabled={validation?.loading}
-                              className="hover:bg-primary/10 hover:border-primary"
+                              className="h-10 min-[2000px]:h-12 text-xs min-[2000px]:text-sm hover:bg-primary/10 hover:border-primary"
                             >
                               {validation?.loading ? (
                                 <>
-                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-1 animate-spin" />
                                   Checking
                                 </>
                               ) : validation?.valid ? (
                                 <>
-                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-1" />
                                   Valid
                                 </>
                               ) : (
                                 <>
-                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-1" />
                                   Validate
                                 </>
                               )}
@@ -912,7 +999,7 @@ export const CreateLRModal = ({
                           )}
                         </div>
                         {errors.documents?.[index]?.ewayBill && (
-                          <p className="text-xs text-destructive mt-1">
+                          <p className="text-xs min-[2000px]:text-sm text-destructive mt-1">
                             {errors.documents[index]?.ewayBill?.message}
                           </p>
                         )}
@@ -922,6 +1009,7 @@ export const CreateLRModal = ({
                         <Input
                           {...register(`documents.${index}.invoice`)}
                           placeholder="Invoice number (optional)"
+                          className="h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base"
                         />
                       </div>
 
@@ -931,44 +1019,48 @@ export const CreateLRModal = ({
                         size="sm"
                         onClick={() => {
                           removeDocument(index);
-                          setEwayBillValidations(prev => {
+                          setEwayBillValidations((prev) => {
                             const updated = { ...prev };
                             delete updated[index];
                             return updated;
                           });
-                          setEwayBillValues(prev => {
+                          setEwayBillValues((prev) => {
                             const updated = { ...prev };
                             delete updated[index];
                             return updated;
                           });
                         }}
                         disabled={documentFields.length === 1}
+                        className="h-10 min-[2000px]:h-12 w-10 min-[2000px]:w-12"
                       >
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <Trash2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-destructive" />
                       </Button>
                     </div>
 
                     {validation?.validUntil && !isOfflineLR && (
-                      <div className="flex items-center gap-2 px-2">
+                      <div className="flex items-center gap-2 px-2 min-[2000px]:px-3">
                         <Badge
                           variant={validation.valid ? "default" : "destructive"}
-                          className="text-xs"
+                          className="text-xs min-[2000px]:text-sm min-[2000px]:h-6"
                         >
                           {validation.valid ? (
                             <>
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              <CheckCircle2 className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                               Valid until: {validation.validUntil}
                             </>
                           ) : (
                             <>
-                              <XCircle className="w-3 h-3 mr-1" />
+                              <XCircle className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                               Expired: {validation.validUntil}
                             </>
                           )}
                         </Badge>
                         {validation.details?.is_mock && (
-                          <Badge variant="outline" className="text-xs">
-                            <AlertTriangle className="w-3 h-3 mr-1" />
+                          <Badge
+                            variant="outline"
+                            className="text-xs min-[2000px]:text-sm min-[2000px]:h-6"
+                          >
+                            <AlertTriangle className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                             Test Data
                           </Badge>
                         )}
@@ -979,64 +1071,77 @@ export const CreateLRModal = ({
               })}
             </div>
           </div>
-          {/* ✅ NEW: Offline LR Checkbox */}
-          <div className="flex items-center space-x-3 p-3 border border-dashed rounded-lg bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+
+          {/* Offline LR Checkbox */}
+          <div className="flex items-center space-x-3 min-[2000px]:space-x-4 p-3 min-[2000px]:p-4 border border-dashed rounded-lg bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
             <Checkbox
               id="offline-lr"
               checked={isOfflineLR}
               onCheckedChange={handleOfflineToggle}
               disabled={isSubmitting}
+              className="min-[2000px]:h-5 min-[2000px]:w-5"
             />
             <div className="flex-1">
               <Label
                 htmlFor="offline-lr"
-                className="text-sm font-medium cursor-pointer flex items-center gap-2"
+                className="text-sm min-[2000px]:text-base font-medium cursor-pointer flex items-center gap-2"
               >
-                <FileEdit className="w-4 h-4 text-amber-600" />
+                <FileEdit className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-amber-600" />
                 Create LR Offline (Manual/Physical LR)
               </Label>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Check this if you're creating a physical LR. You can upload the scanned copy later.
+              <p className="text-xs min-[2000px]:text-sm text-muted-foreground mt-0.5">
+                Check this if you're creating a physical LR. You can upload the
+                scanned copy later.
               </p>
             </div>
           </div>
-          {/* ✅ Cargo Items Section - HIDDEN when offline */}
+
+          {/* Cargo Items Section - HIDDEN when offline */}
           {!isOfflineLR && (
-            <div className="space-y-3">
+            <div className="space-y-3 min-[2000px]:space-y-4">
               <div className="flex justify-between">
-                <Label className="flex items-center gap-2">
-                  <Package className="w-4 h-4" />
+                <Label className="flex items-center gap-2 text-sm min-[2000px]:text-base">
+                  <Package className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                   Cargo Items & Materials
                 </Label>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => itemFields.length < 5 && appendItem({
-                    quantity: 1,
-                    unit_type: "BOX",
-                    material_description: ""
-                  })}
+                  onClick={() =>
+                    itemFields.length < 5 &&
+                    appendItem({
+                      quantity: 1,
+                      unit_type: "BOX",
+                      material_description: "",
+                    })
+                  }
                   disabled={itemFields.length >= 5}
+                  className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm"
                 >
-                  <Plus className="w-3 h-3 mr-1" />
+                  <Plus className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                   Add Item
                 </Button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-[2000px]:space-y-3">
                 {itemFields.map((field, index) => {
                   const itemType = watch(`items.${index}.unit_type`);
 
                   return (
-                    <div key={field.id} className="p-3 border rounded-lg bg-background">
-                      <div className="flex gap-2 mb-2">
+                    <div
+                      key={field.id}
+                      className="p-3 min-[2000px]:p-4 border rounded-lg bg-background"
+                    >
+                      <div className="flex gap-2 min-[2000px]:gap-3 mb-2">
                         <Input
                           type="number"
                           min="1"
-                          {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                          {...register(`items.${index}.quantity`, {
+                            valueAsNumber: true,
+                          })}
                           placeholder="Qty"
-                          className="w-20"
+                          className="w-20 min-[2000px]:w-24 h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base"
                         />
 
                         <Select
@@ -1045,21 +1150,36 @@ export const CreateLRModal = ({
                             setValue(`items.${index}.unit_type`, value as any)
                           }
                         >
-                          <SelectTrigger className="w-32">
+                          <SelectTrigger className="w-32 min-[2000px]:w-36 h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="BOX">Box</SelectItem>
-                            <SelectItem value="CARTOON">Cartoon</SelectItem>
-                            <SelectItem value="OTHERS">Others</SelectItem>
+                            <SelectItem
+                              value="BOX"
+                              className="text-sm min-[2000px]:text-base"
+                            >
+                              Box
+                            </SelectItem>
+                            <SelectItem
+                              value="CARTOON"
+                              className="text-sm min-[2000px]:text-base"
+                            >
+                              Cartoon
+                            </SelectItem>
+                            <SelectItem
+                              value="OTHERS"
+                              className="text-sm min-[2000px]:text-base"
+                            >
+                              Others
+                            </SelectItem>
                           </SelectContent>
                         </Select>
 
-                        {itemType === 'OTHERS' && (
+                        {itemType === "OTHERS" && (
                           <Input
                             {...register(`items.${index}.custom_unit_type`)}
                             placeholder="Specify type"
-                            className="flex-1"
+                            className="flex-1 h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base"
                           />
                         )}
 
@@ -1067,20 +1187,23 @@ export const CreateLRModal = ({
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => itemFields.length > 1 && removeItem(index)}
+                          onClick={() =>
+                            itemFields.length > 1 && removeItem(index)
+                          }
                           disabled={itemFields.length === 1}
+                          className="h-10 min-[2000px]:h-12 w-10 min-[2000px]:w-12"
                         >
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <Trash2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-destructive" />
                         </Button>
                       </div>
 
                       <Input
                         {...register(`items.${index}.material_description`)}
                         placeholder="Material description (e.g., Rice Bags 50kg)"
-                        className="w-full"
+                        className="w-full h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base"
                       />
                       {errors.items?.[index]?.material_description && (
-                        <p className="text-xs text-destructive mt-1">
+                        <p className="text-xs min-[2000px]:text-sm text-destructive mt-1">
                           {errors.items[index]?.material_description?.message}
                         </p>
                       )}
@@ -1090,33 +1213,41 @@ export const CreateLRModal = ({
               </div>
 
               {/* Preview */}
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">Preview (LR Format):</p>
-                <pre className="text-sm font-medium whitespace-pre-wrap">
+              <div className="p-3 min-[2000px]:p-4 bg-muted rounded-lg">
+                <p className="text-sm min-[2000px]:text-base text-muted-foreground mb-2">
+                  Preview (LR Format):
+                </p>
+                <pre className="text-sm min-[2000px]:text-base font-medium whitespace-pre-wrap">
                   {generateDisplayFormat(watchedItems)}
                 </pre>
 
-                {watchedDocuments.some(doc => doc.ewayBill || doc.invoice) && (
+                {watchedDocuments.some(
+                  (doc) => doc.ewayBill || doc.invoice,
+                ) && (
                   <div className="mt-3 space-y-2">
-                    {watchedDocuments.some(doc => doc.ewayBill) && (
+                    {watchedDocuments.some((doc) => doc.ewayBill) && (
                       <div>
-                        <p className="text-sm text-muted-foreground">E-way Bills:</p>
-                        <p className="text-sm">
+                        <p className="text-sm min-[2000px]:text-base text-muted-foreground">
+                          E-way Bills:
+                        </p>
+                        <p className="text-sm min-[2000px]:text-base">
                           {watchedDocuments
-                            .map(doc => doc.ewayBill)
-                            .filter(eb => eb)
-                            .join(', ')}
+                            .map((doc) => doc.ewayBill)
+                            .filter((eb) => eb)
+                            .join(", ")}
                         </p>
                       </div>
                     )}
-                    {watchedDocuments.some(doc => doc.invoice) && (
+                    {watchedDocuments.some((doc) => doc.invoice) && (
                       <div>
-                        <p className="text-sm text-muted-foreground">Invoice Numbers:</p>
-                        <p className="text-sm">
+                        <p className="text-sm min-[2000px]:text-base text-muted-foreground">
+                          Invoice Numbers:
+                        </p>
+                        <p className="text-sm min-[2000px]:text-base">
                           {watchedDocuments
-                            .map(doc => doc.invoice)
-                            .filter(inv => inv)
-                            .join(', ')}
+                            .map((doc) => doc.invoice)
+                            .filter((inv) => inv)
+                            .join(", ")}
                         </p>
                       </div>
                     )}
@@ -1126,45 +1257,48 @@ export const CreateLRModal = ({
             </div>
           )}
 
-          {/* ✅ Offline LR Info Box */}
+          {/* Offline LR Info Box */}
           {isOfflineLR && (
-            <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <div className="flex items-start gap-3">
-                <FileEdit className="w-5 h-5 text-amber-600 mt-0.5" />
+            <div className="p-4 min-[2000px]:p-5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="flex items-start gap-3 min-[2000px]:gap-4">
+                <FileEdit className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-amber-600 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-900 dark:text-amber-100">
+                  <p className="font-medium text-base min-[2000px]:text-lg text-amber-900 dark:text-amber-100">
                     Offline LR Mode
                   </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                    You're creating an offline/physical LR. Only LR number, date, and document numbers will be saved.
-                    You can upload the scanned copy of the physical LR later from the booking list.
+                  <p className="text-sm min-[2000px]:text-base text-amber-700 dark:text-amber-300 mt-1">
+                    You're creating an offline/physical LR. Only LR number,
+                    date, and document numbers will be saved. You can upload the
+                    scanned copy of the physical LR later from the booking list.
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="pt-4 min-[2000px]:pt-5 gap-2 min-[2000px]:gap-3">
             <Button
               type="button"
               variant="outline"
               onClick={handleClose}
               disabled={isSubmitting}
+              className="h-10 min-[2000px]:h-11 text-sm min-[2000px]:text-base"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting || !selectedCityId || loadingLRCities}
+              className="h-10 min-[2000px]:h-11 text-sm min-[2000px]:text-base"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2 animate-spin" />
                   Creating...
                 </>
               ) : isOfflineLR ? (
                 <>
-                  <FileEdit className="w-4 h-4 mr-2" />
+                  <FileEdit className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                   Create Offline LR
                 </>
               ) : (

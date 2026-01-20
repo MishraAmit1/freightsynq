@@ -25,7 +25,7 @@ import {
   Headphones,
   Eye,
   EyeOff,
-  Building2, // ✅ NEW IMPORT
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -139,20 +139,24 @@ export const Login = () => {
   return (
     <div className="min-h-screen w-full flex">
       {/* LEFT PANEL - LOGIN FORM */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-white dark:bg-[#1E1E24]">
-        <div className="w-full max-w-md">
-          <div className="mb-8">
-            <p className="text-sm font-medium text-primary dark:text-[#FCC52C] mb-2">
+      {/* Original: lg:w-1/2, Large PC (2000px+): 40% */}
+      <div className="w-full lg:w-1/2 min-[2000px]:w-[40%] flex items-center justify-center p-6 sm:p-8 min-[2000px]:p-12 bg-white dark:bg-[#1E1E24]">
+        <div className="w-full max-w-md min-[2000px]:max-w-xl">
+          <div className="mb-8 min-[2000px]:mb-10">
+            <p className="text-sm min-[2000px]:text-base font-medium text-primary dark:text-[#FCC52C] mb-2">
               Welcome back
             </p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-[#0A0A0A] dark:text-white">
+            <h1 className="text-3xl sm:text-4xl min-[2000px]:text-5xl font-bold text-[#0A0A0A] dark:text-white">
               Sign in to your account
             </h1>
           </div>
 
           <Card className="border border-[#E5E7EB] dark:border-[#35353F] shadow-lg bg-white dark:bg-[#2A2A32]">
-            <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-5">
+            <CardContent className="p-6 min-[2000px]:p-8">
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5 min-[2000px]:space-y-6"
+              >
                 {error && (
                   <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30">
                     <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -200,7 +204,7 @@ export const Login = () => {
                 <div className="space-y-2">
                   <Label
                     htmlFor="identifier"
-                    className="text-sm font-medium text-[#0A0A0A] dark:text-white"
+                    className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white"
                   >
                     Username or Email
                   </Label>
@@ -213,9 +217,9 @@ export const Login = () => {
                       onChange={(e) => setIdentifier(e.target.value)}
                       required
                       disabled={loading}
-                      className="h-11 pl-10 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
+                      className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
                     />
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                    <User className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                   </div>
                 </div>
 
@@ -223,7 +227,7 @@ export const Login = () => {
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="password"
-                      className="text-sm font-medium text-[#0A0A0A] dark:text-white"
+                      className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white"
                     >
                       Password
                     </Label>
@@ -243,19 +247,19 @@ export const Login = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={loading}
-                      className="h-11 pl-10 pr-10 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
+                      className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 pr-10 min-[2000px]:pr-11 border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA] focus:ring-2 focus:ring-[#0A0A0A] dark:focus:ring-[#FCC52C] focus:border-[#0A0A0A] dark:focus:border-[#FCC52C]"
                     />
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                    <Lock className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] dark:text-[#A1A1AA] hover:text-[#0A0A0A] dark:hover:text-[#FCC52C] transition-colors"
+                      className="absolute right-3 min-[2000px]:right-3.5 top-1/2 -translate-y-1/2 text-[#737373] dark:text-[#A1A1AA] hover:text-[#0A0A0A] dark:hover:text-[#FCC52C] transition-colors"
                       tabIndex={-1}
                     >
                       {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
+                        <EyeOff className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                       ) : (
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                       )}
                     </button>
                   </div>
@@ -278,7 +282,7 @@ export const Login = () => {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold shadow-md hover:shadow-lg dark:shadow-[0_4px_20px_rgba(252,197,44,0.3)] transition-all"
+                  className="w-full h-11 min-[2000px]:h-12 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold shadow-md hover:shadow-lg dark:shadow-[0_4px_20px_rgba(252,197,44,0.3)] transition-all"
                   disabled={loading}
                 >
                   {loading ? (
@@ -294,7 +298,7 @@ export const Login = () => {
                   )}
                 </Button>
 
-                {/* ✅ NEW: Two Options - Create Company OR Join Company */}
+                {/* Create/Join Company Options */}
                 <div className="space-y-4 pt-2">
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
@@ -308,7 +312,6 @@ export const Login = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Create Company - Owner Signup */}
                     <Link to="/signup">
                       <Button
                         type="button"
@@ -320,7 +323,6 @@ export const Login = () => {
                       </Button>
                     </Link>
 
-                    {/* Join Company - Employee Signup */}
                     <Link to="/employee-signup">
                       <Button
                         type="button"
@@ -339,9 +341,9 @@ export const Login = () => {
         </div>
       </div>
 
-      {/* RIGHT PANEL - Keep as is */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
-        {/* ... Rest of the right panel code remains same ... */}
+      {/* RIGHT PANEL - Branding */}
+      {/* Original: lg:w-1/2, Large PC (2000px+): 60% */}
+      <div className="hidden lg:flex lg:w-1/2 min-[2000px]:w-[60%] bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
         <style>{`
           @keyframes borderFlow {
             0%, 100% { background-position: 0% 50%; }
@@ -366,6 +368,10 @@ export const Login = () => {
             border-radius: 0 4px 4px 0;
           }
           
+          @media (min-width: 2000px) {
+            .animated-corner-tl::before { width: 200px; height: 4px; }
+          }
+          
           .animated-corner-tl::after {
             content: '';
             position: absolute;
@@ -377,6 +383,10 @@ export const Login = () => {
             background-size: 100% 300%;
             animation: borderFlow 2s ease-in-out infinite;
             border-radius: 0 0 4px 4px;
+          }
+          
+          @media (min-width: 2000px) {
+            .animated-corner-tl::after { height: 200px; width: 4px; }
           }
           
           .animated-corner-br::before {
@@ -392,6 +402,10 @@ export const Login = () => {
             border-radius: 4px 0 0 4px;
           }
           
+          @media (min-width: 2000px) {
+            .animated-corner-br::before { width: 200px; height: 4px; }
+          }
+          
           .animated-corner-br::after {
             content: '';
             position: absolute;
@@ -405,6 +419,10 @@ export const Login = () => {
             border-radius: 4px 4px 0 0;
           }
           
+          @media (min-width: 2000px) {
+            .animated-corner-br::after { height: 200px; width: 4px; }
+          }
+          
           .glow-dot {
             animation: glow 2s ease-in-out infinite;
           }
@@ -412,15 +430,16 @@ export const Login = () => {
 
         <div className="animated-corner-tl absolute inset-0 pointer-events-none z-20" />
         <div className="animated-corner-br absolute inset-0 pointer-events-none z-20" />
-        <div className="absolute top-0 left-0 w-2.5 h-2.5 bg-[#FCC52C] rounded-full glow-dot shadow-lg shadow-[#FCC52C]/60 z-20" />
+        <div className="absolute top-0 left-0 w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 bg-[#FCC52C] rounded-full glow-dot shadow-lg shadow-[#FCC52C]/60 z-20" />
         <div
-          className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#F38810] rounded-full glow-dot shadow-lg shadow-[#F38810]/60 z-20"
+          className="absolute bottom-0 right-0 w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 bg-[#F38810] rounded-full glow-dot shadow-lg shadow-[#F38810]/60 z-20"
           style={{ animationDelay: "1s" }}
         />
 
+        {/* Background Effects */}
         <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#FCC52C]/8 rounded-full blur-[120px]" />
-          <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-[#F38810]/8 rounded-full blur-[120px]" />
+          <div className="absolute top-1/4 left-1/4 w-72 min-[2000px]:w-96 h-72 min-[2000px]:h-96 bg-[#FCC52C]/8 rounded-full blur-[120px] min-[2000px]:blur-[150px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-72 min-[2000px]:w-96 h-72 min-[2000px]:h-96 bg-[#F38810]/8 rounded-full blur-[120px] min-[2000px]:blur-[150px]" />
           <div
             className="absolute inset-0 opacity-[0.02]"
             style={{
@@ -431,72 +450,89 @@ export const Login = () => {
           />
         </div>
 
-        <div className="relative z-10 text-center px-12 flex flex-col items-center">
-          <div className="relative mb-8">
+        {/* Content */}
+        <div className="relative z-10 text-center px-12 min-[2000px]:px-16 flex flex-col items-center">
+          {/* Logo */}
+          <div className="relative mb-8 min-[2000px]:mb-10">
             <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl blur-2xl opacity-40" />
-            <div className="relative flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl shadow-2xl">
-              <Truck className="w-10 h-10 text-[#0A0A0F]" />
+            <div className="relative flex items-center justify-center w-20 h-20 min-[2000px]:w-24 min-[2000px]:h-24 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl shadow-2xl">
+              <Truck className="w-10 h-10 min-[2000px]:w-12 min-[2000px]:h-12 text-[#0A0A0F]" />
             </div>
           </div>
 
-          <h2 className="text-4xl font-bold text-white mb-2">
+          <h2 className="text-4xl min-[2000px]:text-5xl font-bold text-white mb-2">
             Freight<span className="text-[#FCC52C]"> SynQ</span>
           </h2>
-          <p className="text-gray-400 text-lg mb-10">
+          <p className="text-gray-400 text-lg min-[2000px]:text-xl mb-10 min-[2000px]:mb-12">
             Smart logistics for modern fleets
           </p>
 
-          <div className="flex flex-wrap justify-center gap-3 mb-14">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
-              <Shield className="w-4 h-4 text-[#FCC52C]" />
-              <span className="text-sm text-gray-300">Secure</span>
+          {/* Feature Badges */}
+          <div className="flex flex-wrap justify-center gap-3 min-[2000px]:gap-4 mb-14 min-[2000px]:mb-16">
+            <div className="flex items-center gap-2 px-4 min-[2000px]:px-5 py-2.5 min-[2000px]:py-3 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
+              <Shield className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#FCC52C]" />
+              <span className="text-sm min-[2000px]:text-base text-gray-300">
+                Secure
+              </span>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
-              <Zap className="w-4 h-4 text-[#FCC52C]" />
-              <span className="text-sm text-gray-300">Real-time</span>
+            <div className="flex items-center gap-2 px-4 min-[2000px]:px-5 py-2.5 min-[2000px]:py-3 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
+              <Zap className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#FCC52C]" />
+              <span className="text-sm min-[2000px]:text-base text-gray-300">
+                Real-time
+              </span>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
-              <Globe className="w-4 h-4 text-[#FCC52C]" />
-              <span className="text-sm text-gray-300">Global</span>
+            <div className="flex items-center gap-2 px-4 min-[2000px]:px-5 py-2.5 min-[2000px]:py-3 bg-white/5 border border-white/10 rounded-full backdrop-blur-sm">
+              <Globe className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#FCC52C]" />
+              <span className="text-sm min-[2000px]:text-base text-gray-300">
+                Global
+              </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 w-full max-w-md">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-3 gap-6 min-[2000px]:gap-8 w-full max-w-md min-[2000px]:max-w-xl">
             <div className="group relative">
               <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
-                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-[#FCC52C]" />
+              <div className="relative p-5 min-[2000px]:p-6 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
+                <div className="w-10 h-10 min-[2000px]:w-12 min-[2000px]:h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
+                  <Users className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-[#FCC52C]" />
                 </div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl min-[2000px]:text-3xl font-bold text-white">
                   500<span className="text-[#FCC52C]">+</span>
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Active Clients</p>
+                <p className="text-xs min-[2000px]:text-sm text-gray-500 mt-1">
+                  Active Clients
+                </p>
               </div>
             </div>
 
             <div className="group relative">
               <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
-                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-[#FCC52C]" />
+              <div className="relative p-5 min-[2000px]:p-6 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
+                <div className="w-10 h-10 min-[2000px]:w-12 min-[2000px]:h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
+                  <Clock className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-[#FCC52C]" />
                 </div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl min-[2000px]:text-3xl font-bold text-white">
                   99.9<span className="text-[#FCC52C]">%</span>
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Uptime SLA</p>
+                <p className="text-xs min-[2000px]:text-sm text-gray-500 mt-1">
+                  Uptime SLA
+                </p>
               </div>
             </div>
+
             <div className="group relative">
               <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-5 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
-                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
-                  <Headphones className="w-5 h-5 text-[#FCC52C]" />
+              <div className="relative p-5 min-[2000px]:p-6 bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl hover:border-[#FCC52C]/30 transition-all duration-300">
+                <div className="w-10 h-10 min-[2000px]:w-12 min-[2000px]:h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-[#FCC52C]/20 to-[#F38810]/10 flex items-center justify-center">
+                  <Headphones className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-[#FCC52C]" />
                 </div>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-2xl min-[2000px]:text-3xl font-bold text-white">
                   24<span className="text-[#FCC52C]">/7</span>
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Support</p>
+                <p className="text-xs min-[2000px]:text-sm text-gray-500 mt-1">
+                  Support
+                </p>
               </div>
             </div>
           </div>

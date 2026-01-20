@@ -150,48 +150,50 @@ const AddPartyForm = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Dashboard Integration Header */}
-      <div className="bg-white border-b border-gray-200 px-8 py-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+      <div className="bg-white border-b border-gray-200 px-8 min-[2000px]:px-12 py-6 min-[2000px]:py-8">
+        <div className="max-w-7xl min-[2000px]:max-w-[1600px] mx-auto">
+          <div className="flex items-center gap-2 text-sm min-[2000px]:text-base text-gray-600 mb-2">
             <span>Dashboard</span>
             <span>/</span>
             <span>Parties</span>
             <span>/</span>
             <span className="text-gray-900">Add New Party</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Add New Party</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl min-[2000px]:text-4xl font-bold text-gray-900">
+            Add New Party
+          </h1>
+          <p className="text-gray-600 mt-1 min-[2000px]:text-lg min-[2000px]:mt-2">
             Create a new client, consignor, or vendor in your system
           </p>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="px-8 py-8">
-        <div className="max-w-7xl mx-auto">
-          <form className="space-y-8">
+      <div className="px-8 min-[2000px]:px-12 py-8 min-[2000px]:py-10">
+        <div className="max-w-7xl min-[2000px]:max-w-[1600px] mx-auto">
+          <form className="space-y-8 min-[2000px]:space-y-10">
             {/* Section 1: Party Type & Basic Info */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="px-8 py-6 border-b border-gray-100">
+              <div className="px-8 min-[2000px]:px-10 py-6 min-[2000px]:py-8 border-b border-gray-100">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-[#FFCB1F] to-[#FFE066] rounded-lg">
-                    <User className="h-5 w-5 text-foreground" />
+                  <div className="p-2 min-[2000px]:p-3 bg-gradient-to-br from-[#FFCB1F] to-[#FFE066] rounded-lg">
+                    <User className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-foreground" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">
+                    <h2 className="text-xl min-[2000px]:text-2xl font-semibold text-gray-900">
                       Basic Information
                     </h2>
-                    <p className="text-sm text-gray-600 mt-0.5">
+                    <p className="text-sm min-[2000px]:text-base text-gray-600 mt-0.5">
                       Primary details about the party
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 space-y-6">
+              <div className="p-8 min-[2000px]:p-10 space-y-6 min-[2000px]:space-y-8">
                 {/* Party Type - Full Width */}
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <div className="bg-gray-50 rounded-lg p-6 min-[2000px]:p-8">
+                  <label className="block text-sm min-[2000px]:text-base font-semibold text-gray-700 mb-2 min-[2000px]:mb-3">
                     Party Type <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -199,7 +201,7 @@ const AddPartyForm = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, partyType: e.target.value })
                     }
-                    className="w-full md:w-1/2 px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all text-gray-900"
+                    className="w-full md:w-1/2 px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all text-gray-900"
                     required
                   >
                     <option value="">Select Party Type</option>
@@ -214,13 +216,13 @@ const AddPartyForm = () => {
 
                 {/* Company Details Group */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                    <Home className="h-4 w-4 text-gray-400" />
+                  <h3 className="text-sm min-[2000px]:text-base font-semibold text-gray-700 mb-4 min-[2000px]:mb-5 flex items-center gap-2">
+                    <Home className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 text-gray-400" />
                     Company Details
                   </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-[2000px]:gap-8">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         Party Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -233,13 +235,13 @@ const AddPartyForm = () => {
                           })
                         }
                         placeholder="Shree Ganesh Roadways"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                        className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         Contact Person
                       </label>
                       <input
@@ -252,7 +254,7 @@ const AddPartyForm = () => {
                           })
                         }
                         placeholder="Rajesh Kumar"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                        className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       />
                     </div>
                   </div>
@@ -260,17 +262,17 @@ const AddPartyForm = () => {
 
                 {/* Contact Information Group */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-400" />
+                  <h3 className="text-sm min-[2000px]:text-base font-semibold text-gray-700 mb-4 min-[2000px]:mb-5 flex items-center gap-2">
+                    <User className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 text-gray-400" />
                     Contact Information
                   </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-[2000px]:gap-8">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         Phone Number <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <span className="absolute left-4 top-3.5 text-gray-500 text-sm font-medium">
+                        <span className="absolute left-4 min-[2000px]:left-5 top-3.5 min-[2000px]:top-4 text-gray-500 text-sm min-[2000px]:text-base font-medium">
                           +91
                         </span>
                         <input
@@ -283,17 +285,17 @@ const AddPartyForm = () => {
                             })
                           }
                           placeholder="98765 43210"
-                          className="w-full pl-14 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                          className="w-full pl-14 min-[2000px]:pl-16 pr-4 min-[2000px]:pr-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                           required
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1.5">
+                      <p className="text-xs min-[2000px]:text-sm text-gray-500 mt-1.5">
                         10-digit mobile number
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         Email Address
                       </label>
                       <input
@@ -303,9 +305,9 @@ const AddPartyForm = () => {
                           setFormData({ ...formData, email: e.target.value })
                         }
                         placeholder="contact@ganeshlogistics.com"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                        className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       />
-                      <p className="text-xs text-gray-500 mt-1.5">
+                      <p className="text-xs min-[2000px]:text-sm text-gray-500 mt-1.5">
                         For sending invoices and updates
                       </p>
                     </div>
@@ -316,30 +318,30 @@ const AddPartyForm = () => {
 
             {/* Section 2: Address Details */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-              <div className="px-8 py-6 border-b border-gray-100">
+              <div className="px-8 min-[2000px]:px-10 py-6 min-[2000px]:py-8 border-b border-gray-100">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-br from-[#FFCB1F] to-[#FFE066] rounded-lg">
-                    <MapPin className="h-5 w-5 text-foreground" />
+                  <div className="p-2 min-[2000px]:p-3 bg-gradient-to-br from-[#FFCB1F] to-[#FFE066] rounded-lg">
+                    <MapPin className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-foreground" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">
+                    <h2 className="text-xl min-[2000px]:text-2xl font-semibold text-gray-900">
                       Address Details
                     </h2>
-                    <p className="text-sm text-gray-600 mt-0.5">
+                    <p className="text-sm min-[2000px]:text-base text-gray-600 mt-0.5">
                       Where is this party located?
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="p-8 space-y-6">
+              <div className="p-8 min-[2000px]:p-10 space-y-6 min-[2000px]:space-y-8">
                 {/* Search Area with Better Spacing */}
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                     Search Area/Locality
                   </label>
                   <div className="relative">
-                    <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                    <Search className="absolute left-4 min-[2000px]:left-5 top-3.5 min-[2000px]:top-4 h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-400" />
                     <input
                       type="text"
                       value={formData.searchArea}
@@ -351,7 +353,7 @@ const AddPartyForm = () => {
                         setShowAreaSuggestions(e.target.value.length > 0);
                       }}
                       placeholder="Search for Chanod, GIDC, Andheri..."
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                      className="w-full pl-12 min-[2000px]:pl-14 pr-4 min-[2000px]:pr-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                     />
                   </div>
 
@@ -363,12 +365,12 @@ const AddPartyForm = () => {
                           key={idx}
                           type="button"
                           onClick={() => handleAreaSelect(suggestion)}
-                          className="w-full text-left px-5 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
+                          className="w-full text-left px-5 min-[2000px]:px-6 py-3 min-[2000px]:py-4 hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors"
                         >
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-gray-900 min-[2000px]:text-lg">
                             {suggestion.area}
                           </div>
-                          <div className="text-sm text-gray-500 mt-0.5">
+                          <div className="text-sm min-[2000px]:text-base text-gray-500 mt-0.5">
                             {suggestion.city}, {suggestion.state} -{" "}
                             {suggestion.pincode}
                           </div>
@@ -380,7 +382,7 @@ const AddPartyForm = () => {
 
                 {/* Full Address */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                     Street Address <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -392,15 +394,15 @@ const AddPartyForm = () => {
                       })
                     }
                     placeholder="Plot 42, Shree Industrial Estate, Near SBI Bank"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all resize-none"
+                    className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all resize-none"
                     required
                   />
                 </div>
 
                 {/* City, State, Pincode Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-[2000px]:gap-8">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                       City <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -410,13 +412,13 @@ const AddPartyForm = () => {
                         setFormData({ ...formData, city: e.target.value })
                       }
                       placeholder="Vapi"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                      className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                       State <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -424,7 +426,7 @@ const AddPartyForm = () => {
                       onChange={(e) =>
                         setFormData({ ...formData, state: e.target.value })
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                      className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       required
                     >
                       <option value="">Select State</option>
@@ -437,7 +439,7 @@ const AddPartyForm = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                       Pincode <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -452,8 +454,7 @@ const AddPartyForm = () => {
                         })
                       }
                       placeholder="396375"
-                      // maxLength="6"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                      className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       required
                     />
                   </div>
@@ -466,43 +467,43 @@ const AddPartyForm = () => {
               <button
                 type="button"
                 onClick={() => toggleSection("taxInfo")}
-                className="w-full px-8 py-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="w-full px-8 min-[2000px]:px-10 py-6 min-[2000px]:py-8 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <FileText className="h-5 w-5 text-gray-600" />
+                  <div className="p-2 min-[2000px]:p-3 bg-gray-100 rounded-lg">
+                    <FileText className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-600" />
                   </div>
                   <div className="text-left">
-                    <h2 className="text-xl font-semibold text-gray-900">
+                    <h2 className="text-xl min-[2000px]:text-2xl font-semibold text-gray-900">
                       Tax Information
                     </h2>
-                    <p className="text-sm text-gray-600 mt-0.5">
+                    <p className="text-sm min-[2000px]:text-base text-gray-600 mt-0.5">
                       GST and PAN details (Optional)
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                  <span className="px-2.5 min-[2000px]:px-3 py-1 min-[2000px]:py-1.5 bg-gray-100 text-gray-600 text-xs min-[2000px]:text-sm font-medium rounded-full">
                     Optional
                   </span>
                   {expandedSections.taxInfo ? (
-                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                    <ChevronUp className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-400" />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                    <ChevronDown className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-400" />
                   )}
                 </div>
               </button>
 
               {expandedSections.taxInfo && (
-                <div className="px-8 pb-8 pt-2 border-t border-gray-100">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="px-8 min-[2000px]:px-10 pb-8 min-[2000px]:pb-10 pt-2 border-t border-gray-100">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-[2000px]:gap-8">
                     {/* GST Number */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3 flex items-center gap-2">
                         GST Number
                         <div className="group relative">
-                          <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
-                          <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap">
+                          <Info className="h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4 text-gray-400 cursor-help" />
+                          <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs min-[2000px]:text-sm rounded whitespace-nowrap">
                             Format: 15 characters (e.g., 24ABCDE1234F1Z5)
                           </div>
                         </div>
@@ -518,19 +519,18 @@ const AddPartyForm = () => {
                             })
                           }
                           placeholder="24ABCDE1234F1Z5"
-                          // maxLength="15"
-                          className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all uppercase"
+                          className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 pr-12 min-[2000px]:pr-14 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all uppercase"
                         />
                         {formData.gstNumber.length === 15 && (
                           <button
                             type="button"
                             onClick={() => setGstVerified(true)}
-                            className="absolute right-3 top-3.5"
+                            className="absolute right-3 min-[2000px]:right-4 top-3.5 min-[2000px]:top-4"
                           >
                             {gstVerified ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
+                              <CheckCircle className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-green-500" />
                             ) : (
-                              <div className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs font-medium rounded">
+                              <div className="px-2 min-[2000px]:px-3 py-0.5 min-[2000px]:py-1 bg-blue-100 text-blue-600 text-xs min-[2000px]:text-sm font-medium rounded">
                                 Verify
                               </div>
                             )}
@@ -541,7 +541,7 @@ const AddPartyForm = () => {
 
                     {/* PAN Number */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         PAN Number
                       </label>
                       <input
@@ -554,25 +554,24 @@ const AddPartyForm = () => {
                           })
                         }
                         placeholder="ABCDE1234F"
-                        // maxLength="10"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all uppercase"
+                        className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all uppercase"
                       />
                     </div>
                   </div>
 
                   {/* Upload Documents */}
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="mt-6 min-[2000px]:mt-8">
+                    <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                       Upload Documents
                     </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 bg-gray-50">
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 min-[2000px]:p-10 bg-gray-50">
                       <div className="flex items-center justify-center">
                         <label className="cursor-pointer flex flex-col items-center">
-                          <Upload className="h-10 w-10 text-gray-400 mb-3" />
-                          <span className="text-sm font-medium text-gray-700">
+                          <Upload className="h-10 w-10 min-[2000px]:h-12 min-[2000px]:w-12 text-gray-400 mb-3" />
+                          <span className="text-sm min-[2000px]:text-base font-medium text-gray-700">
                             Upload GST Certificate / PAN Document
                           </span>
-                          <span className="text-xs text-gray-500 mt-1">
+                          <span className="text-xs min-[2000px]:text-sm text-gray-500 mt-1">
                             PDF, JPG, PNG up to 5MB
                           </span>
                           <input
@@ -593,47 +592,47 @@ const AddPartyForm = () => {
               <button
                 type="button"
                 onClick={() => toggleSection("additionalInfo")}
-                className="w-full px-8 py-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="w-full px-8 min-[2000px]:px-10 py-6 min-[2000px]:py-8 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <CreditCard className="h-5 w-5 text-gray-600" />
+                  <div className="p-2 min-[2000px]:p-3 bg-gray-100 rounded-lg">
+                    <CreditCard className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-600" />
                   </div>
                   <div className="text-left">
-                    <h2 className="text-xl font-semibold text-gray-900">
+                    <h2 className="text-xl min-[2000px]:text-2xl font-semibold text-gray-900">
                       Additional Information
                     </h2>
-                    <p className="text-sm text-gray-600 mt-0.5">
+                    <p className="text-sm min-[2000px]:text-base text-gray-600 mt-0.5">
                       Payment terms and business categories
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+                  <span className="px-2.5 min-[2000px]:px-3 py-1 min-[2000px]:py-1.5 bg-gray-100 text-gray-600 text-xs min-[2000px]:text-sm font-medium rounded-full">
                     Optional
                   </span>
                   {expandedSections.additionalInfo ? (
-                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                    <ChevronUp className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-400" />
                   ) : (
-                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                    <ChevronDown className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-gray-400" />
                   )}
                 </div>
               </button>
 
               {expandedSections.additionalInfo && (
-                <div className="px-8 pb-8 pt-2 border-t border-gray-100 space-y-6">
+                <div className="px-8 min-[2000px]:px-10 pb-8 min-[2000px]:pb-10 pt-2 border-t border-gray-100 space-y-6 min-[2000px]:space-y-8">
                   {/* Business Tags */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-3 min-[2000px]:mb-4">
                       Business Categories / Tags
                     </label>
-                    <div className="flex flex-wrap gap-2.5">
+                    <div className="flex flex-wrap gap-2.5 min-[2000px]:gap-3">
                       {businessTags.map((tag) => (
                         <button
                           key={tag}
                           type="button"
                           onClick={() => handleTagToggle(tag)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          className={`px-4 min-[2000px]:px-5 py-2 min-[2000px]:py-2.5 rounded-lg text-sm min-[2000px]:text-base font-medium transition-all ${
                             formData.tags.includes(tag)
                               ? "bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-foreground shadow-sm"
                               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -646,9 +645,9 @@ const AddPartyForm = () => {
                   </div>
 
                   {/* Payment Terms and Credit */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 min-[2000px]:gap-8">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         Payment Terms
                       </label>
                       <select
@@ -659,7 +658,7 @@ const AddPartyForm = () => {
                             paymentTerms: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                        className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       >
                         <option value="">Select Payment Terms</option>
                         <option value="prepaid">Prepaid</option>
@@ -672,7 +671,7 @@ const AddPartyForm = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                         Credit Limit (₹)
                       </label>
                       <input
@@ -685,13 +684,13 @@ const AddPartyForm = () => {
                           })
                         }
                         placeholder="50,000"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
+                        className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all"
                       />
                     </div>
                   </div>
 
                   {/* Default Billing Checkbox */}
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="bg-gray-50 rounded-lg p-4 min-[2000px]:p-5">
                     <div className="flex items-start">
                       <input
                         type="checkbox"
@@ -703,16 +702,16 @@ const AddPartyForm = () => {
                             isDefaultBilling: e.target.checked,
                           })
                         }
-                        className="h-5 w-5 text-[#3B5988] focus:ring-[#3B5988] border-gray-300 rounded mt-0.5"
+                        className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-[#3B5988] focus:ring-[#3B5988] border-gray-300 rounded mt-0.5"
                       />
-                      <div className="ml-3">
+                      <div className="ml-3 min-[2000px]:ml-4">
                         <label
                           htmlFor="defaultBilling"
-                          className="text-sm font-medium text-gray-700 cursor-pointer"
+                          className="text-sm min-[2000px]:text-base font-medium text-gray-700 cursor-pointer"
                         >
                           Mark as Default Billing Party
                         </label>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="text-xs min-[2000px]:text-sm text-gray-500 mt-0.5">
                           This party will be selected by default for new
                           transactions
                         </p>
@@ -722,7 +721,7 @@ const AddPartyForm = () => {
 
                   {/* Notes */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm min-[2000px]:text-base font-medium text-gray-700 mb-2 min-[2000px]:mb-3">
                       Notes / Special Instructions
                     </label>
                     <textarea
@@ -732,7 +731,7 @@ const AddPartyForm = () => {
                       }
                       placeholder="Any special handling instructions, preferred communication time, etc."
                       rows="4"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all resize-none"
+                      className="w-full px-4 min-[2000px]:px-5 py-3 min-[2000px]:py-3.5 min-[2000px]:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3B5988] focus:border-transparent transition-all resize-none"
                     />
                   </div>
                 </div>
@@ -741,45 +740,45 @@ const AddPartyForm = () => {
           </form>
 
           {/* Form Actions - Better Dashboard Integration */}
-          <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 px-8 py-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <AlertCircle className="h-4 w-4" />
+          <div className="mt-8 min-[2000px]:mt-10 bg-white rounded-xl shadow-sm border border-gray-200 px-8 min-[2000px]:px-10 py-6 min-[2000px]:py-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 min-[2000px]:gap-6">
+              <div className="flex items-center gap-2 text-sm min-[2000px]:text-base text-gray-600">
+                <AlertCircle className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                 <span>
                   Fields marked with <span className="text-red-500">*</span> are
                   required
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-[2000px]:gap-4">
                 <button
                   type="button"
-                  className="px-6 py-2.5 text-gray-600 text-sm font-medium hover:text-gray-900 transition-colors"
+                  className="px-6 min-[2000px]:px-8 py-2.5 min-[2000px]:py-3 text-gray-600 text-sm min-[2000px]:text-base font-medium hover:text-gray-900 transition-colors"
                 >
                   Cancel
                 </button>
 
                 <button
                   type="button"
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 bg-white rounded-lg text-sm font-medium hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm"
+                  className="px-6 min-[2000px]:px-8 py-2.5 min-[2000px]:py-3 border border-gray-300 text-gray-700 bg-white rounded-lg text-sm min-[2000px]:text-base font-medium hover:bg-gray-50 transition-all flex items-center gap-2 shadow-sm"
                 >
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                   Save & Close
                 </button>
 
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-6 py-2.5 bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-foreground rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-6 min-[2000px]:px-8 py-2.5 min-[2000px]:py-3 bg-gradient-to-r from-[#FFCB1F] to-[#FFE066] text-foreground rounded-lg text-sm min-[2000px]:text-base font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-[#1E1E24] border-t-transparent"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 border-2 border-[#1E1E24] border-t-transparent"></div>
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                       Save & Add Another
                     </>
                   )}
@@ -792,20 +791,20 @@ const AddPartyForm = () => {
 
       {/* Success Toast */}
       {false && (
-        <div className="fixed bottom-8 right-8 bg-white border border-green-200 rounded-lg shadow-xl p-5 flex items-start gap-4 max-w-sm">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <CheckCircle className="h-5 w-5 text-green-600" />
+        <div className="fixed bottom-8 right-8 bg-white border border-green-200 rounded-lg shadow-xl p-5 min-[2000px]:p-6 flex items-start gap-4 max-w-sm min-[2000px]:max-w-md">
+          <div className="p-2 min-[2000px]:p-3 bg-green-100 rounded-lg">
+            <CheckCircle className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 text-green-600" />
           </div>
           <div className="flex-1">
-            <p className="font-medium text-gray-900">
+            <p className="font-medium text-gray-900 min-[2000px]:text-lg">
               Party added successfully
             </p>
-            <p className="text-sm text-gray-600 mt-0.5">
+            <p className="text-sm min-[2000px]:text-base text-gray-600 mt-0.5">
               Shree Ganesh Roadways has been created
             </p>
           </div>
           <button className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6" />
           </button>
         </div>
       )}

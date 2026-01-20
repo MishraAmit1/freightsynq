@@ -5,7 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -16,7 +16,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Truck, User, Loader2 } from "lucide-react";
-import { fetchAvailableVehicles, fetchDrivers, assignVehicleToBooking } from "@/api/vehicles";
+import {
+  fetchAvailableVehicles,
+  fetchDrivers,
+  assignVehicleToBooking,
+} from "@/api/vehicles";
 import { useToast } from "@/hooks/use-toast";
 
 interface VehicleAssignmentModalProps {
@@ -30,7 +34,7 @@ export const VehicleAssignmentModal = ({
   isOpen,
   onClose,
   onAssign,
-  bookingId
+  bookingId,
 }: VehicleAssignmentModalProps) => {
   const { toast } = useToast();
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
@@ -52,17 +56,17 @@ export const VehicleAssignmentModal = ({
       setDataLoading(true);
       const [vehiclesData, driversData] = await Promise.all([
         fetchAvailableVehicles(),
-        fetchDrivers()
+        fetchDrivers(),
       ]);
 
       setVehicles(vehiclesData);
       setDrivers(driversData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
       toast({
         title: "Error",
         description: "Failed to load vehicles and drivers",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setDataLoading(false);
@@ -74,7 +78,7 @@ export const VehicleAssignmentModal = ({
       toast({
         title: "Selection Required",
         description: "Please select both vehicle and driver",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -85,11 +89,11 @@ export const VehicleAssignmentModal = ({
       await assignVehicleToBooking({
         booking_id: bookingId,
         vehicle_id: selectedVehicleId,
-        driver_id: selectedDriverId
+        driver_id: selectedDriverId,
       });
 
-      const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
-      const selectedDriver = drivers.find(d => d.id === selectedDriverId);
+      const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId);
+      const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
 
       if (selectedVehicle && selectedDriver) {
         const assignment = {
@@ -101,7 +105,7 @@ export const VehicleAssignmentModal = ({
             id: selectedDriver.id,
             name: selectedDriver.name,
             phone: selectedDriver.phone,
-          }
+          },
         };
 
         onAssign(assignment);
@@ -116,11 +120,11 @@ export const VehicleAssignmentModal = ({
         onClose();
       }
     } catch (error) {
-      console.error('Error assigning vehicle:', error);
+      console.error("Error assigning vehicle:", error);
       toast({
         title: "Error",
         description: "Failed to assign vehicle. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -130,10 +134,12 @@ export const VehicleAssignmentModal = ({
   if (dataLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin" />
-            <span className="ml-2">Loading...</span>
+        <DialogContent className="sm:max-w-md min-[2000px]:sm:max-w-lg">
+          <div className="flex items-center justify-center py-8 min-[2000px]:py-10">
+            <Loader2 className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 animate-spin" />
+            <span className="ml-2 text-sm min-[2000px]:text-base">
+              Loading...
+            </span>
           </div>
         </DialogContent>
       </Dialog>
@@ -142,27 +148,38 @@ export const VehicleAssignmentModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-primary" />
+      <DialogContent className="sm:max-w-md min-[2000px]:sm:max-w-lg">
+        <DialogHeader className="min-[2000px]:pb-2">
+          <DialogTitle className="flex items-center gap-2 min-[2000px]:gap-3 text-lg min-[2000px]:text-xl">
+            <Truck className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-primary" />
             Assign Vehicle - {bookingId}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="vehicle">Select Vehicle</Label>
-            <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-              <SelectTrigger>
+        <div className="space-y-4 min-[2000px]:space-y-5 py-4 min-[2000px]:py-5">
+          <div className="space-y-2 min-[2000px]:space-y-3">
+            <Label htmlFor="vehicle" className="text-sm min-[2000px]:text-base">
+              Select Vehicle
+            </Label>
+            <Select
+              value={selectedVehicleId}
+              onValueChange={setSelectedVehicleId}
+            >
+              <SelectTrigger className="h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base">
                 <SelectValue placeholder="Choose a vehicle..." />
               </SelectTrigger>
               <SelectContent>
                 {vehicles.map((vehicle) => (
-                  <SelectItem key={vehicle.id} value={vehicle.id}>
+                  <SelectItem
+                    key={vehicle.id}
+                    value={vehicle.id}
+                    className="py-2 min-[2000px]:py-3"
+                  >
                     <div className="flex flex-col text-left">
-                      <span className="font-medium">{vehicle.vehicle_number}</span>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="font-medium text-sm min-[2000px]:text-base">
+                        {vehicle.vehicle_number}
+                      </span>
+                      <span className="text-sm min-[2000px]:text-base text-muted-foreground">
                         {vehicle.vehicle_type} • {vehicle.capacity}
                       </span>
                     </div>
@@ -172,20 +189,31 @@ export const VehicleAssignmentModal = ({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="driver">Select Driver</Label>
-            <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-              <SelectTrigger>
+          <div className="space-y-2 min-[2000px]:space-y-3">
+            <Label htmlFor="driver" className="text-sm min-[2000px]:text-base">
+              Select Driver
+            </Label>
+            <Select
+              value={selectedDriverId}
+              onValueChange={setSelectedDriverId}
+            >
+              <SelectTrigger className="h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base">
                 <SelectValue placeholder="Choose a driver..." />
               </SelectTrigger>
               <SelectContent>
                 {drivers.map((driver) => (
-                  <SelectItem key={driver.id} value={driver.id}>
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-muted-foreground" />
+                  <SelectItem
+                    key={driver.id}
+                    value={driver.id}
+                    className="py-2 min-[2000px]:py-3"
+                  >
+                    <div className="flex items-center gap-2 min-[2000px]:gap-3">
+                      <User className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-muted-foreground" />
                       <div className="flex flex-col text-left">
-                        <span className="font-medium">{driver.name}</span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="font-medium text-sm min-[2000px]:text-base">
+                          {driver.name}
+                        </span>
+                        <span className="text-sm min-[2000px]:text-base text-muted-foreground">
                           {driver.phone}
                         </span>
                       </div>
@@ -197,17 +225,23 @@ export const VehicleAssignmentModal = ({
           </div>
         </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+        <DialogFooter className="flex gap-2 min-[2000px]:gap-3">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isLoading}
+            className="h-10 min-[2000px]:h-11 text-sm min-[2000px]:text-base"
+          >
             Cancel
           </Button>
           <Button
             onClick={handleAssign}
             disabled={!selectedVehicleId || !selectedDriverId || isLoading}
+            className="h-10 min-[2000px]:h-11 text-sm min-[2000px]:text-base"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2 animate-spin" />
                 Assigning...
               </>
             ) : (

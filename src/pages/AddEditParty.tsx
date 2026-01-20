@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox"; // ✅ ADDED
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -24,13 +24,13 @@ import {
   ArrowLeft,
   Save,
   Mail,
-  DollarSign, // ✅ ADDED for billing icon
+  DollarSign,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
-// ✅ UPDATED TYPES
+// Types
 interface Party {
   id: string;
   name: string;
@@ -45,7 +45,7 @@ interface Party {
   pan_number?: string | null;
   party_type: "CONSIGNOR" | "CONSIGNEE" | "BOTH";
   status: "ACTIVE" | "INACTIVE";
-  is_billing_party?: boolean; // ✅ ADDED
+  is_billing_party?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -62,10 +62,10 @@ interface PartyFormData {
   gst_number: string;
   pan_number: string;
   party_type: "CONSIGNOR" | "CONSIGNEE" | "BOTH";
-  is_billing_party: boolean; // ✅ ADDED
+  is_billing_party: boolean;
 }
 
-// ✅ CUSTOM HOOK - Debounce
+// Custom Hook - Debounce
 const useDebounce = (value: string, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -82,7 +82,7 @@ const useDebounce = (value: string, delay: number) => {
   return debouncedValue;
 };
 
-// ✅ EMAIL VALIDATION
+// Email Validation
 const validateEmail = (email: string): boolean => {
   if (!email) return true;
 
@@ -118,7 +118,8 @@ const validateEmail = (email: string): boolean => {
     domain?.endsWith(".edu")
   );
 };
-// ✅ MAIN COMPONENT
+
+// Main Component
 export const AddEditParty = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -137,7 +138,6 @@ export const AddEditParty = () => {
 
   const debouncedLocationSearch = useDebounce(locationSearch, 500);
 
-  // ✅ UPDATED FORM STATE - Added is_billing_party
   const [formData, setFormData] = useState<PartyFormData>({
     name: "",
     contact_person: "",
@@ -150,7 +150,7 @@ export const AddEditParty = () => {
     gst_number: "",
     pan_number: "",
     party_type: "BOTH",
-    is_billing_party: false, // ✅ ADDED DEFAULT FALSE
+    is_billing_party: false,
   });
 
   // Load party data if editing
@@ -184,7 +184,7 @@ export const AddEditParty = () => {
           gst_number: data.gst_number || "",
           pan_number: data.pan_number || "",
           party_type: data.party_type || "BOTH",
-          is_billing_party: data.is_billing_party || false, // ✅ ADDED
+          is_billing_party: data.is_billing_party || false,
         });
         if (data.address_line1) {
           setLocationSearch(data.address_line1);
@@ -257,7 +257,7 @@ export const AddEditParty = () => {
               },
             },
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -305,7 +305,7 @@ export const AddEditParty = () => {
             `limit=10&` +
             `addressdetails=1&` +
             `featuretype=settlement&` +
-            `accept-language=en`
+            `accept-language=en`,
         );
 
         const fallbackData = await fallbackResponse.json();
@@ -360,7 +360,7 @@ export const AddEditParty = () => {
             headers: {
               "X-Goog-FieldMask": "addressComponents,location,displayName",
             },
-          }
+          },
         );
 
         if (!detailsResponse.ok) {
@@ -407,10 +407,10 @@ export const AddEditParty = () => {
 
         setFormData((prev) => ({
           ...prev,
-          address_line1: locationData.area || "", // ✅ Empty if not found
-          city: locationData.city || "", // ✅ Empty if not found
-          state: locationData.state || "", // ✅ Empty if not found
-          pincode: locationData.pincode || "", // ✅ Empty if not found
+          address_line1: locationData.area || "",
+          city: locationData.city || "",
+          state: locationData.state || "",
+          pincode: locationData.pincode || "",
         }));
 
         setLocationSearch(location.displayText);
@@ -420,10 +420,10 @@ export const AddEditParty = () => {
       } else {
         setFormData((prev) => ({
           ...prev,
-          address_line1: location.area || "", // ✅ Empty if not found
-          city: location.city || "", // ✅ Empty if not found
-          state: location.state || "", // ✅ Empty if not found
-          pincode: location.postcode || "", // ✅ Empty if not found
+          address_line1: location.area || "",
+          city: location.city || "",
+          state: location.state || "",
+          pincode: location.postcode || "",
         }));
 
         setLocationSearch(location.displayText);
@@ -439,7 +439,7 @@ export const AddEditParty = () => {
   };
 
   const handleLocationInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const value = e.target.value;
     setLocationSearch(value);
@@ -456,7 +456,6 @@ export const AddEditParty = () => {
     setShowLocationSuggestions(false);
   };
 
-  // ✅ UPDATED SUBMIT HANDLER - Added is_billing_party
   const handleSubmit = async () => {
     // Validation
     if (!formData.name.trim()) {
@@ -526,7 +525,7 @@ export const AddEditParty = () => {
       formData.gst_number &&
       formData.gst_number.length > 0 &&
       !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
-        formData.gst_number
+        formData.gst_number,
       )
     ) {
       toast({
@@ -565,7 +564,7 @@ export const AddEditParty = () => {
         pan_number: formData.pan_number.trim() || null,
         party_type: formData.party_type,
         status: "ACTIVE" as const,
-        is_billing_party: formData.is_billing_party, // ✅ ADDED
+        is_billing_party: formData.is_billing_party,
       };
 
       if (mode === "edit" && id) {
@@ -589,7 +588,7 @@ export const AddEditParty = () => {
               dataToSave.gst_number
                 ? `,gst_number.eq.${dataToSave.gst_number}`
                 : ""
-            }`
+            }`,
           );
 
         if (checkError) throw checkError;
@@ -640,8 +639,8 @@ export const AddEditParty = () => {
   if (initialLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        <p className="text-lg font-medium text-muted-foreground">
+        <Loader2 className="w-12 h-12 min-[2000px]:w-14 min-[2000px]:h-14 animate-spin text-primary" />
+        <p className="text-lg min-[2000px]:text-xl font-medium text-muted-foreground">
           Loading party details...
         </p>
       </div>
@@ -649,7 +648,7 @@ export const AddEditParty = () => {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-4 space-y-6">
+    <div className="container max-w-4xl min-[2000px]:max-w-5xl mx-auto p-4 min-[2000px]:p-6 space-y-6 min-[2000px]:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -657,10 +656,11 @@ export const AddEditParty = () => {
             variant="ghost"
             size="icon"
             onClick={() => navigate("/customers")}
+            className="min-[2000px]:h-11 min-[2000px]:w-11"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6" />
           </Button>
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl min-[2000px]:text-3xl font-bold">
             {mode === "edit" ? "Edit Party" : "Add New Party"}
           </h1>
         </div>
@@ -668,74 +668,94 @@ export const AddEditParty = () => {
 
       {/* Form Card */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
+        <CardHeader className="min-[2000px]:p-8">
+          <CardTitle className="flex items-center gap-2 text-lg min-[2000px]:text-xl">
+            <User className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6" />
             Party Details
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 min-[2000px]:space-y-8 min-[2000px]:p-8 min-[2000px]:pt-0">
           {/* Party Type Selection */}
           <div>
-            <Label>Party Type *</Label>
+            <Label className="text-sm min-[2000px]:text-base">
+              Party Type *
+            </Label>
             <Select
               value={formData.party_type}
               onValueChange={(value: "CONSIGNOR" | "CONSIGNEE" | "BOTH") =>
                 setFormData({ ...formData, party_type: value })
               }
             >
-              <SelectTrigger className="h-11">
+              <SelectTrigger className="h-11 min-[2000px]:h-12 min-[2000px]:text-base">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="CONSIGNOR">Consignor Only</SelectItem>
-                <SelectItem value="CONSIGNEE">Consignee Only</SelectItem>
-                <SelectItem value="BOTH">Both (Can be either)</SelectItem>
+                <SelectItem
+                  value="CONSIGNOR"
+                  className="min-[2000px]:text-base"
+                >
+                  Consignor Only
+                </SelectItem>
+                <SelectItem
+                  value="CONSIGNEE"
+                  className="min-[2000px]:text-base"
+                >
+                  Consignee Only
+                </SelectItem>
+                <SelectItem value="BOTH" className="min-[2000px]:text-base">
+                  Both (Can be either)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-              <Building2 className="w-4 h-4" />
+          <div className="space-y-4 min-[2000px]:space-y-5">
+            <h3 className="font-medium text-sm min-[2000px]:text-base text-muted-foreground flex items-center gap-2">
+              <Building2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
               Basic Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-[2000px]:gap-5">
               <div>
-                <Label>Party Name *</Label>
+                <Label className="text-sm min-[2000px]:text-base">
+                  Party Name *
+                </Label>
                 <Input
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
                   placeholder="Enter unique party name"
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
               <div>
-                <Label>Contact Person</Label>
+                <Label className="text-sm min-[2000px]:text-base">
+                  Contact Person
+                </Label>
                 <Input
                   value={formData.contact_person}
                   onChange={(e) =>
                     setFormData({ ...formData, contact_person: e.target.value })
                   }
                   placeholder="Contact person name"
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
             </div>
           </div>
 
           {/* Contact Information */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-              <Phone className="w-4 h-4" />
+          <div className="space-y-4 min-[2000px]:space-y-5">
+            <h3 className="font-medium text-sm min-[2000px]:text-base text-muted-foreground flex items-center gap-2">
+              <Phone className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
               Contact Information
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-[2000px]:gap-5">
               <div>
-                <Label>Phone Number *</Label>
+                <Label className="text-sm min-[2000px]:text-base">
+                  Phone Number *
+                </Label>
                 <Input
                   value={formData.phone}
                   onChange={(e) =>
@@ -743,11 +763,13 @@ export const AddEditParty = () => {
                   }
                   placeholder="10-digit phone number"
                   maxLength={10}
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
               <div>
-                <Label>Email Address</Label>
+                <Label className="text-sm min-[2000px]:text-base">
+                  Email Address
+                </Label>
                 <Input
                   type="email"
                   value={formData.email}
@@ -755,49 +777,49 @@ export const AddEditParty = () => {
                     setFormData({ ...formData, email: e.target.value })
                   }
                   placeholder="email@gmail.com"
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
             </div>
           </div>
 
           {/* Address Information */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
+          <div className="space-y-4 min-[2000px]:space-y-5">
+            <h3 className="font-medium text-sm min-[2000px]:text-base text-muted-foreground flex items-center gap-2">
+              <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
               Address Details
             </h3>
 
             <div>
-              <Label>
+              <Label className="text-sm min-[2000px]:text-base">
                 Search Area/City
                 {hasSelected && (
-                  <span className="text-xs text-green-500 ml-2">
+                  <span className="text-xs min-[2000px]:text-sm text-green-500 ml-2">
                     ✓ Location selected
                   </span>
                 )}
               </Label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                <MapPin className="absolute left-3 min-[2000px]:left-3.5 top-3.5 min-[2000px]:top-4 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 text-muted-foreground" />
                 <Input
                   value={locationSearch}
                   onChange={handleLocationInputChange}
                   placeholder="Type area or city name..."
-                  className="pl-10 pr-10 h-11"
+                  className="pl-10 min-[2000px]:pl-11 pr-10 min-[2000px]:pr-11 h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                   autoComplete="off"
                 />
                 {searchingLocation && (
-                  <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin" />
+                  <Loader2 className="absolute right-3 min-[2000px]:right-3.5 top-3.5 min-[2000px]:top-4 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 animate-spin" />
                 )}
                 {locationSearch && !searchingLocation && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1.5 h-8 w-8 p-0"
+                    className="absolute right-1 top-1.5 h-8 w-8 min-[2000px]:h-9 min-[2000px]:w-9 p-0"
                     onClick={handleClearSearch}
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                   </Button>
                 )}
 
@@ -809,19 +831,19 @@ export const AddEditParty = () => {
                         <div
                           key={index}
                           className={cn(
-                            "px-3 py-3 hover:bg-accent cursor-pointer border-b last:border-b-0",
-                            location.isActualArea && "bg-primary/5"
+                            "px-3 min-[2000px]:px-4 py-3 min-[2000px]:py-4 hover:bg-accent cursor-pointer border-b last:border-b-0",
+                            location.isActualArea && "bg-primary/5",
                           )}
                           onClick={() => handleLocationSelect(location)}
                         >
                           <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 mt-0.5" />
+                            <MapPin className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 mt-0.5" />
                             <div className="flex-1">
-                              <div className="font-medium text-sm">
+                              <div className="font-medium text-sm min-[2000px]:text-base">
                                 {location.mainText}
                               </div>
                               {location.secondaryText && (
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs min-[2000px]:text-sm text-muted-foreground">
                                   {location.secondaryText}
                                 </div>
                               )}
@@ -835,23 +857,25 @@ export const AddEditParty = () => {
             </div>
 
             <div>
-              <Label>Street Address *</Label>
+              <Label className="text-sm min-[2000px]:text-base">
+                Street Address *
+              </Label>
               <Input
                 value={formData.address_line1}
                 onChange={(e) =>
                   setFormData({ ...formData, address_line1: e.target.value })
                 }
                 placeholder="Building/Street address"
-                className="h-11"
+                className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-[2000px]:gap-5">
               <div>
-                <Label>
+                <Label className="text-sm min-[2000px]:text-base">
                   City *
                   {formData.city && (
-                    <Check className="inline w-3 h-3 text-green-500 ml-1" />
+                    <Check className="inline w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-green-500 ml-1" />
                   )}
                 </Label>
                 <Input
@@ -860,14 +884,14 @@ export const AddEditParty = () => {
                     setFormData({ ...formData, city: e.target.value })
                   }
                   placeholder="Enter city"
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
               <div>
-                <Label>
+                <Label className="text-sm min-[2000px]:text-base">
                   State *
                   {formData.state && (
-                    <Check className="inline w-3 h-3 text-green-500 ml-1" />
+                    <Check className="inline w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-green-500 ml-1" />
                   )}
                 </Label>
                 <Input
@@ -876,14 +900,14 @@ export const AddEditParty = () => {
                     setFormData({ ...formData, state: e.target.value })
                   }
                   placeholder="Enter state"
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
               <div>
-                <Label>
+                <Label className="text-sm min-[2000px]:text-base">
                   Pincode *
                   {formData.pincode && formData.pincode.length === 6 && (
-                    <Check className="inline w-3 h-3 text-green-500 ml-1" />
+                    <Check className="inline w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-green-500 ml-1" />
                   )}
                 </Label>
                 <Input
@@ -893,21 +917,23 @@ export const AddEditParty = () => {
                   }
                   placeholder="6-digit pincode"
                   maxLength={6}
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
             </div>
           </div>
 
           {/* Tax Information */}
-          <div className="space-y-4">
-            <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-              <FileText className="w-4 h-4" />
+          <div className="space-y-4 min-[2000px]:space-y-5">
+            <h3 className="font-medium text-sm min-[2000px]:text-base text-muted-foreground flex items-center gap-2">
+              <FileText className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
               Tax Information (Optional)
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 min-[2000px]:gap-5">
               <div>
-                <Label>GST Number</Label>
+                <Label className="text-sm min-[2000px]:text-base">
+                  GST Number
+                </Label>
                 <Input
                   value={formData.gst_number}
                   onChange={(e) =>
@@ -918,11 +944,13 @@ export const AddEditParty = () => {
                   }
                   placeholder="15-character GST number"
                   maxLength={15}
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
               <div>
-                <Label>PAN Number</Label>
+                <Label className="text-sm min-[2000px]:text-base">
+                  PAN Number
+                </Label>
                 <Input
                   value={formData.pan_number}
                   onChange={(e) =>
@@ -933,19 +961,19 @@ export const AddEditParty = () => {
                   }
                   placeholder="10-character PAN"
                   maxLength={10}
-                  className="h-11"
+                  className="h-11 min-[2000px]:h-12 min-[2000px]:text-base"
                 />
               </div>
             </div>
           </div>
 
-          {/* ✅ NEW SECTION - Billing Configuration */}
-          <div className="space-y-4 pt-4 border-t">
-            <h3 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-              <DollarSign className="w-4 h-4" />
+          {/* Billing Configuration */}
+          <div className="space-y-4 min-[2000px]:space-y-5 pt-4 border-t">
+            <h3 className="font-medium text-sm min-[2000px]:text-base text-muted-foreground flex items-center gap-2">
+              <DollarSign className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
               Billing Configuration
             </h3>
-            <div className="flex items-start space-x-3 p-4 bg-muted/30 rounded-lg border">
+            <div className="flex items-start space-x-3 p-4 min-[2000px]:p-5 bg-muted/30 rounded-lg border">
               <Checkbox
                 id="is_billing_party"
                 checked={formData.is_billing_party}
@@ -955,16 +983,16 @@ export const AddEditParty = () => {
                     is_billing_party: checked as boolean,
                   })
                 }
-                className="mt-1"
+                className="mt-1 min-[2000px]:h-5 min-[2000px]:w-5"
               />
               <div className="space-y-1">
                 <Label
                   htmlFor="is_billing_party"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  className="text-sm min-[2000px]:text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
                   Mark as Billing Party
                 </Label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs min-[2000px]:text-sm text-muted-foreground">
                   Enable this to include this party in billing reports and
                   finance operations. Billing parties appear in the dedicated
                   "Billing Parties" tab with additional financial metrics like
@@ -975,17 +1003,24 @@ export const AddEditParty = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-end gap-4 pt-6 border-t">
+          <div className="flex justify-end gap-4 min-[2000px]:gap-5 pt-6 border-t">
             <Button
               variant="outline"
               onClick={() => navigate("/customers")}
               disabled={loading}
+              className="min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
-              {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              <Save className="w-4 h-4 mr-2" />
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
+            >
+              {loading && (
+                <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2 animate-spin" />
+              )}
+              <Save className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
               {mode === "edit" ? "Update Party" : "Add Party"}
             </Button>
           </div>

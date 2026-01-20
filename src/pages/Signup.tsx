@@ -87,6 +87,7 @@ export const Signup = () => {
     null,
   );
   const [checkingUsername, setCheckingUsername] = useState<boolean>(false);
+
   useEffect(() => {
     console.log("ENV VARS CHECK:");
     console.log("SMS Mode:", import.meta.env.VITE_SMS_MODE);
@@ -95,6 +96,7 @@ export const Signup = () => {
       import.meta.env.VITE_SMS_MODE === "test",
     );
   }, []);
+
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -126,7 +128,6 @@ export const Signup = () => {
     setError("");
 
     try {
-      // Direct query to check username
       const { data, error } = await supabase
         .from("users")
         .select("id")
@@ -155,19 +156,22 @@ export const Signup = () => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    if (name === "username") {
+      value = value.toLowerCase().trim();
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
 
-    // Check username availability when typing
     if (name === "username" && value.length >= 3) {
       checkUsernameAvailability(value);
     }
   };
 
-  // Streamlined single-step approach
   const handleSubmit = async (e?: FormEvent) => {
     if (e) e.preventDefault();
 
@@ -176,7 +180,6 @@ export const Signup = () => {
     setLoading(true);
     setError("");
 
-    // Validation checks
     if (!formData.fullName.trim()) {
       setError("Full name is required");
       setLoading(false);
@@ -201,7 +204,6 @@ export const Signup = () => {
       return;
     }
 
-    // Validate phone number format
     const phoneRegex = /^[0-9]{10}$/;
     if (!phoneRegex.test(formData.phone)) {
       setError("Please enter a valid 10-digit phone number");
@@ -228,7 +230,6 @@ export const Signup = () => {
     }
 
     try {
-      // Check if email already exists
       const { data: existingUsers, error: emailCheckError } = await supabase
         .from("users")
         .select("id")
@@ -245,14 +246,12 @@ export const Signup = () => {
         return;
       }
 
-      // Setup invisible reCAPTCHA
       if (window.recaptchaVerifier) {
         try {
           window.recaptchaVerifier.clear();
         } catch (err) {}
       }
 
-      // Create container if not exists
       if (!document.getElementById("recaptcha-container")) {
         const containerDiv = document.createElement("div");
         containerDiv.id = "recaptcha-container";
@@ -260,7 +259,6 @@ export const Signup = () => {
         document.body.appendChild(containerDiv);
       }
 
-      // Create invisible reCAPTCHA verifier
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         "recaptcha-container",
@@ -272,9 +270,7 @@ export const Signup = () => {
         },
       );
 
-      // Now directly send OTP
       if (isTestMode) {
-        // Test mode - use fixed code
         const signupData = {
           fullName: formData.fullName,
           username: formData.username,
@@ -295,7 +291,6 @@ export const Signup = () => {
         return;
       }
 
-      // Production mode - send real SMS
       const formattedPhone = `+91${formData.phone}`;
       const confirmationResult = await signInWithPhoneNumber(
         auth,
@@ -303,10 +298,8 @@ export const Signup = () => {
         window.recaptchaVerifier,
       );
 
-      // Store confirmation result for verification
       window.confirmationResult = confirmationResult;
 
-      // Save signup data
       const signupData = {
         fullName: formData.fullName,
         username: formData.username,
@@ -363,14 +356,14 @@ export const Signup = () => {
       `}</style>
 
       {/* LEFT PANEL - SIGNUP FORM */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-8 bg-white dark:bg-[#1E1E24] overflow-hidden">
-        <div className="w-full max-w-lg h-full max-h-[90vh] flex flex-col">
+      <div className="w-full lg:w-1/2 min-[2000px]:w-[40%] flex items-center justify-center p-6 sm:p-8 min-[2000px]:p-12 bg-white dark:bg-[#1E1E24] overflow-hidden">
+        <div className="w-full max-w-lg min-[2000px]:max-w-xl h-full max-h-[90vh] flex flex-col">
           {/* Header */}
-          <div className="mb-6 flex-shrink-0">
-            <h1 className="text-3xl sm:text-4xl font-bold text-[#0A0A0A] dark:text-white">
+          <div className="mb-6 min-[2000px]:mb-8 flex-shrink-0">
+            <h1 className="text-3xl sm:text-4xl min-[2000px]:text-5xl font-bold text-[#0A0A0A] dark:text-white">
               Create your account
             </h1>
-            <p className="text-sm text-[#737373] dark:text-[#A1A1AA] mt-1">
+            <p className="text-sm min-[2000px]:text-base text-[#737373] dark:text-[#A1A1AA] mt-1 min-[2000px]:mt-2">
               Get started with LR Generator & Live Tracking
             </p>
 
@@ -386,8 +379,11 @@ export const Signup = () => {
           {/* Scrollable Form */}
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             <Card className="border border-[#E5E7EB] dark:border-[#35353F] shadow-lg bg-white dark:bg-[#2A2A32]">
-              <CardContent className="p-6">
-                <form onSubmit={handleSubmit} className="space-y-4">
+              <CardContent className="p-6 min-[2000px]:p-8">
+                <form
+                  onSubmit={handleSubmit}
+                  className="space-y-4 min-[2000px]:space-y-5"
+                >
                   {/* Error Alert */}
                   {error && (
                     <Alert className="py-3 bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/30">
@@ -399,9 +395,10 @@ export const Signup = () => {
                   )}
 
                   {/* Basic User Details */}
-                  <div className="space-y-4">
+                  <div className="space-y-4 min-[2000px]:space-y-5">
+                    {/* Full Name */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">
+                      <Label className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white">
                         Full Name *
                       </Label>
                       <div className="relative">
@@ -411,14 +408,15 @@ export const Signup = () => {
                           value={formData.fullName}
                           onChange={handleInputChange}
                           required
-                          className="h-11 pl-10 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
+                          className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 text-sm min-[2000px]:text-base border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                         />
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                        <User className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                       </div>
                     </div>
 
+                    {/* Email */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">
+                      <Label className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white">
                         Email Address *
                       </Label>
                       <div className="relative">
@@ -429,14 +427,15 @@ export const Signup = () => {
                           value={formData.email}
                           onChange={handleInputChange}
                           required
-                          className="h-11 pl-10 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
+                          className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 text-sm min-[2000px]:text-base border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                         />
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                        <Mail className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                       </div>
                     </div>
 
+                    {/* Phone */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">
+                      <Label className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white">
                         Phone Number *
                       </Label>
                       <div className="relative">
@@ -448,19 +447,20 @@ export const Signup = () => {
                           onChange={handleInputChange}
                           required
                           maxLength={10}
-                          className="h-11 pl-10 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
+                          className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 text-sm min-[2000px]:text-base border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                         />
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                        <Phone className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs min-[2000px]:text-sm text-muted-foreground mt-1">
                         We'll send a verification code to this number
                       </p>
                     </div>
 
+                    {/* Username */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">
+                      <Label className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white">
                         Username *
-                        <span className="text-xs text-[#737373] dark:text-[#A1A1AA] ml-1">
+                        <span className="text-xs min-[2000px]:text-sm text-[#737373] dark:text-[#A1A1AA] ml-1">
                           (for login)
                         </span>
                       </Label>
@@ -477,7 +477,7 @@ export const Signup = () => {
                           }}
                           required
                           className={cn(
-                            "h-11 pl-10 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
+                            "h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 text-sm min-[2000px]:text-base border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]",
                             usernameAvailable === true &&
                               "border-green-500 dark:border-green-600",
                             usernameAvailable === false &&
@@ -485,31 +485,32 @@ export const Signup = () => {
                           )}
                           minLength={3}
                         />
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <User className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
+                        <div className="absolute right-3 min-[2000px]:right-3.5 top-1/2 -translate-y-1/2">
                           {checkingUsername && (
-                            <Loader2 className="w-4 h-4 animate-spin text-[#0A0A0A] dark:text-[#FCC52C]" />
+                            <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 animate-spin text-[#0A0A0A] dark:text-[#FCC52C]" />
                           )}
                           {!checkingUsername && usernameAvailable === true && (
-                            <CheckCircle2 className="w-4 h-4 text-green-500 dark:text-green-400" />
+                            <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-green-500 dark:text-green-400" />
                           )}
                         </div>
                       </div>
                       {usernameAvailable === true && (
-                        <p className="text-xs text-green-600 dark:text-green-400">
+                        <p className="text-xs min-[2000px]:text-sm text-green-600 dark:text-green-400">
                           Username available!
                         </p>
                       )}
                       {usernameAvailable === false && formData.username && (
-                        <p className="text-xs text-red-600 dark:text-red-400">
+                        <p className="text-xs min-[2000px]:text-sm text-red-600 dark:text-red-400">
                           Username unavailable
                         </p>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    {/* Password Fields */}
+                    <div className="grid grid-cols-2 gap-3 min-[2000px]:gap-4">
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">
+                        <Label className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white">
                           Password *
                         </Label>
                         <div className="relative">
@@ -520,25 +521,25 @@ export const Signup = () => {
                             value={formData.password}
                             onChange={handleInputChange}
                             required
-                            className="h-11 pl-10 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
+                            className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 text-sm min-[2000px]:text-base border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                           />
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                          <Lock className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#737373] dark:text-[#A1A1AA]"
+                            className="absolute right-3 min-[2000px]:right-3.5 top-1/2 -translate-y-1/2 text-[#737373] dark:text-[#A1A1AA]"
                           >
                             {showPassword ? (
-                              <EyeOff className="w-4 h-4" />
+                              <EyeOff className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                             ) : (
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                             )}
                           </button>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium text-[#0A0A0A] dark:text-white">
+                        <Label className="text-sm min-[2000px]:text-base font-medium text-[#0A0A0A] dark:text-white">
                           Confirm Password *
                         </Label>
                         <div className="relative">
@@ -549,16 +550,16 @@ export const Signup = () => {
                             value={formData.confirmPassword}
                             onChange={handleInputChange}
                             required
-                            className="h-11 pl-10 text-sm border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
+                            className="h-11 min-[2000px]:h-12 pl-10 min-[2000px]:pl-11 text-sm min-[2000px]:text-base border-[#E5E7EB] dark:border-[#35353F] bg-white dark:bg-[#252530] text-[#0A0A0A] dark:text-white placeholder:text-[#737373] dark:placeholder:text-[#A1A1AA]"
                           />
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373] dark:text-[#A1A1AA]" />
+                          <Lock className="absolute left-3 min-[2000px]:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-[#737373] dark:text-[#A1A1AA]" />
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Terms & Submit */}
-                  <div className="space-y-4 pt-2">
+                  <div className="space-y-4 min-[2000px]:space-y-5 pt-2">
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="terms"
@@ -569,7 +570,7 @@ export const Signup = () => {
                       />
                       <Label
                         htmlFor="terms"
-                        className="text-sm font-normal text-[#737373] dark:text-[#A1A1AA] cursor-pointer"
+                        className="text-sm min-[2000px]:text-base font-normal text-[#737373] dark:text-[#A1A1AA] cursor-pointer"
                       >
                         I agree to the Terms & Conditions
                       </Label>
@@ -583,7 +584,7 @@ export const Signup = () => {
 
                     <Button
                       type="submit"
-                      className="w-full h-11 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold"
+                      className="w-full h-11 min-[2000px]:h-12 text-base bg-[#0A0A0A] hover:bg-[#262626] active:bg-[#333333] dark:bg-[#FCC52C] dark:hover:bg-[#F38810] dark:active:bg-[#F67C09] text-white dark:text-[#1E1E24] font-semibold"
                       disabled={
                         loading ||
                         !formData.termsAccepted ||
@@ -592,7 +593,7 @@ export const Signup = () => {
                     >
                       {loading ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 animate-spin" />
                           Sending Verification Code...
                         </>
                       ) : (
@@ -600,7 +601,7 @@ export const Signup = () => {
                       )}
                     </Button>
 
-                    <p className="text-center text-sm text-[#737373] dark:text-[#A1A1AA]">
+                    <p className="text-center text-sm min-[2000px]:text-base text-[#737373] dark:text-[#A1A1AA]">
                       Already have an account?{" "}
                       <Link
                         to="/login"
@@ -618,19 +619,25 @@ export const Signup = () => {
       </div>
 
       {/* RIGHT PANEL - BRAND SHOWCASE (DARK) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
-        <div className="relative z-10 text-center px-12 flex flex-col items-center">
-          <div className="relative mb-8">
+      <div className="hidden lg:flex lg:w-1/2 min-[2000px]:w-[60%] bg-[#0A0A0F] relative items-center justify-center overflow-hidden">
+        {/* Background Effects */}
+        <div className="absolute inset-0">
+          <div className="absolute top-1/4 left-1/4 w-72 min-[2000px]:w-96 h-72 min-[2000px]:h-96 bg-[#FCC52C]/8 rounded-full blur-[120px] min-[2000px]:blur-[150px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-72 min-[2000px]:w-96 h-72 min-[2000px]:h-96 bg-[#F38810]/8 rounded-full blur-[120px] min-[2000px]:blur-[150px]" />
+        </div>
+
+        <div className="relative z-10 text-center px-12 min-[2000px]:px-16 flex flex-col items-center">
+          <div className="relative mb-8 min-[2000px]:mb-10">
             <div className="absolute inset-0 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl blur-2xl opacity-40" />
-            <div className="relative flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl shadow-2xl">
-              <Truck className="w-10 h-10 text-[#0A0A0F]" />
+            <div className="relative flex items-center justify-center w-20 h-20 min-[2000px]:w-24 min-[2000px]:h-24 bg-gradient-to-br from-[#FCC52C] to-[#F38810] rounded-2xl shadow-2xl">
+              <Truck className="w-10 h-10 min-[2000px]:w-12 min-[2000px]:h-12 text-[#0A0A0F]" />
             </div>
           </div>
 
-          <h2 className="text-4xl font-bold text-white mb-2">
+          <h2 className="text-4xl min-[2000px]:text-5xl font-bold text-white mb-2">
             Freight<span className="text-[#FCC52C]">SynQ</span>
           </h2>
-          <p className="text-gray-400 text-lg mb-10">
+          <p className="text-gray-400 text-lg min-[2000px]:text-xl mb-10 min-[2000px]:mb-12">
             Smart logistics for modern fleets
           </p>
         </div>

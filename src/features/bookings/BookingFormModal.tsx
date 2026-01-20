@@ -1,19 +1,53 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Loader2, Check, ChevronsUpDown, Plus, User, MapPin, Save, Package, AlertCircle, Calendar, Truck } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  X,
+  Loader2,
+  Check,
+  ChevronsUpDown,
+  Plus,
+  User,
+  MapPin,
+  Save,
+  Package,
+  AlertCircle,
+  Calendar,
+  Truck,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { cn } from "@/lib/utils";
-import { supabase } from '@/lib/supabase';
+import { supabase } from "@/lib/supabase";
 import { CompanyBranch, fetchCompanyBranches } from "@/api/bookings";
 
 // ============================================
@@ -21,11 +55,11 @@ import { CompanyBranch, fetchCompanyBranches } from "@/api/bookings";
 // ============================================
 
 const useDebounce = (value: string, delay: number): string => {
-  const [debouncedValue, setDebouncedValue] = useState<string>(value || '');
+  const [debouncedValue, setDebouncedValue] = useState<string>(value || "");
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedValue(value || '');
+      setDebouncedValue(value || "");
     }, delay);
     return () => clearTimeout(handler);
   }, [value, delay]);
@@ -49,8 +83,8 @@ interface Party {
   pincode: string;
   gst_number?: string;
   pan_number?: string;
-  party_type: 'CONSIGNOR' | 'CONSIGNEE' | 'BOTH';
-  status: 'ACTIVE' | 'INACTIVE';
+  party_type: "CONSIGNOR" | "CONSIGNEE" | "BOTH";
+  status: "ACTIVE" | "INACTIVE";
 }
 
 interface BookingFormData {
@@ -154,7 +188,7 @@ interface NominatimResult {
 const validatePickupDate = (dateString: string | undefined): string | null => {
   if (!dateString) return null;
 
-  const selectedDate = new Date(dateString + 'T00:00:00');
+  const selectedDate = new Date(dateString + "T00:00:00");
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -163,11 +197,13 @@ const validatePickupDate = (dateString: string | undefined): string | null => {
   twoDaysAgo.setHours(0, 0, 0, 0);
 
   if (isNaN(selectedDate.getTime())) return "Invalid date format";
-  if (selectedDate < twoDaysAgo) return "Pickup date cannot be more than 2 days in the past";
+  if (selectedDate < twoDaysAgo)
+    return "Pickup date cannot be more than 2 days in the past";
 
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() + 1);
-  if (selectedDate > maxDate) return "Pickup date cannot be more than 1 year in the future";
+  if (selectedDate > maxDate)
+    return "Pickup date cannot be more than 1 year in the future";
 
   return null;
 };
@@ -181,7 +217,7 @@ const getInitialFormData = (): BookingFormData => ({
   to_location: "",
   serviceType: "FTL",
   pickupDate: "",
-  branch_id: ""
+  branch_id: "",
 });
 
 // ============================================
@@ -195,7 +231,7 @@ interface LocationSearchInputProps {
   disabled?: boolean;
   onLocationSelect?: (location: LocationSuggestion) => void;
   onClear?: () => void;
-  enableSearch?: boolean; // NEW: Control whether to show suggestions
+  enableSearch?: boolean;
 }
 
 const LocationSearchInput = ({
@@ -205,23 +241,21 @@ const LocationSearchInput = ({
   disabled = false,
   onLocationSelect,
   onClear,
-  enableSearch = true // Default: suggestions enabled
+  enableSearch = true,
 }: LocationSearchInputProps) => {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState<string>(value || '');
+  const [searchTerm, setSearchTerm] = useState<string>(value || "");
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [searching, setSearching] = useState<boolean>(false);
   const [hasSelected, setHasSelected] = useState<boolean>(false);
-  const [isUserTyping, setIsUserTyping] = useState<boolean>(false); // NEW: Track if user is typing
+  const [isUserTyping, setIsUserTyping] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  // Sync external value changes (from party selection)
   useEffect(() => {
-    setSearchTerm(value || '');
-    // When value is set externally (party selection), don't show suggestions
+    setSearchTerm(value || "");
     if (value && !isUserTyping) {
       setHasSelected(true);
       setSuggestions([]);
@@ -229,24 +263,18 @@ const LocationSearchInput = ({
     }
   }, [value, isUserTyping]);
 
-  // Search locations only when user is typing and search is enabled
   useEffect(() => {
-    // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    // Don't search if:
-    // 1. Search is disabled
-    // 2. User has selected a location
-    // 3. User is not actively typing
-    // 4. Search term is too short
-    // 5. Debounced search term is too short
-    // 6. Empty search term
-    // 7. Clear suggestions if any of the above
-    // 8. Otherwise, proceed with search
-    // This prevents unnecessary API calls and respects user intent to not show suggestions when not typing or when search is disabled 
-    if (!enableSearch || hasSelected || !isUserTyping || !debouncedSearch || debouncedSearch.length <= 2) {
+    if (
+      !enableSearch ||
+      hasSelected ||
+      !isUserTyping ||
+      !debouncedSearch ||
+      debouncedSearch.length <= 2
+    ) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -262,7 +290,10 @@ const LocationSearchInput = ({
     };
   }, [debouncedSearch, hasSelected, enableSearch, isUserTyping]);
 
-  const searchLocations = async (query: string, signal: AbortSignal): Promise<void> => {
+  const searchLocations = async (
+    query: string,
+    signal: AbortSignal,
+  ): Promise<void> => {
     setSearching(true);
     const sessionToken = Math.random().toString(36).substring(7);
 
@@ -271,28 +302,29 @@ const LocationSearchInput = ({
 
       if (apiKey) {
         const response = await fetch(
-          'https://places.googleapis.com/v1/places:autocomplete',
+          "https://places.googleapis.com/v1/places:autocomplete",
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
-              'X-Goog-Api-Key': apiKey,
-              'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat'
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask":
+                "suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat",
             },
             body: JSON.stringify({
               input: query,
-              includedRegionCodes: ['in'],
+              includedRegionCodes: ["in"],
               sessionToken: sessionToken,
-              languageCode: 'en',
+              languageCode: "en",
               locationBias: {
                 rectangle: {
                   low: { latitude: 8.0, longitude: 68.0 },
-                  high: { latitude: 37.0, longitude: 97.0 }
-                }
-              }
+                  high: { latitude: 37.0, longitude: 97.0 },
+                },
+              },
             }),
-            signal
-          }
+            signal,
+          },
         );
 
         if (signal.aborted) return;
@@ -301,25 +333,35 @@ const LocationSearchInput = ({
           const data = await response.json();
 
           if (data.suggestions && !signal.aborted) {
-            const formattedResults: LocationSuggestion[] = data.suggestions.map((suggestion: GooglePlaceSuggestion) => {
-              const prediction = suggestion.placePrediction;
-              const mainText = prediction.structuredFormat?.mainText?.text || prediction.text?.text || '';
-              const secondaryText = prediction.structuredFormat?.secondaryText?.text || '';
-              const isArea = Boolean(secondaryText && !mainText.includes(secondaryText));
+            const formattedResults: LocationSuggestion[] = data.suggestions.map(
+              (suggestion: GooglePlaceSuggestion) => {
+                const prediction = suggestion.placePrediction;
+                const mainText =
+                  prediction.structuredFormat?.mainText?.text ||
+                  prediction.text?.text ||
+                  "";
+                const secondaryText =
+                  prediction.structuredFormat?.secondaryText?.text || "";
+                const isArea = Boolean(
+                  secondaryText && !mainText.includes(secondaryText),
+                );
 
-              return {
-                placeId: prediction.placeId,
-                area: isArea ? mainText : '',
-                city: isArea ? secondaryText.split(',')[0] : mainText,
-                state: secondaryText ? secondaryText.split(',').slice(-1)[0].trim() : '',
-                displayText: prediction.text?.text || mainText,
-                mainText: mainText,
-                secondaryText: secondaryText,
-                isActualArea: isArea,
-                fullText: prediction.text?.text || '',
-                isGoogle: true
-              };
-            });
+                return {
+                  placeId: prediction.placeId,
+                  area: isArea ? mainText : "",
+                  city: isArea ? secondaryText.split(",")[0] : mainText,
+                  state: secondaryText
+                    ? secondaryText.split(",").slice(-1)[0].trim()
+                    : "",
+                  displayText: prediction.text?.text || mainText,
+                  mainText: mainText,
+                  secondaryText: secondaryText,
+                  isActualArea: isArea,
+                  fullText: prediction.text?.text || "",
+                  isGoogle: true,
+                };
+              },
+            );
 
             setSuggestions(formattedResults);
             setShowSuggestions(formattedResults.length > 0);
@@ -330,15 +372,13 @@ const LocationSearchInput = ({
       }
 
       throw new Error("Falling back to Nominatim");
-
     } catch (error) {
       if (signal.aborted) return;
 
-      // Fallback to Nominatim
       try {
         const fallbackResponse = await fetch(
           `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&countrycodes=in&limit=20&addressdetails=1&featuretype=settlement&accept-language=en`,
-          { signal }
+          { signal },
         );
 
         if (signal.aborted) return;
@@ -347,19 +387,23 @@ const LocationSearchInput = ({
 
         const formattedResults: LocationSuggestion[] = data
           .map((item) => {
-            const area = item.address?.suburb ||
+            const area =
+              item.address?.suburb ||
               item.address?.neighbourhood ||
               item.address?.locality ||
               item.address?.hamlet ||
-              item.name?.split(',')[0] || '';
-            const city = item.address?.city ||
+              item.name?.split(",")[0] ||
+              "";
+            const city =
+              item.address?.city ||
               item.address?.town ||
               item.address?.village ||
-              item.address?.municipality || '';
-            const state = item.address?.state || '';
-            const postcode = item.address?.postcode || '';
+              item.address?.municipality ||
+              "";
+            const state = item.address?.state || "";
+            const postcode = item.address?.postcode || "";
 
-            let displayText = '';
+            let displayText = "";
             if (area && city && area !== city) {
               displayText = `${area}, ${city}`;
             } else if (city) {
@@ -370,32 +414,52 @@ const LocationSearchInput = ({
               displayText = item.display_name;
             }
 
-            const isArea = ['suburb', 'neighbourhood', 'locality', 'hamlet', 'quarter', 'residential'].includes(item.type);
-            const isCity = ['city', 'town', 'village', 'municipality'].includes(item.type);
+            const isArea = [
+              "suburb",
+              "neighbourhood",
+              "locality",
+              "hamlet",
+              "quarter",
+              "residential",
+            ].includes(item.type);
+            const isCity = ["city", "town", "village", "municipality"].includes(
+              item.type,
+            );
 
             return {
-              area: area || city || '',
-              city: city || area || '',
+              area: area || city || "",
+              city: city || area || "",
               state: state,
               postcode: postcode,
               display_name: item.display_name,
               displayText: displayText,
-              fullAddress: `${area ? area + ', ' : ''}${city}, ${state} - ${postcode}`,
+              fullAddress: `${area ? area + ", " : ""}${city}, ${state} - ${postcode}`,
               type: item.type,
               importance: item.importance || 0,
               isArea: isArea,
               isCity: isCity,
               isActualArea: Boolean(area && city && area !== city),
-              isNominatim: true
+              isNominatim: true,
             };
           })
           .filter((item) => {
             const hasNonEnglish = /[^\x00-\x7F]/.test(item.displayText);
             const hasDevanagari = /[\u0900-\u097F]/.test(item.displayText);
-            return !hasNonEnglish && !hasDevanagari && item.city && item.state && (item.isArea || item.isCity || item.isActualArea);
+            return (
+              !hasNonEnglish &&
+              !hasDevanagari &&
+              item.city &&
+              item.state &&
+              (item.isArea || item.isCity || item.isActualArea)
+            );
           })
-          .filter((item, index, self) =>
-            index === self.findIndex((t) => t.displayText === item.displayText && t.city === item.city)
+          .filter(
+            (item, index, self) =>
+              index ===
+              self.findIndex(
+                (t) =>
+                  t.displayText === item.displayText && t.city === item.city,
+              ),
           )
           .sort((a, b) => {
             if (a.isActualArea && !b.isActualArea) return -1;
@@ -415,7 +479,7 @@ const LocationSearchInput = ({
           toast({
             title: "Search Failed",
             description: "Unable to search locations. Please try again.",
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       }
@@ -428,7 +492,7 @@ const LocationSearchInput = ({
 
   const handleSelect = async (location: LocationSuggestion): Promise<void> => {
     setSearching(true);
-    setIsUserTyping(false); // Stop typing mode
+    setIsUserTyping(false);
 
     try {
       let finalLocation = { ...location };
@@ -440,32 +504,42 @@ const LocationSearchInput = ({
           const detailsResponse = await fetch(
             `https://places.googleapis.com/v1/places/${location.placeId}?key=${apiKey}&fields=addressComponents,location,displayName`,
             {
-              method: 'GET',
+              method: "GET",
               headers: {
-                'X-Goog-FieldMask': 'addressComponents,location,displayName'
-              }
-            }
+                "X-Goog-FieldMask": "addressComponents,location,displayName",
+              },
+            },
           );
 
           if (detailsResponse.ok) {
             const placeDetails = await detailsResponse.json();
-            const components: GooglePlaceComponent[] = placeDetails.addressComponents || [];
+            const components: GooglePlaceComponent[] =
+              placeDetails.addressComponents || [];
 
-            const locationData = { area: '', city: '', state: '', postcode: '' };
+            const locationData = {
+              area: "",
+              city: "",
+              state: "",
+              postcode: "",
+            };
 
             components.forEach((comp) => {
               const types = comp.types || [];
-              if (types.includes('sublocality_level_1') || types.includes('sublocality') || types.includes('neighborhood')) {
-                locationData.area = comp.longText || comp.shortText || '';
+              if (
+                types.includes("sublocality_level_1") ||
+                types.includes("sublocality") ||
+                types.includes("neighborhood")
+              ) {
+                locationData.area = comp.longText || comp.shortText || "";
               }
-              if (types.includes('locality')) {
-                locationData.city = comp.longText || comp.shortText || '';
+              if (types.includes("locality")) {
+                locationData.city = comp.longText || comp.shortText || "";
               }
-              if (types.includes('administrative_area_level_1')) {
-                locationData.state = comp.longText || comp.shortText || '';
+              if (types.includes("administrative_area_level_1")) {
+                locationData.state = comp.longText || comp.shortText || "";
               }
-              if (types.includes('postal_code')) {
-                locationData.postcode = comp.longText || comp.shortText || '';
+              if (types.includes("postal_code")) {
+                locationData.postcode = comp.longText || comp.shortText || "";
               }
             });
 
@@ -478,7 +552,7 @@ const LocationSearchInput = ({
               area: locationData.area,
               city: locationData.city,
               state: locationData.state,
-              postcode: locationData.postcode
+              postcode: locationData.postcode,
             };
           }
         }
@@ -499,7 +573,7 @@ const LocationSearchInput = ({
       toast({
         title: "Error",
         description: "Failed to get location details",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setSearching(false);
@@ -509,7 +583,7 @@ const LocationSearchInput = ({
   const handleInputChange = (newValue: string): void => {
     setSearchTerm(newValue);
     onChange(newValue);
-    setIsUserTyping(true); // User is now typing
+    setIsUserTyping(true);
 
     if (hasSelected) {
       setHasSelected(false);
@@ -531,85 +605,104 @@ const LocationSearchInput = ({
 
   const handleFocus = (): void => {
     // When user focuses on field, enable typing mode for future searches
-    // But don't show suggestions until they actually type
   };
 
   return (
     <div className="relative">
       <div className="relative">
-        <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" />
+        <MapPin className="absolute left-2.5 min-[2000px]:left-3 top-2.5 min-[2000px]:top-3 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4 text-muted-foreground dark:text-muted-foreground" />
         <Input
           value={searchTerm}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={handleFocus}
           placeholder={placeholder}
-          className="pl-9 pr-9 h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+          className="pl-9 min-[2000px]:pl-10 pr-9 min-[2000px]:pr-10 h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
           disabled={disabled}
           autoComplete="off"
         />
         {searching && (
-          <Loader2 className="absolute right-9 top-2.5 h-3.5 w-3.5 animate-spin text-primary" />
+          <Loader2 className="absolute right-9 min-[2000px]:right-10 top-2.5 min-[2000px]:top-3.5 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4 animate-spin text-primary" />
         )}
         {searchTerm && !searching && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute right-1 top-1 h-7 w-7 p-0 hover:bg-accent dark:hover:bg-secondary"
+            className="absolute right-1 top-1 min-[2000px]:top-1.5 h-7 w-7 min-[2000px]:h-8 min-[2000px]:w-8 p-0 hover:bg-accent dark:hover:bg-secondary"
             onClick={handleClear}
           >
-            <X className="h-3 w-3 text-muted-foreground dark:text-muted-foreground" />
+            <X className="h-3 w-3 min-[2000px]:h-4 min-[2000px]:w-4 text-muted-foreground dark:text-muted-foreground" />
           </Button>
         )}
       </div>
 
-      {showSuggestions && suggestions.length > 0 && !hasSelected && enableSearch && isUserTyping && (
-        <div className="absolute z-50 w-full bg-card border border-border dark:border-border rounded-lg mt-1 shadow-lg max-h-[200px] overflow-auto">
-          {suggestions.map((location, index) => (
-            <div
-              key={`${location.placeId || location.displayText}-${index}`}
-              className={cn(
-                "px-3 py-2 cursor-pointer border-b border-border dark:border-border last:border-0 transition-colors",
-                "hover:bg-accent dark:hover:bg-secondary",
-                location.isActualArea && "bg-accent/30 dark:bg-primary/5"
-              )}
-              onClick={() => handleSelect(location)}
-            >
-              <div className="flex items-start gap-2">
-                <MapPin className={cn(
-                  "h-4 w-4 mt-0.5 shrink-0",
-                  location.isActualArea ? "text-primary" : "text-muted-foreground dark:text-muted-foreground"
-                )} />
-                <div className="flex-1">
-                  <div className="font-medium text-sm">
-                    {location.area && location.city && location.area !== location.city ? (
-                      <>
-                        <span className="text-primary font-semibold">{location.area}</span>
-                        <span className="text-muted-foreground dark:text-muted-foreground font-normal"> • {location.city}</span>
-                      </>
-                    ) : (
-                      <span className="text-foreground dark:text-white">{location.city || location.mainText}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-muted-foreground dark:text-muted-foreground">
-                      {location.state}{location.postcode && ` • PIN: ${location.postcode}`}
-                    </span>
-                    <span className={cn(
-                      "text-xs px-1.5 py-0.5 rounded font-medium",
+      {showSuggestions &&
+        suggestions.length > 0 &&
+        !hasSelected &&
+        enableSearch &&
+        isUserTyping && (
+          <div className="absolute z-50 w-full bg-card border border-border dark:border-border rounded-lg mt-1 shadow-lg max-h-[200px] min-[2000px]:max-h-[240px] overflow-auto">
+            {suggestions.map((location, index) => (
+              <div
+                key={`${location.placeId || location.displayText}-${index}`}
+                className={cn(
+                  "px-3 min-[2000px]:px-4 py-2 min-[2000px]:py-3 cursor-pointer border-b border-border dark:border-border last:border-0 transition-colors",
+                  "hover:bg-accent dark:hover:bg-secondary",
+                  location.isActualArea && "bg-accent/30 dark:bg-primary/5",
+                )}
+                onClick={() => handleSelect(location)}
+              >
+                <div className="flex items-start gap-2 min-[2000px]:gap-3">
+                  <MapPin
+                    className={cn(
+                      "h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 mt-0.5 shrink-0",
                       location.isActualArea
-                        ? "bg-primary/20 text-primary dark:text-primary border border-primary/30"
-                        : "bg-muted dark:bg-secondary text-muted-foreground dark:text-muted-foreground"
-                    )}>
-                      {location.isActualArea ? 'Area' : 'City'}
-                    </span>
+                        ? "text-primary"
+                        : "text-muted-foreground dark:text-muted-foreground",
+                    )}
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-sm min-[2000px]:text-base">
+                      {location.area &&
+                      location.city &&
+                      location.area !== location.city ? (
+                        <>
+                          <span className="text-primary font-semibold">
+                            {location.area}
+                          </span>
+                          <span className="text-muted-foreground dark:text-muted-foreground font-normal">
+                            {" "}
+                            • {location.city}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-foreground dark:text-white">
+                          {location.city || location.mainText}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
+                        {location.state}
+                        {location.postcode && ` • PIN: ${location.postcode}`}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs min-[2000px]:text-sm px-1.5 py-0.5 rounded font-medium",
+                          location.isActualArea
+                            ? "bg-primary/20 text-primary dark:text-primary border border-primary/30"
+                            : "bg-muted dark:bg-secondary text-muted-foreground dark:text-muted-foreground",
+                        )}
+                      >
+                        {location.isActualArea ? "Area" : "City"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
     </div>
   );
 };
@@ -621,7 +714,7 @@ const LocationSearchInput = ({
 interface PartySelectProps {
   value?: string;
   onValueChange: (value: string, party: Party) => void;
-  type: 'CONSIGNOR' | 'CONSIGNEE';
+  type: "CONSIGNOR" | "CONSIGNEE";
   placeholder?: string;
   disabled?: boolean;
   onAddNew?: () => void;
@@ -633,42 +726,44 @@ const PartySelect = ({
   type,
   placeholder = "Select party...",
   disabled = false,
-  onAddNew
+  onAddNew,
 }: PartySelectProps) => {
   const [open, setOpen] = useState<boolean>(false);
   const [parties, setParties] = useState<Party[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  const loadParties = useCallback(async (search: string) => {
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('parties')
-        .select('*')
-        .eq('status', 'ACTIVE');
+  const loadParties = useCallback(
+    async (search: string) => {
+      setLoading(true);
+      try {
+        let query = supabase.from("parties").select("*").eq("status", "ACTIVE");
 
-      if (search) {
-        query = query.or(`name.ilike.%${search}%,contact_person.ilike.%${search}%,phone.ilike.%${search}%`);
+        if (search) {
+          query = query.or(
+            `name.ilike.%${search}%,contact_person.ilike.%${search}%,phone.ilike.%${search}%`,
+          );
+        }
+
+        if (type && type !== "BOTH") {
+          query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
+        }
+
+        query = query.order("created_at", { ascending: false }).limit(10);
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setParties(data || []);
+      } catch (error) {
+        console.error("Error searching parties:", error);
+        setParties([]);
+      } finally {
+        setLoading(false);
       }
-
-      if (type && type !== 'BOTH') {
-        query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
-      }
-
-      query = query.order('created_at', { ascending: false }).limit(10);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setParties(data || []);
-    } catch (error) {
-      console.error('Error searching parties:', error);
-      setParties([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [type]);
+    },
+    [type],
+  );
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -678,7 +773,7 @@ const PartySelect = ({
     return () => clearTimeout(debounceTimer);
   }, [searchTerm, loadParties]);
 
-  const selectedParty = parties.find(p => p.id === value);
+  const selectedParty = parties.find((p) => p.id === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -687,26 +782,26 @@ const PartySelect = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+          className="w-full justify-between h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
           disabled={disabled}
         >
           <span className="truncate">
             {selectedParty ? selectedParty.name : placeholder}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground dark:text-muted-foreground" />
+          <ChevronsUpDown className="ml-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 shrink-0 text-muted-foreground dark:text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0 bg-card border-border dark:border-border shadow-lg">
+      <PopoverContent className="w-[400px] min-[2000px]:w-[480px] p-0 bg-card border-border dark:border-border shadow-lg">
         <Command shouldFilter={false} className="bg-transparent">
           <CommandInput
-            placeholder={`Search ${type?.toLowerCase() || 'party'}...`}
+            placeholder={`Search ${type?.toLowerCase() || "party"}...`}
             value={searchTerm}
             onValueChange={setSearchTerm}
-            className="border-b border-border dark:border-border text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+            className="border-b border-border dark:border-border text-sm min-[2000px]:text-base text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
           />
           <CommandEmpty>
-            <div className="p-4 text-center">
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-2">
+            <div className="p-4 min-[2000px]:p-5 text-center">
+              <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mb-2">
                 No party found.
               </p>
               {onAddNew && (
@@ -717,49 +812,54 @@ const PartySelect = ({
                     setOpen(false);
                     onAddNew();
                   }}
-                  className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+                  className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add New {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
+                  <Plus className="mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
+                  Add New {type === "CONSIGNOR" ? "Consignor" : "Consignee"}
                 </Button>
               )}
             </div>
           </CommandEmpty>
-          <CommandGroup className="max-h-[300px] overflow-auto">
+          <CommandGroup className="max-h-[300px] min-[2000px]:max-h-[360px] overflow-auto">
             {loading && (
-              <div className="p-2 text-center text-sm text-muted-foreground dark:text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin inline mr-2 text-primary" />
+              <div className="p-2 min-[2000px]:p-3 text-center text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
+                <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 animate-spin inline mr-2 text-primary" />
                 Loading...
               </div>
             )}
-            {!loading && parties.map((party) => (
-              <CommandItem
-                key={party.id}
-                value={party.name}
-                onSelect={() => {
-                  onValueChange(party.id, party);
-                  setOpen(false);
-                  setSearchTerm("");
-                }}
-                className="cursor-pointer hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
-              >
-                <Check className={cn(
-                  "mr-2 h-4 w-4 text-primary",
-                  value === party.id ? "opacity-100" : "opacity-0"
-                )} />
-                <div className="flex-1">
-                  <div className="font-medium flex items-center gap-2">
-                    <User className="w-3 h-3 text-muted-foreground dark:text-muted-foreground" />
-                    {party.name}
+            {!loading &&
+              parties.map((party) => (
+                <CommandItem
+                  key={party.id}
+                  value={party.name}
+                  onSelect={() => {
+                    onValueChange(party.id, party);
+                    setOpen(false);
+                    setSearchTerm("");
+                  }}
+                  className="cursor-pointer hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white p-2 min-[2000px]:p-3"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 text-primary",
+                      value === party.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium flex items-center gap-2">
+                      <User className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-muted-foreground dark:text-muted-foreground" />
+                      <span className="text-sm min-[2000px]:text-base">
+                        {party.name}
+                      </span>
+                    </div>
+                    <div className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground flex items-center gap-1 mt-1">
+                      <MapPin className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4" />
+                      {party.city}, {party.state}
+                      {party.phone && <span> • 📞 {party.phone}</span>}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center gap-1 mt-1">
-                    <MapPin className="w-3 h-3" />
-                    {party.city}, {party.state}
-                    {party.phone && <span> • 📞 {party.phone}</span>}
-                  </div>
-                </div>
-              </CommandItem>
-            ))}
+                </CommandItem>
+              ))}
           </CommandGroup>
         </Command>
       </PopoverContent>
@@ -775,7 +875,7 @@ interface QuickAddPartyDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (party: Party) => void;
-  type: 'CONSIGNOR' | 'CONSIGNEE';
+  type: "CONSIGNOR" | "CONSIGNEE";
 }
 
 interface PartyFormData {
@@ -792,28 +892,30 @@ interface PartyFormData {
 }
 
 const getInitialPartyFormData = (): PartyFormData => ({
-  name: '',
-  contact_person: '',
-  phone: '',
-  email: '',
-  address_line1: '',
-  city: '',
-  state: '',
-  pincode: '',
-  gst_number: '',
-  pan_number: ''
+  name: "",
+  contact_person: "",
+  phone: "",
+  email: "",
+  address_line1: "",
+  city: "",
+  state: "",
+  pincode: "",
+  gst_number: "",
+  pan_number: "",
 });
 
 const QuickAddPartyDrawer = ({
   isOpen,
   onClose,
   onSave,
-  type
+  type,
 }: QuickAddPartyDrawerProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState<boolean>(false);
   const [locationSearch, setLocationSearch] = useState<string>("");
-  const [formData, setFormData] = useState<PartyFormData>(getInitialPartyFormData());
+  const [formData, setFormData] = useState<PartyFormData>(
+    getInitialPartyFormData(),
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -823,11 +925,17 @@ const QuickAddPartyDrawer = ({
   }, [isOpen]);
 
   const handleSubmit = async (): Promise<void> => {
-    if (!formData.name || !formData.address_line1 || !formData.city || !formData.state || !formData.pincode) {
+    if (
+      !formData.name ||
+      !formData.address_line1 ||
+      !formData.city ||
+      !formData.state ||
+      !formData.pincode
+    ) {
       toast({
         title: "❌ Validation Error",
         description: "Please fill all required fields",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -835,12 +943,14 @@ const QuickAddPartyDrawer = ({
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('parties')
-        .insert([{
-          ...formData,
-          party_type: type,
-          status: 'ACTIVE'
-        }])
+        .from("parties")
+        .insert([
+          {
+            ...formData,
+            party_type: type,
+            status: "ACTIVE",
+          },
+        ])
         .select()
         .single();
 
@@ -848,17 +958,17 @@ const QuickAddPartyDrawer = ({
 
       toast({
         title: "✅ Success",
-        description: `${type} added successfully`
+        description: `${type} added successfully`,
       });
 
       onSave(data);
       onClose();
     } catch (error) {
-      console.error('Error adding party:', error);
+      console.error("Error adding party:", error);
       toast({
         title: "❌ Error",
         description: "Failed to add party",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -866,82 +976,91 @@ const QuickAddPartyDrawer = ({
   };
 
   const handleLocationClear = (): void => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      address_line1: '',
-      city: '',
-      state: '',
-      pincode: ''
+      address_line1: "",
+      city: "",
+      state: "",
+      pincode: "",
     }));
   };
 
   const handleLocationSelect = (location: LocationSuggestion): void => {
-    const addressLine = location.area && location.area !== location.city ? location.area : '';
-    setFormData(prev => ({
+    const addressLine =
+      location.area && location.area !== location.city ? location.area : "";
+    setFormData((prev) => ({
       ...prev,
       address_line1: addressLine,
-      city: location.city || '',
-      state: location.state || '',
-      pincode: location.postcode || ''
+      city: location.city || "",
+      state: location.state || "",
+      pincode: location.postcode || "",
     }));
     setLocationSearch(location.displayText);
   };
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-3xl overflow-y-auto bg-card border-l border-border dark:border-border">
-        <SheetHeader className="border-b border-border dark:border-border pb-4">
-          <SheetTitle className="flex items-center gap-2 text-foreground dark:text-white">
-            <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-              <User className="w-5 h-5 text-primary" />
+      <SheetContent className="w-full sm:max-w-3xl min-[2000px]:max-w-4xl overflow-y-auto bg-card border-l border-border dark:border-border">
+        <SheetHeader className="border-b border-border dark:border-border pb-4 min-[2000px]:pb-5">
+          <SheetTitle className="flex items-center gap-2 min-[2000px]:gap-3 text-foreground dark:text-white">
+            <div className="p-2 min-[2000px]:p-3 bg-accent dark:bg-primary/10 rounded-lg">
+              <User className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-primary" />
             </div>
-            Add New {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
+            <span className="text-lg min-[2000px]:text-xl">
+              Add New {type === "CONSIGNOR" ? "Consignor" : "Consignee"}
+            </span>
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4 py-6">
+        <div className="space-y-4 min-[2000px]:space-y-5 py-6 min-[2000px]:py-8">
           <div>
-            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Name <span className="text-red-600">*</span>
             </Label>
             <Input
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="Party name"
-              className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+              className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 min-[2000px]:gap-4">
             <div>
-              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                 Phone
               </Label>
               <Input
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
                 placeholder="Phone number (optional)"
                 maxLength={10}
-                className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+                className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
               />
             </div>
             <div>
-              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                 Contact Person
               </Label>
               <Input
                 value={formData.contact_person}
-                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, contact_person: e.target.value })
+                }
                 placeholder="Contact person"
-                className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+                className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
               />
             </div>
           </div>
 
-          <Separator className="bg-[#E5E7EB] dark:bg-secondary my-4" />
+          <Separator className="bg-[#E5E7EB] dark:bg-secondary my-4 min-[2000px]:my-5" />
 
           <div>
-            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Search Area/City
             </Label>
             <LocationSearchInput
@@ -956,88 +1075,103 @@ const QuickAddPartyDrawer = ({
           </div>
 
           <div>
-            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Address Line 1 <span className="text-red-600">*</span>
             </Label>
             <Input
               value={formData.address_line1}
-              onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, address_line1: e.target.value })
+              }
               placeholder="Building/Street address"
-              className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+              className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 min-[2000px]:gap-4">
             <div>
-              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                 City <span className="text-red-600">*</span>
               </Label>
               <Input
                 value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, city: e.target.value })
+                }
                 placeholder="City"
-                className="h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
+                className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
               />
             </div>
             <div>
-              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                 State <span className="text-red-600">*</span>
               </Label>
               <Input
                 value={formData.state}
-                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, state: e.target.value })
+                }
                 placeholder="State"
-                className="h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
+                className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
               />
             </div>
           </div>
 
           <div>
-            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               Pincode <span className="text-red-600">*</span>
             </Label>
             <Input
               value={formData.pincode}
-              onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, pincode: e.target.value })
+              }
               placeholder="6-digit pincode"
               maxLength={6}
-              className="h-9 text-sm mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
+              className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white border-border dark:border-border"
             />
           </div>
 
           <div>
-            <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
               GST Number
             </Label>
             <Input
               value={formData.gst_number}
-              onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  gst_number: e.target.value.toUpperCase(),
+                })
+              }
               placeholder="GST Number (optional)"
               maxLength={15}
-              className="h-9 text-sm mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+              className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base mt-1 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
+          <div className="flex justify-end gap-2 min-[2000px]:gap-3 pt-4 min-[2000px]:pt-5 border-t border-border dark:border-border">
             <Button
               variant="outline"
               onClick={onClose}
               disabled={loading}
               size="sm"
-              className="border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
+              className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm border-border dark:border-border hover:bg-muted dark:hover:bg-secondary"
             >
-              <X className="w-3.5 h-3.5 mr-2" />
+              <X className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 mr-2" />
               Cancel
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={loading}
               size="sm"
-              className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
+              className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
             >
-              {loading && <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />}
-              <Save className="w-3.5 h-3.5 mr-2" />
-              Add {type === 'CONSIGNOR' ? 'Consignor' : 'Consignee'}
+              {loading && (
+                <Loader2 className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 mr-2 animate-spin" />
+              )}
+              <Save className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 mr-2" />
+              Add {type === "CONSIGNOR" ? "Consignor" : "Consignee"}
             </Button>
           </div>
         </div>
@@ -1050,20 +1184,27 @@ const QuickAddPartyDrawer = ({
 // MAIN BOOKING FORM MODAL COMPONENT
 // ============================================
 
-export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalProps) => {
+export const BookingFormModal = ({
+  isOpen,
+  onClose,
+  onSave,
+}: BookingFormModalProps) => {
   const { toast } = useToast();
   const [dateError, setDateError] = useState<string | null>(null);
   const [branches, setBranches] = useState<CompanyBranch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
-  const [addPartyModal, setAddPartyModal] = useState<{ isOpen: boolean; type: 'CONSIGNOR' | 'CONSIGNEE' }>({
+  const [addPartyModal, setAddPartyModal] = useState<{
+    isOpen: boolean;
+    type: "CONSIGNOR" | "CONSIGNEE";
+  }>({
     isOpen: false,
-    type: 'CONSIGNOR'
+    type: "CONSIGNOR",
   });
 
-  const [formData, setFormData] = useState<BookingFormData>(getInitialFormData());
+  const [formData, setFormData] =
+    useState<BookingFormData>(getInitialFormData());
 
-  // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
       setFormData(getInitialFormData());
@@ -1075,16 +1216,17 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
           const branchData = await fetchCompanyBranches();
           setBranches(branchData);
 
-          const defaultBranch = branchData.find(b => b.is_default) || branchData[0];
+          const defaultBranch =
+            branchData.find((b) => b.is_default) || branchData[0];
           if (defaultBranch) {
-            setFormData(prev => ({ ...prev, branch_id: defaultBranch.id }));
+            setFormData((prev) => ({ ...prev, branch_id: defaultBranch.id }));
           }
         } catch (error) {
-          console.error('Error loading branches:', error);
+          console.error("Error loading branches:", error);
           toast({
             title: "Error",
             description: "Failed to load branches",
-            variant: "destructive"
+            variant: "destructive",
           });
         } finally {
           setLoadingBranches(false);
@@ -1095,57 +1237,58 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
     }
   }, [isOpen, toast]);
 
-  // Handle consignor selection - auto-fill location WITHOUT enabling search
-  const handleConsignorSelect = useCallback((partyId: string, party: Party): void => {
-    const fromLocation = party.city && party.state
-      ? `${party.city}, ${party.state}`
-      : '';
+  const handleConsignorSelect = useCallback(
+    (partyId: string, party: Party): void => {
+      const fromLocation =
+        party.city && party.state ? `${party.city}, ${party.state}` : "";
 
-    setFormData(prev => ({
-      ...prev,
-      consignor_id: partyId,
-      consignorName: party.name,
-      from_location: fromLocation
-    }));
-  }, []);
+      setFormData((prev) => ({
+        ...prev,
+        consignor_id: partyId,
+        consignorName: party.name,
+        from_location: fromLocation,
+      }));
+    },
+    [],
+  );
 
-  // Handle consignee selection - auto-fill location WITHOUT enabling search
-  const handleConsigneeSelect = useCallback((partyId: string, party: Party): void => {
-    const toLocation = party.city && party.state
-      ? `${party.city}, ${party.state}`
-      : '';
+  const handleConsigneeSelect = useCallback(
+    (partyId: string, party: Party): void => {
+      const toLocation =
+        party.city && party.state ? `${party.city}, ${party.state}` : "";
 
-    setFormData(prev => ({
-      ...prev,
-      consignee_id: partyId,
-      consigneeName: party.name,
-      to_location: toLocation
-    }));
-  }, []);
+      setFormData((prev) => ({
+        ...prev,
+        consignee_id: partyId,
+        consigneeName: party.name,
+        to_location: toLocation,
+      }));
+    },
+    [],
+  );
 
   const handleDateChange = useCallback((date: Date | null): void => {
     if (date) {
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
       const isoString = `${year}-${month}-${day}`;
 
       const error = validatePickupDate(isoString);
       setDateError(error);
-      setFormData(prev => ({ ...prev, pickupDate: isoString }));
+      setFormData((prev) => ({ ...prev, pickupDate: isoString }));
     } else {
-      setFormData(prev => ({ ...prev, pickupDate: "" }));
+      setFormData((prev) => ({ ...prev, pickupDate: "" }));
       setDateError(null);
     }
   }, []);
 
   const handleSubmit = async (): Promise<void> => {
-    // Validation
     if (!formData.consignor_id || !formData.consignee_id) {
       toast({
         title: "Validation Error",
         description: "Please select both Consignor and Consignee",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1154,7 +1297,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
       toast({
         title: "Validation Error",
         description: "Please select both pickup and drop locations",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1163,7 +1306,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
       toast({
         title: "Invalid Date",
         description: dateError,
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1172,7 +1315,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
       toast({
         title: "Validation Error",
         description: "Please select a branch",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -1188,34 +1331,37 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
         service_type: formData.serviceType,
         pickup_date: formData.pickupDate,
         branch_id: formData.branch_id,
-        material_description: '',
-        cargo_units: '1',
+        material_description: "",
+        cargo_units: "1",
         bilti_number: null,
         invoice_number: null,
-        eway_bill_details: []
+        eway_bill_details: [],
       };
 
       await onSave(bookingData);
       onClose();
     } catch (error) {
-      console.error('Error creating booking:', error);
+      console.error("Error creating booking:", error);
       toast({
         title: "Error",
         description: "Failed to create booking",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleNewPartyAdded = useCallback((party: Party): void => {
-    if (addPartyModal.type === 'CONSIGNOR') {
-      handleConsignorSelect(party.id, party);
-    } else {
-      handleConsigneeSelect(party.id, party);
-    }
-  }, [addPartyModal.type, handleConsignorSelect, handleConsigneeSelect]);
+  const handleNewPartyAdded = useCallback(
+    (party: Party): void => {
+      if (addPartyModal.type === "CONSIGNOR") {
+        handleConsignorSelect(party.id, party);
+      } else {
+        handleConsigneeSelect(party.id, party);
+      }
+    },
+    [addPartyModal.type, handleConsignorSelect, handleConsigneeSelect],
+  );
 
   const getMinDate = (): Date => {
     const twoDaysAgo = new Date();
@@ -1236,75 +1382,87 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
     formData.branch_id &&
     formData.from_location &&
     formData.to_location &&
-    !dateError
+    !dateError,
   );
 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="w-full sm:max-w-3xl overflow-y-auto bg-card border-l border-border dark:border-border">
-          <SheetHeader className="border-b border-border dark:border-border pb-4">
-            <SheetTitle className="flex items-center gap-3 text-foreground dark:text-white">
-              <div className="p-2 bg-accent dark:bg-primary/10 rounded-lg">
-                <Package className="w-5 h-5 text-primary" />
+        <SheetContent className="w-full sm:max-w-3xl min-[2000px]:max-w-4xl overflow-y-auto bg-card border-l border-border dark:border-border">
+          <SheetHeader className="border-b border-border dark:border-border pb-4 min-[2000px]:pb-5">
+            <SheetTitle className="flex items-center gap-3 min-[2000px]:gap-4 text-foreground dark:text-white">
+              <div className="p-2 min-[2000px]:p-3 bg-accent dark:bg-primary/10 rounded-lg">
+                <Package className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-primary" />
               </div>
-              <span className="text-xl font-semibold">Create New Booking</span>
+              <span className="text-xl min-[2000px]:text-2xl font-semibold">
+                Create New Booking
+              </span>
             </SheetTitle>
           </SheetHeader>
 
-          <div className="space-y-5 py-6">
+          <div className="space-y-5 min-[2000px]:space-y-6 py-6 min-[2000px]:py-8">
             {/* Branch Selection */}
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <div className="space-y-2 min-[2000px]:space-y-3">
+              <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                 Branch <span className="text-red-600">*</span>
               </Label>
               {loadingBranches ? (
-                <div className="flex items-center gap-2 h-9 px-3 border border-border dark:border-border rounded-lg bg-muted">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground dark:text-muted-foreground">
+                <div className="flex items-center gap-2 h-9 min-[2000px]:h-11 px-3 min-[2000px]:px-4 border border-border dark:border-border rounded-lg bg-muted">
+                  <Loader2 className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 animate-spin text-primary" />
+                  <span className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
                     Loading branches...
                   </span>
                 </div>
               ) : (
                 <Select
                   value={formData.branch_id}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, branch_id: value }))}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, branch_id: value }))
+                  }
                   disabled={loading}
                 >
-                  <SelectTrigger className="h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
+                  <SelectTrigger className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                     <SelectValue placeholder="Select branch">
                       {formData.branch_id && (
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className="h-5 px-1.5 font-mono text-xs bg-muted dark:bg-secondary text-foreground dark:text-white border-border dark:border-border"
+                            className="h-5 min-[2000px]:h-6 px-1.5 min-[2000px]:px-2 font-mono text-xs min-[2000px]:text-sm bg-muted dark:bg-secondary text-foreground dark:text-white border-border dark:border-border"
                           >
-                            {branches.find(b => b.id === formData.branch_id)?.branch_code}
+                            {
+                              branches.find((b) => b.id === formData.branch_id)
+                                ?.branch_code
+                            }
                           </Badge>
-                          <span className="text-sm">
-                            {branches.find(b => b.id === formData.branch_id)?.branch_name}
+                          <span className="text-sm min-[2000px]:text-base">
+                            {
+                              branches.find((b) => b.id === formData.branch_id)
+                                ?.branch_name
+                            }
                           </span>
                         </div>
                       )}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border dark:border-border">
-                    {branches.map(branch => (
+                    {branches.map((branch) => (
                       <SelectItem
                         key={branch.id}
                         value={branch.id}
-                        className="hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                        className="hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white p-2 min-[2000px]:p-3"
                       >
                         <div className="flex items-center gap-2">
                           <Badge
                             variant="secondary"
-                            className="h-5 px-1.5 font-mono text-xs bg-muted dark:bg-secondary border-0"
+                            className="h-5 min-[2000px]:h-6 px-1.5 min-[2000px]:px-2 font-mono text-xs min-[2000px]:text-sm bg-muted dark:bg-secondary border-0"
                           >
                             {branch.branch_code}
                           </Badge>
-                          <span>{branch.branch_name}</span>
+                          <span className="text-sm min-[2000px]:text-base">
+                            {branch.branch_name}
+                          </span>
                           {branch.city && (
-                            <span className="text-xs text-muted-foreground dark:text-muted-foreground ml-auto">
+                            <span className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground ml-auto">
                               {branch.city}
                             </span>
                           )}
@@ -1317,9 +1475,9 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
             </div>
 
             {/* Party Selection - Side by Side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-[2000px]:gap-4">
+              <div className="space-y-2 min-[2000px]:space-y-3">
+                <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Consignor <span className="text-red-600">*</span>
                 </Label>
                 <PartySelect
@@ -1328,12 +1486,14 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                   type="CONSIGNOR"
                   placeholder="Select or search..."
                   disabled={loading}
-                  onAddNew={() => setAddPartyModal({ isOpen: true, type: 'CONSIGNOR' })}
+                  onAddNew={() =>
+                    setAddPartyModal({ isOpen: true, type: "CONSIGNOR" })
+                  }
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <div className="space-y-2 min-[2000px]:space-y-3">
+                <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Consignee <span className="text-red-600">*</span>
                 </Label>
                 <PartySelect
@@ -1342,7 +1502,9 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                   type="CONSIGNEE"
                   placeholder="Select or search..."
                   disabled={loading}
-                  onAddNew={() => setAddPartyModal({ isOpen: true, type: 'CONSIGNEE' })}
+                  onAddNew={() =>
+                    setAddPartyModal({ isOpen: true, type: "CONSIGNEE" })
+                  }
                 />
               </div>
             </div>
@@ -1350,52 +1512,68 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
             <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* From & To Location - SIDE BY SIDE in one row */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-foreground dark:text-white flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
+            <div className="space-y-3 min-[2000px]:space-y-4">
+              <Label className="text-sm min-[2000px]:text-base font-semibold text-foreground dark:text-white flex items-center gap-2">
+                <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-primary" />
                 Pickup & Drop Locations
               </Label>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-[2000px]:gap-4">
                 {/* From Location */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                <div className="space-y-2 min-[2000px]:space-y-3">
+                  <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     From Location <span className="text-red-600">*</span>
                   </Label>
                   <LocationSearchInput
                     value={formData.from_location}
-                    onChange={(value) => setFormData(prev => ({ ...prev, from_location: value }))}
+                    onChange={(value) =>
+                      setFormData((prev) => ({ ...prev, from_location: value }))
+                    }
                     placeholder="Search pickup location..."
                     disabled={loading}
                     enableSearch={true}
                     onLocationSelect={(location) => {
-                      const formatted = location.city && location.state
-                        ? `${location.city}, ${location.state}`
-                        : location.displayText || '';
-                      setFormData(prev => ({ ...prev, from_location: formatted }));
+                      const formatted =
+                        location.city && location.state
+                          ? `${location.city}, ${location.state}`
+                          : location.displayText || "";
+                      setFormData((prev) => ({
+                        ...prev,
+                        from_location: formatted,
+                      }));
                     }}
-                    onClear={() => setFormData(prev => ({ ...prev, from_location: '' }))}
+                    onClear={() =>
+                      setFormData((prev) => ({ ...prev, from_location: "" }))
+                    }
                   />
                 </div>
 
                 {/* To Location */}
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+                <div className="space-y-2 min-[2000px]:space-y-3">
+                  <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                     To Location <span className="text-red-600">*</span>
                   </Label>
                   <LocationSearchInput
                     value={formData.to_location}
-                    onChange={(value) => setFormData(prev => ({ ...prev, to_location: value }))}
+                    onChange={(value) =>
+                      setFormData((prev) => ({ ...prev, to_location: value }))
+                    }
                     placeholder="Search drop location..."
                     disabled={loading}
                     enableSearch={true}
                     onLocationSelect={(location) => {
-                      const formatted = location.city && location.state
-                        ? `${location.city}, ${location.state}`
-                        : location.displayText || '';
-                      setFormData(prev => ({ ...prev, to_location: formatted }));
+                      const formatted =
+                        location.city && location.state
+                          ? `${location.city}, ${location.state}`
+                          : location.displayText || "";
+                      setFormData((prev) => ({
+                        ...prev,
+                        to_location: formatted,
+                      }));
                     }}
-                    onClear={() => setFormData(prev => ({ ...prev, to_location: '' }))}
+                    onClear={() =>
+                      setFormData((prev) => ({ ...prev, to_location: "" }))
+                    }
                   />
                 </div>
               </div>
@@ -1404,65 +1582,83 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
             <Separator className="bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Service Type & Date - Side by Side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-[2000px]:gap-4">
+              <div className="space-y-2 min-[2000px]:space-y-3">
+                <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Service Type <span className="text-red-600">*</span>
                 </Label>
                 <Select
                   value={formData.serviceType}
-                  onValueChange={(value: "FTL" | "PTL") => setFormData(prev => ({ ...prev, serviceType: value }))}
+                  onValueChange={(value: "FTL" | "PTL") =>
+                    setFormData((prev) => ({ ...prev, serviceType: value }))
+                  }
                   disabled={loading}
                 >
-                  <SelectTrigger className="h-9 text-sm border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
+                  <SelectTrigger className="h-9 min-[2000px]:h-11 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border dark:border-border">
-                    <SelectItem value="FTL" className="hover:bg-accent dark:hover:bg-secondary">
+                    <SelectItem
+                      value="FTL"
+                      className="hover:bg-accent dark:hover:bg-secondary p-2 min-[2000px]:p-3"
+                    >
                       <div className="flex items-center gap-2">
-                        <Truck className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
-                        Full Truck Load (FTL)
+                        <Truck className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 text-muted-foreground dark:text-muted-foreground" />
+                        <span className="text-sm min-[2000px]:text-base">
+                          Full Truck Load (FTL)
+                        </span>
                       </div>
                     </SelectItem>
-                    <SelectItem value="PTL" className="hover:bg-accent dark:hover:bg-secondary">
+                    <SelectItem
+                      value="PTL"
+                      className="hover:bg-accent dark:hover:bg-secondary p-2 min-[2000px]:p-3"
+                    >
                       <div className="flex items-center gap-2">
-                        <Package className="w-3.5 h-3.5 text-muted-foreground dark:text-muted-foreground" />
-                        Part Truck Load (PTL)
+                        <Package className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 text-muted-foreground dark:text-muted-foreground" />
+                        <span className="text-sm min-[2000px]:text-base">
+                          Part Truck Load (PTL)
+                        </span>
                       </div>
                     </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
+              <div className="space-y-2 min-[2000px]:space-y-3">
+                <Label className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
                   Pickup Date
                   <span className="text-muted-foreground dark:text-muted-foreground font-normal ml-1">
                     (Optional)
                   </span>
                 </Label>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground pointer-events-none z-10" />
+                  <Calendar className="absolute left-2.5 min-[2000px]:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4 text-muted-foreground dark:text-muted-foreground pointer-events-none z-10" />
                   <DatePicker
-                    selected={formData.pickupDate ? new Date(formData.pickupDate + 'T00:00:00') : null}
+                    selected={
+                      formData.pickupDate
+                        ? new Date(formData.pickupDate + "T00:00:00")
+                        : null
+                    }
                     onChange={handleDateChange}
                     dateFormat="dd/MM/yyyy"
                     placeholderText="DD/MM/YYYY"
                     minDate={getMinDate()}
                     maxDate={getMaxDate()}
                     className={cn(
-                      "flex h-9 w-full rounded-lg border bg-card pl-9 pr-3 py-2 text-sm text-foreground dark:text-white",
+                      "flex h-9 min-[2000px]:h-11 w-full rounded-lg border bg-card pl-9 min-[2000px]:pl-10 pr-3 min-[2000px]:pr-4 py-2 min-[2000px]:py-3 text-sm min-[2000px]:text-base text-foreground dark:text-white",
                       "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
                       "focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary",
                       "disabled:cursor-not-allowed disabled:opacity-50",
-                      dateError ? "border-red-600 focus:ring-red-600" : "border-border dark:border-border"
+                      dateError
+                        ? "border-red-600 focus:ring-red-600"
+                        : "border-border dark:border-border",
                     )}
                     disabled={loading}
                   />
                 </div>
                 {dateError && (
-                  <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
-                    <AlertCircle className="w-3 h-3" />
+                  <p className="text-xs min-[2000px]:text-sm text-red-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4" />
                     {dateError}
                   </p>
                 )}
@@ -1470,16 +1666,16 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end gap-2 pt-4 border-t border-border dark:border-border">
+            <div className="flex justify-end gap-2 min-[2000px]:gap-3 pt-4 min-[2000px]:pt-5 border-t border-border dark:border-border">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
                 disabled={loading}
                 size="sm"
-                className="gap-2 border-border dark:border-border hover:bg-muted dark:hover:bg-secondary text-foreground dark:text-white"
+                className="gap-2 h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm border-border dark:border-border hover:bg-muted dark:hover:bg-secondary text-foreground dark:text-white"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4" />
                 Cancel
               </Button>
               <Button
@@ -1487,16 +1683,16 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
                 onClick={handleSubmit}
                 disabled={loading || !isFormValid}
                 size="sm"
-                className="gap-2 bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                className="gap-2 h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all disabled:opacity-50"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 animate-spin" />
                     Creating...
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4" />
                     Create Booking
                   </>
                 )}
@@ -1508,7 +1704,7 @@ export const BookingFormModal = ({ isOpen, onClose, onSave }: BookingFormModalPr
 
       <QuickAddPartyDrawer
         isOpen={addPartyModal.isOpen}
-        onClose={() => setAddPartyModal(prev => ({ ...prev, isOpen: false }))}
+        onClose={() => setAddPartyModal((prev) => ({ ...prev, isOpen: false }))}
         onSave={handleNewPartyAdded}
         type={addPartyModal.type}
       />

@@ -142,13 +142,13 @@ export const CompanySettings = () => {
   // Branch states
   const [branches, setBranches] = useState<CompanyBranch[]>([]);
   const [branchStats, setBranchStats] = useState<Record<string, BranchStats>>(
-    {}
+    {},
   );
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [showAddBranchModal, setShowAddBranchModal] = useState(false);
   const [showEditBranchModal, setShowEditBranchModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<CompanyBranch | null>(
-    null
+    null,
   );
   const [deletingBranchId, setDeletingBranchId] = useState<string | null>(null);
   const [branchFormData, setBranchFormData] = useState({
@@ -250,7 +250,7 @@ export const CompanySettings = () => {
           totalBookings: bookingData?.length || 0,
           activeBookings:
             bookingData?.filter(
-              (b) => !["DELIVERED", "CANCELLED"].includes(b.status)
+              (b) => !["DELIVERED", "CANCELLED"].includes(b.status),
             ).length || 0,
           currentCounter: counterData?.current_number || 0,
         };
@@ -426,7 +426,7 @@ export const CompanySettings = () => {
   const handleSetActiveCity = async (
     cityId: string,
     cityName: string,
-    event: React.MouseEvent
+    event: React.MouseEvent,
   ) => {
     event.stopPropagation();
     try {
@@ -448,7 +448,7 @@ export const CompanySettings = () => {
   const handleDeleteCity = async (
     cityId: string,
     cityName: string,
-    event: React.MouseEvent
+    event: React.MouseEvent,
   ) => {
     event.stopPropagation();
     if (!confirm(`Are you sure you want to delete ${cityName}?`)) return;
@@ -488,7 +488,7 @@ export const CompanySettings = () => {
     }
 
     const duplicatePrefix = lrCities.find(
-      (c) => c.id !== editingCity.id && c.prefix === editingCity.prefix
+      (c) => c.id !== editingCity.id && c.prefix === editingCity.prefix,
     );
 
     if (duplicatePrefix) {
@@ -605,7 +605,7 @@ export const CompanySettings = () => {
     a.href = url;
     a.download = `${selectedCity?.city_name}_LRs_${format(
       new Date(),
-      "dd-MM-yyyy"
+      "dd-MM-yyyy",
     )}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
@@ -651,7 +651,7 @@ export const CompanySettings = () => {
   const handleChangeRole = async (
     employeeId: string,
     newRole: string,
-    employeeName: string
+    employeeName: string,
   ) => {
     setLoading(true);
     try {
@@ -681,11 +681,11 @@ export const CompanySettings = () => {
 
   const handleDeleteEmployee = async (
     employeeId: string,
-    employeeName: string
+    employeeName: string,
   ) => {
     if (
       !confirm(
-        `Are you sure you want to remove ${employeeName}?\n\nThis will revoke their access immediately.`
+        `Are you sure you want to remove ${employeeName}?\n\nThis will revoke their access immediately.`,
       )
     ) {
       return;
@@ -851,7 +851,7 @@ export const CompanySettings = () => {
                     <p className="text-2xl font-bold">
                       {Object.values(branchStats).reduce(
                         (sum, stat) => sum + stat.totalBookings,
-                        0
+                        0,
                       )}
                     </p>
                   </div>
@@ -875,7 +875,7 @@ export const CompanySettings = () => {
                           "p-3 rounded-lg border",
                           branch.is_default
                             ? "bg-accent border-primary"
-                            : "bg-muted"
+                            : "bg-muted",
                         )}
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -1089,7 +1089,7 @@ export const CompanySettings = () => {
                         "p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md",
                         city.is_active
                           ? "bg-accent border-primary"
-                          : "bg-muted border-border"
+                          : "bg-muted border-border",
                       )}
                     >
                       <div className="flex items-center justify-between">
@@ -1097,7 +1097,7 @@ export const CompanySettings = () => {
                           <div
                             className={cn(
                               "w-2 h-2 rounded-full",
-                              city.is_active ? "bg-green-500" : "bg-gray-300"
+                              city.is_active ? "bg-green-500" : "bg-gray-300",
                             )}
                           />
                           <div className="min-w-0">
@@ -1128,7 +1128,7 @@ export const CompanySettings = () => {
                                   handleSetActiveCity(
                                     city.id,
                                     city.city_name,
-                                    e
+                                    e,
                                   )
                                 }
                                 className="h-6 px-2 text-xs"
@@ -1300,7 +1300,7 @@ export const CompanySettings = () => {
                               handleChangeRole(
                                 employee.id,
                                 newRole,
-                                employee.name
+                                employee.name,
                               )
                             }
                           >
@@ -1617,7 +1617,7 @@ export const CompanySettings = () => {
                   setEditingCity(
                     editingCity
                       ? { ...editingCity, city_name: e.target.value }
-                      : null
+                      : null,
                   )
                 }
                 placeholder="e.g., Vapi, Ahmedabad"
@@ -1635,7 +1635,7 @@ export const CompanySettings = () => {
                             ...editingCity,
                             prefix: e.target.value.toUpperCase(),
                           }
-                        : null
+                        : null,
                     )
                   }
                   placeholder="e.g., VPI, AMD"
@@ -1661,7 +1661,7 @@ export const CompanySettings = () => {
                           ...editingCity,
                           current_lr_number: parseInt(e.target.value) || 1001,
                         }
-                      : null
+                      : null,
                   )
                 }
                 min="0"
@@ -1692,7 +1692,7 @@ export const CompanySettings = () => {
                 editingCity.current_lr_number < 0 ||
                 lrCities.some(
                   (c) =>
-                    c.id !== editingCity.id && c.prefix === editingCity.prefix
+                    c.id !== editingCity.id && c.prefix === editingCity.prefix,
                 )
               }
             >
@@ -1844,7 +1844,7 @@ export const CompanySettings = () => {
                               lr.status === "CANCELLED" &&
                                 "bg-red-100 text-red-700",
                               lr.status === "PENDING" &&
-                                "bg-yellow-100 text-yellow-700"
+                                "bg-yellow-100 text-yellow-700",
                             )}
                           >
                             {lr.status.replace("_", " ")}
