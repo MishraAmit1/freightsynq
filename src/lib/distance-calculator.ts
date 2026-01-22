@@ -217,7 +217,7 @@ export function calculateETAFromDistance(
     pickupDate?: string
 ): Date {
     // Truck average speed: 50 km/h
-    const avgSpeed = 50;
+    const avgSpeed = 20;
 
     // Buffer for breaks, traffic, loading: 20%
     const buffer = 1.2;

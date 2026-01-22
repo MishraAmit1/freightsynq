@@ -43,7 +43,7 @@ export const Tracking = () => {
   const isFreeUser = accessLevel === "FREE";
 
   const [activeTab, setActiveTab] = useState<"fleet" | "random">(
-    isFreeUser ? "random" : "fleet"
+    isFreeUser ? "random" : "fleet",
   );
 
   const [fleetVehicles, setFleetVehicles] = useState<FleetVehicle[]>([]);
@@ -52,7 +52,7 @@ export const Tracking = () => {
 
   const [randomSearches, setRandomSearches] = useState<RandomSearch[]>([]);
   const [selectedSearch, setSelectedSearch] = useState<RandomSearch | null>(
-    null
+    null,
   );
   const [randomLoading, setRandomLoading] = useState(false);
 
@@ -284,7 +284,7 @@ export const Tracking = () => {
 
     if (
       !window.confirm(
-        `Fetch fresh data for ${search.vehicle_number}?\n\nThis will cost ₹4.`
+        `Fetch fresh data for ${search.vehicle_number}?\n\nThis will cost.`,
       )
     )
       return;
@@ -328,7 +328,7 @@ export const Tracking = () => {
 
         const now = new Date();
         const cutoffDate = new Date(
-          now.getTime() - (search.days_range || 1) * 24 * 60 * 60 * 1000
+          now.getTime() - (search.days_range || 1) * 24 * 60 * 60 * 1000,
         );
 
         newCrossings = apiCrossings
@@ -336,7 +336,7 @@ export const Tracking = () => {
           .sort(
             (a: any, b: any) =>
               new Date(a.crossing_time).getTime() -
-              new Date(b.crossing_time).getTime()
+              new Date(b.crossing_time).getTime(),
           );
       }
 
@@ -747,7 +747,7 @@ export const Tracking = () => {
                     onClick={() =>
                       window.open(
                         "mailto:sales@freightsynq.com?subject=Full Access Request",
-                        "_blank"
+                        "_blank",
                       )
                     }
                   >

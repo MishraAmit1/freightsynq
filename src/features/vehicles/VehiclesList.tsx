@@ -4,7 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -36,7 +43,7 @@ import {
   FileDown,
   MoreVertical,
   Edit,
-  Eye
+  Eye,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -46,7 +53,7 @@ import {
   createHiredVehicle,
   verifyOwnedVehicle,
   verifyHiredVehicle,
-  createBroker
+  createBroker,
 } from "@/api/vehicles";
 import { AddVehicleModal } from "./AddVehicleModal";
 import { AddHiredVehicleModal } from "./AddHiredVehicleModal";
@@ -117,29 +124,34 @@ interface HiredVehicle {
 const statusConfig = {
   AVAILABLE: {
     label: "Available",
-    color: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
+    color:
+      "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
     icon: CheckCircle,
   },
   OCCUPIED: {
     label: "Occupied",
-    color: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800",
+    color:
+      "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800",
     icon: AlertCircle,
   },
   MAINTENANCE: {
     label: "Maintenance",
-    color: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
+    color:
+      "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
     icon: Wrench,
   },
   INACTIVE: {
     label: "Inactive",
-    color: "bg-[#F3F4F6] text-muted-foreground border-border dark:bg-secondary dark:text-muted-foreground dark:border-border",
+    color:
+      "bg-[#F3F4F6] text-muted-foreground border-border dark:bg-secondary dark:text-muted-foreground dark:border-border",
     icon: XCircle,
   },
   RELEASED: {
     label: "Released",
-    color: "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-primary/10 dark:text-primary dark:border-primary/30",
+    color:
+      "bg-accent text-primary dark:text-primary border-primary/30 dark:bg-primary/10 dark:text-primary dark:border-primary/30",
     icon: Clock,
-  }
+  },
 };
 
 export const VehiclesList = () => {
@@ -151,14 +163,14 @@ export const VehiclesList = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAddHiredModalOpen, setIsAddHiredModalOpen] = useState(false);
   const [isAddBrokerModalOpen, setIsAddBrokerModalOpen] = useState(false);
-  const [addModalType, setAddModalType] = useState<'owned' | 'hired'>('owned');
+  const [addModalType, setAddModalType] = useState<"owned" | "hired">("owned");
   const [ownedVehicles, setOwnedVehicles] = useState<OwnedVehicle[]>([]);
   const [hiredVehicles, setHiredVehicles] = useState<HiredVehicle[]>([]);
-  const [activeTab, setActiveTab] = useState<'owned' | 'hired'>('owned');
+  const [activeTab, setActiveTab] = useState<"owned" | "hired">("owned");
 
   // Add column hover styles
   useEffect(() => {
-    const styleElement = document.createElement('style');
+    const styleElement = document.createElement("style");
     styleElement.innerHTML = `
       .vehicles-table td {
         position: relative;
@@ -196,21 +208,21 @@ export const VehiclesList = () => {
 
   // Handle modal opening from navigation
   useEffect(() => {
-    const modalType = searchParams.get('openModal');
+    const modalType = searchParams.get("openModal");
 
     if (modalType) {
-      if (modalType === 'broker') {
+      if (modalType === "broker") {
         setIsAddBrokerModalOpen(true);
-      } else if (modalType === 'hired') {
+      } else if (modalType === "hired") {
         setIsAddHiredModalOpen(true);
-      } else if (modalType === 'owned') {
-        setAddModalType('owned');
+      } else if (modalType === "owned") {
+        setAddModalType("owned");
         setIsAddModalOpen(true);
       }
 
       setTimeout(() => {
         const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
+        window.history.replaceState({}, "", newUrl);
       }, 100);
     }
   }, [searchParams]);
@@ -218,12 +230,12 @@ export const VehiclesList = () => {
   // Separate effect for location state
   useEffect(() => {
     if (location.state?.openModal) {
-      if (location.state.openModal === 'broker') {
+      if (location.state.openModal === "broker") {
         setIsAddBrokerModalOpen(true);
-      } else if (location.state.openModal === 'owned') {
-        setAddModalType('owned');
+      } else if (location.state.openModal === "owned") {
+        setAddModalType("owned");
         setIsAddModalOpen(true);
-      } else if (location.state.openModal === 'hired') {
+      } else if (location.state.openModal === "hired") {
         setIsAddHiredModalOpen(true);
       }
 
@@ -240,12 +252,12 @@ export const VehiclesList = () => {
       setLoading(true);
       const [owned, hired] = await Promise.all([
         fetchOwnedVehicles(),
-        fetchHiredVehicles()
+        fetchHiredVehicles(),
       ]);
       setOwnedVehicles(owned);
       setHiredVehicles(hired);
     } catch (error) {
-      console.error('Error loading vehicles:', error);
+      console.error("Error loading vehicles:", error);
       toast({
         title: "❌ Error",
         description: "Failed to load vehicles",
@@ -271,7 +283,7 @@ export const VehiclesList = () => {
       });
 
       if (documents && documents.files.length > 0) {
-        const { uploadVehicleDocument } = await import('@/api/vehicleDocument');
+        const { uploadVehicleDocument } = await import("@/api/vehicleDocument");
 
         let uploadedCount = 0;
         let failedCount = 0;
@@ -283,10 +295,10 @@ export const VehiclesList = () => {
           try {
             await uploadVehicleDocument({
               vehicle_id: newVehicle.id,
-              vehicle_type: 'OWNED',
+              vehicle_type: "OWNED",
               document_type: metadata.document_type,
               file: file,
-              expiry_date: metadata.expiry_date
+              expiry_date: metadata.expiry_date,
             });
             uploadedCount++;
           } catch (error) {
@@ -306,7 +318,7 @@ export const VehiclesList = () => {
           toast({
             title: "⚠️ Some Uploads Failed",
             description: `${failedCount} document(s) failed to upload`,
-            variant: "destructive"
+            variant: "destructive",
           });
         }
       }
@@ -318,7 +330,7 @@ export const VehiclesList = () => {
         description: `Owned vehicle ${vehicleData.vehicle_number} has been added to your fleet`,
       });
     } catch (error) {
-      console.error('Error adding vehicle:', error);
+      console.error("Error adding vehicle:", error);
       toast({
         title: "❌ Error",
         description: "Failed to add vehicle. Please try again.",
@@ -336,7 +348,9 @@ export const VehiclesList = () => {
         capacity: vehicleData.capacity,
         broker_id: vehicleData.brokerId,
         default_driver_id: vehicleData.default_driver_id,
-        rate_per_trip: vehicleData.ratePerTrip ? parseFloat(vehicleData.ratePerTrip) : undefined,
+        rate_per_trip: vehicleData.ratePerTrip
+          ? parseFloat(vehicleData.ratePerTrip)
+          : undefined,
       });
 
       await loadVehicles();
@@ -346,7 +360,7 @@ export const VehiclesList = () => {
       });
       setIsAddHiredModalOpen(false);
     } catch (error) {
-      console.error('Error adding hired vehicle:', error);
+      console.error("Error adding hired vehicle:", error);
       toast({
         title: "❌ Error",
         description: "Failed to add hired vehicle",
@@ -363,7 +377,7 @@ export const VehiclesList = () => {
         contact_person: brokerData.contactPerson,
         phone: brokerData.phone,
         email: brokerData.email || undefined,
-        city: brokerData.city || undefined
+        city: brokerData.city || undefined,
       });
 
       toast({
@@ -375,7 +389,7 @@ export const VehiclesList = () => {
       setIsAddHiredModalOpen(true);
       await loadVehicles();
     } catch (error) {
-      console.error('Error adding broker:', error);
+      console.error("Error adding broker:", error);
       toast({
         title: "❌ Error",
         description: "Failed to add broker",
@@ -384,7 +398,11 @@ export const VehiclesList = () => {
     }
   };
 
-  const handleVerifyVehicle = async (vehicleId: string, isOwned: boolean, currentStatus: boolean) => {
+  const handleVerifyVehicle = async (
+    vehicleId: string,
+    isOwned: boolean,
+    currentStatus: boolean,
+  ) => {
     try {
       if (isOwned) {
         await verifyOwnedVehicle(vehicleId, !currentStatus);
@@ -399,7 +417,7 @@ export const VehiclesList = () => {
           : "Vehicle has been verified successfully",
       });
     } catch (error) {
-      console.error('Error verifying vehicle:', error);
+      console.error("Error verifying vehicle:", error);
       toast({
         title: "❌ Error",
         description: "Failed to update verification status",
@@ -409,17 +427,24 @@ export const VehiclesList = () => {
   };
 
   const getFilteredVehicles = () => {
-    const vehicles = activeTab === 'owned' ? ownedVehicles : hiredVehicles;
-    return vehicles.filter(vehicle => {
+    const vehicles = activeTab === "owned" ? ownedVehicles : hiredVehicles;
+    return vehicles.filter((vehicle) => {
       const assignments = vehicle.vehicle_assignments || [];
-      const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
+      const activeAssignment = assignments.find((a) => a.status === "ACTIVE");
       const driver = activeAssignment?.driver;
-      const brokerName = activeTab === 'hired' ? (vehicle as HiredVehicle).broker?.name || '' : '';
+      const brokerName =
+        activeTab === "hired"
+          ? (vehicle as HiredVehicle).broker?.name || ""
+          : "";
 
       return (
-        vehicle.vehicle_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicle.vehicle_number
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         driver?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vehicle.vehicle_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicle.vehicle_type
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
         brokerName.toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
@@ -433,22 +458,46 @@ export const VehiclesList = () => {
     total: totalVehicles,
     owned: ownedVehicles.length,
     hired: hiredVehicles.length,
-    available: [...ownedVehicles, ...hiredVehicles].filter(v => v.status === 'AVAILABLE').length,
-    occupied: [...ownedVehicles, ...hiredVehicles].filter(v => v.status === 'OCCUPIED').length,
-    maintenance: [...ownedVehicles, ...hiredVehicles].filter(v => v.status === 'MAINTENANCE').length,
+    available: [...ownedVehicles, ...hiredVehicles].filter(
+      (v) => v.status === "AVAILABLE",
+    ).length,
+    occupied: [...ownedVehicles, ...hiredVehicles].filter(
+      (v) => v.status === "OCCUPIED",
+    ).length,
+    maintenance: [...ownedVehicles, ...hiredVehicles].filter(
+      (v) => v.status === "MAINTENANCE",
+    ).length,
   };
 
   const handleExport = () => {
-    const headers = activeTab === 'owned'
-      ? ["Vehicle Number", "Type", "Capacity", "Status", "Driver", "Insurance Expiry", "Verified"]
-      : ["Vehicle Number", "Type", "Capacity", "Status", "Driver", "Broker", "Rate/Trip", "Verified"];
+    const headers =
+      activeTab === "owned"
+        ? [
+            "Vehicle Number",
+            "Type",
+            "Capacity",
+            "Status",
+            "Driver",
+            "Insurance Expiry",
+            "Verified",
+          ]
+        : [
+            "Vehicle Number",
+            "Type",
+            "Capacity",
+            "Status",
+            "Driver",
+            "Broker",
+            "Rate/Trip",
+            "Verified",
+          ];
 
-    const rows = filteredVehicles.map(vehicle => {
+    const rows = filteredVehicles.map((vehicle) => {
       const assignments = vehicle.vehicle_assignments || [];
-      const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
+      const activeAssignment = assignments.find((a) => a.status === "ACTIVE");
       const driver = activeAssignment?.driver;
 
-      if (activeTab === 'owned') {
+      if (activeTab === "owned") {
         const owned = vehicle as OwnedVehicle;
         return [
           vehicle.vehicle_number,
@@ -456,8 +505,10 @@ export const VehiclesList = () => {
           vehicle.capacity,
           vehicle.status,
           driver?.name || "No driver",
-          owned.insurance_expiry ? format(new Date(owned.insurance_expiry), 'dd MMM yyyy') : "Not set",
-          vehicle.is_verified ? "Yes" : "No"
+          owned.insurance_expiry
+            ? format(new Date(owned.insurance_expiry), "dd MMM yyyy")
+            : "Not set",
+          vehicle.is_verified ? "Yes" : "No",
         ];
       } else {
         const hired = vehicle as HiredVehicle;
@@ -469,20 +520,28 @@ export const VehiclesList = () => {
           driver?.name || "No driver",
           hired.broker?.name || "No broker",
           hired.rate_per_trip ? `₹${hired.rate_per_trip}` : "Not set",
-          vehicle.is_verified ? "Yes" : "No"
+          vehicle.is_verified ? "Yes" : "No",
         ];
       }
     });
 
     const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => {
-        const cellStr = String(cell);
-        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-          return `"${cellStr.replace(/"/g, '""')}"`;
-        }
-        return cellStr;
-      }).join(','))
-      .join('\n');
+      .map((row) =>
+        row
+          .map((cell) => {
+            const cellStr = String(cell);
+            if (
+              cellStr.includes(",") ||
+              cellStr.includes('"') ||
+              cellStr.includes("\n")
+            ) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          })
+          .join(","),
+      )
+      .join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
@@ -523,11 +582,12 @@ export const VehiclesList = () => {
               Fleet Management
             </h1>
             <p className="text-muted-foreground dark:text-muted-foreground mt-2 text-lg">
-              Manage your fleet of {totalVehicles} vehicles ({ownedVehicles.length} owned, {hiredVehicles.length} hired)
+              Manage your fleet of {totalVehicles} vehicles (
+              {ownedVehicles.length} owned, {hiredVehicles.length} hired)
             </p>
           </div>
           <div className="flex flex-col gap-2 w-full lg:w-auto lg:min-w-[220px]">
-            {activeTab === 'hired' && (
+            {activeTab === "hired" && (
               <>
                 <Button
                   onClick={() => setIsAddHiredModalOpen(true)}
@@ -557,11 +617,11 @@ export const VehiclesList = () => {
               </>
             )}
 
-            {activeTab === 'owned' && (
+            {activeTab === "owned" && (
               <>
                 <Button
                   onClick={() => {
-                    setAddModalType('owned');
+                    setAddModalType("owned");
                     setIsAddModalOpen(true);
                   }}
                   className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
@@ -591,7 +651,9 @@ export const VehiclesList = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Total Fleet</p>
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                  Total Fleet
+                </p>
                 <p className="text-3xl font-bold text-foreground dark:text-white">
                   {stats.total}
                 </p>
@@ -608,7 +670,9 @@ export const VehiclesList = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Owned</p>
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                  Owned
+                </p>
                 <p className="text-3xl font-bold text-primary dark:text-primary">
                   {stats.owned}
                 </p>
@@ -625,7 +689,9 @@ export const VehiclesList = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Hired</p>
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                  Hired
+                </p>
                 <p className="text-3xl font-bold text-primary dark:text-primary">
                   {stats.hired}
                 </p>
@@ -642,7 +708,9 @@ export const VehiclesList = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Available</p>
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                  Available
+                </p>
                 <p className="text-3xl font-bold text-green-600">
                   {stats.available}
                 </p>
@@ -659,7 +727,9 @@ export const VehiclesList = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Occupied</p>
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                  Occupied
+                </p>
                 <p className="text-3xl font-bold text-orange-600">
                   {stats.occupied}
                 </p>
@@ -676,7 +746,9 @@ export const VehiclesList = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">Maintenance</p>
+                <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                  Maintenance
+                </p>
                 <p className="text-3xl font-bold text-red-600">
                   {stats.maintenance}
                 </p>
@@ -701,9 +773,11 @@ export const VehiclesList = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
             <Input
-              placeholder={activeTab === 'owned'
-                ? "Search by vehicle number, driver name, or type..."
-                : "Search by vehicle number, driver name, type, or broker..."}
+              placeholder={
+                activeTab === "owned"
+                  ? "Search by vehicle number, driver name, or type..."
+                  : "Search by vehicle number, driver name, type, or broker..."
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-11 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
@@ -715,7 +789,10 @@ export const VehiclesList = () => {
       {/* ✅ TABLE CARD */}
       <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
         <CardHeader className="border-b border-border dark:border-border bg-muted">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'owned' | 'hired')}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as "owned" | "hired")}
+          >
             <TabsList className="bg-transparent border-0 p-0 h-auto inline-flex">
               <TabsTrigger
                 value="owned"
@@ -751,8 +828,10 @@ export const VehiclesList = () => {
                       Driver
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Status</TableHead>
-                  {activeTab === 'owned' ? (
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                    Status
+                  </TableHead>
+                  {activeTab === "owned" ? (
                     <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
@@ -773,8 +852,12 @@ export const VehiclesList = () => {
                       Location
                     </div>
                   </TableHead>
-                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">Verified</TableHead>
-                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground text-center">Actions</TableHead>
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground">
+                    Verified
+                  </TableHead>
+                  <TableHead className="font-semibold text-muted-foreground dark:text-muted-foreground text-center">
+                    Actions
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -787,19 +870,23 @@ export const VehiclesList = () => {
                         </div>
                         <div className="text-muted-foreground dark:text-muted-foreground">
                           <p className="text-lg font-medium">
-                            {searchQuery ? "No vehicles found" : `No ${activeTab} vehicles added yet`}
+                            {searchQuery
+                              ? "No vehicles found"
+                              : `No ${activeTab} vehicles added yet`}
                           </p>
                           <p className="text-sm mt-1">
-                            {searchQuery ? "Try adjusting your search" : "Add your first vehicle to get started"}
+                            {searchQuery
+                              ? "Try adjusting your search"
+                              : "Add your first vehicle to get started"}
                           </p>
                         </div>
                         {!searchQuery && (
                           <div className="flex gap-4 justify-center">
-                            {activeTab === 'owned' ? (
+                            {activeTab === "owned" ? (
                               <Button
                                 variant="outline"
                                 onClick={() => {
-                                  setAddModalType('owned');
+                                  setAddModalType("owned");
                                   setIsAddModalOpen(true);
                                 }}
                                 className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
@@ -835,10 +922,15 @@ export const VehiclesList = () => {
                 ) : (
                   filteredVehicles.map((vehicle) => {
                     const assignments = vehicle.vehicle_assignments || [];
-                    const activeAssignment = assignments.find(a => a.status === 'ACTIVE');
+                    const activeAssignment = assignments.find(
+                      (a) => a.status === "ACTIVE",
+                    );
                     const driver = activeAssignment?.driver;
                     const booking = activeAssignment?.booking;
-                    const status = statusConfig[vehicle.status as keyof typeof statusConfig] || statusConfig.AVAILABLE;
+                    const status =
+                      statusConfig[
+                        vehicle.status as keyof typeof statusConfig
+                      ] || statusConfig.AVAILABLE;
                     const StatusIcon = status.icon;
 
                     return (
@@ -852,7 +944,9 @@ export const VehiclesList = () => {
                               <Truck className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <p className="font-semibold text-foreground dark:text-white">{vehicle.vehicle_number}</p>
+                              <p className="font-semibold text-foreground dark:text-white">
+                                {vehicle.vehicle_number}
+                              </p>
                               <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                                 {vehicle.vehicle_type} • {vehicle.capacity}
                               </p>
@@ -866,8 +960,12 @@ export const VehiclesList = () => {
                                 <User className="w-4 h-4 text-green-600" />
                               </div>
                               <div>
-                                <p className="font-medium text-foreground dark:text-white">{driver.name}</p>
-                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">{driver.experience || 'Experience N/A'}</p>
+                                <p className="font-medium text-foreground dark:text-white">
+                                  {driver.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+                                  {driver.experience || "Experience N/A"}
+                                </p>
                               </div>
                             </div>
                           ) : (
@@ -878,28 +976,47 @@ export const VehiclesList = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge className={cn("gap-1.5 font-medium text-xs", status.color)}>
+                          <Badge
+                            className={cn(
+                              "gap-1.5 font-medium text-xs",
+                              status.color,
+                            )}
+                          >
                             <StatusIcon className="w-3.5 h-3.5" />
                             {status.label}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {activeTab === 'owned' ? (
+                          {activeTab === "owned" ? (
                             <div>
                               {(vehicle as OwnedVehicle).insurance_expiry ? (
                                 <div className="flex items-center gap-2">
                                   <Calendar className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                                   <div>
                                     <p className="text-sm font-medium text-foreground dark:text-white">
-                                      {format(new Date((vehicle as OwnedVehicle).insurance_expiry!), 'dd MMM yyyy')}
+                                      {format(
+                                        new Date(
+                                          (vehicle as OwnedVehicle)
+                                            .insurance_expiry!,
+                                        ),
+                                        "dd MMM yyyy",
+                                      )}
                                     </p>
                                     <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-                                      Expires in {formatDistanceToNow(new Date((vehicle as OwnedVehicle).insurance_expiry!))}
+                                      Expires in{" "}
+                                      {formatDistanceToNow(
+                                        new Date(
+                                          (vehicle as OwnedVehicle)
+                                            .insurance_expiry!,
+                                        ),
+                                      )}
                                     </p>
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground dark:text-muted-foreground">Not set</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">
+                                  Not set
+                                </span>
                               )}
                             </div>
                           ) : (
@@ -917,14 +1034,20 @@ export const VehiclesList = () => {
                                     {(vehicle as HiredVehicle).broker.phone}
                                   </div>
                                   {(vehicle as HiredVehicle).rate_per_trip && (
-                                    <Badge variant="outline" className="text-xs border-primary/30 text-primary dark:text-primary">
-                                      <DollarSign className="w-3 h-3 mr-1" />
-                                      ₹{(vehicle as HiredVehicle).rate_per_trip}/trip
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs border-primary/30 text-primary dark:text-primary"
+                                    >
+                                      <DollarSign className="w-3 h-3 mr-1" />₹
+                                      {(vehicle as HiredVehicle).rate_per_trip}
+                                      /trip
                                     </Badge>
                                   )}
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground dark:text-muted-foreground">No broker</span>
+                                <span className="text-muted-foreground dark:text-muted-foreground">
+                                  No broker
+                                </span>
                               )}
                             </div>
                           )}
@@ -932,7 +1055,10 @@ export const VehiclesList = () => {
                         <TableCell>
                           {booking ? (
                             <div className="space-y-1">
-                              <Badge variant="outline" className="gap-1 border-primary/30 text-primary dark:text-primary">
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-primary/30 text-primary dark:text-primary"
+                              >
                                 <Navigation className="w-3 h-3" />
                                 En Route
                               </Badge>
@@ -941,7 +1067,10 @@ export const VehiclesList = () => {
                               </p>
                             </div>
                           ) : (
-                            <Badge variant="outline" className="gap-1 border-border dark:border-border">
+                            <Badge
+                              variant="outline"
+                              className="gap-1 border-border dark:border-border"
+                            >
                               <MapPin className="w-3 h-3" />
                               At Depot
                             </Badge>
@@ -954,24 +1083,38 @@ export const VehiclesList = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleVerifyVehicle(vehicle.id, activeTab === 'owned', vehicle.is_verified || false)}
+                                  onClick={() =>
+                                    handleVerifyVehicle(
+                                      vehicle.id,
+                                      activeTab === "owned",
+                                      vehicle.is_verified || false,
+                                    )
+                                  }
                                   className="flex items-center space-x-2 hover:bg-accent dark:hover:bg-secondary"
                                 >
                                   {vehicle.is_verified ? (
                                     <>
                                       <ShieldCheck className="w-4 h-4 text-green-600" />
-                                      <span className="text-sm text-green-600">Verified</span>
+                                      <span className="text-sm text-green-600">
+                                        Verified
+                                      </span>
                                     </>
                                   ) : (
                                     <>
                                       <Shield className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
-                                      <span className="text-sm text-muted-foreground dark:text-muted-foreground">Verify</span>
+                                      <span className="text-sm text-muted-foreground dark:text-muted-foreground">
+                                        Verify
+                                      </span>
                                     </>
                                   )}
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>{vehicle.is_verified ? "Click to unverify" : "Click to verify"}</p>
+                                <p>
+                                  {vehicle.is_verified
+                                    ? "Click to unverify"
+                                    : "Click to verify"}
+                                </p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -1032,7 +1175,7 @@ export const VehiclesList = () => {
         isOpen={isAddModalOpen}
         onClose={() => {
           setIsAddModalOpen(false);
-          setAddModalType('owned');
+          setAddModalType("owned");
         }}
         onSave={handleAddOwnedVehicle}
         defaultType="owned"

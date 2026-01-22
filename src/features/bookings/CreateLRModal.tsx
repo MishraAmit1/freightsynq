@@ -275,7 +275,7 @@ export const CreateLRModal = ({
     }
   };
 
-  // E-way bill validation
+  // E-way bill validation - called on blur when 12 digits present
   const validateEwayBill = async (ewayBillNumber: string, index: number) => {
     if (!ewayBillNumber || ewayBillNumber.length !== 12) {
       setEwayBillValidations((prev) => {
@@ -284,6 +284,14 @@ export const CreateLRModal = ({
         return updated;
       });
       return;
+    }
+
+    // Check if already validated with same number
+    if (
+      ewayBillValidations[index]?.details?.number === ewayBillNumber &&
+      !ewayBillValidations[index]?.error
+    ) {
+      return; // Already validated, skip
     }
 
     setValue(`documents.${index}.ewayBill`, ewayBillNumber);
@@ -313,7 +321,7 @@ export const CreateLRModal = ({
             loading: false,
             valid: !isExpired,
             validUntil: formatted,
-            details: response.data,
+            details: { ...response.data, number: ewayBillNumber },
             error: isExpired ? "E-way bill has expired" : undefined,
           },
         }));
@@ -355,6 +363,16 @@ export const CreateLRModal = ({
         description: error.message || "Could not validate E-way bill",
         variant: "destructive",
       });
+    }
+  };
+
+  // Handle blur event for auto-validation
+  const handleEwayBillBlur = (index: number) => {
+    const currentValue =
+      getValues(`documents.${index}.ewayBill`) || ewayBillValues[index] || "";
+
+    if (currentValue && currentValue.length === 12) {
+      validateEwayBill(currentValue, index);
     }
   };
 
@@ -458,7 +476,7 @@ export const CreateLRModal = ({
                 loading: false,
                 valid: !isExpired,
                 validUntil: formatted,
-                details: ewb,
+                details: { ...ewb, number: ewb.number },
                 error: isExpired ? "E-way bill has expired" : undefined,
               },
             }));
@@ -916,6 +934,7 @@ export const CreateLRModal = ({
                                   className={cn(
                                     "pr-10 min-[2000px]:pr-12 h-10 min-[2000px]:h-12 text-sm min-[2000px]:text-base",
                                     validation?.error && "border-destructive",
+                                    validation?.valid && "border-green-500",
                                   )}
                                   value={
                                     field.value || ewayBillValues[index] || ""
@@ -931,7 +950,10 @@ export const CreateLRModal = ({
                                       [index]: val,
                                     }));
                                   }}
-                                  onBlur={field.onBlur}
+                                  onBlur={() => {
+                                    field.onBlur();
+                                    handleEwayBillBlur(index);
+                                  }}
                                 />
                               )}
                             />
@@ -951,52 +973,6 @@ export const CreateLRModal = ({
                               </div>
                             )}
                           </div>
-
-                          {!isOfflineLR && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const currentValue =
-                                  getValues(`documents.${index}.ewayBill`) ||
-                                  ewayBillValues[index] ||
-                                  "";
-                                if (
-                                  currentValue &&
-                                  currentValue.length === 12
-                                ) {
-                                  validateEwayBill(currentValue, index);
-                                } else {
-                                  toast({
-                                    title: "❌ Invalid Format",
-                                    description:
-                                      "E-way bill must be exactly 12 digits",
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                              disabled={validation?.loading}
-                              className="h-10 min-[2000px]:h-12 text-xs min-[2000px]:text-sm hover:bg-primary/10 hover:border-primary"
-                            >
-                              {validation?.loading ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-1 animate-spin" />
-                                  Checking
-                                </>
-                              ) : validation?.valid ? (
-                                <>
-                                  <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-1" />
-                                  Valid
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-1" />
-                                  Validate
-                                </>
-                              )}
-                            </Button>
-                          )}
                         </div>
                         {errors.documents?.[index]?.ewayBill && (
                           <p className="text-xs min-[2000px]:text-sm text-destructive mt-1">
@@ -1037,7 +1013,7 @@ export const CreateLRModal = ({
                       </Button>
                     </div>
 
-                    {validation?.validUntil && !isOfflineLR && (
+                    {validation?.validUntil && (
                       <div className="flex items-center gap-2 px-2 min-[2000px]:px-3">
                         <Badge
                           variant={validation.valid ? "default" : "destructive"}

@@ -97,7 +97,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
     data: any[],
     from: string,
     to: string,
-    days: number
+    days: number,
   ): TollCrossing[] => {
     const now = new Date();
     const cutoffDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
@@ -111,7 +111,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
       .sort(
         (a, b) =>
           new Date(a.crossing_time).getTime() -
-          new Date(b.crossing_time).getTime()
+          new Date(b.crossing_time).getTime(),
       )
       .map((c) => ({
         toll_plaza_name: c.toll_plaza_name,
@@ -167,7 +167,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
       if (searchType === "live") {
         const dbHistory = await fetchVehicleTollHistory(
           vehicleNumber.trim(),
-          "current"
+          "current",
         );
 
         if (dbHistory.length > 0) {
@@ -183,7 +183,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             "track-fastag",
             {
               body: { vehicleNumber: vehicleNumber.trim() },
-            }
+            },
           );
 
           if (error || !data.success || !data.data || data.data.length === 0) {
@@ -220,7 +220,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
       } else {
         let dbHistory = await fetchVehicleTollHistory(
           vehicleNumber.trim(),
-          "1week"
+          "1week",
         );
 
         if (dbHistory.length > 0) {
@@ -228,7 +228,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             dbHistory,
             fromLocation,
             toLocation,
-            daysRange
+            daysRange,
           );
         }
 
@@ -237,7 +237,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             "track-fastag",
             {
               body: { vehicleNumber: vehicleNumber.trim() },
-            }
+            },
           );
 
           if (error || !data.success || !data.data || data.data.length === 0) {
@@ -259,13 +259,13 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
             apiCrossings,
             fromLocation,
             toLocation,
-            daysRange
+            daysRange,
           );
         }
 
         if (tollCrossings.length === 0) {
           throw new Error(
-            "No matching journey found for selected route and period"
+            "No matching journey found for selected route and period",
           );
         }
 
@@ -565,17 +565,17 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               "flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-medium transition-all",
               trackingMode === "FASTAG"
                 ? "bg-background dark:bg-card text-foreground dark:text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground dark:hover:text-white"
+                : "text-muted-foreground hover:text-foreground dark:hover:text-white",
             )}
           >
             <Truck className="w-4 h-4" />
             FASTag
-            <Badge
+            {/* <Badge
               variant="secondary"
               className="ml-1 text-xs bg-primary/10 text-primary"
             >
               ₹4
-            </Badge>
+            </Badge> */}
           </button>
 
           <button
@@ -586,17 +586,17 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               "flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-medium transition-all",
               trackingMode === "SIM"
                 ? "bg-background dark:bg-card text-foreground dark:text-white shadow-sm"
-                : "text-muted-foreground hover:text-foreground dark:hover:text-white"
+                : "text-muted-foreground hover:text-foreground dark:hover:text-white",
             )}
           >
             <Smartphone className="w-4 h-4" />
             SIM Track
-            <Badge
+            {/* <Badge
               variant="secondary"
               className="ml-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
             >
               ₹1
-            </Badge>
+            </Badge> */}
           </button>
         </div>
 
@@ -696,7 +696,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
                         "flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all",
                         searchType === "live"
                           ? "border-primary bg-primary/5"
-                          : "hover:bg-accent"
+                          : "hover:bg-accent",
                       )}
                       onClick={() => setSearchType("live")}
                     >
@@ -717,7 +717,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
                         "flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-all",
                         searchType === "journey"
                           ? "border-primary bg-primary/5"
-                          : "hover:bg-accent"
+                          : "hover:bg-accent",
                       )}
                       onClick={() => setSearchType("journey")}
                     >
@@ -786,14 +786,6 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
                     </div>
                   </>
                 )}
-
-                {/* Cost Info */}
-                <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                  <IndianRupee className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <AlertDescription className="text-blue-800 dark:text-blue-300 text-sm">
-                    This search will cost <strong>₹4</strong> for API call
-                  </AlertDescription>
-                </Alert>
               </>
             )}
 
@@ -876,7 +868,9 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
                 <Alert className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                   <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                   <AlertDescription className="text-green-800 dark:text-green-300 text-sm">
-                    SIM tracking costs only <strong>₹1</strong> per request
+                    SIM tracking costs only
+                    {/* <strong>₹1</strong>  */}
+                    per request
                   </AlertDescription>
                 </Alert>
 
@@ -925,9 +919,7 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
               ) : (
                 <Search className="w-4 h-4" />
               )}
-              {trackingMode === "FASTAG"
-                ? "Track Vehicle (₹4)"
-                : "Track via SIM (₹1)"}
+              {trackingMode === "FASTAG" ? "Track Vehicle" : "Track via SIM"}
             </Button>
           </div>
         )}

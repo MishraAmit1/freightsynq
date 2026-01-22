@@ -413,7 +413,7 @@ export const BookingDetailSheet = ({
           ) : booking ? (
             <>
               {/* HEADER */}
-              <div className="sticky top-0 z-10 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 dark:to-transparent border-b border-border dark:border-border backdrop-blur-sm">
+              <div className="sticky top-0 z-10 bg-card border-b border-border dark:border-border">
                 <div className="p-4 min-[2000px]:p-6">
                   <div className="flex items-start justify-between gap-3 mb-3 min-[2000px]:mb-4">
                     <div className="flex-1 min-w-0">
@@ -755,77 +755,14 @@ export const BookingDetailSheet = ({
                     </div>
 
                     {/* 🗺️ MINI MAP */}
+                    {/* 🗺️ MINI MAP */}
                     <MiniTrackingMap
                       bookingId={booking.id}
                       vehicleNumber={booking.assignedVehicle.regNumber}
+                      bookingStatus={booking.status}
+                      assignmentDate={booking.assignedVehicle.assignedAt}
                       className="mb-4 min-[2000px]:mb-5"
                     />
-
-                    {/* Last Location Details */}
-                    {booking.assignedVehicle.last_toll_crossed &&
-                      trackingInfo && (
-                        <div className="space-y-3 min-[2000px]:space-y-4">
-                          <div className="flex items-start gap-3 p-3 min-[2000px]:p-4 bg-card rounded-lg border border-border dark:border-border">
-                            <div className="relative">
-                              <MapPin
-                                className={cn(
-                                  "w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6",
-                                  trackingInfo.isFresh && "text-orange-600",
-                                  trackingInfo.isStale && "text-yellow-600",
-                                  trackingInfo.isOld && "text-muted-foreground",
-                                )}
-                              />
-                              <span
-                                className={cn(
-                                  "absolute -top-1 -right-1 w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 rounded-full border-2 border-white",
-                                  trackingInfo.dotColor,
-                                )}
-                              />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
-                                Last Location
-                              </p>
-                              <p className="font-semibold text-sm min-[2000px]:text-base text-foreground dark:text-white">
-                                {booking.assignedVehicle.last_toll_crossed}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 min-[2000px]:gap-4 text-sm">
-                            <div className="p-2 min-[2000px]:p-3 bg-card rounded border border-border dark:border-border">
-                              <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
-                                Crossed
-                              </p>
-                              <p className="font-medium text-xs min-[2000px]:text-sm text-foreground dark:text-white">
-                                {formatDateTime(
-                                  booking.assignedVehicle.last_toll_time!,
-                                )}
-                              </p>
-                              <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground mt-0.5">
-                                ({trackingInfo.timeAgo})
-                              </p>
-                            </div>
-                            <div className="p-2 min-[2000px]:p-3 bg-card rounded border border-border dark:border-border">
-                              <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground">
-                                Status
-                              </p>
-                              <p className="font-medium text-sm min-[2000px]:text-base text-foreground dark:text-white">
-                                {trackingInfo.statusEmoji}{" "}
-                                {trackingInfo.statusText}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                    {/* No tracking data yet message */}
-                    {!booking.assignedVehicle.last_toll_crossed && (
-                      <p className="text-xs min-[2000px]:text-sm text-muted-foreground text-center py-2 min-[2000px]:py-3">
-                        Tracking data will appear once vehicle crosses FASTag
-                        tolls
-                      </p>
-                    )}
                   </div>
                 )}
 

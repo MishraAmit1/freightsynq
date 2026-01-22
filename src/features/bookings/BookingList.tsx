@@ -81,6 +81,8 @@ import {
   Upload,
   FileEdit,
   Sparkles,
+  Info,
+  Navigation,
 } from "lucide-react";
 import {
   fetchBookings,
@@ -141,6 +143,7 @@ interface Booking {
   lrDate?: string;
   bilti_number?: string;
   invoice_number?: string;
+  last_tracked_at?: string;
   branch_id?: string;
   branch_name?: string;
   branch_code?: string;
@@ -153,7 +156,6 @@ interface Booking {
   is_offline_lr?: boolean;
   offline_lr_file_url?: string;
   offline_lr_uploaded_at?: string;
-  // 🆕 NEW: Dynamic ETA Fields
   dynamic_eta?: string;
   current_speed?: number;
   distance_covered?: number;
@@ -282,16 +284,24 @@ const getDispatchDisplay = (booking: Booking) => {
     };
   }
 
-  // Priority 2 & 3: Vehicle (with or without tracking)
+  // Priority 2 & 3: Vehicle
   const activeAssignment = booking.vehicle_assignments?.find(
     (v) => v.status === "ACTIVE",
   );
 
   if (activeAssignment?.vehicle) {
     const vehicleNumber = activeAssignment.vehicle.vehicle_number;
+    const hasTracking = !!(
+      activeAssignment.last_toll_crossed && activeAssignment.last_toll_time
+    );
 
-    // Has tracking?
-    if (activeAssignment.last_toll_crossed && activeAssignment.last_toll_time) {
+    // ✅ NEW: Check last_tracked_at to determine tracking status
+    const lastTrackedAt = booking.last_tracked_at;
+    const assignedAt =
+      activeAssignment.created_at || activeAssignment.assigned_at;
+
+    // CASE 1: Has toll crossing data (TRACKING)
+    if (hasTracking) {
       const lastUpdate = new Date(activeAssignment.last_toll_time);
       const now = new Date();
       const hoursDiff =
@@ -301,11 +311,9 @@ const getDispatchDisplay = (booking: Booking) => {
       const isStale = hoursDiff >= 2 && hoursDiff < 6;
 
       const getTimeAgo = () => {
-        // ✅ FIX: Agar time negative hai (future) ya 1 min se kam hai
         if (hoursDiff <= 0 || hoursDiff < 1 / 60) {
           return "Just now";
         }
-
         if (hoursDiff < 1) {
           const minutes = Math.floor(hoursDiff * 60);
           return `${minutes}m ago`;
@@ -332,16 +340,63 @@ const getDispatchDisplay = (booking: Booking) => {
       };
     }
 
-    // Vehicle without tracking
-    return {
-      type: "VEHICLE" as const,
-      vehicleNumber: vehicleNumber,
-      location: "On the way",
-      timeAgo: "No tracking yet",
-    };
+    // ✅ CASE 2: No tracking data - Determine WHY
+    if (!hasTracking) {
+      // Check if we ever tried to track
+      if (lastTrackedAt) {
+        const trackedDate = new Date(lastTrackedAt);
+        const now = new Date();
+        const hoursSinceTrack =
+          (now.getTime() - trackedDate.getTime()) / (1000 * 60 * 60);
+
+        const getTrackingStatus = () => {
+          if (hoursSinceTrack < 1) {
+            return "Tracked recently";
+          } else if (hoursSinceTrack < 24) {
+            return `Tracked ${Math.floor(hoursSinceTrack)}h ago`;
+          } else {
+            return `Tracked ${Math.floor(hoursSinceTrack / 24)}d ago`;
+          }
+        };
+        return {
+          type: "NO_TOLLS" as const, // ✅ NEW TYPE
+          vehicleNumber: vehicleNumber,
+          location: "No tolls found",
+          timeAgo: getTrackingStatus(),
+          subtext: "Vehicle tracked but no toll crossings detected",
+        };
+      } else {
+        // Never tracked
+        const assignDate = assignedAt ? new Date(assignedAt) : null;
+        const now = new Date();
+
+        if (assignDate) {
+          const hoursSinceAssign =
+            (now.getTime() - assignDate.getTime()) / (1000 * 60 * 60);
+
+          if (hoursSinceAssign < 0.5) {
+            return {
+              type: "JUST_ASSIGNED" as const, // ✅ NEW TYPE
+              vehicleNumber: vehicleNumber,
+              location: "Just assigned",
+              timeAgo: "Tracking will start soon",
+              subtext: "Vehicle assigned, awaiting first tracking update",
+            };
+          }
+        }
+
+        return {
+          type: "NOT_TRACKED" as const, // ✅ NEW TYPE
+          vehicleNumber: vehicleNumber,
+          location: "Not tracked yet",
+          timeAgo: "Awaiting tracking",
+          subtext: "Click Track Now to get vehicle location",
+        };
+      }
+    }
   }
 
-  // ✅ Priority 4: DRAFT (wapas add kiya)
+  // CASE 4: DRAFT (no vehicle)
   return {
     type: "DRAFT" as const,
     location: "Not dispatched",
@@ -349,6 +404,9 @@ const getDispatchDisplay = (booking: Booking) => {
 };
 
 export const BookingList = () => {
+  // ==========================================
+  // 1️⃣ ALL STATE HOOKS
+  // ==========================================
   const navigate = useNavigate();
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -417,6 +475,10 @@ export const BookingList = () => {
     fileUrl: string | null;
     lrNumber: string;
   }>({ isOpen: false, fileUrl: null, lrNumber: "" });
+
+  // ==========================================
+  // 2️⃣ HELPER FUNCTIONS
+  // ==========================================
   const parseEwayDate = (dateStr: string): Date | null => {
     try {
       // First try ISO format (2025-11-24T23:59:00Z)
@@ -472,6 +534,7 @@ export const BookingList = () => {
       return null;
     }
   };
+
   const handleDownloadLR = async (booking: Booking) => {
     if (!booking.lrNumber) {
       toast({
@@ -504,62 +567,100 @@ export const BookingList = () => {
     }
   };
 
+  // ==========================================
+  // 3️⃣ USE EFFECT HOOKS
+  // ==========================================
   useEffect(() => {
     const styleElement = document.createElement("style");
     styleElement.innerHTML = `
-      .booking-table-container {
-        overflow-x: auto;
-        overflow-y: visible;
-        -webkit-overflow-scrolling: touch;
-        scroll-behavior: smooth;
-      }
-      
-      .booking-table-container::-webkit-scrollbar {
-        display: none !important;
-      }
-      
-      .booking-table-container {
-        scrollbar-width: none !important;
-        -ms-overflow-style: none !important;
-      }
+    .booking-table-container {
+      overflow-x: auto;
+      overflow-y: visible;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+    
+    .booking-table-container::-webkit-scrollbar {
+      display: none !important;
+    }
+    
+    .booking-table-container {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
 
-      .booking-table td,
-      .booking-table th {
-        position: relative;
-      }
-      
-      .booking-table td::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: transparent;
-        pointer-events: none !important;
-        transition: background-color 0.15s ease;
-        z-index: 0;
-      }
-      
-      .booking-table tr:hover td::before {
-        background: hsl(var(--primary) / 0.03);
-      }
-      
-      .booking-table td > *,
-      .booking-table th > * {
-        position: relative;
-        z-index: 1;
-      }
-      
-      [data-radix-popper-content-wrapper] {
-        pointer-events: none !important;
-      }
-      
-      [data-radix-popper-content-wrapper] > * {
-        pointer-events: auto !important;
-      }
+    .booking-table td,
+    .booking-table th {
+      position: relative;
+    }
+    
+    .booking-table td::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      pointer-events: none !important;
+      transition: background-color 0.15s ease;
+      z-index: 0;
+    }
+    
+    .booking-table tr:hover td::before {
+      background: hsl(var(--primary) / 0.03);
+    }
+    
+    .booking-table td > *,
+    .booking-table th > * {
+      position: relative;
+      z-index: 1;
+    }
+    
+    [data-radix-popper-content-wrapper] {
+      pointer-events: none !important;
+    }
+    
+    [data-radix-popper-content-wrapper] > * {
+      pointer-events: auto !important;
+    }
 
-      [data-radix-dropdown-menu-content] {
-        pointer-events: auto !important;
-      }
-    `;
+    [data-radix-dropdown-menu-content] {
+      pointer-events: auto !important;
+    }
+    
+    /* ✅ NEW: Enhanced hover areas for buttons */
+    .booking-table button {
+      position: relative;
+    }
+    
+    .booking-table button::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      z-index: 0;
+    }
+    
+    /* ✅ NEW: Stage badge no-wrap */
+    .booking-table .badge {
+      white-space: nowrap;
+      min-width: fit-content;
+    }
+    
+    /* ✅ NEW: Compact column spacing */
+    .booking-table th,
+    .booking-table td {
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+    }
+    
+    .booking-table th:first-child,
+    .booking-table td:first-child {
+      padding-left: 1.5rem;
+    }
+    
+    .booking-table th:last-child,
+    .booking-table td:last-child {
+      padding-right: 1rem;
+    }
+  `;
     document.head.appendChild(styleElement);
 
     return () => {
@@ -572,6 +673,13 @@ export const BookingList = () => {
     checkSetupStatus();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // ==========================================
+  // 4️⃣ ASYNC FUNCTIONS
+  // ==========================================
   const checkSetupStatus = async () => {
     try {
       const { hasTemplate } = await checkTemplateStatus();
@@ -602,7 +710,6 @@ export const BookingList = () => {
       setDeletingBookingId(null);
     }
   };
-
   const loadData = async () => {
     try {
       if (initialLoading) {
@@ -647,12 +754,11 @@ export const BookingList = () => {
           }
         }
 
-        // E-way bill expiry logic
-        // ✅ E-way bill expiry logic (with parser support)
+        // E-way bill expiry logic (with parser support)
         if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
           booking.eway_bill_details.forEach((ewb: any, index: number) => {
             if (ewb.valid_until) {
-              // ✅ Use parser function
+              // Use parser function
               const validUntil = parseEwayDate(ewb.valid_until);
 
               // Skip if date parsing failed
@@ -664,7 +770,7 @@ export const BookingList = () => {
               const hoursLeft =
                 (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-              // ✅ CASE 1: Already Expired
+              // CASE 1: Already Expired
               if (hoursLeft < 0) {
                 const hoursExpired = Math.abs(Math.floor(hoursLeft));
                 const daysExpired = Math.floor(hoursExpired / 24);
@@ -678,7 +784,7 @@ export const BookingList = () => {
                       : `E-way bill ${ewb.number} expired ${hoursExpired}h ago`,
                 });
               }
-              // ✅ CASE 2: Expiring Soon (within 24 hours)
+              // CASE 2: Expiring Soon (within 24 hours)
               else if (hoursLeft >= 0 && hoursLeft < 24) {
                 alerts.push({
                   type: "EWAY_EXPIRING",
@@ -714,6 +820,7 @@ export const BookingList = () => {
           invoice_number: booking.invoice_number,
           eway_bill_details: booking.eway_bill_details || [],
           shipmentStatus: "AT_WAREHOUSE",
+          last_tracked_at: booking.last_tracked_at,
           current_warehouse: booking.current_warehouse,
           branch_id: booking.branch?.id,
           branch_name: booking.branch?.branch_name,
@@ -798,67 +905,6 @@ export const BookingList = () => {
     }
   };
 
-  const filteredBookings = useMemo(() => {
-    return bookings.filter((booking) => {
-      const matchesSearch =
-        booking.bookingId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.consignorName
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        booking.consigneeName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus =
-        statusFilter === "ALL" || booking.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [bookings, searchTerm, statusFilter]);
-
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-
-  const paginatedBookings = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredBookings.slice(startIndex, endIndex);
-  }, [filteredBookings, currentPage, itemsPerPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
-
-  const getPaginationButtons = () => {
-    const pages: (number | string)[] = [];
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, "...", totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(
-          1,
-          "...",
-          totalPages - 3,
-          totalPages - 2,
-          totalPages - 1,
-          totalPages,
-        );
-      } else {
-        pages.push(
-          1,
-          "...",
-          currentPage - 1,
-          currentPage,
-          currentPage + 1,
-          "...",
-          totalPages,
-        );
-      }
-    }
-
-    return pages;
-  };
-
   const handleVehicleAssignment = async (
     bookingId: string,
     vehicleAssignment: any,
@@ -939,25 +985,154 @@ export const BookingList = () => {
     }
   };
 
-  if (needsTemplateSetup) {
-    return (
-      <LRTemplateOnboarding onComplete={() => setNeedsTemplateSetup(false)} />
-    );
-  }
+  // FIRST: Filter bookings
+  const filteredBookings = useMemo(() => {
+    return bookings.filter((booking) => {
+      const matchesSearch =
+        booking.bookingId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.consignorName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        booking.consigneeName.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus =
+        statusFilter === "ALL" || booking.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [bookings, searchTerm, statusFilter]);
 
-  if (initialLoading) {
+  // SECOND: Get active booking ID
+  const activeBookingId = useMemo(() => {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <div className="relative">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-          <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
-        </div>
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
-          Loading your bookings...
-        </p>
-      </div>
+      lrModal.bookingId ||
+      podModal.bookingId ||
+      invoiceModal.bookingId ||
+      remarksModal.bookingId ||
+      detailSheet.bookingId ||
+      warehouseModal.bookingId ||
+      assignmentModal.bookingId
     );
-  }
+  }, [
+    lrModal.bookingId,
+    podModal.bookingId,
+    invoiceModal.bookingId,
+    remarksModal.bookingId,
+    detailSheet.bookingId,
+    warehouseModal.bookingId,
+    assignmentModal.bookingId,
+  ]);
+
+  // THIRD: Calculate total pages
+  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
+
+  // FOURTH: Get selected booking (uses filteredBookings)
+  const selectedBooking = useMemo(() => {
+    if (!activeBookingId) return null;
+    return filteredBookings.find((b) => b.id === activeBookingId) || null;
+  }, [activeBookingId, filteredBookings]);
+
+  // ==========================================
+  // 6️⃣ MODAL DATA PREPARATION (uses selectedBooking)
+  // ==========================================
+
+  const lrBookingData = useMemo(() => {
+    if (!selectedBooking || lrModal.bookingId !== selectedBooking.id)
+      return null;
+
+    return {
+      id: selectedBooking.id,
+      bookingId: selectedBooking.bookingId,
+      fromLocation: selectedBooking.fromLocation,
+      toLocation: selectedBooking.toLocation,
+      lrNumber: selectedBooking.lrNumber,
+      bilti_number: selectedBooking.bilti_number,
+      invoice_number: selectedBooking.invoice_number,
+      materialDescription: selectedBooking.materialDescription,
+      cargoUnits: selectedBooking.cargoUnits,
+      eway_bill_details: selectedBooking.eway_bill_details || [],
+    };
+  }, [selectedBooking, lrModal.bookingId]);
+
+  const podBookingData = useMemo(() => {
+    if (!selectedBooking || podModal.bookingId !== selectedBooking.id)
+      return null;
+
+    return {
+      id: selectedBooking.id,
+      bookingId: selectedBooking.bookingId,
+    };
+  }, [selectedBooking, podModal.bookingId]);
+
+  const invoiceBookingData = useMemo(() => {
+    if (!selectedBooking || invoiceModal.bookingId !== selectedBooking.id)
+      return null;
+
+    return {
+      id: selectedBooking.id,
+      bookingId: selectedBooking.bookingId,
+      consignorName: selectedBooking.consignorName,
+      consigneeName: selectedBooking.consigneeName,
+      fromLocation: selectedBooking.fromLocation,
+      toLocation: selectedBooking.toLocation,
+    };
+  }, [selectedBooking, invoiceModal.bookingId]);
+
+  const remarksBookingData = useMemo(() => {
+    if (!selectedBooking || remarksModal.bookingId !== selectedBooking.id)
+      return null;
+
+    return {
+      id: selectedBooking.id,
+      bookingId: selectedBooking.bookingId,
+      remarks: selectedBooking.remarks,
+    };
+  }, [selectedBooking, remarksModal.bookingId]);
+
+  const warehouseDisplayBookingId = useMemo(() => {
+    if (!selectedBooking || warehouseModal.bookingId !== selectedBooking.id)
+      return undefined;
+    return selectedBooking.bookingId;
+  }, [selectedBooking, warehouseModal.bookingId]);
+
+  const paginatedBookings = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredBookings.slice(startIndex, endIndex);
+  }, [filteredBookings, currentPage, itemsPerPage]);
+
+  const getPaginationButtons = () => {
+    const pages: (number | string)[] = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(
+          1,
+          "...",
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages,
+        );
+      } else {
+        pages.push(
+          1,
+          "...",
+          currentPage - 1,
+          currentPage,
+          currentPage + 1,
+          "...",
+          totalPages,
+        );
+      }
+    }
+
+    return pages;
+  };
 
   const handleExport = () => {
     const headers = [
@@ -1039,63 +1214,81 @@ export const BookingList = () => {
     delivered: bookings.filter((b) => b.status === "DELIVERED").length,
   };
 
+  if (needsTemplateSetup) {
+    return (
+      <LRTemplateOnboarding onComplete={() => setNeedsTemplateSetup(false)} />
+    );
+  }
+  if (initialLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="relative">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+          <div className="absolute inset-0 blur-xl bg-primary/20 animate-pulse rounded-full" />
+        </div>
+        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+          Loading your bookings...
+        </p>
+      </div>
+    );
+  }
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-[2000px]:space-y-8">
       {/* Stats + Buttons */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-        <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-6 shadow-sm">
+      <div className="flex flex-col lg:flex-row gap-4 min-[2000px]:gap-6 lg:items-center lg:justify-between">
+        <div className="bg-card border border-border dark:border-border rounded-xl flex-1 p-6 min-[2000px]:p-8 shadow-sm">
           <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-[#E5E7EB] dark:divide-[#35353F]">
-            <div className="px-6 py-3 first:pl-0 relative">
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 first:pl-0 relative">
               <div className="absolute top-2 right-2 opacity-10">
-                <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                <Package className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-muted-foreground dark:text-muted-foreground" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
                   Total Bookings
                 </p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
                   {stats.total}
                 </p>
               </div>
             </div>
 
-            <div className="px-6 py-3 relative">
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 relative">
               <div className="absolute top-2 right-2 opacity-10">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+                <CheckCircle2 className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-green-600" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
                   Confirmed
                 </p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
                   {stats.confirmed}
                 </p>
               </div>
             </div>
 
-            <div className="px-6 py-3 relative">
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 relative">
               <div className="absolute top-2 right-2 opacity-10">
-                <Truck className="w-8 h-8 text-primary dark:text-primary" />
+                <Truck className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-primary dark:text-primary" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
                   In Transit
                 </p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
                   {stats.inTransit}
                 </p>
               </div>
             </div>
 
-            <div className="px-6 py-3 last:pr-0 relative">
+            <div className="px-6 min-[2000px]:px-8 py-3 min-[2000px]:py-4 last:pr-0 relative">
               <div className="absolute top-2 right-2 opacity-10">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                <CheckCircle2 className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-emerald-600" />
               </div>
               <div className="relative z-10">
-                <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1">
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground mb-1">
                   Delivered
                 </p>
-                <p className="text-3xl font-bold text-foreground dark:text-white">
+                <p className="text-3xl min-[2000px]:text-4xl font-bold text-foreground dark:text-white">
                   {stats.delivered}
                 </p>
               </div>
@@ -1103,13 +1296,13 @@ export const BookingList = () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 w-full lg:w-auto lg:min-w-[200px]">
+        <div className="flex flex-col gap-2 min-[2000px]:gap-3 w-full lg:w-auto lg:min-w-[200px] min-[2000px]:lg:min-w-[240px]">
           <Button
             size="default"
             onClick={() => setIsBookingFormOpen(true)}
-            className="w-full bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
+            className="w-full h-10 min-[2000px]:h-12 min-[2000px]:text-base bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium shadow-sm hover:shadow-md transition-all"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
             New Booking
           </Button>
 
@@ -1120,13 +1313,15 @@ export const BookingList = () => {
                   variant="outline"
                   size="default"
                   onClick={handleExport}
-                  className="w-full bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                  className="w-full h-10 min-[2000px]:h-12 min-[2000px]:text-base bg-card border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                 >
-                  <FileDown className="w-4 h-4 mr-2" />
+                  <FileDown className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                   Export
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Export bookings to CSV</TooltipContent>
+              <TooltipContent className="min-[2000px]:text-sm">
+                Export bookings to CSV
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -1135,45 +1330,49 @@ export const BookingList = () => {
       {/* Table Card */}
       <div className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
         {/* Search & Filters */}
-        <div className="p-6 border-b border-border dark:border-border">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
+        <div className="p-6 min-[2000px]:p-8 border-b border-border dark:border-border">
+          <div className="flex flex-col sm:flex-row gap-3 min-[2000px]:gap-4 items-start sm:items-center justify-between">
+            <div className="relative w-full sm:w-96 min-[2000px]:sm:w-[450px]">
+              <Search className="absolute left-3 min-[2000px]:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-muted-foreground dark:text-muted-foreground" />
               <Input
                 placeholder="Search bookings, parties..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-10 h-10 border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
+                className="pl-10 min-[2000px]:pl-12 pr-10 min-[2000px]:pr-12 h-10 min-[2000px]:h-12 min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary"
               />
               {searchTerm && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 min-[2000px]:h-9 min-[2000px]:w-9 p-0"
                   onClick={() => setSearchTerm("")}
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
                 </Button>
               )}
             </div>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[200px] h-10 border-border dark:border-border bg-card">
+              <SelectTrigger className="w-full sm:w-[200px] min-[2000px]:sm:w-[240px] h-10 min-[2000px]:h-12 min-[2000px]:text-base border-border dark:border-border bg-card">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-card border-border dark:border-border">
-                <SelectItem value="ALL">
+                <SelectItem value="ALL" className="min-[2000px]:text-base">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-gray-500" />
+                    <div className="w-2 h-2 min-[2000px]:w-2.5 min-[2000px]:h-2.5 rounded-full bg-gray-500" />
                     All Statuses
                   </div>
                 </SelectItem>
                 {Object.entries(statusConfig).map(([key, config]) => {
                   const Icon = config.icon;
                   return (
-                    <SelectItem key={key} value={key}>
+                    <SelectItem
+                      key={key}
+                      value={key}
+                      className="min-[2000px]:text-base"
+                    >
                       <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                         {config.label}
                       </div>
                     </SelectItem>
@@ -1189,48 +1388,56 @@ export const BookingList = () => {
           <Table className="booking-table">
             <TableHeader>
               <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
-                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground pl-6">
+                {/* ✅ COLUMN 1: Booking */}
+                <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground pl-6 min-[2000px]:pl-8">
                   <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4" />
+                    <Package className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                     Booking
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
+                {/* ✅ COLUMN 2: Parties & Routes - WITH WIDTH */}
+                <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground w-[180px] min-[2000px]:w-[220px]">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Parties & Routes
+                    <User className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
+                    <span className="truncate">Parties & Routes</span>
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
+                {/* ✅ COLUMN 3: Stage - WITH FIXED WIDTH */}
+                <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground w-[100px] min-[2000px]:w-[120px]">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
+                    <TrendingUp className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                     Stage
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
+                {/* ✅ COLUMN 4: Dispatch Status */}
+                <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <Truck className="w-4 h-4" />
+                    <Truck className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                     Dispatch Status
                   </div>
                 </TableHead>
-                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground">
+
+                {/* ✅ COLUMN 5: Documents */}
+                <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" />
+                    <FileText className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                     Documents
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-[12px] dark:text-muted-foreground">
+                {/* ✅ COLUMN 6: Distance & ETA */}
+                <TableHead className="font-semibold text-[12px] min-[2000px]:text-[14px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
+                    <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
                     Distance & ETA
                   </div>
                 </TableHead>
 
-                <TableHead className="font-semibold text-[13px] dark:text-muted-foreground text-center pr-6">
+                {/* ✅ COLUMN 7: Actions - WITH REDUCED WIDTH */}
+                <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground text-center pr-6 min-[2000px]:pr-8 w-[120px] min-[2000px]:w-[140px]">
                   Actions
                 </TableHead>
               </TableRow>
@@ -1238,16 +1445,19 @@ export const BookingList = () => {
             <TableBody>
               {paginatedBookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                        <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+                  <TableCell
+                    colSpan={7}
+                    className="h-64 min-[2000px]:h-80 text-center"
+                  >
+                    <div className="flex flex-col items-center justify-center gap-3 min-[2000px]:gap-4">
+                      <div className="w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 rounded-full bg-muted flex items-center justify-center">
+                        <Package className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-muted-foreground dark:text-muted-foreground" />
                       </div>
                       <div>
-                        <p className="text-base font-medium text-foreground dark:text-white">
+                        <p className="text-base min-[2000px]:text-lg font-medium text-foreground dark:text-white">
                           No bookings found
                         </p>
-                        <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+                        <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mt-1">
                           {searchTerm || statusFilter !== "ALL"
                             ? "Try adjusting your search or filters"
                             : "Create your first booking to get started"}
@@ -1256,9 +1466,9 @@ export const BookingList = () => {
                       {!searchTerm && statusFilter === "ALL" && (
                         <Button
                           onClick={() => setIsBookingFormOpen(true)}
-                          className="mt-2"
+                          className="mt-2 min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
                         >
-                          <Plus className="w-4 h-4 mr-2" />
+                          <Plus className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                           Create First Booking
                         </Button>
                       )}
@@ -1276,12 +1486,12 @@ export const BookingList = () => {
                       className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors"
                     >
                       {/* COLUMN 1: Booking ID + Pickup Date + Branch Code */}
-                      <TableCell className="font-mono py-3 pl-6">
-                        <div className="space-y-1.5 ml-6">
+                      <TableCell className="font-mono py-3 min-[2000px]:py-4 pl-6 min-[2000px]:pl-8">
+                        <div className="space-y-1.5 min-[2000px]:space-y-2 ml-6">
                           <div className="flex items-center gap-2">
                             <Button
                               variant="link"
-                              className="p-0 h-auto font-bold text-sm text-primary hover:text-primary/80"
+                              className="p-0 h-auto font-bold text-sm min-[2000px]:text-base text-primary hover:text-primary/80"
                               onClick={() =>
                                 setDetailSheet({
                                   isOpen: true,
@@ -1296,23 +1506,23 @@ export const BookingList = () => {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <div className="relative flex items-center justify-center cursor-help">
-                                      <AlertTriangle className="w-4 h-4 text-red-500 animate-pulse" />
-                                      <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                                      <AlertTriangle className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-red-500 animate-pulse" />
+                                      <span className="absolute top-0 right-0 w-1.5 h-1.5 min-[2000px]:w-2 min-[2000px]:h-2 bg-red-500 rounded-full animate-ping" />
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent
                                     side="top"
-                                    className="bg-red-50 text-red-900 border-red-200 p-3 max-w-xs shadow-md"
+                                    className="bg-red-50 text-red-900 border-red-200 p-3 min-[2000px]:p-4 max-w-xs shadow-md"
                                   >
-                                    <p className="font-bold text-xs mb-1 flex items-center gap-1">
-                                      <AlertTriangle className="w-3 h-3" />
+                                    <p className="font-bold text-xs min-[2000px]:text-sm mb-1 flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4" />
                                       Attention Required:
                                     </p>
                                     <ul className="list-disc pl-4 space-y-1">
                                       {booking.alerts.map((alert, idx) => (
                                         <li
                                           key={idx}
-                                          className="text-xs font-medium"
+                                          className="text-xs min-[2000px]:text-sm font-medium"
                                         >
                                           {alert.message}
                                         </li>
@@ -1324,8 +1534,8 @@ export const BookingList = () => {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
+                          <div className="flex items-center gap-1.5 text-[10px] min-[2000px]:text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5" />
                             <span>
                               {booking.pickupDate
                                 ? new Date(
@@ -1342,7 +1552,7 @@ export const BookingList = () => {
                                 <span className="mx-1">•</span>
                                 <Badge
                                   variant="outline"
-                                  className="text-[9px] px-1.5 py-0 h-4 border-primary/30 font-bold"
+                                  className="text-[9px] min-[2000px]:text-[11px] px-1.5 min-[2000px]:px-2 py-0 h-4 min-[2000px]:h-5 border-primary/30 font-bold"
                                 >
                                   {booking.branch_code}
                                 </Badge>
@@ -1351,39 +1561,37 @@ export const BookingList = () => {
                           </div>
                         </div>
                       </TableCell>
-
                       {/* COLUMN 2: Parties & Route */}
-                      <TableCell className="py-3">
-                        <div className="space-y-2.5 ml-6">
+                      <TableCell className="py-3 min-[2000px]:py-4 w-[180px] min-[2000px]:w-[220px]">
+                        <div className="space-y-2.5 min-[2000px]:space-y-3 ml-2">
                           <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0" />
+                            <div className="w-1.5 h-1.5 min-[2000px]:w-2 min-[2000px]:h-2 rounded-full bg-gradient-to-r from-green-500 to-green-600 flex-shrink-0" />
                             <span
-                              className="font-semibold text-xs text-gray-900 dark:text-gray-100 truncate max-w-[85px]"
+                              className="font-semibold text-xs min-[2000px]:text-sm text-gray-900 dark:text-gray-100 truncate max-w-[85px] min-[2000px]:max-w-[100px]"
                               title={booking.consignorName}
                             >
                               {booking.consignorName}
                             </span>
-                            <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+                            <ArrowRight className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-primary flex-shrink-0" />
                             <span
-                              className="text-[11px] text-muted-foreground truncate max-w-[85px]"
+                              className="text-[11px] min-[2000px]:text-xs text-muted-foreground truncate max-w-[85px] min-[2000px]:max-w-[100px]"
                               title={booking.consigneeName}
                             >
                               {booking.consigneeName}
                             </span>
                           </div>
-
                           <div className="flex items-center gap-1.5">
-                            <MapPin className="w-2.5 h-2.5 text-green-600 flex-shrink-0" />
+                            <MapPin className="w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 text-green-600 flex-shrink-0" />
                             <span
-                              className="font-medium text-[11px] text-green-900 dark:text-green-100 truncate max-w-[85px]"
+                              className="font-medium text-[11px] min-[2000px]:text-xs text-green-900 dark:text-green-100 truncate max-w-[85px] min-[2000px]:max-w-[100px]"
                               title={booking.fromLocation}
                             >
                               {booking.fromLocation}
                             </span>
-                            <ArrowRight className="w-2.5 h-2.5 text-muted-foreground flex-shrink-0" />
-                            <MapPin className="w-2.5 h-2.5 text-red-600 flex-shrink-0" />
+                            <ArrowRight className="w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 text-muted-foreground flex-shrink-0" />
+                            <MapPin className="w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 text-red-600 flex-shrink-0" />
                             <span
-                              className="text-[11px] text-red-900 dark:text-red-100 truncate max-w-[85px]"
+                              className="text-[11px] min-[2000px]:text-xs text-red-900 dark:text-red-100 truncate max-w-[85px] min-[2000px]:max-w-[100px]"
                               title={booking.toLocation}
                             >
                               {booking.toLocation}
@@ -1391,15 +1599,14 @@ export const BookingList = () => {
                           </div>
                         </div>
                       </TableCell>
-
                       {/* COLUMN 3: Stage */}
-                      <TableCell className="py-3">
-                        <div className="ml-6">
+                      <TableCell className="py-3 min-[2000px]:py-4 w-[100px] min-[2000px]:w-[120px]">
+                        <div className="ml-2">
                           <Badge
                             className={cn(
                               stageConf.bgColor,
                               stageConf.textColor,
-                              "text-[10px] px-2 py-1 font-bold border-2 shadow-sm",
+                              "text-[9px] min-[2000px]:text-[11px] px-1.5 min-[2000px]:px-2 py-0.5 min-[2000px]:py-1 font-bold border whitespace-nowrap",
                             )}
                           >
                             {stageConf.label}
@@ -1407,14 +1614,15 @@ export const BookingList = () => {
                         </div>
                       </TableCell>
                       {/* ✅ COLUMN 4: Dispatch Status - WITH Warehouse Button */}
-                      <TableCell className="py-3">
-                        <div className="space-y-1.5 ml-6">
+                      {/* ✅ COLUMN 4: Dispatch Status - Enhanced */}
+                      <TableCell className="py-3 min-[2000px]:py-4">
+                        <div className="space-y-1.5 min-[2000px]:space-y-2 ml-6">
                           {dispatch.type === "TRACKING" && (
                             <>
                               {/* Vehicle Number */}
                               <div className="flex items-center gap-1.5">
-                                <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                <span className="font-bold text-xs text-blue-900 dark:text-blue-100">
+                                <Truck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                <span className="font-bold text-xs">
                                   {dispatch.vehicleNumber}
                                 </span>
                               </div>
@@ -1425,10 +1633,10 @@ export const BookingList = () => {
                                   className={cn(
                                     "w-3 h-3 flex-shrink-0",
                                     dispatch.isFresh
-                                      ? "text-orange-600 dark:text-orange-400"
+                                      ? "text-orange-600"
                                       : dispatch.isStale
-                                        ? "text-yellow-600 dark:text-yellow-400"
-                                        : "text-gray-500 dark:text-gray-400",
+                                        ? "text-yellow-600"
+                                        : "text-gray-500",
                                   )}
                                 />
                                 <div className="flex-1 min-w-0">
@@ -1451,113 +1659,142 @@ export const BookingList = () => {
                                   </div>
                                 </div>
                               </div>
-
-                              {/* ✅ Warehouse Button */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setWarehouseModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                    currentWarehouseId:
-                                      booking.current_warehouse?.id,
-                                  });
-                                }}
-                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
-                              >
-                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">
-                                  {booking.current_warehouse
-                                    ? "Change Warehouse"
-                                    : "Add Warehouse"}
+                            </>
+                          )}
+                          {/* ✅ NEW: No Tolls Found */}
+                          {dispatch.type === "NO_TOLLS" && (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <Truck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                <span className="font-bold text-xs">
+                                  {dispatch.vehicleNumber}
                                 </span>
-                              </Button>
+                              </div>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5 cursor-help">
+                                      <AlertCircle className="w-3 h-3 text-yellow-600 flex-shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-medium text-yellow-700 underline decoration-dashed underline-offset-2">
+                                          {dispatch.location}
+                                        </p>
+                                        <p className="text-[9px] text-muted-foreground">
+                                          {dispatch.timeAgo}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs p-3">
+                                    <p className="font-semibold text-xs mb-1">
+                                      {dispatch.subtext}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Vehicle is tracked but hasn't crossed any
+                                      FASTag tolls yet. It might be on a local
+                                      road or stopped.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </>
                           )}
 
-                          {dispatch.type === "VEHICLE" && (
+                          {/* ✅ NEW: Just Assigned */}
+                          {dispatch.type === "JUST_ASSIGNED" && (
                             <>
-                              {/* Vehicle Number */}
                               <div className="flex items-center gap-1.5">
-                                <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                <span className="font-bold text-xs text-blue-900 dark:text-blue-100">
+                                <Truck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                <span className="font-bold text-xs">
                                   {dispatch.vehicleNumber}
                                 </span>
                               </div>
 
-                              {/* Status */}
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3 h-3 text-blue-600 flex-shrink-0 animate-pulse" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-medium text-blue-700">
+                                    {dispatch.location}
+                                  </p>
+                                  <p className="text-[9px] text-muted-foreground">
+                                    {dispatch.timeAgo}
+                                  </p>
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {/* ✅ NEW: Not Tracked Yet */}
+                          {dispatch.type === "NOT_TRACKED" && (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <Truck className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                                <span className="font-bold text-xs">
+                                  {dispatch.vehicleNumber}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <AlertCircle className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] font-medium text-gray-600">
+                                    {dispatch.location}
+                                  </p>
+                                  <p className="text-[9px] text-muted-foreground">
+                                    {dispatch.timeAgo}
+                                  </p>
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {/* OLD: Generic "On the way" - REMOVE or keep as fallback */}
+                          {dispatch.type === "VEHICLE" && (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <Truck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                <span className="font-bold text-xs">
+                                  {dispatch.vehicleNumber}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-1.5">
                                 <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
                                 <span className="text-[10px] text-muted-foreground">
                                   {dispatch.location}
                                 </span>
                               </div>
-
-                              {/* ✅ Warehouse Button */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setWarehouseModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                    currentWarehouseId:
-                                      booking.current_warehouse?.id,
-                                  });
-                                }}
-                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
-                              >
-                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">
-                                  {booking.current_warehouse
-                                    ? "Change Warehouse"
-                                    : "Add Warehouse"}
-                                </span>
-                              </Button>
                             </>
                           )}
 
-                          {dispatch.type === "WAREHOUSE" && (
-                            <>
-                              <div className="flex items-center gap-1.5">
-                                <Package className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p
-                                    className="text-xs font-semibold truncate"
-                                    title={dispatch.location}
-                                  >
-                                    {dispatch.location}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    {dispatch.city}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* ✅ Change Warehouse Button */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setWarehouseModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                    currentWarehouseId:
-                                      booking.current_warehouse?.id,
-                                  });
-                                }}
-                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
-                              >
-                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
-                                <span className="truncate">
-                                  Change Warehouse
-                                </span>
-                              </Button>
-                            </>
+                          {/* Warehouse Button - Keep same for all vehicle types */}
+                          {(dispatch.type === "TRACKING" ||
+                            dispatch.type === "NO_TOLLS" ||
+                            dispatch.type === "JUST_ASSIGNED" ||
+                            dispatch.type === "NOT_TRACKED" ||
+                            dispatch.type === "VEHICLE") && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setWarehouseModal({
+                                  isOpen: true,
+                                  bookingId: booking.id,
+                                  currentWarehouseId:
+                                    booking.current_warehouse?.id,
+                                });
+                              }}
+                              className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
+                            >
+                              <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                              <span className="truncate">
+                                {booking.current_warehouse
+                                  ? "Change Warehouse"
+                                  : "Add Warehouse"}
+                              </span>
+                            </Button>
                           )}
 
-                          {/* ✅ DRAFT State */}
+                          {/* DRAFT State */}
                           {dispatch.type === "DRAFT" && (
                             <div className="flex items-center gap-1.5">
                               <AlertCircle className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
@@ -1568,15 +1805,12 @@ export const BookingList = () => {
                           )}
                         </div>
                       </TableCell>
-
-                      {/* ✅ COLUMN 5: Documents (Simplified) */}
                       {/* ✅ COLUMN 5: Documents with Create LR Button */}
-                      <TableCell className="py-3">
-                        <div className="space-y-0.5 text-xs ml-6">
+                      <TableCell className="py-3 min-[2000px]:py-4">
+                        <div className="space-y-0.5 min-[2000px]:space-y-1 text-xs min-[2000px]:text-sm ml-6">
                           {/* LR Row - with Create button */}
                           <div className="flex items-center gap-1">
                             {booking.lrNumber ? (
-                              // LR exists - show number + eye icon
                               <>
                                 <span className="font-mono font-medium text-foreground dark:text-white">
                                   {booking.lrNumber}
@@ -1584,16 +1818,15 @@ export const BookingList = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 w-5 p-0 hover:bg-primary/10"
+                                  className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 p-0 hover:bg-primary/10"
                                   onClick={() =>
                                     setLrViewer({ isOpen: true, booking })
                                   }
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-primary" />
+                                  <Eye className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 text-primary" />
                                 </Button>
                               </>
                             ) : (
-                              // ✅ LR doesn't exist - show Create button
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1603,15 +1836,15 @@ export const BookingList = () => {
                                     bookingId: booking.id,
                                   })
                                 }
-                                className="h-5 px-2 text-[10px] hover:bg-primary/10 hover:text-primary font-medium"
+                                className="h-5 min-[2000px]:h-6 px-2 text-[10px] min-[2000px]:text-xs hover:bg-primary/10 hover:text-primary font-medium"
                               >
-                                <Plus className="w-3 h-3 mr-1" />
+                                <Plus className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 mr-1" />
                                 Create LR
                               </Button>
                             )}
                           </div>
 
-                          {/* POD Row - Same as before (no changes) */}
+                          {/* POD Row */}
                           <div className="flex items-center gap-1">
                             {booking.pod_file_url ? (
                               <>
@@ -1621,7 +1854,7 @@ export const BookingList = () => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-5 w-5 p-0 hover:bg-primary/10"
+                                  className="h-5 w-5 min-[2000px]:h-6 min-[2000px]:w-6 p-0 hover:bg-primary/10"
                                   onClick={() =>
                                     setPodViewer({
                                       isOpen: true,
@@ -1630,7 +1863,7 @@ export const BookingList = () => {
                                     })
                                   }
                                 >
-                                  <Eye className="w-3.5 h-3.5 text-primary" />
+                                  <Eye className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 text-primary" />
                                 </Button>
                               </>
                             ) : (
@@ -1640,7 +1873,7 @@ export const BookingList = () => {
                             )}
                           </div>
 
-                          {/* E-WAY BILL Row - Same as before (no changes) */}
+                          {/* E-WAY BILL Row */}
                           <div className="flex items-center">
                             <span
                               className={cn(
@@ -1673,48 +1906,38 @@ export const BookingList = () => {
                           </div>
                         </div>
                       </TableCell>
-                      {/* COLUMN 6: ETA / SLA */}
-                      {/* COLUMN 6: Distance + ETA / SLA */}
-                      {/* COLUMN 6: Distance & Dynamic ETA */}
                       {/* COLUMN 6: Distance & ETA / Delivery Status */}
-                      <TableCell className="py-3">
-                        <div className="space-y-1.5">
+                      <TableCell className="py-3 min-[2000px]:py-4">
+                        <div className="space-y-1.5 min-[2000px]:space-y-2">
                           {/* Distance (always show) */}
                           {booking.route_distance_km ? (
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                              <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400">
+                              <div className="w-1.5 h-1.5 min-[2000px]:w-2 min-[2000px]:h-2 rounded-full bg-blue-500 shrink-0" />
+                              <span className="text-[10px] min-[2000px]:text-xs font-bold text-blue-700 dark:text-blue-400">
                                 {booking.route_distance_km.toLocaleString()} km
                               </span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-gray-300 shrink-0" />
-                              <span className="text-[10px] text-muted-foreground">
+                              <div className="w-1.5 h-1.5 min-[2000px]:w-2 min-[2000px]:h-2 rounded-full bg-gray-300 shrink-0" />
+                              <span className="text-[10px] min-[2000px]:text-xs text-muted-foreground">
                                 Distance N/A
                               </span>
                             </div>
                           )}
 
-                          {/* ═══════════════════════════════════════════════════════════ */}
-                          {/* 🆕 CONDITIONAL: Show ETA OR Delivery Status */}
-                          {/* ═══════════════════════════════════════════════════════════ */}
-
                           {booking.status === "DELIVERED" ? (
-                            /* ✅ DELIVERED - Show Delivery Summary */
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="space-y-1 cursor-help">
-                                    {/* Delivered timestamp */}
                                     <div className="flex items-center gap-1.5">
-                                      <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0" />
-                                      <span className="text-[10px] font-bold text-green-700 dark:text-green-400">
+                                      <CheckCircle2 className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-green-600 shrink-0" />
+                                      <span className="text-[10px] min-[2000px]:text-xs font-bold text-green-700 dark:text-green-400">
                                         Delivered
                                       </span>
                                     </div>
 
-                                    {/* On-time badge */}
                                     {(() => {
                                       const actualDelivery =
                                         booking.actual_delivery ||
@@ -1739,7 +1962,7 @@ export const BookingList = () => {
                                       return (
                                         <div
                                           className={cn(
-                                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border",
+                                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] min-[2000px]:text-[11px] font-bold border",
                                             diffHours >= 0
                                               ? "bg-green-100 text-green-700 border-green-200"
                                               : "bg-red-100 text-red-700 border-red-200",
@@ -1768,19 +1991,17 @@ export const BookingList = () => {
                                   </div>
                                 </TooltipTrigger>
 
-                                {/* Delivery Details Tooltip */}
                                 <TooltipContent
                                   side="top"
-                                  className="max-w-xs p-3"
+                                  className="max-w-xs p-3 min-[2000px]:p-4"
                                 >
-                                  <div className="space-y-2 text-xs">
+                                  <div className="space-y-2 text-xs min-[2000px]:text-sm">
                                     <p className="font-bold flex items-center gap-1.5">
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                      <CheckCircle2 className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 text-green-600" />
                                       Delivery Summary
                                     </p>
 
                                     <div className="border-t border-border pt-2 space-y-1.5">
-                                      {/* Expected ETA */}
                                       {booking.estimated_arrival && (
                                         <div className="flex justify-between">
                                           <span className="text-muted-foreground">
@@ -1794,7 +2015,6 @@ export const BookingList = () => {
                                         </div>
                                       )}
 
-                                      {/* Actual Delivery */}
                                       {(booking.actual_delivery ||
                                         booking.updated_at) && (
                                         <div className="flex justify-between">
@@ -1810,7 +2030,6 @@ export const BookingList = () => {
                                         </div>
                                       )}
 
-                                      {/* Performance */}
                                       {(() => {
                                         const actualDelivery =
                                           booking.actual_delivery ||
@@ -1858,9 +2077,8 @@ export const BookingList = () => {
                                       })()}
                                     </div>
 
-                                    {/* POD Status */}
                                     {booking.pod_uploaded_at && (
-                                      <div className="border-t border-border pt-2 text-[10px]">
+                                      <div className="border-t border-border pt-2 text-[10px] min-[2000px]:text-xs">
                                         <span className="text-green-600 font-medium">
                                           ✓ POD uploaded{" "}
                                           {getETAUpdateAge(
@@ -1873,26 +2091,25 @@ export const BookingList = () => {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          ) : /* 🚚 IN TRANSIT / NOT DELIVERED - Show ETA */
-                          booking.dynamic_eta || booking.estimated_arrival ? (
+                          ) : booking.dynamic_eta ||
+                            booking.estimated_arrival ? (
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center gap-1.5 cursor-help">
-                                    <Calendar className="w-3 h-3 text-muted-foreground shrink-0" />
+                                    <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-muted-foreground shrink-0" />
 
                                     {booking.dynamic_eta ? (
-                                      // Has dynamic ETA - show comparison
                                       <>
-                                        <span className="text-[10px] line-through text-muted-foreground">
+                                        <span className="text-[10px] min-[2000px]:text-xs line-through text-muted-foreground">
                                           {formatETA(
                                             booking.estimated_arrival!,
                                           )}
                                         </span>
-                                        <ArrowRight className="w-2.5 h-2.5 text-muted-foreground" />
+                                        <ArrowRight className="w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 text-muted-foreground" />
                                         <span
                                           className={cn(
-                                            "text-[10px] font-bold",
+                                            "text-[10px] min-[2000px]:text-xs font-bold",
                                             new Date(booking.dynamic_eta) <
                                               new Date(
                                                 booking.estimated_arrival || "",
@@ -1907,28 +2124,26 @@ export const BookingList = () => {
                                         new Date(
                                           booking.estimated_arrival || "",
                                         ) ? (
-                                          <Sparkles className="w-3 h-3 text-amber-500" />
+                                          <Sparkles className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-amber-500" />
                                         ) : (
-                                          <AlertCircle className="w-3 h-3 text-red-500" />
+                                          <AlertCircle className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-red-500" />
                                         )}
                                       </>
                                     ) : (
-                                      // Only static ETA
-                                      <span className="text-[10px] font-medium">
+                                      <span className="text-[10px] min-[2000px]:text-xs font-medium">
                                         {formatETA(booking.estimated_arrival!)}
                                       </span>
                                     )}
                                   </div>
                                 </TooltipTrigger>
 
-                                {/* ETA Tooltip (same as before) */}
                                 <TooltipContent
                                   side="top"
-                                  className="max-w-xs p-3"
+                                  className="max-w-xs p-3 min-[2000px]:p-4"
                                 >
-                                  <div className="space-y-2 text-xs">
+                                  <div className="space-y-2 text-xs min-[2000px]:text-sm">
                                     <p className="font-bold flex items-center gap-1.5">
-                                      <TrendingUp className="w-3.5 h-3.5" />
+                                      <TrendingUp className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4" />
                                       ETA Details
                                     </p>
 
@@ -2001,7 +2216,7 @@ export const BookingList = () => {
                                     </div>
 
                                     {booking.eta_last_updated_at && (
-                                      <div className="border-t border-border pt-2 text-[10px] text-muted-foreground">
+                                      <div className="border-t border-border pt-2 text-[10px] min-[2000px]:text-xs text-muted-foreground">
                                         Updated{" "}
                                         {getETAUpdateAge(
                                           booking.eta_last_updated_at,
@@ -2013,18 +2228,15 @@ export const BookingList = () => {
                               </Tooltip>
                             </TooltipProvider>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-[10px] min-[2000px]:text-xs text-muted-foreground">
                               ETA not set
                             </span>
                           )}
 
-                          {/* ═══════════════════════════════════════════════════════════ */}
-                          {/* SLA Badge / Progress - Only show if NOT delivered */}
-                          {/* ═══════════════════════════════════════════════════════════ */}
-
                           {booking.status !== "DELIVERED" &&
                             (booking.dynamic_eta ||
-                              booking.estimated_arrival) && (
+                              booking.estimated_arrival) &&
+                            dispatch.type !== "DRAFT" && (
                               <TooltipProvider delayDuration={100}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -2040,7 +2252,7 @@ export const BookingList = () => {
                                       return (
                                         <div
                                           className={cn(
-                                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold border cursor-help",
+                                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] min-[2000px]:text-[11px] font-bold border cursor-help",
                                             sla.bgColor,
                                             sla.color,
                                             "border-current/20",
@@ -2076,21 +2288,20 @@ export const BookingList = () => {
                                     })()}
                                   </TooltipTrigger>
 
-                                  {/* Progress Tooltip (same as before) */}
                                   <TooltipContent
                                     side="top"
-                                    className="max-w-xs p-3"
+                                    className="max-w-xs p-3 min-[2000px]:p-4"
                                   >
-                                    <div className="space-y-2 text-xs">
+                                    <div className="space-y-2 text-xs min-[2000px]:text-sm">
                                       <p className="font-bold flex items-center gap-1.5">
-                                        <Truck className="w-3.5 h-3.5" />
+                                        <Truck className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4" />
                                         Journey Progress
                                       </p>
 
                                       {(booking.distance_covered ||
                                         booking.distance_remaining) && (
                                         <div className="border-t border-border pt-2">
-                                          <div className="flex justify-between text-[10px] mb-1">
+                                          <div className="flex justify-between text-[10px] min-[2000px]:text-xs mb-1">
                                             <span>
                                               {booking.distance_covered || 0} km
                                             </span>
@@ -2102,7 +2313,7 @@ export const BookingList = () => {
                                               km
                                             </span>
                                           </div>
-                                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                          <div className="h-2 min-[2000px]:h-2.5 bg-muted rounded-full overflow-hidden">
                                             <div
                                               className={cn(
                                                 "h-full transition-all",
@@ -2191,88 +2402,109 @@ export const BookingList = () => {
                             )}
                         </div>
                       </TableCell>
-
-                      {/* COLUMN 7: Actions - Centered with reduced gap */}
-                      <TableCell className="py-3 pr-6 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <ProgressiveActionButton
-                            booking={booking}
-                            stage={getBookingStage(booking)}
-                            onAction={(actionType) => {
-                              switch (actionType) {
-                                case "ASSIGN_VEHICLE": // ✅ ADD THIS CASE
-                                  setAssignmentModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                  });
-                                  break;
-
-                                case "CREATE_LR":
-                                  setLrModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                  });
-                                  break;
-
-                                case "UPLOAD_POD":
-                                  setPodModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                  });
-                                  break;
-
-                                case "GENERATE_INVOICE":
-                                  setInvoiceModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                  });
-                                  break;
-
-                                case "VIEW_INVOICE":
-                                  if (booking.invoice_number) {
-                                    toast({
-                                      title: "Invoice",
-                                      description: `Invoice: ${booking.invoice_number}`,
-                                    });
-                                  }
-                                  break;
-
-                                case "REFRESH":
-                                  loadData();
-                                  break;
+                      {/* COLUMN 7: Actions */}
+                      <TableCell className="py-3 min-[2000px]:py-4 pr-4 min-[2000px]:pr-6 text-center w-[120px] min-[2000px]:w-[140px]">
+                        <div className="flex items-center justify-center gap-1 min-[2000px]:gap-2">
+                          <div
+                            className="px-2 py-1 min-[2000px]:px-3 min-[2000px]:py-1.5 hover:bg-accent/30 rounded cursor-pointer"
+                            onClick={(e) => {
+                              const button =
+                                e.currentTarget.querySelector("button");
+                              if (
+                                button &&
+                                !button.contains(e.target as Node)
+                              ) {
+                                button.click();
                               }
                             }}
-                          />
+                          >
+                            <ProgressiveActionButton
+                              booking={booking}
+                              stage={getBookingStage(booking)}
+                              onAction={(actionType) => {
+                                switch (actionType) {
+                                  case "ASSIGN_VEHICLE":
+                                    setAssignmentModal({
+                                      isOpen: true,
+                                      bookingId: booking.id,
+                                    });
+                                    break;
+
+                                  case "CREATE_LR":
+                                    setLrModal({
+                                      isOpen: true,
+                                      bookingId: booking.id,
+                                    });
+                                    break;
+
+                                  case "UPLOAD_POD":
+                                    setPodModal({
+                                      isOpen: true,
+                                      bookingId: booking.id,
+                                    });
+                                    break;
+
+                                  case "GENERATE_INVOICE":
+                                    setInvoiceModal({
+                                      isOpen: true,
+                                      bookingId: booking.id,
+                                    });
+                                    break;
+
+                                  case "VIEW_INVOICE":
+                                    if (booking.invoice_number) {
+                                      toast({
+                                        title: "Invoice",
+                                        description: `Invoice: ${booking.invoice_number}`,
+                                      });
+                                    }
+                                    break;
+
+                                  case "REFRESH":
+                                    loadData();
+                                    break;
+                                }
+                              }}
+                            />
+                          </div>
+
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 hover:bg-primary/10"
+                                className="h-10 w-10 min-[2000px]:h-11 min-[2000px]:w-11 hover:bg-primary/10"
                               >
-                                <MoreVertical className="h-3 w-3" />
+                                <MoreVertical className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                               </Button>
                             </DropdownMenuTrigger>
+
                             <DropdownMenuContent
                               align="end"
-                              className="w-48 bg-card border-border dark:border-border"
+                              className="w-48 min-[2000px]:w-56 bg-card border-border dark:border-border"
                             >
                               <DropdownMenuItem
                                 onClick={() =>
                                   navigate(`/bookings/${booking.id}`)
                                 }
+                                className="min-[2000px]:py-3"
                               >
-                                <Eye className="mr-2 h-3.5 w-3.5" />
-                                <span className="text-xs">View Details</span>
+                                <Eye className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                <span className="text-xs min-[2000px]:text-sm">
+                                  View Details
+                                </span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
                                   setEditingFullBooking(booking);
                                   setIsEditFullBookingModalOpen(true);
                                 }}
+                                className="min-[2000px]:py-3"
                               >
-                                <Edit className="mr-2 h-3.5 w-3.5" />
-                                <span className="text-xs">Edit Details</span>
+                                <Edit className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                <span className="text-xs min-[2000px]:text-sm">
+                                  Edit Details
+                                </span>
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() =>
@@ -2281,19 +2513,22 @@ export const BookingList = () => {
                                     bookingId: booking.id,
                                   })
                                 }
+                                className="min-[2000px]:py-3"
                               >
-                                <MessageSquare className="mr-2 h-3.5 w-3.5" />
-                                <span className="text-xs">
+                                <MessageSquare className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                <span className="text-xs min-[2000px]:text-sm">
                                   {booking.remarks ? "Edit" : "Add"} Remarks
                                 </span>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
                               <DropdownMenuItem
-                                className="text-[#DC2626] focus:text-[#DC2626]"
+                                className="text-[#DC2626] focus:text-[#DC2626] min-[2000px]:py-3"
                                 onClick={() => setDeletingBookingId(booking.id)}
                               >
-                                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                <span className="text-xs">Delete</span>
+                                <Trash2 className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                <span className="text-xs min-[2000px]:text-sm">
+                                  Delete
+                                </span>
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -2307,18 +2542,17 @@ export const BookingList = () => {
           </Table>
         </div>
 
-        {/* Mobile View - Keep same as before */}
         {/* Mobile Card View */}
-        <div className="lg:hidden p-4 space-y-3">
+        <div className="lg:hidden p-4 min-[2000px]:p-6 space-y-3 min-[2000px]:space-y-4">
           {paginatedBookings.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-muted-foreground dark:text-muted-foreground" />
+            <div className="text-center py-16 min-[2000px]:py-20">
+              <div className="w-16 h-16 min-[2000px]:w-20 min-[2000px]:h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 min-[2000px]:w-10 min-[2000px]:h-10 text-muted-foreground dark:text-muted-foreground" />
               </div>
-              <p className="text-base font-medium text-foreground dark:text-white">
+              <p className="text-base min-[2000px]:text-lg font-medium text-foreground dark:text-white">
                 No bookings found
               </p>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
+              <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mt-1">
                 {searchTerm
                   ? "Try adjusting your search"
                   : "Add your first booking"}
@@ -2334,13 +2568,13 @@ export const BookingList = () => {
               return (
                 <div
                   key={booking.id}
-                  className="bg-card border border-border dark:border-border rounded-lg p-4 space-y-3 shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-card border border-border dark:border-border rounded-lg p-4 min-[2000px]:p-5 space-y-3 min-[2000px]:space-y-4 shadow-sm hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-[2000px]:space-y-1.5">
                       <Button
                         variant="link"
-                        className="p-0 h-auto font-semibold text-primary text-sm"
+                        className="p-0 h-auto font-semibold text-primary text-sm min-[2000px]:text-base"
                         onClick={() =>
                           setDetailSheet({
                             isOpen: true,
@@ -2350,15 +2584,24 @@ export const BookingList = () => {
                       >
                         {booking.bookingId}
                       </Button>
-                      <Badge className={cn("text-xs", status.color)}>
-                        <StatusIcon className="w-3 h-3 mr-1" />
+                      <Badge
+                        className={cn(
+                          "text-xs min-[2000px]:text-sm",
+                          status.color,
+                        )}
+                      >
+                        <StatusIcon className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                         {status.label}
                       </Badge>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 min-[2000px]:h-10 min-[2000px]:w-10"
+                        >
+                          <MoreVertical className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-card">
@@ -2367,59 +2610,60 @@ export const BookingList = () => {
                             setEditingFullBooking(booking);
                             setIsEditFullBookingModalOpen(true);
                           }}
+                          className="min-[2000px]:py-3"
                         >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
+                          <Edit className="mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
+                          <span className="min-[2000px]:text-base">Edit</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="text-[#DC2626]"
+                          className="text-[#DC2626] min-[2000px]:py-3"
                           onClick={() => setDeletingBookingId(booking.id)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
+                          <Trash2 className="mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
+                          <span className="min-[2000px]:text-base">Delete</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
 
-                  <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
+                  <div className="space-y-2 min-[2000px]:space-y-3 text-sm min-[2000px]:text-base pt-2 border-t border-border dark:border-border">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-primary" />
+                      <div className="w-2 h-2 min-[2000px]:w-2.5 min-[2000px]:h-2.5 rounded-full bg-primary" />
                       <span className="font-medium">
                         {booking.consignorName}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <ArrowRight className="w-3 h-3" />
+                      <ArrowRight className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4" />
                       <span className="text-muted-foreground">
                         {booking.consigneeName}
                       </span>
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-sm pt-2 border-t border-border dark:border-border">
+                  <div className="space-y-2 min-[2000px]:space-y-3 text-sm min-[2000px]:text-base pt-2 border-t border-border dark:border-border">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-green-600" />
+                      <MapPin className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-green-600" />
                       <span className="font-medium">
                         {booking.fromLocation}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-red-600" />
+                      <MapPin className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-red-600" />
                       <span className="text-muted-foreground">
                         {booking.toLocation}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border dark:border-border">
+                  <div className="flex flex-wrap gap-2 min-[2000px]:gap-3 pt-2 border-t border-border dark:border-border">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => navigate(`/bookings/${booking.id}`)}
-                      className="flex-1"
+                      className="flex-1 min-[2000px]:h-10 min-[2000px]:text-base"
                     >
-                      <Eye className="w-3 h-3 mr-1" />
+                      <Eye className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                       View
                     </Button>
                     {!booking.lrNumber && (
@@ -2429,9 +2673,9 @@ export const BookingList = () => {
                         onClick={() =>
                           setLrModal({ isOpen: true, bookingId: booking.id })
                         }
-                        className="flex-1"
+                        className="flex-1 min-[2000px]:h-10 min-[2000px]:text-base"
                       >
-                        <FileText className="w-3 h-3 mr-1" />
+                        <FileText className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                         Create LR
                       </Button>
                     )}
@@ -2441,11 +2685,11 @@ export const BookingList = () => {
             })
           )}
         </div>
-        {/* Pagination - Keep same as before */}
+        {/* Pagination */}
         {filteredBookings.length > 0 && (
-          <div className="px-6 py-4 border-t border-border dark:border-border bg-card">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-muted-foreground dark:text-muted-foreground">
+          <div className="px-6 min-[2000px]:px-8 py-4 min-[2000px]:py-6 border-t border-border dark:border-border bg-card">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 min-[2000px]:gap-6">
+              <div className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
                 Showing{" "}
                 <span className="font-medium text-foreground dark:text-white">
                   {(currentPage - 1) * itemsPerPage + 1}
@@ -2464,15 +2708,15 @@ export const BookingList = () => {
                 results
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-[2000px]:gap-3">
                 {currentPage > 2 && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(1)}
-                    className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                    className="h-9 w-9 min-[2000px]:h-11 min-[2000px]:w-11 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                   >
-                    <ChevronsLeft className="h-4 w-4" />
+                    <ChevronsLeft className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                   </Button>
                 )}
 
@@ -2483,17 +2727,17 @@ export const BookingList = () => {
                   onClick={() =>
                     setCurrentPage((prev) => Math.max(1, prev - 1))
                   }
-                  className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
+                  className="h-9 w-9 min-[2000px]:h-11 min-[2000px]:w-11 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                 </Button>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 min-[2000px]:gap-2">
                   {getPaginationButtons().map((page, index) =>
                     page === "..." ? (
                       <span
                         key={`ellipsis-${index}`}
-                        className="px-2 text-muted-foreground dark:text-muted-foreground"
+                        className="px-2 text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base"
                       >
                         ...
                       </span>
@@ -2504,7 +2748,7 @@ export const BookingList = () => {
                         size="sm"
                         onClick={() => setCurrentPage(page as number)}
                         className={cn(
-                          "h-9 w-9 p-0 border-border dark:border-border",
+                          "h-9 w-9 min-[2000px]:h-11 min-[2000px]:w-11 p-0 border-border dark:border-border min-[2000px]:text-base",
                           currentPage === page
                             ? "bg-primary border-primary text-primary-foreground hover:text-primary-foreground font-medium hover:bg-primary-hover"
                             : "bg-card hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white hover:text-foreground dark:hover:text-white",
@@ -2523,9 +2767,9 @@ export const BookingList = () => {
                   onClick={() =>
                     setCurrentPage((prev) => Math.min(totalPages, prev + 1))
                   }
-                  className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
+                  className="h-9 w-9 min-[2000px]:h-11 min-[2000px]:w-11 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white disabled:opacity-50"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                 </Button>
 
                 {currentPage < totalPages - 1 && (
@@ -2533,9 +2777,9 @@ export const BookingList = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setCurrentPage(totalPages)}
-                    className="h-9 w-9 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                    className="h-9 w-9 min-[2000px]:h-11 min-[2000px]:w-11 p-0 border-border dark:border-border text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
                   >
-                    <ChevronsRight className="h-4 w-4" />
+                    <ChevronsRight className="h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
                   </Button>
                 )}
               </div>
@@ -2547,31 +2791,31 @@ export const BookingList = () => {
                   setCurrentPage(1);
                 }}
               >
-                <SelectTrigger className="w-[130px] h-9 border-border dark:border-border bg-card text-foreground dark:text-white hover:text-foreground dark:hover:text-white">
+                <SelectTrigger className="w-[130px] min-[2000px]:w-[160px] h-9 min-[2000px]:h-11 min-[2000px]:text-base border-border dark:border-border bg-card text-foreground dark:text-white hover:text-foreground dark:hover:text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-card border-border dark:border-border">
                   <SelectItem
                     value="10"
-                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white min-[2000px]:text-base min-[2000px]:py-3"
                   >
                     10 per page
                   </SelectItem>
                   <SelectItem
                     value="25"
-                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white min-[2000px]:text-base min-[2000px]:py-3"
                   >
                     25 per page
                   </SelectItem>
                   <SelectItem
                     value="50"
-                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white min-[2000px]:text-base min-[2000px]:py-3"
                   >
                     50 per page
                   </SelectItem>
                   <SelectItem
                     value="100"
-                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white"
+                    className="text-foreground dark:text-white hover:text-foreground dark:hover:text-white min-[2000px]:text-base min-[2000px]:py-3"
                   >
                     100 per page
                   </SelectItem>
@@ -2596,24 +2840,7 @@ export const BookingList = () => {
         isOpen={lrModal.isOpen}
         onClose={() => setLrModal({ isOpen: false, bookingId: "" })}
         onSave={handleSaveLR}
-        booking={(() => {
-          const foundBooking = filteredBookings.find(
-            (b) => b.id === lrModal.bookingId,
-          );
-          if (!foundBooking) return null;
-          return {
-            id: foundBooking.id,
-            bookingId: foundBooking.bookingId,
-            fromLocation: foundBooking.fromLocation,
-            toLocation: foundBooking.toLocation,
-            lrNumber: foundBooking.lrNumber,
-            bilti_number: foundBooking.bilti_number,
-            invoice_number: foundBooking.invoice_number,
-            materialDescription: foundBooking.materialDescription,
-            cargoUnits: foundBooking.cargoUnits,
-            eway_bill_details: foundBooking.eway_bill_details || [],
-          };
-        })()}
+        booking={lrBookingData}
         nextLRNumber={nextLRNumber}
       />
 
@@ -2659,24 +2886,24 @@ export const BookingList = () => {
         open={!!deletingBookingId}
         onOpenChange={() => setDeletingBookingId(null)}
       >
-        <AlertDialogContent className="bg-card border-border dark:border-border">
+        <AlertDialogContent className="bg-card border-border dark:border-border min-[2000px]:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white">
-              <AlertCircle className="w-5 h-5 text-[#DC2626]" />
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white min-[2000px]:text-xl">
+              <AlertCircle className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-[#DC2626]" />
               Delete Booking?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground">
+            <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base">
               This action cannot be undone. This will permanently delete the
               booking.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-border dark:border-border">
+            <AlertDialogCancel className="border-border dark:border-border min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteBooking}
-              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white"
+              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
             >
               Delete Booking
             </AlertDialogAction>
@@ -2696,21 +2923,13 @@ export const BookingList = () => {
         }
         currentWarehouseId={warehouseModal.currentWarehouseId}
         bookingId={warehouseModal.bookingId}
-        bookingDisplayId={
-          filteredBookings.find((b) => b.id === warehouseModal.bookingId)
-            ?.bookingId
-        }
+        bookingDisplayId={warehouseDisplayBookingId}
       />
 
       <UploadPODModal
         isOpen={podModal.isOpen}
         onClose={() => setPodModal({ isOpen: false, bookingId: "" })}
-        booking={(() => {
-          const found = filteredBookings.find(
-            (b) => b.id === podModal.bookingId,
-          );
-          return found ? { id: found.id, bookingId: found.bookingId } : null;
-        })()}
+        booking={podBookingData}
         onSuccess={loadData}
       />
 
@@ -2724,39 +2943,14 @@ export const BookingList = () => {
       <QuickInvoiceModal
         isOpen={invoiceModal.isOpen}
         onClose={() => setInvoiceModal({ isOpen: false, bookingId: "" })}
-        booking={(() => {
-          const found = filteredBookings.find(
-            (b) => b.id === invoiceModal.bookingId,
-          );
-          return found
-            ? {
-                id: found.id,
-                bookingId: found.bookingId,
-                consignorName: found.consignorName,
-                consigneeName: found.consigneeName,
-                fromLocation: found.fromLocation,
-                toLocation: found.toLocation,
-              }
-            : null;
-        })()}
+        booking={invoiceBookingData}
         onSuccess={loadData}
       />
 
       <EditRemarksModal
         isOpen={remarksModal.isOpen}
         onClose={() => setRemarksModal({ isOpen: false, bookingId: "" })}
-        booking={(() => {
-          const found = filteredBookings.find(
-            (b) => b.id === remarksModal.bookingId,
-          );
-          return found
-            ? {
-                id: found.id,
-                bookingId: found.bookingId,
-                remarks: found.remarks,
-              }
-            : null;
-        })()}
+        booking={remarksBookingData}
         onSuccess={loadData}
       />
 
@@ -2769,25 +2963,23 @@ export const BookingList = () => {
         bookingId={podViewer.bookingId}
       />
       {/* LR Details Viewer Dialog */}
-      {/* LR Details Viewer Dialog - UPDATED FOR OFFLINE */}
       <Dialog
         open={lrViewer.isOpen}
         onOpenChange={(open) =>
           !open && setLrViewer({ isOpen: false, booking: null })
         }
       >
-        <DialogContent className="sm:max-w-[500px] bg-card border-border">
+        <DialogContent className="sm:max-w-[500px] min-[2000px]:sm:max-w-[600px] bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <FileText className="w-5 h-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-foreground min-[2000px]:text-xl">
+              <FileText className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-primary" />
               LR Details - {lrViewer.booking?.lrNumber}
-              {/* ✅ Offline Badge */}
               {lrViewer.booking?.is_offline_lr && (
                 <Badge
                   variant="outline"
-                  className="ml-2 text-amber-600 border-amber-600"
+                  className="ml-2 text-amber-600 border-amber-600 min-[2000px]:text-sm"
                 >
-                  <FileEdit className="w-3 h-3 mr-1" />
+                  <FileEdit className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
                   Offline LR
                 </Badge>
               )}
@@ -2795,23 +2987,23 @@ export const BookingList = () => {
           </DialogHeader>
 
           {lrViewer.booking && (
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 min-[2000px]:space-y-5 py-4 min-[2000px]:py-6">
               {/* LR Info Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">
+              <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
+                <div className="space-y-1 min-[2000px]:space-y-1.5">
+                  <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground">
                     LR Number
                   </p>
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="text-sm min-[2000px]:text-base font-semibold text-foreground">
                     {lrViewer.booking.lrNumber || "-"}
                   </p>
                 </div>
 
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">
+                <div className="space-y-1 min-[2000px]:space-y-1.5">
+                  <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground">
                     LR Date
                   </p>
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="text-sm min-[2000px]:text-base font-semibold text-foreground">
                     {lrViewer.booking.lrDate
                       ? new Date(lrViewer.booking.lrDate).toLocaleDateString(
                           "en-GB",
@@ -2824,36 +3016,22 @@ export const BookingList = () => {
                       : "-"}
                   </p>
                 </div>
-
-                {/* <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Bilti Number</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {lrViewer.booking.bilti_number || '-'}
-                  </p>
-                </div> */}
-
-                {/* <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Invoice Number</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {lrViewer.booking.invoice_number || '-'}
-                  </p>
-                </div> */}
               </div>
 
               <div className="border-t border-border" />
 
               {/* Route Info */}
               <div className="border-t border-border">
-                <p className="text-xs font-medium text-muted-foreground mb-2">
+                <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground mb-2">
                   Route
                 </p>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="w-4 h-4 text-green-600" />
+                <div className="flex items-center gap-2 text-sm min-[2000px]:text-base">
+                  <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-green-600" />
                   <span className="font-medium">
                     {lrViewer.booking.fromLocation}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                  <MapPin className="w-4 h-4 text-red-600" />
+                  <ArrowRight className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-muted-foreground" />
+                  <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-red-600" />
                   <span className="font-medium">
                     {lrViewer.booking.toLocation}
                   </span>
@@ -2865,33 +3043,30 @@ export const BookingList = () => {
                 <>
                   <div className="border-t border-border" />
 
-                  {/* Offline LR Badge */}
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <div className="p-3 min-[2000px]:p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
-                      <FileEdit className="w-4 h-4" />
-                      <span className="text-sm font-medium">
+                      <FileEdit className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
+                      <span className="text-sm min-[2000px]:text-base font-medium">
                         LR Generated Offline
                       </span>
                     </div>
-                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                    <p className="text-xs min-[2000px]:text-sm text-amber-700 dark:text-amber-300 mt-1">
                       This is a physical/manual LR. The scanned copy can be
                       uploaded below.
                     </p>
                   </div>
 
-                  {/* Upload or View Section */}
                   {lrViewer.booking.offline_lr_file_url ? (
-                    // ✅ File is uploaded - Show View button
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <div className="space-y-3 min-[2000px]:space-y-4">
+                      <div className="flex items-center justify-between p-3 min-[2000px]:p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
                         <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-sm font-medium">
+                          <CheckCircle2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
+                          <span className="text-sm min-[2000px]:text-base font-medium">
                             LR Document Uploaded
                           </span>
                         </div>
                         {lrViewer.booking.offline_lr_uploaded_at && (
-                          <span className="text-xs text-green-600">
+                          <span className="text-xs min-[2000px]:text-sm text-green-600">
                             {new Date(
                               lrViewer.booking.offline_lr_uploaded_at,
                             ).toLocaleDateString("en-GB", {
@@ -2904,7 +3079,7 @@ export const BookingList = () => {
                       </div>
 
                       <Button
-                        className="w-full"
+                        className="w-full min-[2000px]:h-11 min-[2000px]:text-base"
                         variant="outline"
                         onClick={() => {
                           setOfflineLRViewer({
@@ -2914,14 +3089,13 @@ export const BookingList = () => {
                           });
                         }}
                       >
-                        <Eye className="w-4 h-4 mr-2" />
+                        <Eye className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                         View LR Document
                       </Button>
                     </div>
                   ) : (
-                    // ✅ No file uploaded - Show Upload button
                     <Button
-                      className="w-full"
+                      className="w-full min-[2000px]:h-11 min-[2000px]:text-base"
                       variant="default"
                       onClick={() => {
                         setLrViewer({ isOpen: false, booking: null });
@@ -2935,57 +3109,58 @@ export const BookingList = () => {
                         });
                       }}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
+                      <Upload className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                       Upload LR Document
                     </Button>
                   )}
                 </>
               )}
 
-              {/* ✅ DIGITAL LR SECTION - Only show for non-offline */}
+              {/* ✅ DIGITAL LR SECTION */}
               {!lrViewer.booking.is_offline_lr && (
                 <>
-                  {/* Material Info */}
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">
+                  <div className="space-y-1 min-[2000px]:space-y-1.5">
+                    <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground">
                       Material Description
                     </p>
-                    <p className="text-sm text-foreground bg-muted/50 p-2 rounded-md">
+                    <p className="text-sm min-[2000px]:text-base text-foreground bg-muted/50 p-2 min-[2000px]:p-3 rounded-md">
                       {lrViewer.booking.materialDescription ||
                         "No description provided"}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">
+                  <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
+                    <div className="space-y-1 min-[2000px]:space-y-1.5">
+                      <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground">
                         Cargo Units
                       </p>
-                      <p className="text-sm font-semibold text-foreground">
+                      <p className="text-sm min-[2000px]:text-base font-semibold text-foreground">
                         {lrViewer.booking.cargoUnits || "1"}
                       </p>
                     </div>
 
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">
+                    <div className="space-y-1 min-[2000px]:space-y-1.5">
+                      <p className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground">
                         Service Type
                       </p>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge
+                        variant="outline"
+                        className="text-xs min-[2000px]:text-sm"
+                      >
                         {lrViewer.booking.serviceType}
                       </Badge>
                     </div>
                   </div>
 
-                  {/* Download Button */}
-                  <div className="border-t border-border pt-4">
+                  <div className="border-t border-border pt-4 min-[2000px]:pt-5">
                     <Button
-                      className="w-full"
+                      className="w-full min-[2000px]:h-11 min-[2000px]:text-base"
                       onClick={() => {
                         handleDownloadLR(lrViewer.booking!);
                         setLrViewer({ isOpen: false, booking: null });
                       }}
                     >
-                      <Download className="w-4 h-4 mr-2" />
+                      <Download className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
                       Download LR PDF
                     </Button>
                   </div>
@@ -3014,32 +3189,32 @@ export const BookingList = () => {
           setOfflineLRViewer({ isOpen: false, fileUrl: null, lrNumber: "" })
         }
       >
-        <DialogContent className="sm:max-w-3xl max-h-[90vh]">
+        <DialogContent className="sm:max-w-3xl min-[2000px]:sm:max-w-4xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 min-[2000px]:text-xl">
+              <FileText className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-primary" />
               LR Document - {offlineLRViewer.lrNumber}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex items-center justify-center min-h-[400px] bg-muted rounded-lg overflow-hidden">
+          <div className="flex items-center justify-center min-h-[400px] min-[2000px]:min-h-[500px] bg-muted rounded-lg overflow-hidden">
             {offlineLRViewer.fileUrl &&
               (offlineLRViewer.fileUrl.toLowerCase().endsWith(".pdf") ? (
                 <iframe
                   src={offlineLRViewer.fileUrl}
-                  className="w-full h-[500px]"
+                  className="w-full h-[500px] min-[2000px]:h-[600px]"
                   title="LR Document"
                 />
               ) : (
                 <img
                   src={offlineLRViewer.fileUrl}
                   alt="LR Document"
-                  className="max-w-full max-h-[500px] object-contain"
+                  className="max-w-full max-h-[500px] min-[2000px]:max-h-[600px] object-contain"
                 />
               ))}
           </div>
 
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex justify-end gap-2 min-[2000px]:gap-3 pt-4 min-[2000px]:pt-5">
             <Button
               variant="outline"
               onClick={() =>
@@ -3049,6 +3224,7 @@ export const BookingList = () => {
                   lrNumber: "",
                 })
               }
+              className="min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
             >
               Close
             </Button>
@@ -3058,8 +3234,9 @@ export const BookingList = () => {
                   window.open(offlineLRViewer.fileUrl, "_blank");
                 }
               }}
+              className="min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
             >
-              <Download className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 mr-2" />
               Download
             </Button>
           </div>

@@ -21,6 +21,7 @@ export interface BookingData {
   estimated_arrival?: string
   remarks?: string;
   route_distance_km?: number
+  last_tracked_at?: string;
 
   // 🆕 NEW: Dynamic ETA Fields
   dynamic_eta?: string

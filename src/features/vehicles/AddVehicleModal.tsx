@@ -2,11 +2,15 @@ import { useState, useEffect, ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -27,7 +31,8 @@ import {
   FileText,
   Trash2,
   AlertCircle,
-  Check
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { fetchUnassignedDrivers, createDriver } from "@/api/vehicles";
@@ -38,14 +43,64 @@ import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 interface DocumentMetadata {
-  document_type: 'RC' | 'INSURANCE' | 'PERMIT' | 'FITNESS' | 'OTHER';
+  document_type: "RC" | "INSURANCE" | "PERMIT" | "FITNESS" | "OTHER";
   expiry_date?: string;
 }
 
+// Vehicle category and size configurations
+const vehicleCategories = [
+  "LCV",
+  "MCV",
+  "HCV",
+  "Container",
+  "Trailer",
+  "Truck",
+  "Special",
+] as const;
+
+type VehicleCategory = (typeof vehicleCategories)[number];
+
+const vehicleSizesByCategory: Record<VehicleCategory, string[]> = {
+  LCV: [
+    "7 ft (Ace / Chota Hathi)",
+    "8 ft",
+    "9 ft",
+    "10 ft",
+    "12 ft",
+    "14 ft",
+    "Special",
+  ],
+  MCV: ["14 ft", "17 ft", "19 ft", "Special"],
+  HCV: ["19 ft", "22 ft", "24 ft", "32 ft (Multi Axle)", "Special"],
+  Container: [
+    "14 ft Container",
+    "20 ft Container",
+    "22 ft Container",
+    "32 ft Container",
+    "40 ft Container",
+    "Special",
+  ],
+  Trailer: [
+    "20 ft Trailer",
+    "40 ft Trailer",
+    "45 ft Trailer",
+    "50 ft Trailer",
+    "Low Bed Trailer",
+    "Hydraulic Axle Trailer",
+    "Special",
+  ],
+  Truck: ["20 ft", "22 ft", "24 ft", "Other", "Special"],
+  Special: ["Custom Size", "Non-Standard", "Other"],
+};
+
 const vehicleSchema = z.object({
   vehicle_number: z.string().min(1, "Vehicle number is required"),
-  vehicle_type: z.string().min(1, "Vehicle type is required"),
-  capacity: z.string().min(1, "Capacity is required"),
+  vehicle_category: z.string().min(1, "Vehicle category is required"),
+  vehicle_size: z.string().min(1, "Vehicle size is required"),
+  capacity: z
+    .number()
+    .min(1, "Capacity must be at least 1 ton")
+    .max(100, "Capacity cannot exceed 100 tons"),
   default_driver_id: z.string().optional(),
   registration_date: z.string().optional(),
   insurance_expiry: z.string().optional(),
@@ -59,21 +114,35 @@ interface AddVehicleModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (
-    vehicleData: VehicleFormData,
-    documents?: { files: File[], metadata: Record<number, DocumentMetadata> } | null
+    vehicleData: any,
+    documents?: {
+      files: File[];
+      metadata: Record<number, DocumentMetadata>;
+    } | null,
   ) => Promise<void>;
 }
 
-export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProps) => {
+export const AddVehicleModal = ({
+  isOpen,
+  onClose,
+  onSave,
+}: AddVehicleModalProps) => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [unassignedDrivers, setUnassignedDrivers] = useState<any[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [isAddDriverOpen, setIsAddDriverOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [documentMetadata, setDocumentMetadata] = useState<Record<number, DocumentMetadata>>({});
+  const [documentMetadata, setDocumentMetadata] = useState<
+    Record<number, DocumentMetadata>
+  >({});
   const [vehicleNumberError, setVehicleNumberError] = useState<string>("");
   const [isValidatingVehicle, setIsValidatingVehicle] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<
+    VehicleCategory | ""
+  >("");
+  const [availableSizes, setAvailableSizes] = useState<string[]>([]);
+  const [capacityValue, setCapacityValue] = useState<number>(1);
 
   const {
     register,
@@ -82,12 +151,24 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
     reset,
     setValue,
     watch,
+    clearErrors,
   } = useForm<VehicleFormData>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
       default_driver_id: "none",
+      capacity: 1,
     },
   });
+
+  // Update available sizes when category changes
+  useEffect(() => {
+    if (selectedCategory) {
+      setAvailableSizes(vehicleSizesByCategory[selectedCategory]);
+      setValue("vehicle_size", "");
+    } else {
+      setAvailableSizes([]);
+    }
+  }, [selectedCategory, setValue]);
 
   useEffect(() => {
     if (isOpen) {
@@ -123,13 +204,13 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
     const files = Array.from(e.target.files || []);
     const validFiles: File[] = [];
 
-    files.forEach(file => {
+    files.forEach((file) => {
       const validation = validateFile(file);
       if (!validation.valid) {
         toast({
           title: "❌ Invalid File",
           description: validation.error,
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         validFiles.push(file);
@@ -137,19 +218,19 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
     });
 
     if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
       const newMetadata = { ...documentMetadata };
       validFiles.forEach((_, index) => {
         const fileIndex = selectedFiles.length + index;
-        newMetadata[fileIndex] = { document_type: 'OTHER' };
+        newMetadata[fileIndex] = { document_type: "OTHER" };
       });
       setDocumentMetadata(newMetadata);
     }
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     const newMetadata = { ...documentMetadata };
     delete newMetadata[index];
     const reindexed: Record<number, DocumentMetadata> = {};
@@ -161,10 +242,14 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
     setDocumentMetadata(reindexed);
   };
 
-  const updateDocumentMetadata = (index: number, field: keyof DocumentMetadata, value: any) => {
-    setDocumentMetadata(prev => ({
+  const updateDocumentMetadata = (
+    index: number,
+    field: keyof DocumentMetadata,
+    value: any,
+  ) => {
+    setDocumentMetadata((prev) => ({
       ...prev,
-      [index]: { ...prev[index], [field]: value }
+      [index]: { ...prev[index], [field]: value },
     }));
   };
 
@@ -175,7 +260,7 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
         toast({
           title: "❌ Missing Document Type",
           description: `Please select document type for ${selectedFiles[i].name}`,
-          variant: "destructive"
+          variant: "destructive",
         });
         return false;
       }
@@ -200,7 +285,7 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
           toast({
             title: "✅ Valid Vehicle Number",
             description: `${validation.details.state} - RTO ${validation.details.rto}`,
-            duration: 2000
+            duration: 2000,
           });
         }
       }
@@ -211,38 +296,79 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
     }
   };
 
+  const handleCategoryChange = (value: VehicleCategory) => {
+    setSelectedCategory(value);
+    setValue("vehicle_category", value);
+    clearErrors("vehicle_category");
+  };
+
+  const handleSizeChange = (value: string) => {
+    setValue("vehicle_size", value);
+    clearErrors("vehicle_size");
+  };
+
+  // Capacity handlers
+  const handleCapacityChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value) || 0;
+    const clampedValue = Math.min(Math.max(value, 0), 100);
+    setCapacityValue(clampedValue);
+    setValue("capacity", clampedValue);
+    if (clampedValue >= 1) {
+      clearErrors("capacity");
+    }
+  };
+
+  const incrementCapacity = () => {
+    const newValue = Math.min(capacityValue + 1, 100);
+    setCapacityValue(newValue);
+    setValue("capacity", newValue);
+    clearErrors("capacity");
+  };
+
+  const decrementCapacity = () => {
+    const newValue = Math.max(capacityValue - 1, 1);
+    setCapacityValue(newValue);
+    setValue("capacity", newValue);
+  };
+
   const onSubmit = async (data: VehicleFormData) => {
     if (!validateDocuments()) return;
     if (vehicleNumberError) {
       toast({
         title: "❌ Validation Error",
         description: vehicleNumberError,
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const vehicleType = `${data.vehicle_category} - ${data.vehicle_size}`;
+      const capacityString = `${data.capacity} ton${data.capacity > 1 ? "s" : ""}`;
+
       const cleanedData = {
-        ...data,
-        default_driver_id: data.default_driver_id === "none" ? null : data.default_driver_id,
+        vehicle_number: data.vehicle_number,
+        vehicle_type: vehicleType,
+        capacity: capacityString,
+        default_driver_id:
+          data.default_driver_id === "none" ? null : data.default_driver_id,
         registration_date: data.registration_date || null,
         insurance_expiry: data.insurance_expiry || null,
         fitness_expiry: data.fitness_expiry || null,
         permit_expiry: data.permit_expiry || null,
       };
 
-      const documentsData = selectedFiles.length > 0 ? {
-        files: selectedFiles,
-        metadata: documentMetadata
-      } : null;
+      const documentsData =
+        selectedFiles.length > 0
+          ? {
+              files: selectedFiles,
+              metadata: documentMetadata,
+            }
+          : null;
 
       await onSave(cleanedData, documentsData);
-      reset({ default_driver_id: "none" });
-      setSelectedFiles([]);
-      setDocumentMetadata({});
-      onClose();
+      handleClose();
     } catch (error) {
       console.error("Error saving vehicle:", error);
       toast({
@@ -280,25 +406,22 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
   };
 
   const handleClose = () => {
-    reset({ default_driver_id: "none" });
+    reset({ default_driver_id: "none", capacity: 1 });
     setSelectedFiles([]);
     setDocumentMetadata({});
+    setSelectedCategory("");
+    setAvailableSizes([]);
+    setVehicleNumberError("");
+    setCapacityValue(1);
     onClose();
   };
 
-  const vehicleTypes = [
-    "Truck - 16ft", "Truck - 20ft", "Truck - 24ft", "Container - 20ft",
-    "Container - 40ft", "Trailer", "Mini Truck", "Tanker", "Pickup Truck", "Flatbed Truck",
-  ];
-
-  const capacities = ["1 ton", "5 tons", "10 tons", "15 tons", "20 tons", "25 tons", "30 tons", "40 tons"];
-
   const documentTypes = [
-    { value: 'RC', label: 'RC (Registration Certificate)' },
-    { value: 'INSURANCE', label: 'Insurance' },
-    { value: 'PERMIT', label: 'Permit' },
-    { value: 'FITNESS', label: 'Fitness Certificate' },
-    { value: 'OTHER', label: 'Other' }
+    { value: "RC", label: "RC (Registration Certificate)" },
+    { value: "INSURANCE", label: "Insurance" },
+    { value: "PERMIT", label: "Permit" },
+    { value: "FITNESS", label: "Fitness Certificate" },
+    { value: "OTHER", label: "Other" },
   ];
 
   return (
@@ -321,8 +444,9 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                 <Truck className="w-4 h-4 text-primary" />
                 Basic Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Vehicle Number */}
+                <div className="md:col-span-3">
                   <Label className="text-xs font-medium text-foreground dark:text-white">
                     Vehicle Number *
                     {isValidatingVehicle && (
@@ -340,7 +464,8 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                       "text-foreground dark:text-white",
                       "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
                       "focus:ring-2 focus:ring-ring focus:border-primary",
-                      vehicleNumberError && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                      vehicleNumberError &&
+                        "border-red-500 focus:ring-red-500 focus:border-red-500",
                     )}
                   />
                   {vehicleNumberError && (
@@ -354,53 +479,129 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                   </p>
                 </div>
 
-                <div>
+                {/* Vehicle Category */}
+                <div className="flex-1">
                   <Label className="text-xs font-medium text-foreground dark:text-white">
-                    Vehicle Type *
+                    Vehicle Category *
                   </Label>
-                  <Select onValueChange={(val) => setValue("vehicle_type", val)} disabled={isSubmitting}>
-                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
-                      <SelectValue placeholder="Select Type" />
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={handleCategoryChange}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className="h-9 text-sm mt-1 w-full border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
+                      <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border dark:border-border">
-                      {vehicleTypes.map((type) => (
+                      {vehicleCategories.map((category) => (
                         <SelectItem
-                          key={type}
-                          value={type}
+                          key={category}
+                          value={category}
                           className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
                         >
-                          {type}
+                          {category}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.vehicle_type && (
+                  {errors.vehicle_category && (
                     <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {errors.vehicle_type.message}
+                      {errors.vehicle_category.message}
                     </p>
                   )}
                 </div>
 
-                <div className="md:col-span-2">
+                {/* Vehicle Size */}
+                <div className="flex-1">
                   <Label className="text-xs font-medium text-foreground dark:text-white">
-                    Capacity *
+                    Vehicle Size *
                   </Label>
-                  <Select onValueChange={(val) => setValue("capacity", val)} disabled={isSubmitting}>
-                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
-                      <SelectValue placeholder="Select Capacity" />
+                  <Select
+                    value={watch("vehicle_size") || ""}
+                    onValueChange={handleSizeChange}
+                    disabled={isSubmitting || !selectedCategory}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "h-9 text-sm mt-1 w-full border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary",
+                        !selectedCategory && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      <SelectValue
+                        placeholder={
+                          selectedCategory
+                            ? "Select Size"
+                            : "Select category first"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border dark:border-border">
-                      {capacities.map((capacity) => (
+                      {availableSizes.map((size) => (
                         <SelectItem
-                          key={capacity}
-                          value={capacity}
+                          key={size}
+                          value={size}
                           className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
                         >
-                          {capacity}
+                          {size}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.vehicle_size && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {errors.vehicle_size.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Capacity */}
+                <div className="flex-1">
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Capacity *
+                  </Label>
+                  <div className="relative mt-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={capacityValue}
+                      onChange={handleCapacityChange}
+                      disabled={isSubmitting}
+                      className={cn(
+                        "h-9 w-full text-sm pr-14",
+                        "border-border dark:border-border",
+                        "bg-card",
+                        "text-foreground dark:text-white",
+                        "focus:ring-2 focus:ring-ring focus:border-primary",
+                        "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                        errors.capacity && "border-red-500",
+                      )}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">
+                        tons
+                      </span>
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={incrementCapacity}
+                          disabled={isSubmitting || capacityValue >= 100}
+                          className="h-3.5 w-4 flex items-center justify-center hover:bg-accent rounded-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={decrementCapacity}
+                          disabled={isSubmitting || capacityValue <= 1}
+                          className="h-3.5 w-4 flex items-center justify-center hover:bg-accent rounded-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                   {errors.capacity && (
                     <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                       {errors.capacity.message}
@@ -409,7 +610,6 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                 </div>
               </div>
             </div>
-
             <Separator className="my-4 bg-[#E5E7EB] dark:bg-secondary" />
 
             {/* Compliance Dates */}
@@ -483,7 +683,11 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                   disabled={isSubmitting || loadingDrivers}
                 >
                   <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
-                    <SelectValue placeholder={loadingDrivers ? "Loading..." : "Select driver"} />
+                    <SelectValue
+                      placeholder={
+                        loadingDrivers ? "Loading..." : "Select driver"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border dark:border-border">
                     <SelectItem
@@ -545,7 +749,9 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                  onClick={() => document.getElementById('owned-document-upload')?.click()}
+                  onClick={() =>
+                    document.getElementById("owned-document-upload")?.click()
+                  }
                   disabled={isSubmitting}
                 >
                   <Plus className="w-3 h-3 mr-2" />
@@ -590,8 +796,16 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                             Document Type *
                           </Label>
                           <Select
-                            value={documentMetadata[index]?.document_type || 'OTHER'}
-                            onValueChange={(value: any) => updateDocumentMetadata(index, 'document_type', value)}
+                            value={
+                              documentMetadata[index]?.document_type || "OTHER"
+                            }
+                            onValueChange={(value: any) =>
+                              updateDocumentMetadata(
+                                index,
+                                "document_type",
+                                value,
+                              )
+                            }
                             disabled={isSubmitting}
                           >
                             <SelectTrigger className="h-7 text-[10px] border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary">
@@ -618,8 +832,14 @@ export const AddVehicleModal = ({ isOpen, onClose, onSave }: AddVehicleModalProp
                           <Input
                             type="date"
                             className="h-7 text-[10px] border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
-                            value={documentMetadata[index]?.expiry_date || ''}
-                            onChange={(e) => updateDocumentMetadata(index, 'expiry_date', e.target.value)}
+                            value={documentMetadata[index]?.expiry_date || ""}
+                            onChange={(e) =>
+                              updateDocumentMetadata(
+                                index,
+                                "expiry_date",
+                                e.target.value,
+                              )
+                            }
                             disabled={isSubmitting}
                           />
                         </div>

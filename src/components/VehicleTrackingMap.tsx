@@ -226,7 +226,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         simLocations.map((loc) => ({
           latitude: loc.latitude,
           longitude: loc.longitude,
-        }))
+        })),
       );
     }
   }, [simLocations, trackingMode]);
@@ -237,7 +237,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         tollCrossings.map((crossing) => ({
           latitude: crossing.latitude,
           longitude: crossing.longitude,
-        }))
+        })),
       );
     }
   }, [tollCrossings, trackingMode]);
@@ -276,7 +276,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         setMapZoom(zoom);
       }
     },
-    []
+    [],
   );
 
   // ═══════════════════════════════════════════════════════════
@@ -347,7 +347,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             phoneNumber: driverDetails.phone,
             driverName: driverDetails.name,
           },
-        }
+        },
       );
 
       if (error) throw error;
@@ -400,7 +400,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             bookingId,
             phoneNumber: simRegistration.phone_number,
           },
-        }
+        },
       );
 
       if (error) throw error;
@@ -434,7 +434,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           } else {
             toast({
               title: "⚠️ Request Completed",
-              description: "Click 'New Request' for fresh location (₹1).",
+              description: "Click 'New Request' for fresh location.",
             });
           }
         } else {
@@ -476,7 +476,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       setTrackingEndReason(
         bookingStatus === "DELIVERED"
           ? "Tracking ended - Booking delivered"
-          : "Tracking ended - Booking cancelled"
+          : "Tracking ended - Booking cancelled",
       );
       return;
     }
@@ -564,7 +564,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           "Kherki Daula Toll Plaza",
         ];
         const realData = data.filter(
-          (crossing) => !mockTollNames.includes(crossing.toll_plaza_name)
+          (crossing) => !mockTollNames.includes(crossing.toll_plaza_name),
         );
 
         if (realData.length > 0) {
@@ -667,7 +667,6 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   // ═══════════════════════════════════════════════════════════
   // UTILITY FUNCTIONS
   // ═══════════════════════════════════════════════════════════
-
   const formatTime = (dateString: string) => {
     try {
       if (!dateString) return "Unknown";
@@ -678,14 +677,22 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         const [datePart, timePart] = dateString.split(" ");
         const [year, month, day] = datePart.split("-").map(Number);
         const [hour, minute, second] = timePart.split(":").map(Number);
+
+        // ✅ FIX: API time is already in IST, don't convert
         date = new Date(year, month - 1, day, hour, minute, Math.floor(second));
-      } else {
+
+        // NO TIMEZONE CONVERSION - API time is already local
+      } else if (dateString.endsWith("Z")) {
+        // Only if explicitly UTC (with Z)
         date = new Date(dateString);
+      } else {
+        // Assume local time
+        date = new Date(dateString.replace(" ", "T"));
       }
 
       if (isNaN(date.getTime())) return dateString;
 
-      const dayNum = date.getDate();
+      const d = date.getDate();
       const months = [
         "Jan",
         "Feb",
@@ -701,15 +708,13 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         "Dec",
       ];
       const month = months[date.getMonth()];
-      const year = date.getFullYear();
-
       let hours = date.getHours();
       const minutes = date.getMinutes().toString().padStart(2, "0");
       const ampm = hours >= 12 ? "pm" : "am";
       hours = hours % 12 || 12;
 
-      return `${dayNum} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
-    } catch (error) {
+      return `${d} ${month}, ${hours}:${minutes} ${ampm}`;
+    } catch {
       return dateString;
     }
   };
@@ -727,7 +732,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
           day,
           hour,
           minute,
-          Math.floor(second)
+          Math.floor(second),
         );
         return formatDistanceToNow(date, { addSuffix: true });
       }
@@ -748,7 +753,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
     const locationGroups: { [key: string]: typeof tollCrossings } = {};
     tollCrossings.forEach((crossing) => {
       const key = `${crossing.latitude.toFixed(4)}-${crossing.longitude.toFixed(
-        4
+        4,
       )}`;
       if (!locationGroups[key]) {
         locationGroups[key] = [];
@@ -765,7 +770,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   const createClusterIcon = (
     count: number,
     numbers: number[],
-    isLatest: boolean = false
+    isLatest: boolean = false,
   ) => {
     const bgColor = isLatest
       ? "#ef4444"
@@ -831,7 +836,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       <Card
         className={cn(
           "bg-card border border-border dark:border-border rounded-xl shadow-sm",
-          !isTrackingEnabled && "opacity-75"
+          !isTrackingEnabled && "opacity-75",
         )}
       >
         <CardHeader className="pb-3">
@@ -879,13 +884,13 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     !isTrackingEnabled
                       ? "ghost"
                       : waitTime > 0
-                      ? "outline"
-                      : "default"
+                        ? "outline"
+                        : "default"
                   }
                   className={cn(
                     waitTime === 0 &&
                       isTrackingEnabled &&
-                      "bg-primary hover:bg-primary-hover text-primary-foreground"
+                      "bg-primary hover:bg-primary-hover text-primary-foreground",
                   )}
                 >
                   <RefreshCw
@@ -894,8 +899,8 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   {!isTrackingEnabled
                     ? "Tracking Disabled"
                     : waitTime > 0
-                    ? `Wait ${waitTime}s`
-                    : "Track Now (₹4)"}
+                      ? `Wait ${waitTime}s`
+                      : "Track Now"}
                 </Button>
               ) : (
                 <>
@@ -906,7 +911,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                           "gap-1 text-xs",
                           simRegistration?.consent_approved
                             ? "bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] dark:bg-[#059669]/15 dark:text-[#34D399] dark:border-[#059669]/30"
-                            : "bg-[#FEF3C7] text-[#D97706] border border-[#FCD34D] dark:bg-[#D97706]/15 dark:text-[#FBBF24] dark:border-[#D97706]/30"
+                            : "bg-[#FEF3C7] text-[#D97706] border border-[#FCD34D] dark:bg-[#D97706]/15 dark:text-[#FBBF24] dark:border-[#D97706]/30",
                         )}
                       >
                         <CheckCircle className="w-3 h-3" />
@@ -936,7 +941,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                           variant="outline"
                           className="border-primary text-primary hover:bg-primary/10"
                         >
-                          <Target className="w-4 h-4 mr-2" /> New Request (₹1)
+                          <Target className="w-4 h-4 mr-2" /> New Request
                         </Button>
                       )}
                     </>
@@ -948,7 +953,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       className="bg-primary hover:bg-primary-hover text-primary-foreground"
                     >
                       <Smartphone className="w-4 h-4 mr-2" />
-                      One-Time Track (₹1)
+                      One-Time Track
                     </Button>
                   )}
                 </>
@@ -1003,7 +1008,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     {simRegistration.expires_at &&
                       format(
                         new Date(simRegistration.expires_at),
-                        "dd MMM yyyy"
+                        "dd MMM yyyy",
                       )}
                   </div>
                 </div>
@@ -1051,13 +1056,13 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">
                   {trackingMode === "FASTAG"
                     ? `Monthly: ₹${monthlyCost}/₹4000`
                     : `Cost: ₹${simRegistration?.daily_cost || 10}/day`}
                 </span>
-              </div>
+              </div> */}
             </div>
           )}
         </CardHeader>
@@ -1072,7 +1077,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
             <AlertDescription className="text-foreground dark:text-white">
               Last crossing was{" "}
               {formatTimeAgo(
-                tollCrossings[tollCrossings.length - 1].crossing_time
+                tollCrossings[tollCrossings.length - 1].crossing_time,
               )}
               . Consider refreshing for latest data.
             </AlertDescription>
@@ -1124,7 +1129,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   "h-8 text-xs font-medium transition-all",
                   trackingMode === "FASTAG"
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
                 )}
                 onClick={() => setTrackingMode("FASTAG")}
               >
@@ -1138,7 +1143,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                   "h-8 text-xs font-medium transition-all",
                   trackingMode === "SIM"
                     ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
                 )}
                 onClick={() => setTrackingMode("SIM")}
               >
@@ -1169,7 +1174,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                     return tollCrossings
                       .map((crossing, index) => {
                         const locationKey = `${crossing.latitude.toFixed(
-                          4
+                          4,
                         )}-${crossing.longitude.toFixed(4)}`;
 
                         if (plottedLocations.has(locationKey)) {
@@ -1180,11 +1185,11 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         const crossingsAtLocation = locationGroups[locationKey];
                         const numbers = crossingsAtLocation.map(
                           (c) =>
-                            tollCrossings.findIndex((tc) => tc.id === c.id) + 1
+                            tollCrossings.findIndex((tc) => tc.id === c.id) + 1,
                         );
 
                         const hasLatestCrossing = numbers.includes(
-                          tollCrossings.length
+                          tollCrossings.length,
                         );
 
                         return (
@@ -1196,11 +1201,11 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                 ? createClusterIcon(
                                     crossingsAtLocation.length,
                                     numbers,
-                                    hasLatestCrossing
+                                    hasLatestCrossing,
                                   )
                                 : createNumberIcon(
                                     numbers[0],
-                                    numbers[0] === tollCrossings.length
+                                    numbers[0] === tollCrossings.length,
                                   )
                             }
                           >
@@ -1213,7 +1218,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                                 <div className="space-y-1 max-h-[200px] overflow-y-auto">
                                   {crossingsAtLocation.map((c, i) => {
                                     const globalIndex = tollCrossings.findIndex(
-                                      (tc) => tc.id === c.id
+                                      (tc) => tc.id === c.id,
                                     );
                                     return (
                                       <div
@@ -1552,9 +1557,9 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         ? Math.round(
                             (Date.now() -
                               new Date(
-                                tollCrossings[0].crossing_time
+                                tollCrossings[0].crossing_time,
                               ).getTime()) /
-                              (1000 * 60 * 60)
+                              (1000 * 60 * 60),
                           )
                         : 0}
                       h
@@ -1663,7 +1668,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                           "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all",
                           index === tollCrossings.length - 1
                             ? "bg-primary text-primary-foreground shadow-lg scale-110"
-                            : "bg-muted text-muted-foreground group-hover:bg-primary/20"
+                            : "bg-muted text-muted-foreground group-hover:bg-primary/20",
                         )}
                       >
                         {index + 1}
@@ -1719,7 +1724,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                         "w-8 h-8 rounded-full flex items-center justify-center transition-all",
                         index === 0
                           ? "bg-primary shadow-lg scale-110"
-                          : "bg-primary/10 group-hover:bg-primary/20"
+                          : "bg-primary/10 group-hover:bg-primary/20",
                       )}
                     >
                       <Wifi
@@ -1727,7 +1732,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                           "w-4 h-4",
                           index === 0
                             ? "text-primary-foreground"
-                            : "text-primary"
+                            : "text-primary",
                         )}
                       />
                     </div>
@@ -1817,9 +1822,9 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               <span className="text-[#065F46] dark:text-[#34D399] font-medium">
                 Cost per Request
               </span>
-              <span className="font-bold text-lg text-[#059669] dark:text-[#34D399]">
+              {/* <span className="font-bold text-lg text-[#059669] dark:text-[#34D399]">
                 ₹1.00
-              </span>
+              </span> */}
             </div>
             <p className="text-xs text-muted-foreground">
               * SMS will be sent to driver for consent. Once approved, location
@@ -1844,7 +1849,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               ) : (
                 <CheckCircle className="w-4 h-4 mr-2" />
               )}
-              Get Location (₹1)
+              Get Location
             </Button>
           </DialogFooter>
         </DialogContent>

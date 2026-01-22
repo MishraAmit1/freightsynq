@@ -61,7 +61,7 @@ export const RandomSearchPanel: React.FC<RandomSearchPanelProps> = ({
   // Filters
   const [searchFilter, setSearchFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "fastag" | "sim">(
-    "all"
+    "all",
   );
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
 
@@ -72,7 +72,7 @@ export const RandomSearchPanel: React.FC<RandomSearchPanelProps> = ({
     // 1. Filter by tracking mode (FASTag/SIM/All)
     if (activeFilter !== "all") {
       result = result.filter(
-        (s) => s.tracking_mode.toLowerCase() === activeFilter
+        (s) => s.tracking_mode.toLowerCase() === activeFilter,
       );
     }
 
@@ -266,10 +266,10 @@ const SearchItem: React.FC<{
   const isLive = search.search_type === "live";
 
   const ageHours = Math.floor(
-    (Date.now() - new Date(search.searched_at).getTime()) / (1000 * 60 * 60)
+    (Date.now() - new Date(search.searched_at).getTime()) / (1000 * 60 * 60),
   );
   const isStale = ageHours >= 1;
-  const refreshCost = isSim ? "₹1" : "₹4";
+  const refreshCost = isSim ? "" : "";
 
   return (
     <div className="p-3 border border-border dark:border-border rounded-lg hover:bg-accent/50 dark:hover:bg-secondary/50 transition-colors">
@@ -285,7 +285,7 @@ const SearchItem: React.FC<{
                 "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0",
                 isSim
                   ? "bg-green-100 dark:bg-green-900/30"
-                  : "bg-blue-100 dark:bg-blue-900/30"
+                  : "bg-blue-100 dark:bg-blue-900/30",
               )}
             >
               {isSim ? (
@@ -315,7 +315,7 @@ const SearchItem: React.FC<{
                   "text-xs",
                   isLive
                     ? "border-green-500 text-green-600 dark:text-green-400"
-                    : "border-orange-500 text-orange-600 dark:text-orange-400"
+                    : "border-orange-500 text-orange-600 dark:text-orange-400",
                 )}
               >
                 {isLive ? "Live" : "Journey"}
@@ -423,7 +423,7 @@ const SearchItem: React.FC<{
                 "inline-flex items-center justify-center w-8 h-8 rounded-md transition-colors",
                 isStale
                   ? "text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30"
-                  : "text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  : "text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800",
               )}
               title={`Refresh (${refreshCost})`}
             >

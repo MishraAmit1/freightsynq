@@ -1,5 +1,6 @@
 import { calculateETAFromDistance } from '@/lib/distance-calculator'
 import { supabase } from '@/lib/supabase'
+import { trackVehicle } from '@/api/tracking' // ✅ ADD THIS IMPORT
 
 export interface OwnedVehicle {
   id: string
@@ -461,6 +462,18 @@ export const assignVehicleToBooking = async (assignmentData: {
     });
 
     if (error) throw error;
+
+    // ═══════════════════════════════════════════════════════════
+    // ✅ NEW: AUTO TRIGGER TRACKING (AFTER SUCCESSFUL ASSIGNMENT)
+    // ═══════════════════════════════════════════════════════════
+    console.log("🚀 Auto-triggering tracking for newly assigned vehicle...");
+    
+    // Background execution (don't await)
+    trackVehicle(assignmentData.booking_id).then((res) => {
+      console.log("✅ Auto-track result:", res);
+    }).catch(err => {
+      console.error("❌ Auto-track failed:", err);
+    });
 
     return data;
   } catch (error) {
