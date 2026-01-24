@@ -182,7 +182,10 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
           const { data, error } = await supabase.functions.invoke(
             "track-fastag",
             {
-              body: { vehicleNumber: vehicleNumber.trim() },
+              body: {
+                vehicleNumber: vehicleNumber.trim(),
+                isRandomSearch: true, // ✅ YEH LINE ADD KARNI HAI
+              },
             },
           );
 
@@ -236,7 +239,10 @@ export const VehicleSearchModal: React.FC<VehicleSearchModalProps> = ({
           const { data, error } = await supabase.functions.invoke(
             "track-fastag",
             {
-              body: { vehicleNumber: vehicleNumber.trim() },
+              body: {
+                vehicleNumber: vehicleNumber.trim(),
+                isRandomSearch: true, // ✅ YEH BHI HONA CHAHIYE
+              },
             },
           );
 

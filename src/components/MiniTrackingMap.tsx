@@ -841,9 +841,9 @@ export const MiniTrackingMap: React.FC<MiniTrackingMapProps> = ({
                 center={mapCenter}
                 zoom={mapZoom}
                 className="h-full w-full"
-                scrollWheelZoom={false}
+                scrollWheelZoom={true}
                 dragging={true}
-                zoomControl={false}
+                zoomControl={true}
                 key={`minimap-fastag-${mapCenter[0]}-${mapCenter[1]}`}
               >
                 <TileLayer
@@ -959,9 +959,9 @@ export const MiniTrackingMap: React.FC<MiniTrackingMapProps> = ({
                 center={mapCenter}
                 zoom={mapZoom}
                 className="h-full w-full"
-                scrollWheelZoom={false}
+                scrollWheelZoom={true}
                 dragging={true}
-                zoomControl={false}
+                zoomControl={true}
                 key={`minimap-sim-${mapCenter[0]}-${mapCenter[1]}`}
               >
                 <TileLayer

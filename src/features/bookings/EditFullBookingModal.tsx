@@ -9,6 +9,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { fetchCompanyBranches, CompanyBranch } from "@/api/bookings";
+import { fetchLRCities, LRCitySequence } from "@/api/lr-sequences";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,6 +118,8 @@ const fullBookingSchema = z.object({
   fromLocation: z.string().min(1, "Pickup location is required"),
   toLocation: z.string().min(1, "Drop location is required"),
   serviceType: z.enum(["FTL", "PTL"]),
+  branch_id: z.string().optional(),
+  lr_city_id: z.string().optional(),
   pickupDate: z
     .string()
     .optional()
@@ -179,6 +183,8 @@ interface EditFullBookingModalProps {
     invoice_number?: string;
     cargoUnits?: string;
     materialDescription?: string;
+    branch_id?: string;
+    lr_city_id?: string;
   } | null;
   nextLRNumber: number;
 }
@@ -203,6 +209,10 @@ export const EditFullBookingModal = ({
       error?: string;
     };
   }>({});
+  const [branches, setBranches] = useState<CompanyBranch[]>([]);
+  const [lrCities, setLrCities] = useState<LRCitySequence[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [loadingLRCities, setLoadingLRCities] = useState(false);
   const {
     register,
     control,
@@ -268,7 +278,35 @@ export const EditFullBookingModal = ({
       appendDocument({ ewayBill: "", invoice: "" });
     }
   };
+  useEffect(() => {
+    if (isOpen) {
+      loadBranchesAndCities();
+    }
+  }, [isOpen]);
+  const loadBranchesAndCities = async () => {
+    try {
+      setLoadingBranches(true);
+      setLoadingLRCities(true);
 
+      const [branchesData, citiesData] = await Promise.all([
+        fetchCompanyBranches(),
+        fetchLRCities(),
+      ]);
+
+      setBranches(branchesData);
+      setLrCities(citiesData);
+    } catch (error) {
+      console.error("Error loading branches/cities:", error);
+      toast({
+        title: "❌ Error",
+        description: "Failed to load branches or LR cities",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingBranches(false);
+      setLoadingLRCities(false);
+    }
+  };
   // Handle setting form data when modal opens with an editingBooking
   useEffect(() => {
     if (isOpen && editingBooking) {
@@ -281,7 +319,8 @@ export const EditFullBookingModal = ({
       setValue("pickupDate", editingBooking.pickupDate || undefined);
       setValue("lrNumber", editingBooking.lrNumber || "");
       setValue("lrDate", editingBooking.lrDate || "");
-
+      setValue("branch_id", editingBooking.branch_id || "");
+      setValue("lr_city_id", editingBooking.lr_city_id || "");
       const ewayBills = editingBooking.bilti_number
         ? editingBooking.bilti_number.split(",").map((num) => num.trim())
         : [];
@@ -622,6 +661,8 @@ export const EditFullBookingModal = ({
         to_location: data.toLocation,
         service_type: data.serviceType,
         pickup_date: data.pickupDate || undefined,
+        branch_id: data.branch_id || undefined,
+        lr_city_id: data.lr_city_id || undefined,
       };
 
       const { units, materials } = generateCargoStrings(data.items);
@@ -739,7 +780,132 @@ export const EditFullBookingModal = ({
                 </Select>
               </div>
             </div>
+            {/* ✅ BRANCH & LR CITY ROW - ADD THIS AFTER SERVICE TYPE */}
+            <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
+              {/* Branch Selector */}
+              <div>
+                <Label
+                  htmlFor="branch"
+                  className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground"
+                >
+                  Branch
+                </Label>
+                <Select
+                  value={watch("branch_id") || ""}
+                  onValueChange={(value) => setValue("branch_id", value)}
+                  disabled={isSubmitting || loadingBranches}
+                >
+                  <SelectTrigger className="mt-1 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border dark:border-border">
+                    {loadingBranches ? (
+                      <SelectItem
+                        value="loading"
+                        disabled
+                        className="text-sm min-[2000px]:text-base"
+                      >
+                        Loading branches...
+                      </SelectItem>
+                    ) : branches.length === 0 ? (
+                      <SelectItem
+                        value="none"
+                        disabled
+                        className="text-sm min-[2000px]:text-base"
+                      >
+                        No branches found
+                      </SelectItem>
+                    ) : (
+                      branches.map((branch) => (
+                        <SelectItem
+                          key={branch.id}
+                          value={branch.id}
+                          className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">
+                              {branch.branch_code}
+                            </span>
+                            <span className="text-muted-foreground">-</span>
+                            <span>{branch.branch_name}</span>
+                            {branch.city && (
+                              <span className="text-xs text-muted-foreground">
+                                ({branch.city})
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
+              {/* LR City Selector */}
+              <div>
+                <Label
+                  htmlFor="lr_city"
+                  className="text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground"
+                >
+                  LR City Sequence
+                </Label>
+                <Select
+                  value={watch("lr_city_id") || ""}
+                  onValueChange={(value) => setValue("lr_city_id", value)}
+                  disabled={isSubmitting || loadingLRCities}
+                >
+                  <SelectTrigger className="mt-1 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
+                    <SelectValue placeholder="Select LR city" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border dark:border-border">
+                    {loadingLRCities ? (
+                      <SelectItem
+                        value="loading"
+                        disabled
+                        className="text-sm min-[2000px]:text-base"
+                      >
+                        Loading cities...
+                      </SelectItem>
+                    ) : lrCities.length === 0 ? (
+                      <SelectItem
+                        value="none"
+                        disabled
+                        className="text-sm min-[2000px]:text-base"
+                      >
+                        No LR cities configured
+                      </SelectItem>
+                    ) : (
+                      lrCities.map((city) => (
+                        <SelectItem
+                          key={city.id}
+                          value={city.id}
+                          className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">
+                              {city.city_name}
+                            </span>
+                            <span className="text-muted-foreground">-</span>
+                            <span className="text-xs text-muted-foreground">
+                              {city.prefix}
+                              {city.current_lr_number + 1}
+                            </span>
+                            {city.is_active && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0"
+                              >
+                                Active
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
               <div>
                 <Label

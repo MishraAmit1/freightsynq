@@ -48,6 +48,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { format, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { getCityCoordinates, getCityCoordinatesAsync } from "@/utils/geocode";
 
 // Fix Leaflet icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -100,6 +101,49 @@ interface VehicleTrackingMapProps {
   assignmentDate?: string;
 }
 
+interface LocationCoords {
+  // ✅ NEW INTERFACE
+  from: { lat: number; lng: number } | null;
+  to: { lat: number; lng: number } | null;
+  loading: boolean;
+}
+const createFromLocationIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative; width: 30px; height: 42px;">
+        <svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="15" cy="40" rx="8" ry="2" fill="rgba(0,0,0,0.2)"/>
+          <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27s15-16.5 15-27C30 6.716 23.284 0 15 0z" fill="#22c55e"/>
+          <circle cx="15" cy="15" r="6" fill="white"/>
+          <circle cx="15" cy="15" r="3" fill="#22c55e"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [30, 42],
+    iconAnchor: [15, 42],
+    popupAnchor: [0, -42],
+    className: "from-location-marker",
+  });
+};
+
+const createToLocationIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative; width: 30px; height: 42px;">
+        <svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="15" cy="40" rx="8" ry="2" fill="rgba(0,0,0,0.2)"/>
+          <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27s15-16.5 15-27C30 6.716 23.284 0 15 0z" fill="#ef4444"/>
+          <circle cx="15" cy="15" r="6" fill="white"/>
+          <circle cx="15" cy="15" r="3" fill="#ef4444"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [30, 42],
+    iconAnchor: [15, 42],
+    popupAnchor: [0, -42],
+    className: "to-location-marker",
+  });
+};
 // ═══════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
@@ -158,7 +202,11 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
 
   // Initial load flag
   const [initialLoadDone, setInitialLoadDone] = useState(false);
-
+  const [fromToCoords, setFromToCoords] = useState<LocationCoords>({
+    from: null,
+    to: null,
+    loading: false,
+  });
   // ═══════════════════════════════════════════════════════════
   // PAGE VISIBILITY HANDLER
   // ═══════════════════════════════════════════════════════════
@@ -172,6 +220,41 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchFromToCoordinates = async () => {
+      if (!fromLocation && !toLocation) {
+        setFromToCoords({ from: null, to: null, loading: false });
+        return;
+      }
+
+      setFromToCoords((prev) => ({ ...prev, loading: true }));
+
+      try {
+        let fromCoords = fromLocation ? getCityCoordinates(fromLocation) : null;
+        let toCoords = toLocation ? getCityCoordinates(toLocation) : null;
+
+        // Async fallback if not in local DB
+        if (!fromCoords && fromLocation) {
+          fromCoords = await getCityCoordinatesAsync(fromLocation);
+        }
+        if (!toCoords && toLocation) {
+          toCoords = await getCityCoordinatesAsync(toLocation);
+        }
+
+        setFromToCoords({
+          from: fromCoords,
+          to: toCoords,
+          loading: false,
+        });
+      } catch (error) {
+        console.error("Error fetching coordinates:", error);
+        setFromToCoords({ from: null, to: null, loading: false });
+      }
+    };
+
+    fetchFromToCoordinates();
+  }, [fromLocation, toLocation]);
 
   // ═══════════════════════════════════════════════════════════
   // COMBINED INITIAL DATA LOAD
@@ -221,26 +304,39 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
   // ═══════════════════════════════════════════════════════════
 
   useEffect(() => {
-    if (trackingMode === "SIM" && simLocations.length > 0) {
-      adjustMapBounds(
-        simLocations.map((loc) => ({
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-        })),
-      );
-    }
-  }, [simLocations, trackingMode]);
+    let points: { latitude: number; longitude: number }[] = [];
 
-  useEffect(() => {
-    if (trackingMode === "FASTAG" && tollCrossings.length > 0) {
-      adjustMapBounds(
-        tollCrossings.map((crossing) => ({
-          latitude: crossing.latitude,
-          longitude: crossing.longitude,
-        })),
-      );
+    // Add tracking points
+    if (trackingMode === "SIM" && simLocations.length > 0) {
+      points = simLocations.map((loc) => ({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+      }));
+    } else if (trackingMode === "FASTAG" && tollCrossings.length > 0) {
+      points = tollCrossings.map((c) => ({
+        latitude: c.latitude,
+        longitude: c.longitude,
+      }));
     }
-  }, [tollCrossings, trackingMode]);
+
+    // Add FROM/TO points
+    if (fromToCoords.from) {
+      points.push({
+        latitude: fromToCoords.from.lat,
+        longitude: fromToCoords.from.lng,
+      });
+    }
+    if (fromToCoords.to) {
+      points.push({
+        latitude: fromToCoords.to.lat,
+        longitude: fromToCoords.to.lng,
+      });
+    }
+
+    if (points.length > 0) {
+      adjustMapBounds(points);
+    }
+  }, [simLocations, tollCrossings, trackingMode, fromToCoords]);
 
   const adjustMapBounds = useCallback(
     (points: { latitude: number; longitude: number }[]) => {
@@ -268,7 +364,9 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         const maxDiff = Math.max(latDiff, lngDiff);
 
         let zoom = 10;
-        if (maxDiff > 5) zoom = 6;
+        if (maxDiff > 10)
+          zoom = 5; // Zoom out more for long routes
+        else if (maxDiff > 5) zoom = 6;
         else if (maxDiff > 2) zoom = 7;
         else if (maxDiff > 1) zoom = 8;
         else if (maxDiff > 0.5) zoom = 9;
@@ -1085,6 +1183,7 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         )}
 
       {/* Live Map */}
+      {/* Live Map */}
       <Card className="bg-card border border-border dark:border-border rounded-xl shadow-sm overflow-hidden">
         <CardHeader className="border-b border-border dark:border-border">
           <div className="flex items-center justify-between">
@@ -1120,6 +1219,16 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
         </CardHeader>
         <CardContent className="p-0">
           <div className="relative h-[500px] w-full bg-muted dark:bg-secondary">
+            {/* ✅ Loading Overlay for Route Coords */}
+            {fromToCoords.loading && (
+              <div className="absolute top-4 left-4 z-[1000] bg-background/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 border border-border">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-xs text-muted-foreground">
+                  Loading route map...
+                </span>
+              </div>
+            )}
+
             {/* Toggle Buttons */}
             <div className="absolute top-4 right-4 z-[1000] bg-card/95 dark:bg-card/95 backdrop-blur-sm p-1 rounded-lg shadow-lg border border-border dark:border-border flex gap-1">
               <Button
@@ -1152,30 +1261,79 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
               </Button>
             </div>
 
-            {/* FASTAG MAP */}
-            {trackingMode === "FASTAG" && (
-              <>
-                <MapContainer
-                  center={mapCenter}
-                  zoom={mapZoom}
-                  className="h-full w-full"
-                  scrollWheelZoom={true}
-                  key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}-fastag`}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  />
+            {/* MAP CONTAINER */}
+            <MapContainer
+              center={mapCenter}
+              zoom={mapZoom}
+              className="h-full w-full"
+              scrollWheelZoom={true}
+              key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}-${trackingMode}`}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              />
 
+              {/* ✅ FROM Location Marker (Green) */}
+              {fromToCoords.from && (
+                <Marker
+                  position={[fromToCoords.from.lat, fromToCoords.from.lng]}
+                  icon={createFromLocationIcon()}
+                  zIndexOffset={1000}
+                >
+                  <Popup>
+                    <div className="p-2 text-center min-w-[150px]">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                          A
+                        </div>
+                        <span className="font-bold text-green-600 text-xs tracking-wide">
+                          START
+                        </span>
+                      </div>
+                      <p className="font-semibold text-sm text-foreground">
+                        {fromLocation}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* ✅ TO Location Marker (Red) */}
+              {fromToCoords.to && (
+                <Marker
+                  position={[fromToCoords.to.lat, fromToCoords.to.lng]}
+                  icon={createToLocationIcon()}
+                  zIndexOffset={1000}
+                >
+                  <Popup>
+                    <div className="p-2 text-center min-w-[150px]">
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                          B
+                        </div>
+                        <span className="font-bold text-red-600 text-xs tracking-wide">
+                          END
+                        </span>
+                      </div>
+                      <p className="font-semibold text-sm text-foreground">
+                        {toLocation}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* FASTAG TRACKING LAYER */}
+              {trackingMode === "FASTAG" && (
+                <>
                   {(() => {
                     const locationGroups = groupCrossingsByLocation();
                     const plottedLocations = new Set();
 
                     return tollCrossings
                       .map((crossing, index) => {
-                        const locationKey = `${crossing.latitude.toFixed(
-                          4,
-                        )}-${crossing.longitude.toFixed(4)}`;
+                        const locationKey = `${crossing.latitude.toFixed(4)}-${crossing.longitude.toFixed(4)}`;
 
                         if (plottedLocations.has(locationKey)) {
                           return null;
@@ -1282,243 +1440,148 @@ export const VehicleTrackingMap: React.FC<VehicleTrackingMapProps> = ({
                       />
                     </>
                   )}
-                </MapContainer>
+                </>
+              )}
 
-                {loading && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
-                    <div className="text-center">
-                      <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
-                      <p className="mt-2 text-sm font-medium text-foreground dark:text-white">
-                        Fetching latest toll crossings...
-                      </p>
-                    </div>
-                  </div>
-                )}
+              {/* SIM TRACKING LAYER */}
+              {trackingMode === "SIM" && (
+                <>
+                  {simLocations.map((location, index) => {
+                    const isLatest = index === 0;
 
-                {!loading && tollCrossings.length === 0 && (
-                  <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
-                    <div className="text-center p-6">
-                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                        <AlertCircle className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
-                        No Tracking Data
-                      </h3>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Click "Track Now" to get toll crossing information
-                      </p>
-                      <Button
-                        onClick={loadTrackingData}
-                        className="mt-4 bg-primary hover:bg-primary-hover text-primary-foreground"
-                        size="sm"
-                        disabled={!isTrackingEnabled}
+                    return (
+                      <CircleMarker
+                        key={location.id || `sim-${index}`}
+                        center={[location.latitude, location.longitude]}
+                        radius={isLatest ? 10 : 6}
+                        fillColor={isLatest ? "#3b82f6" : "#60a5fa"}
+                        color="white"
+                        weight={2}
+                        opacity={1}
+                        fillOpacity={0.8}
                       >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Track Now
-                      </Button>
-                    </div>
+                        <Popup>
+                          <div className="p-2 min-w-[200px]">
+                            <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
+                              <Smartphone className="w-4 h-4 text-primary" />
+                              {isLatest
+                                ? "Current Location"
+                                : `Location ${index + 1}`}
+                            </h3>
+                            {location.location_name && (
+                              <p className="text-xs mb-1">
+                                <strong>Area:</strong> {location.location_name}
+                              </p>
+                            )}
+                            {location.speed && (
+                              <p className="text-xs mb-1">
+                                <strong>Speed:</strong> {location.speed} km/h
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {location.time_ago ||
+                                formatTimeAgo(location.recorded_at)}
+                            </p>
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    );
+                  })}
+
+                  {simLocations.length > 1 && (
+                    <Polyline
+                      positions={simLocations.map((loc) => [
+                        loc.latitude,
+                        loc.longitude,
+                      ])}
+                      color="#3b82f6"
+                      weight={3}
+                      opacity={0.6}
+                      dashArray="5, 10"
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Empty State Overlay */}
+              {!loading &&
+                trackingMode === "FASTAG" &&
+                tollCrossings.length === 0 && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] flex items-center justify-center z-[999] pointer-events-none">
+                    {/* Map still visible behind, but message on top */}
                   </div>
                 )}
-              </>
+            </MapContainer>
+
+            {/* Loading Overlay */}
+            {(loading || simLoading) && (
+              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
+                <div className="text-center">
+                  <RefreshCw className="w-8 h-8 animate-spin text-primary mx-auto" />
+                  <p className="mt-2 text-sm font-medium text-foreground dark:text-white">
+                    Fetching latest tracking data...
+                  </p>
+                </div>
+              </div>
             )}
 
-            {/* SIM TRACKING MAP */}
-            {trackingMode === "SIM" && (
-              <>
-                {!isSimRegistered ? (
-                  <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-gradient-to-b from-muted to-background dark:from-secondary dark:to-background">
-                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                      <Smartphone className="w-10 h-10 text-primary" />
+            {/* Empty State Message (FASTag) */}
+            {!loading &&
+              trackingMode === "FASTAG" &&
+              tollCrossings.length === 0 && (
+                <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
+                  <div className="text-center p-6">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                      <AlertCircle className="w-8 h-8 text-muted-foreground" />
                     </div>
-
-                    <h3 className="text-2xl font-bold text-foreground dark:text-white mb-3">
-                      SIM-Based Tracking
+                    <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
+                      No Tracking Data
                     </h3>
-
-                    {driverDetails ? (
-                      <div className="space-y-4 max-w-md">
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          Enable real-time location tracking using driver's
-                          mobile number
-                        </p>
-
-                        <div className="bg-card rounded-lg p-4 border border-border dark:border-border">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              Driver:
-                            </span>
-                            <span className="text-sm text-foreground dark:text-white">
-                              {driverDetails.name}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">
-                              Phone:
-                            </span>
-                            <span className="text-sm text-foreground dark:text-white">
-                              {driverDetails.phone}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button
-                          onClick={() => setShowRegisterDialog(true)}
-                          className="bg-primary hover:bg-primary-hover text-primary-foreground"
-                        >
-                          <Smartphone className="w-4 h-4 mr-2" />
-                          Enable SIM Tracking
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          No driver assigned to this booking
-                        </p>
-                        <Button variant="outline" disabled>
-                          Assign Driver First
-                        </Button>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl mt-8">
-                      <div className="p-4 bg-card rounded-xl border border-border dark:border-border shadow-sm flex flex-col items-center">
-                        <div className="p-2 bg-[#ECFDF5] dark:bg-[#059669]/15 rounded-lg mb-2">
-                          <Signal className="w-5 h-5 text-[#059669] dark:text-[#34D399]" />
-                        </div>
-                        <p className="text-xs font-semibold text-foreground dark:text-white">
-                          Network Based
-                        </p>
-                      </div>
-                      <div className="p-4 bg-card rounded-xl border border-border dark:border-border shadow-sm flex flex-col items-center">
-                        <div className="p-2 bg-[#FEF3C7] dark:bg-[#D97706]/15 rounded-lg mb-2">
-                          <Clock className="w-5 h-5 text-[#D97706] dark:text-[#FBBF24]" />
-                        </div>
-                        <p className="text-xs font-semibold text-foreground dark:text-white">
-                          Manual Refresh
-                        </p>
-                      </div>
-                      <div className="p-4 bg-card rounded-xl border border-border dark:border-border shadow-sm flex flex-col items-center">
-                        <div className="p-2 bg-primary/10 rounded-lg mb-2">
-                          <DollarSign className="w-5 h-5 text-primary" />
-                        </div>
-                        <p className="text-xs font-semibold text-foreground dark:text-white">
-                          ₹10/day
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <MapContainer
-                      center={mapCenter}
-                      zoom={mapZoom}
-                      className="h-full w-full"
-                      scrollWheelZoom={true}
-                      key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}-sim`}
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Vehicle hasn't crossed any FASTag tolls yet since
+                      assignment.
+                    </p>
+                    <Button
+                      onClick={loadTrackingData}
+                      className="mt-4 bg-primary hover:bg-primary-hover text-primary-foreground"
+                      size="sm"
+                      disabled={!isTrackingEnabled}
                     >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                      />
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Check Again
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-                      {simLocations.map((location, index) => {
-                        const isLatest = index === 0;
-
-                        return (
-                          <CircleMarker
-                            key={location.id || `sim-${index}`}
-                            center={[location.latitude, location.longitude]}
-                            radius={isLatest ? 10 : 6}
-                            fillColor={isLatest ? "#3b82f6" : "#60a5fa"}
-                            color="white"
-                            weight={2}
-                            opacity={1}
-                            fillOpacity={0.8}
-                          >
-                            <Popup>
-                              <div className="p-2 min-w-[200px]">
-                                <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
-                                  <Smartphone className="w-4 h-4 text-primary" />
-                                  {isLatest
-                                    ? "Current Location"
-                                    : `Location ${index + 1}`}
-                                </h3>
-                                {location.location_name && (
-                                  <p className="text-xs mb-1">
-                                    <strong>Area:</strong>{" "}
-                                    {location.location_name}
-                                  </p>
-                                )}
-                                {location.speed && (
-                                  <p className="text-xs mb-1">
-                                    <strong>Speed:</strong> {location.speed}{" "}
-                                    km/h
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  {location.time_ago ||
-                                    formatTimeAgo(location.recorded_at)}
-                                </p>
-                              </div>
-                            </Popup>
-                          </CircleMarker>
-                        );
-                      })}
-
-                      {simLocations.length > 1 && (
-                        <Polyline
-                          positions={simLocations.map((loc) => [
-                            loc.latitude,
-                            loc.longitude,
-                          ])}
-                          color="#3b82f6"
-                          weight={3}
-                          opacity={0.6}
-                          dashArray="5, 10"
-                        />
-                      )}
-                    </MapContainer>
-
-                    {simLoading && (
-                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
-                        <div className="text-center">
-                          <Smartphone className="w-8 h-8 animate-pulse text-primary mx-auto" />
-                          <p className="mt-2 text-sm font-medium text-foreground dark:text-white">
-                            Fetching location...
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {!simLoading && simLocations.length === 0 && (
-                      <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
-                        <div className="text-center p-6">
-                          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                            <Signal className="w-8 h-8 text-muted-foreground" />
-                          </div>
-                          <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
-                            No Location Data Yet
-                          </h3>
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            {simRegistration?.consent_status === "PENDING"
-                              ? "Waiting for driver consent. Driver must reply YES to SMS."
-                              : 'Click "Refresh Location" to get current position'}
-                          </p>
-                          <Button
-                            onClick={fetchSimLocation}
-                            className="mt-4 bg-primary hover:bg-primary-hover text-primary-foreground"
-                            size="sm"
-                          >
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Refresh Location
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+            {/* Empty State Message (SIM) */}
+            {!simLoading &&
+              trackingMode === "SIM" &&
+              simLocations.length === 0 && (
+                <div className="absolute inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-[999]">
+                  <div className="text-center p-6">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+                      <Signal className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-semibold text-foreground dark:text-white">
+                      No Location Data
+                    </h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {simRegistration?.consent_status === "PENDING"
+                        ? "Waiting for driver consent. Driver must reply YES to SMS."
+                        : 'Click "Refresh Location" to get current position'}
+                    </p>
+                    <Button
+                      onClick={fetchSimLocation}
+                      className="mt-4 bg-primary hover:bg-primary-hover text-primary-foreground"
+                      size="sm"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh Location
+                    </Button>
+                  </div>
+                </div>
+              )}
           </div>
         </CardContent>
       </Card>

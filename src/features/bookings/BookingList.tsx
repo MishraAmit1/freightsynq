@@ -144,6 +144,7 @@ interface Booking {
   bilti_number?: string;
   invoice_number?: string;
   last_tracked_at?: string;
+  lr_city_id?: string;
   branch_id?: string;
   branch_name?: string;
   branch_code?: string;
@@ -152,6 +153,7 @@ interface Booking {
   estimated_arrival?: string;
   remarks?: string;
   created_at?: string;
+  updated_at?: string;
   route_distance_km?: number;
   is_offline_lr?: boolean;
   offline_lr_file_url?: string;
@@ -275,6 +277,13 @@ const statusConfig = {
 
 // ✅ UPDATED: Keep DRAFT type
 const getDispatchDisplay = (booking: Booking) => {
+  if (booking.status === "DELIVERED") {
+    return {
+      type: "DELIVERED" as const,
+      location: booking.toLocation, // Destination city
+      date: booking.actual_delivery || booking.updated_at, // Delivery date
+    };
+  }
   // Priority 1: Warehouse
   if (booking.current_warehouse) {
     return {
@@ -823,6 +832,7 @@ export const BookingList = () => {
           last_tracked_at: booking.last_tracked_at,
           current_warehouse: booking.current_warehouse,
           branch_id: booking.branch?.id,
+          lr_city_id: booking.lr_city_id,
           branch_name: booking.branch?.branch_name,
           branch_code: booking.branch?.branch_code,
           branch_city: booking.branch?.city,
@@ -857,6 +867,7 @@ export const BookingList = () => {
           remarks: booking.remarks,
           vehicle_assignments: activeAssignment ? [activeAssignment] : [],
           alerts: alerts,
+          updated_at: booking.updated_at,
         };
       });
 
@@ -961,6 +972,8 @@ export const BookingList = () => {
       to_location: string;
       service_type: "FTL" | "PTL";
       pickup_date?: string;
+      branch_id?: string;
+      lr_city_id?: string;
     },
     lrData: LRData,
   ) => {
@@ -1487,7 +1500,8 @@ export const BookingList = () => {
                     >
                       {/* COLUMN 1: Booking ID + Pickup Date + Branch Code */}
                       <TableCell className="font-mono py-3 min-[2000px]:py-4 pl-6 min-[2000px]:pl-8">
-                        <div className="space-y-1.5 min-[2000px]:space-y-2 ml-6">
+                        <div className="space-y-1 ml-6">
+                          {/* Line 1: Booking ID + Alert */}
                           <div className="flex items-center gap-2">
                             <Button
                               variant="link"
@@ -1501,6 +1515,7 @@ export const BookingList = () => {
                             >
                               {booking.bookingId}
                             </Button>
+
                             {booking.alerts && booking.alerts.length > 0 && (
                               <TooltipProvider delayDuration={300}>
                                 <Tooltip>
@@ -1534,31 +1549,39 @@ export const BookingList = () => {
                             )}
                           </div>
 
-                          <div className="flex items-center gap-1.5 text-[10px] min-[2000px]:text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5" />
-                            <span>
-                              {booking.pickupDate
-                                ? new Date(
-                                    booking.pickupDate,
-                                  ).toLocaleDateString("en-GB", {
+                          {/* Line 2: Date | Branch | Service */}
+                          <p className="text-[10px] min-[2000px]:text-xs text-muted-foreground">
+                            {booking.pickupDate
+                              ? new Date(booking.pickupDate).toLocaleDateString(
+                                  "en-GB",
+                                  {
                                     day: "2-digit",
                                     month: "short",
                                     year: "numeric",
-                                  })
-                                : "No pickup date"}
-                            </span>
+                                  },
+                                )
+                              : "No date"}
                             {booking.branch_code && (
                               <>
-                                <span className="mx-1">•</span>
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] min-[2000px]:text-[11px] px-1.5 min-[2000px]:px-2 py-0 h-4 min-[2000px]:h-5 border-primary/30 font-bold"
-                                >
+                                <span className="mx-1.5 text-muted-foreground/40">
+                                  |
+                                </span>
+                                <span className="font-medium text-foreground/70">
                                   {booking.branch_code}
-                                </Badge>
+                                </span>
                               </>
                             )}
-                          </div>
+                            {booking.serviceType && (
+                              <>
+                                <span className="mx-1.5 text-muted-foreground/40">
+                                  |
+                                </span>
+                                <span className="font-semibold text-foreground/80">
+                                  {booking.serviceType}
+                                </span>
+                              </>
+                            )}
+                          </p>
                         </div>
                       </TableCell>
                       {/* COLUMN 2: Parties & Route */}
@@ -1658,6 +1681,25 @@ export const BookingList = () => {
                                     </span>
                                   </div>
                                 </div>
+                              </div>
+                            </>
+                          )}
+                          {dispatch.type === "DELIVERED" && (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                                <span className="font-bold text-xs text-green-700 dark:text-green-400">
+                                  Completed
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                                <span
+                                  className="text-[10px] text-muted-foreground truncate max-w-[120px]"
+                                  title={dispatch.location}
+                                >
+                                  Delivered to {dispatch.location.split(",")[0]}
+                                </span>
                               </div>
                             </>
                           )}
@@ -1907,9 +1949,10 @@ export const BookingList = () => {
                         </div>
                       </TableCell>
                       {/* COLUMN 6: Distance & ETA / Delivery Status */}
+                      {/* COLUMN 6: Distance & ETA / Delivery Status */}
                       <TableCell className="py-3 min-[2000px]:py-4">
                         <div className="space-y-1.5 min-[2000px]:space-y-2">
-                          {/* Distance (always show) */}
+                          {/* 1. Distance (Always Visible) */}
                           {booking.route_distance_km ? (
                             <div className="flex items-center gap-1.5">
                               <div className="w-1.5 h-1.5 min-[2000px]:w-2 min-[2000px]:h-2 rounded-full bg-blue-500 shrink-0" />
@@ -1926,317 +1969,116 @@ export const BookingList = () => {
                             </div>
                           )}
 
+                          {/* 2. Status Logic */}
                           {booking.status === "DELIVERED" ? (
-                            <TooltipProvider delayDuration={100}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="space-y-1 cursor-help">
-                                    <div className="flex items-center gap-1.5">
-                                      <CheckCircle2 className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-green-600 shrink-0" />
-                                      <span className="text-[10px] min-[2000px]:text-xs font-bold text-green-700 dark:text-green-400">
-                                        Delivered
-                                      </span>
-                                    </div>
-
-                                    {(() => {
-                                      const actualDelivery =
-                                        booking.actual_delivery ||
-                                        booking.updated_at;
-                                      const originalETA =
-                                        booking.estimated_arrival;
-
-                                      if (!actualDelivery || !originalETA) {
-                                        return null;
-                                      }
-
-                                      const deliveryTime = new Date(
-                                        actualDelivery,
-                                      );
-                                      const etaTime = new Date(originalETA);
-                                      const diffHours = Math.round(
-                                        (etaTime.getTime() -
-                                          deliveryTime.getTime()) /
-                                          (1000 * 60 * 60),
-                                      );
-
-                                      return (
-                                        <div
-                                          className={cn(
-                                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] min-[2000px]:text-[11px] font-bold border",
-                                            diffHours >= 0
-                                              ? "bg-green-100 text-green-700 border-green-200"
-                                              : "bg-red-100 text-red-700 border-red-200",
-                                          )}
-                                        >
-                                          {diffHours >= 0 ? (
-                                            <>
-                                              <span>🎯</span>
-                                              <span>
-                                                {diffHours > 0
-                                                  ? `${diffHours}h early`
-                                                  : "On time"}
-                                              </span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <span>⚠️</span>
-                                              <span>
-                                                {Math.abs(diffHours)}h late
-                                              </span>
-                                            </>
-                                          )}
-                                        </div>
-                                      );
-                                    })()}
-                                  </div>
-                                </TooltipTrigger>
-
-                                <TooltipContent
-                                  side="top"
-                                  className="max-w-xs p-3 min-[2000px]:p-4"
-                                >
-                                  <div className="space-y-2 text-xs min-[2000px]:text-sm">
-                                    <p className="font-bold flex items-center gap-1.5">
-                                      <CheckCircle2 className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4 text-green-600" />
-                                      Delivery Summary
-                                    </p>
-
-                                    <div className="border-t border-border pt-2 space-y-1.5">
-                                      {booking.estimated_arrival && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">
-                                            Expected:
-                                          </span>
-                                          <span className="font-medium">
-                                            {formatETAWithTime(
-                                              booking.estimated_arrival,
-                                            )}
-                                          </span>
-                                        </div>
-                                      )}
-
-                                      {(booking.actual_delivery ||
-                                        booking.updated_at) && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">
-                                            Delivered:
-                                          </span>
-                                          <span className="font-bold text-green-600">
-                                            {formatETAWithTime(
-                                              booking.actual_delivery ||
-                                                booking.updated_at!,
-                                            )}
-                                          </span>
-                                        </div>
-                                      )}
-
-                                      {(() => {
-                                        const actualDelivery =
-                                          booking.actual_delivery ||
-                                          booking.updated_at;
-                                        const originalETA =
-                                          booking.estimated_arrival;
-
-                                        if (!actualDelivery || !originalETA)
-                                          return null;
-
-                                        const deliveryTime = new Date(
-                                          actualDelivery,
-                                        );
-                                        const etaTime = new Date(originalETA);
-                                        const diffHours = Math.round(
-                                          (etaTime.getTime() -
-                                            deliveryTime.getTime()) /
-                                            (1000 * 60 * 60),
-                                        );
-
-                                        return (
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">
-                                              Performance:
-                                            </span>
-                                            <span
-                                              className={cn(
-                                                "font-bold",
-                                                diffHours >= 0
-                                                  ? "text-green-600"
-                                                  : "text-red-600",
-                                              )}
-                                            >
-                                              {diffHours >= 0 ? "✅ " : "⚠️ "}
-                                              {diffHours >= 0
-                                                ? diffHours > 0
-                                                  ? `${diffHours}h early`
-                                                  : "On time"
-                                                : `${Math.abs(
-                                                    diffHours,
-                                                  )}h late`}
-                                            </span>
-                                          </div>
-                                        );
-                                      })()}
-                                    </div>
-
-                                    {booking.pod_uploaded_at && (
-                                      <div className="border-t border-border pt-2 text-[10px] min-[2000px]:text-xs">
-                                        <span className="text-green-600 font-medium">
-                                          ✓ POD uploaded{" "}
-                                          {getETAUpdateAge(
-                                            booking.pod_uploaded_at,
-                                          )}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            // ✅ DELIVERED STATE (Simple View - No Tooltip)
+                            <div className="flex flex-col items-start gap-1">
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-green-600 shrink-0" />
+                                <span className="text-[10px] min-[2000px]:text-xs font-bold text-green-700 dark:text-green-400">
+                                  Delivered
+                                </span>
+                              </div>
+                              {/* Date Display */}
+                              {(booking.actual_delivery ||
+                                booking.updated_at) && (
+                                <div className="pl-5">
+                                  <span className="text-[10px] min-[2000px]:text-xs font-medium text-muted-foreground">
+                                    {new Date(
+                                      booking.actual_delivery ||
+                                        booking.updated_at!,
+                                    ).toLocaleDateString("en-GB", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           ) : booking.dynamic_eta ||
                             booking.estimated_arrival ? (
-                            <TooltipProvider delayDuration={100}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-1.5 cursor-help">
-                                    <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-muted-foreground shrink-0" />
+                            // ✅ IN-TRANSIT STATE (Old Logic: Dynamic ETA + Tooltip)
+                            <>
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1.5 cursor-help">
+                                      <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-muted-foreground shrink-0" />
 
-                                    {booking.dynamic_eta ? (
-                                      <>
-                                        <span className="text-[10px] min-[2000px]:text-xs line-through text-muted-foreground">
-                                          {formatETA(
-                                            booking.estimated_arrival!,
-                                          )}
-                                        </span>
-                                        <ArrowRight className="w-2.5 h-2.5 min-[2000px]:w-3 min-[2000px]:h-3 text-muted-foreground" />
-                                        <span
-                                          className={cn(
-                                            "text-[10px] min-[2000px]:text-xs font-bold",
-                                            new Date(booking.dynamic_eta) <
-                                              new Date(
-                                                booking.estimated_arrival || "",
-                                              )
-                                              ? "text-green-600 dark:text-green-400"
-                                              : "text-red-600 dark:text-red-400",
-                                          )}
-                                        >
-                                          {formatETA(booking.dynamic_eta)}
-                                        </span>
-                                        {new Date(booking.dynamic_eta) <
-                                        new Date(
-                                          booking.estimated_arrival || "",
-                                        ) ? (
-                                          <Sparkles className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-amber-500" />
-                                        ) : (
-                                          <AlertCircle className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-red-500" />
-                                        )}
-                                      </>
-                                    ) : (
-                                      <span className="text-[10px] min-[2000px]:text-xs font-medium">
-                                        {formatETA(booking.estimated_arrival!)}
-                                      </span>
-                                    )}
-                                  </div>
-                                </TooltipTrigger>
-
-                                <TooltipContent
-                                  side="top"
-                                  className="max-w-xs p-3 min-[2000px]:p-4"
-                                >
-                                  <div className="space-y-2 text-xs min-[2000px]:text-sm">
-                                    <p className="font-bold flex items-center gap-1.5">
-                                      <TrendingUp className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4" />
-                                      ETA Details
-                                    </p>
-
-                                    <div className="border-t border-border pt-2 space-y-1.5">
-                                      <div className="flex justify-between">
-                                        <span className="text-muted-foreground">
-                                          Original:
-                                        </span>
-                                        <span className="font-medium">
-                                          {booking.estimated_arrival
-                                            ? formatETAWithTime(
-                                                booking.estimated_arrival,
-                                              )
-                                            : "N/A"}
-                                        </span>
-                                      </div>
-
-                                      {booking.dynamic_eta && (
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">
-                                            Updated:
+                                      {booking.dynamic_eta ? (
+                                        <>
+                                          <span className="text-[10px] min-[2000px]:text-xs line-through text-muted-foreground">
+                                            {formatETA(
+                                              booking.estimated_arrival!,
+                                            )}
                                           </span>
                                           <span
                                             className={cn(
-                                              "font-bold",
+                                              "text-[10px] min-[2000px]:text-xs font-bold",
                                               new Date(booking.dynamic_eta) <
                                                 new Date(
                                                   booking.estimated_arrival ||
                                                     "",
                                                 )
-                                                ? "text-green-600"
-                                                : "text-red-600",
+                                                ? "text-green-600 dark:text-green-400"
+                                                : "text-red-600 dark:text-red-400",
                                             )}
                                           >
-                                            {formatETAWithTime(
-                                              booking.dynamic_eta,
-                                            )}
+                                            {formatETA(booking.dynamic_eta)}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span className="text-[10px] min-[2000px]:text-xs font-medium">
+                                          {formatETA(
+                                            booking.estimated_arrival!,
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+
+                                  <TooltipContent
+                                    side="top"
+                                    className="max-w-xs p-3"
+                                  >
+                                    <div className="space-y-2 text-xs">
+                                      <p className="font-bold flex items-center gap-1.5">
+                                        <TrendingUp className="w-3.5 h-3.5" />
+                                        ETA Details
+                                      </p>
+                                      <div className="border-t border-border pt-2 space-y-1.5">
+                                        <div className="flex justify-between">
+                                          <span className="text-muted-foreground">
+                                            Original:
+                                          </span>
+                                          <span className="font-medium">
+                                            {booking.estimated_arrival
+                                              ? formatETAWithTime(
+                                                  booking.estimated_arrival,
+                                                )
+                                              : "N/A"}
                                           </span>
                                         </div>
-                                      )}
-
-                                      {booking.dynamic_eta &&
-                                        booking.estimated_arrival && (
+                                        {booking.dynamic_eta && (
                                           <div className="flex justify-between">
                                             <span className="text-muted-foreground">
-                                              Difference:
+                                              Updated:
                                             </span>
-                                            {(() => {
-                                              const diff =
-                                                getETADifference(booking);
-                                              if (!diff) return <span>-</span>;
-                                              return (
-                                                <span
-                                                  className={cn(
-                                                    "font-bold",
-                                                    diff.isImproved
-                                                      ? "text-green-600"
-                                                      : "text-red-600",
-                                                  )}
-                                                >
-                                                  {diff.isImproved
-                                                    ? "✨ "
-                                                    : "⚠️ "}
-                                                  {diff.label}
-                                                </span>
-                                              );
-                                            })()}
+                                            <span className="font-bold">
+                                              {formatETAWithTime(
+                                                booking.dynamic_eta,
+                                              )}
+                                            </span>
                                           </div>
                                         )}
-                                    </div>
-
-                                    {booking.eta_last_updated_at && (
-                                      <div className="border-t border-border pt-2 text-[10px] min-[2000px]:text-xs text-muted-foreground">
-                                        Updated{" "}
-                                        {getETAUpdateAge(
-                                          booking.eta_last_updated_at,
-                                        )}
                                       </div>
-                                    )}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <span className="text-[10px] min-[2000px]:text-xs text-muted-foreground">
-                              ETA not set
-                            </span>
-                          )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
 
-                          {booking.status !== "DELIVERED" &&
-                            (booking.dynamic_eta ||
-                              booking.estimated_arrival) &&
-                            dispatch.type !== "DRAFT" && (
+                              {/* SLA Status Badge */}
                               <TooltipProvider delayDuration={100}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -2260,21 +2102,6 @@ export const BookingList = () => {
                                         >
                                           <span>{sla.icon}</span>
                                           <span>{sla.label}</span>
-
-                                          {booking.current_speed && (
-                                            <>
-                                              <span className="opacity-50">
-                                                •
-                                              </span>
-                                              <span>
-                                                {Math.round(
-                                                  booking.current_speed,
-                                                )}{" "}
-                                                km/hr
-                                              </span>
-                                            </>
-                                          )}
-
                                           {progress > 0 && progress < 100 && (
                                             <>
                                               <span className="opacity-50">
@@ -2287,119 +2114,45 @@ export const BookingList = () => {
                                       );
                                     })()}
                                   </TooltipTrigger>
-
                                   <TooltipContent
                                     side="top"
-                                    className="max-w-xs p-3 min-[2000px]:p-4"
+                                    className="max-w-xs p-3"
                                   >
-                                    <div className="space-y-2 text-xs min-[2000px]:text-sm">
-                                      <p className="font-bold flex items-center gap-1.5">
-                                        <Truck className="w-3.5 h-3.5 min-[2000px]:w-4 min-[2000px]:h-4" />
+                                    <div className="space-y-2 text-xs">
+                                      <p className="font-bold">
                                         Journey Progress
                                       </p>
-
                                       {(booking.distance_covered ||
                                         booking.distance_remaining) && (
                                         <div className="border-t border-border pt-2">
-                                          <div className="flex justify-between text-[10px] min-[2000px]:text-xs mb-1">
+                                          <div className="flex justify-between text-[10px] mb-1">
                                             <span>
                                               {booking.distance_covered || 0} km
                                             </span>
-                                            <span className="text-muted-foreground">
+                                            <span>
                                               {getProgressPercentage(booking)}%
                                             </span>
-                                            <span>
-                                              {booking.route_distance_km || "-"}{" "}
-                                              km
-                                            </span>
                                           </div>
-                                          <div className="h-2 min-[2000px]:h-2.5 bg-muted rounded-full overflow-hidden">
+                                          <div className="h-2 bg-muted rounded-full overflow-hidden">
                                             <div
-                                              className={cn(
-                                                "h-full transition-all",
-                                                getProgressPercentage(
-                                                  booking,
-                                                ) >= 80
-                                                  ? "bg-green-500"
-                                                  : "bg-blue-500",
-                                              )}
+                                              className="h-full bg-blue-500 transition-all"
                                               style={{
-                                                width: `${getProgressPercentage(
-                                                  booking,
-                                                )}%`,
+                                                width: `${getProgressPercentage(booking)}%`,
                                               }}
                                             />
                                           </div>
                                         </div>
                                       )}
-
-                                      <div className="border-t border-border pt-2 space-y-1.5">
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">
-                                            Covered:
-                                          </span>
-                                          <span className="font-medium">
-                                            {booking.distance_covered
-                                              ? `${booking.distance_covered} km`
-                                              : "-"}
-                                          </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">
-                                            Remaining:
-                                          </span>
-                                          <span className="font-medium">
-                                            {booking.distance_remaining
-                                              ? `${booking.distance_remaining} km`
-                                              : "-"}
-                                          </span>
-                                        </div>
-                                      </div>
-
-                                      {booking.current_speed && (
-                                        <div className="border-t border-border pt-2 space-y-1.5">
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">
-                                              Current Speed:
-                                            </span>
-                                            <span className="font-bold text-blue-600">
-                                              {Math.round(
-                                                booking.current_speed,
-                                              )}{" "}
-                                              km/hr
-                                            </span>
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {(() => {
-                                        const sla = getSLAStatus(
-                                          getBestETA(booking),
-                                          booking.status,
-                                        );
-                                        return (
-                                          <div className="border-t border-border pt-2">
-                                            <div className="flex justify-between">
-                                              <span className="text-muted-foreground">
-                                                Status:
-                                              </span>
-                                              <span
-                                                className={cn(
-                                                  "font-bold",
-                                                  sla.color,
-                                                )}
-                                              >
-                                                {sla.icon} {sla.label}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        );
-                                      })()}
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
-                            )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] min-[2000px]:text-xs text-muted-foreground">
+                              ETA not set
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       {/* COLUMN 7: Actions */}
@@ -2496,7 +2249,11 @@ export const BookingList = () => {
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
-                                  setEditingFullBooking(booking);
+                                  setEditingFullBooking({
+                                    ...booking,
+                                    branch_id: booking.branch_id,
+                                    lr_city_id: booking.lr_city_id,
+                                  });
                                   setIsEditFullBookingModalOpen(true);
                                 }}
                                 className="min-[2000px]:py-3"

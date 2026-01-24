@@ -37,6 +37,7 @@ import {
 import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
+import { ConfirmUnassignModal } from "@/components/ConfirmUnassignModal";
 import { useToast } from "@/hooks/use-toast";
 import { MiniTrackingMap } from "@/components/MiniTrackingMap";
 import { useNavigate } from "react-router-dom";
@@ -158,6 +159,7 @@ export const BookingDetailSheet = ({
   const [showVehicleAssignModal, setShowVehicleAssignModal] = useState(false);
   const [showRemarksModal, setShowRemarksModal] = useState(false);
   const [remarksText, setRemarksText] = useState("");
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -297,6 +299,7 @@ export const BookingDetailSheet = ({
         description: "Failed to unassign vehicle",
         variant: "destructive",
       });
+      throw error; // Re-throw so modal knows it failed
     }
   };
 
@@ -891,10 +894,11 @@ export const BookingDetailSheet = ({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1 text-xs min-[2000px]:text-sm h-8 min-[2000px]:h-9 border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                          onClick={handleVehicleUnassign}
+                          className="flex-1 text-xs min-[2000px]:text-sm h-8 min-[2000px]:h-9 border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-red-600 hover:text-red-700 hover:border-red-300 dark:text-red-400 dark:hover:text-red-300"
+                          onClick={() => setShowUnassignModal(true)}
                         >
-                          Unassign
+                          {" "}
+                          Unassign{" "}
                         </Button>
                       </div>
                     </div>
@@ -1070,7 +1074,14 @@ export const BookingDetailSheet = ({
         }}
         bookingId={booking?.id || ""}
       />
-
+      <ConfirmUnassignModal
+        isOpen={showUnassignModal}
+        onClose={() => setShowUnassignModal(false)}
+        onConfirm={handleVehicleUnassign}
+        vehicleNumber={booking?.assignedVehicle?.regNumber}
+        driverName={booking?.assignedVehicle?.driver?.name}
+        bookingId={booking?.bookingId}
+      />
       {/* Remarks Modal */}
       <Sheet open={showRemarksModal} onOpenChange={setShowRemarksModal}>
         <SheetContent className="w-full sm:max-w-md min-[2000px]:max-w-lg bg-card border-l border-border dark:border-border">

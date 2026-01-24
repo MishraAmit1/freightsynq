@@ -22,7 +22,8 @@ export interface BookingData {
   remarks?: string;
   route_distance_km?: number
   last_tracked_at?: string;
-
+actual_delivery?: string;
+  updated_at?: string; 
   // 🆕 NEW: Dynamic ETA Fields
   dynamic_eta?: string
   current_speed?: number
@@ -293,151 +294,86 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
     const wasDelivered = currentBooking.status === 'DELIVERED';
     const isBecomingDelivered = status === 'DELIVERED';
 
-    // Case 1: Changing TO DELIVERED (clear everything)
+    // Case 1: Changing TO DELIVERED (clear everything & set date)
     if (isBecomingDelivered && !wasDelivered) {
       console.log(`📦 Booking ${bookingId} being marked as DELIVERED - Starting cleanup`);
 
       // Get current active vehicle assignment
       const { data: activeAssignment } = await supabase
         .from('vehicle_assignments')
-        .select(`
-  id,
-  vehicle_type,
-  owned_vehicle_id,
-  hired_vehicle_id,
-  status
-`)
+        .select(`id, vehicle_type, owned_vehicle_id, hired_vehicle_id, status`)
         .eq('booking_id', bookingId)
         .eq('status', 'ACTIVE')
         .maybeSingle();
 
       // Clear vehicle assignment
       if (activeAssignment) {
-        // Update vehicle status to AVAILABLE
         if (activeAssignment.vehicle_type === 'OWNED') {
-          await supabase
-            .from('owned_vehicles')
-            .update({ status: 'AVAILABLE' })
-            .eq('id', activeAssignment.owned_vehicle_id);
+          await supabase.from('owned_vehicles').update({ status: 'AVAILABLE' }).eq('id', activeAssignment.owned_vehicle_id);
         } else {
-          await supabase
-            .from('hired_vehicles')
-            .update({ status: 'AVAILABLE' })
-            .eq('id', activeAssignment.hired_vehicle_id);
+          await supabase.from('hired_vehicles').update({ status: 'AVAILABLE' }).eq('id', activeAssignment.hired_vehicle_id);
         }
-
-        // Mark assignment as completed
-        await supabase
-          .from('vehicle_assignments')
-          .update({
-            status: 'COMPLETED',
-            released_at: new Date().toISOString()
-          })
-          .eq('id', activeAssignment.id);
-
-        // Add timeline
-        await supabase
-          .from('booking_timeline')
-          .insert({
-            booking_id: bookingId,
-            action: 'VEHICLE_UNASSIGNED',
-            description: 'Vehicle automatically unassigned - booking delivered'
-          });
+        await supabase.from('vehicle_assignments').update({ status: 'COMPLETED', released_at: new Date().toISOString() }).eq('id', activeAssignment.id);
+        await supabase.from('booking_timeline').insert({ booking_id: bookingId, action: 'VEHICLE_UNASSIGNED', description: 'Vehicle automatically unassigned - booking delivered' });
       }
 
       // Clear warehouse
       if (currentBooking.current_warehouse_id) {
-        const { data: consignment } = await supabase
-          .from('consignments')
-          .update({
-            departure_date: new Date().toISOString(),
-            status: 'DELIVERED'
-          })
-          .eq('booking_id', bookingId)
-          .eq('warehouse_id', currentBooking.current_warehouse_id)
-          .is('departure_date', null)
-          .select('id, warehouse_id')
-          .maybeSingle();
-
+        const { data: consignment } = await supabase.from('consignments').update({ departure_date: new Date().toISOString(), status: 'DELIVERED' }).eq('booking_id', bookingId).eq('warehouse_id', currentBooking.current_warehouse_id).is('departure_date', null).select('id, warehouse_id').maybeSingle();
         if (consignment) {
-          await supabase
-            .from('warehouse_logs')
-            .insert({
-              consignment_id: consignment.id,
-              warehouse_id: consignment.warehouse_id,
-              type: 'OUTGOING',
-              notes: 'Goods delivered - booking completed',
-              created_at: new Date().toISOString()
-            });
-
-          await supabase.rpc('update_warehouse_stock', {
-            warehouse_id: consignment.warehouse_id,
-            stock_change: -1
-          });
+          await supabase.from('warehouse_logs').insert({ consignment_id: consignment.id, warehouse_id: consignment.warehouse_id, type: 'OUTGOING', notes: 'Goods delivered - booking completed', created_at: new Date().toISOString() });
+          await supabase.rpc('update_warehouse_stock', { warehouse_id: consignment.warehouse_id, stock_change: -1 });
         }
-
-        // Clear warehouse from booking
-        await supabase
-          .from('bookings')
-          .update({ current_warehouse_id: null })
-          .eq('id', bookingId);
+        await supabase.from('bookings').update({ current_warehouse_id: null }).eq('id', bookingId);
       }
 
-      // Update status
+      // ✅ FIX: Update actual_delivery along with status
       await supabase
         .from('bookings')
-        .update({ status: 'DELIVERED' })
+        .update({ 
+          status: 'DELIVERED',
+          actual_delivery: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', bookingId);
 
-      console.log('✅ Booking delivered - assignments cleared');
+      console.log('✅ Booking delivered - assignments cleared & date set');
     }
 
-    // Case 2: Changing FROM DELIVERED to something else (restore last assignments)
+    // Case 2: Changing FROM DELIVERED to something else (Restore Logic)
     else if (wasDelivered && !isBecomingDelivered) {
       console.log(`🔄 Restoring booking ${bookingId} from DELIVERED to ${status}`);
 
-      // **FIX: Check timeline to see what was the last action before DELIVERED**
+      // Check timeline to see what was the last action before DELIVERED
       const { data: lastActions } = await supabase
         .from('booking_timeline')
         .select('action, warehouse_id, created_at')
         .eq('booking_id', bookingId)
         .in('action', ['VEHICLE_ASSIGNED', 'ARRIVED_AT_WAREHOUSE', 'DEPARTED_FROM_WAREHOUSE'])
         .order('created_at', { ascending: false })
-        .limit(5); // Get last 5 actions to analyze
+        .limit(5);
 
-      console.log('🔍 Last actions:', lastActions);
-
-      // Determine what to restore based on timeline
       let shouldRestoreVehicle = false;
       let shouldRestoreWarehouse = false;
       let warehouseToRestore = null;
 
       if (lastActions && lastActions.length > 0) {
-        // Check the most recent non-unassignment action
         for (const action of lastActions) {
           if (action.action === 'VEHICLE_ASSIGNED') {
             shouldRestoreVehicle = true;
-            console.log('🚚 Last action was vehicle assignment - will restore vehicle');
             break;
           } else if (action.action === 'ARRIVED_AT_WAREHOUSE') {
             shouldRestoreWarehouse = true;
             warehouseToRestore = action.warehouse_id;
-            console.log('🏭 Last action was warehouse assignment - will restore warehouse');
             break;
           }
         }
       }
 
-      // Restore based on what was determined
       if (shouldRestoreVehicle) {
-        // Get last completed vehicle assignment
         const { data: lastAssignment } = await supabase
           .from('vehicle_assignments')
-          .select(`
-            *,
-            driver:drivers(*),
-            broker:brokers(*)
-          `)
+          .select(`*, driver:drivers(*), broker:brokers(*)`)
           .eq('booking_id', bookingId)
           .eq('status', 'COMPLETED')
           .order('released_at', { ascending: false })
@@ -445,7 +381,6 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
           .maybeSingle();
 
         if (lastAssignment) {
-          // Create new active assignment
           const { data: newAssignment } = await supabase
             .from('vehicle_assignments')
             .insert([{
@@ -462,76 +397,28 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
             .single();
 
           if (newAssignment) {
-            // Update vehicle status to OCCUPIED
             if (lastAssignment.vehicle_type === 'OWNED') {
-              await supabase
-                .from('owned_vehicles')
-                .update({ status: 'OCCUPIED' })
-                .eq('id', lastAssignment.owned_vehicle_id);
+              await supabase.from('owned_vehicles').update({ status: 'OCCUPIED' }).eq('id', lastAssignment.owned_vehicle_id);
             } else {
-              await supabase
-                .from('hired_vehicles')
-                .update({ status: 'OCCUPIED' })
-                .eq('id', lastAssignment.hired_vehicle_id);
+              await supabase.from('hired_vehicles').update({ status: 'OCCUPIED' }).eq('id', lastAssignment.hired_vehicle_id);
             }
-
-            // Add timeline
-            await supabase
-              .from('booking_timeline')
-              .insert({
-                booking_id: bookingId,
-                action: 'VEHICLE_ASSIGNED',
-                description: 'Vehicle restored - booking status changed from DELIVERED'
-              });
-
-            console.log('✅ Vehicle assignment restored');
+            await supabase.from('booking_timeline').insert({ booking_id: bookingId, action: 'VEHICLE_ASSIGNED', description: 'Vehicle restored - booking status changed from DELIVERED' });
           }
         }
       } else if (shouldRestoreWarehouse && warehouseToRestore) {
-        // Restore warehouse
-        await supabase
-          .from('bookings')
-          .update({ current_warehouse_id: warehouseToRestore })
-          .eq('id', bookingId);
-
-        // Create new consignment
-        const timestamp = Date.now().toString().slice(-6);
-        const consignment_id = `CNS-${timestamp}`;
-
+        await supabase.from('bookings').update({ current_warehouse_id: warehouseToRestore }).eq('id', bookingId);
+        const consignment_id = `CNS-${Date.now().toString().slice(-6)}`;
         const { data: newConsignment } = await supabase
           .from('consignments')
-          .insert([{
-            consignment_id,
-            booking_id: bookingId,
-            warehouse_id: warehouseToRestore,
-            status: 'IN_WAREHOUSE',
-            arrival_date: new Date().toISOString()
-          }])
-          .select()
-          .single();
+          .insert([{ consignment_id, booking_id: bookingId, warehouse_id: warehouseToRestore, status: 'IN_WAREHOUSE', arrival_date: new Date().toISOString() }])
+          .select().single();
 
         if (newConsignment) {
-          await supabase
-            .from('warehouse_logs')
-            .insert({
-              consignment_id: newConsignment.id,
-              warehouse_id: warehouseToRestore,
-              type: 'INCOMING',
-              notes: 'Goods restored to warehouse - booking status changed from DELIVERED',
-              created_at: new Date().toISOString()
-            });
-
-          await supabase.rpc('update_warehouse_stock', {
-            warehouse_id: warehouseToRestore,
-            stock_change: 1
-          });
-
-          console.log('✅ Warehouse restored');
+          await supabase.from('warehouse_logs').insert({ consignment_id: newConsignment.id, warehouse_id: warehouseToRestore, type: 'INCOMING', notes: 'Goods restored to warehouse - booking status changed from DELIVERED', created_at: new Date().toISOString() });
+          await supabase.rpc('update_warehouse_stock', { warehouse_id: warehouseToRestore, stock_change: 1 });
         }
       } else {
-        console.log('ℹ️ No specific assignment to restore - checking fallbacks');
-
-        // Fallback: Try to restore the most recent thing
+        // Fallback restoration
         const { data: lastConsignment } = await supabase
           .from('consignments')
           .select('warehouse_id')
@@ -541,23 +428,23 @@ export const updateBookingStatus = async (bookingId: string, status: string) => 
           .limit(1)
           .maybeSingle();
         if (lastConsignment?.warehouse_id) {
-          await supabase
-            .from('bookings')
-            .update({ current_warehouse_id: lastConsignment.warehouse_id })
-            .eq('id', bookingId);
-          console.log('✅ Fallback: Warehouse restored');
+          await supabase.from('bookings').update({ current_warehouse_id: lastConsignment.warehouse_id }).eq('id', bookingId);
         }
       }
-      // Update status
+
+      // ✅ FIX: Reset actual_delivery when reverting
       await supabase
         .from('bookings')
-        .update({ status })
+        .update({ 
+          status,
+          actual_delivery: null 
+        })
         .eq('id', bookingId);
 
       console.log('✅ Booking restored from DELIVERED');
     }
 
-    // Case 3: Normal status change (not involving DELIVERED)
+    // Case 3: Normal status change
     else {
       console.log(`📊 Normal status update to ${status}`);
       await supabase
@@ -965,6 +852,8 @@ export const updateBooking = async (bookingId: string, bookingData: {
   to_location?: string | null
   service_type?: 'FTL' | 'PTL' | null
   pickup_date?: string | null
+   branch_id?: string | null      // ✅ Already there
+  lr_city_id?: string | null    
 }) => {
   // Convert empty strings to null for DB to accept
   const payload = {
@@ -974,6 +863,8 @@ export const updateBooking = async (bookingId: string, bookingData: {
     to_location: bookingData.to_location === '' ? null : bookingData.to_location,
     service_type: bookingData.service_type,
     pickup_date: bookingData.pickup_date === '' ? null : bookingData.pickup_date,
+     branch_id: bookingData.branch_id === '' ? null : bookingData.branch_id,           // ✅ ADD
+    lr_city_id: bookingData.lr_city_id === '' ? null : bookingData.lr_city_id,
   };
 
   const { data, error } = await supabase

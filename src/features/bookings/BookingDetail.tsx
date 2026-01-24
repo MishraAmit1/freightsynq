@@ -30,6 +30,7 @@ import {
 import { fetchBookingById } from "@/api/bookings";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
 import { EnhancedVehicleAssignmentModal } from "./EnhancedVehicleAssignmentModal";
+import { ConfirmUnassignModal } from "@/components/ConfirmUnassignModal";
 import { VehicleTrackingMap } from "@/components/VehicleTrackingMap";
 import { JourneyView } from "@/components/JourneyView";
 import { useToast } from "@/hooks/use-toast";
@@ -187,7 +188,7 @@ export const BookingDetail = () => {
   const [tollCrossings, setTollCrossings] = useState<any[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<any>(null);
-
+  const [showUnassignModal, setShowUnassignModal] = useState(false);
   useEffect(() => {
     if (id) {
       loadBookingDetails(id);
@@ -331,6 +332,7 @@ export const BookingDetail = () => {
         description: "Failed to unassign vehicle",
         variant: "destructive",
       });
+      throw error; // Re-throw so modal knows it failed
     }
   };
 
@@ -1265,7 +1267,7 @@ export const BookingDetail = () => {
                         variant="outline"
                         size="sm"
                         className="text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 min-[2000px]:h-10 min-[2000px]:px-4 min-[2000px]:text-base"
-                        onClick={handleVehicleUnassign}
+                        onClick={() => setShowUnassignModal(true)}
                       >
                         Unassign
                       </Button>
@@ -1437,6 +1439,7 @@ export const BookingDetail = () => {
       </div>
 
       {/* Modals */}
+      {/* Modals */}
       <EnhancedVehicleAssignmentModal
         isOpen={showVehicleAssignModal}
         onClose={() => setShowVehicleAssignModal(false)}
@@ -1450,6 +1453,16 @@ export const BookingDetail = () => {
           });
         }}
         bookingId={booking.id}
+      />
+
+      {/* ADD THIS */}
+      <ConfirmUnassignModal
+        isOpen={showUnassignModal}
+        onClose={() => setShowUnassignModal(false)}
+        onConfirm={handleVehicleUnassign}
+        vehicleNumber={booking.assignedVehicle?.regNumber}
+        driverName={booking.assignedVehicle?.driver?.name}
+        bookingId={booking.bookingId}
       />
 
       <EditFullBookingModal
