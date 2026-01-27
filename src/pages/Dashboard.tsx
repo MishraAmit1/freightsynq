@@ -809,7 +809,8 @@ export const Dashboard = () => {
         />
         <MetricCard
           title="Revenue (Month)"
-          value={`₹${(stats.revenue.month / 100000).toFixed(1)}L`}
+          // value={`₹${(stats.revenue.month / 100000).toFixed(1)}L`}
+          value={`₹ --`}
           icon={DollarSign}
           trend="up"
           trendValue={stats.revenue.monthGrowth}
