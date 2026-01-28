@@ -1,6 +1,6 @@
 import { calculateETAFromDistance } from '@/lib/distance-calculator'
 import { supabase } from '@/lib/supabase'
-import { trackVehicle } from '@/api/tracking' // ✅ ADD THIS IMPORT
+import { trackVehicle } from '@/api/tracking'
 
 export interface OwnedVehicle {
   id: string
@@ -79,6 +79,7 @@ export const fetchOwnedVehicles = async () => {
   }
   return data || []
 }
+
 // Add this to your vehicles API file
 export const createDriver = async (driverData: {
   name: string
@@ -102,6 +103,7 @@ export const createDriver = async (driverData: {
   }
   return data
 }
+
 // Fetch hired vehicles
 export const fetchHiredVehicles = async () => {
   const { data, error } = await supabase
@@ -154,6 +156,7 @@ export const fetchAvailableHiredVehicles = async () => {
   if (error) throw error;
   return data || [];
 };
+
 // Create owned vehicle
 export const createOwnedVehicle = async (vehicleData: any): Promise<any> => {
   try {
@@ -200,6 +203,7 @@ export const createOwnedVehicle = async (vehicleData: any): Promise<any> => {
     throw error;
   }
 };
+
 // Fix createHiredVehicle
 export const createHiredVehicle = async (vehicleData: {
   vehicle_number: string
@@ -218,7 +222,7 @@ export const createHiredVehicle = async (vehicleData: {
     broker_id: vehicleData.broker_id === "none" ? null : vehicleData.broker_id || null,
     default_driver_id: vehicleData.default_driver_id === "none"
       ? null
-      : vehicleData.default_driver_id || null, // ✅ Handle properly
+      : vehicleData.default_driver_id || null,
     rate_per_trip: vehicleData.rate_per_trip || null,
     status: 'AVAILABLE',
     hire_date: new Date().toISOString().split('T')[0],
@@ -241,6 +245,7 @@ export const createHiredVehicle = async (vehicleData: {
   console.log("✅ API - Hired vehicle created:", data);
   return data
 }
+
 // Fetch only drivers who are not assigned to any vehicle
 export const fetchUnassignedDrivers = async () => {
   try {
@@ -302,8 +307,6 @@ export const fetchUnassignedDrivers = async () => {
     throw error;
   }
 };
-// createHiredVehicle function update karo:
-
 
 // Verify owned vehicle
 export const verifyOwnedVehicle = async (vehicleId: string, isVerified: boolean) => {
@@ -337,8 +340,7 @@ export const verifyHiredVehicle = async (vehicleId: string, isVerified: boolean)
   return data
 }
 
-// Assign vehicle to booking
-
+// ✅ UPDATED: Assign vehicle to booking - Now RPC handles status based on service_type
 export const assignVehicleToBooking = async (assignmentData: {
   booking_id: string
   vehicle_type: 'OWNED' | 'HIRED'
@@ -347,15 +349,26 @@ export const assignVehicleToBooking = async (assignmentData: {
   broker_id?: string
 }) => {
   try {
-    // Check if booking is currently at warehouse
-    const { data: booking } = await supabase
+    console.log('🚗 Assigning vehicle to booking:', assignmentData);
+
+    // Get booking details
+    const { data: booking, error: bookingError } = await supabase
       .from('bookings')
-      .select('current_warehouse_id')
+      .select('current_warehouse_id, service_type, from_location, to_location, pickup_date, route_distance_km')
       .eq('id', assignmentData.booking_id)
       .single();
 
-    // If at warehouse, remove from warehouse first
+    if (bookingError) {
+      console.error('Error fetching booking:', bookingError);
+      throw bookingError;
+    }
+
+    console.log(`📦 Booking service_type: ${booking?.service_type}`);
+
+    // Check if booking is currently at warehouse - handle warehouse departure
     if (booking?.current_warehouse_id) {
+      console.log('📍 Booking is at warehouse, processing departure...');
+
       // Get active consignment
       const { data: consignment } = await supabase
         .from('consignments')
@@ -402,33 +415,27 @@ export const assignVehicleToBooking = async (assignmentData: {
             description: `Goods departed from warehouse for vehicle assignment`,
             warehouse_id: booking.current_warehouse_id
           });
+
+        console.log('✅ Warehouse departure processed');
       }
     }
 
     // ============================================
-    // ✅ FIXED: RECALCULATE ETA USING ACTUAL DISTANCE
+    // ✅ RECALCULATE ETA USING ACTUAL DISTANCE
     // ============================================
 
-    // Get booking details including route_distance_km
-    const { data: bookingForETA } = await supabase
-      .from('bookings')
-      .select('from_location, to_location, pickup_date, route_distance_km')
-      .eq('id', assignmentData.booking_id)
-      .single();
-
-    if (bookingForETA) {
+    if (booking) {
       let updatedETA: Date;
 
-      // ✅ Use actual distance from database if available
-      if (bookingForETA.route_distance_km && bookingForETA.route_distance_km > 0) {
+      if (booking.route_distance_km && booking.route_distance_km > 0) {
         // Calculate ETA from NOW using actual distance
         updatedETA = calculateETAFromDistance(
-          bookingForETA.route_distance_km,
+          booking.route_distance_km,
           undefined  // undefined = calculate from NOW (not pickup date)
         );
 
         console.log('📊 ETA recalculated using actual distance:');
-        console.log(`   Distance: ${bookingForETA.route_distance_km} km`);
+        console.log(`   Distance: ${booking.route_distance_km} km`);
         console.log(`   New ETA: ${updatedETA.toISOString()}`);
       } else {
         // Fallback: Use default calculation from NOW
@@ -449,10 +456,13 @@ export const assignVehicleToBooking = async (assignmentData: {
     }
 
     // ============================================
-    // Existing RPC call (no changes)
+    // ✅ RPC CALL - Now handles vehicle status based on service_type
+    // FTL = Vehicle becomes OCCUPIED
+    // PTL = Vehicle stays AVAILABLE
     // ============================================
 
-    // Call the RPC function (it creates timeline entry internally)
+    console.log('📞 Calling RPC assign_vehicle_to_booking_v2...');
+
     const { data, error } = await supabase.rpc('assign_vehicle_to_booking_v2', {
       p_booking_id: assignmentData.booking_id,
       p_vehicle_type: assignmentData.vehicle_type,
@@ -461,10 +471,26 @@ export const assignVehicleToBooking = async (assignmentData: {
       p_broker_id: assignmentData.broker_id || null
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ RPC Error:', error);
+      throw error;
+    }
+
+    // ✅ Log service type info from RPC response
+    console.log('✅ Vehicle assigned successfully:', {
+      service_type: data?.service_type,
+      vehicle_occupied: data?.vehicle_occupied,
+      message: data?.message
+    });
+
+    if (data?.service_type === 'PTL') {
+      console.log('📦 PTL Booking - Vehicle remains AVAILABLE for other bookings');
+    } else {
+      console.log('📦 FTL Booking - Vehicle is now OCCUPIED');
+    }
 
     // ═══════════════════════════════════════════════════════════
-    // ✅ NEW: AUTO TRIGGER TRACKING (AFTER SUCCESSFUL ASSIGNMENT)
+    // ✅ AUTO TRIGGER TRACKING (AFTER SUCCESSFUL ASSIGNMENT)
     // ═══════════════════════════════════════════════════════════
     console.log("🚀 Auto-triggering tracking for newly assigned vehicle...");
     
@@ -477,38 +503,37 @@ export const assignVehicleToBooking = async (assignmentData: {
 
     return data;
   } catch (error) {
-    console.error('Error assigning vehicle:', error);
+    console.error('❌ Error assigning vehicle:', error);
     throw error;
   }
 };
 
-// Unassign vehicle from booking
+// ✅ UPDATED: Unassign vehicle from booking - RPC handles status based on service_type
 export const unassignVehicle = async (bookingId: string) => {
   try {
-    // Call the RPC function (it creates timeline entry internally)
+    console.log('🔓 Unassigning vehicle from booking:', bookingId);
+
+    // Call the RPC function (it handles vehicle status based on service_type)
     const { data, error } = await supabase.rpc('unassign_vehicle_from_booking_v2', {
       p_booking_id: bookingId
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ RPC Error:', error);
+      throw error;
+    }
 
-    // ❌ REMOVE THIS - RPC already creates timeline entry
-    // await supabase
-    //   .from('booking_timeline')
-    //   .insert({
-    //     booking_id: bookingId,
-    //     action: 'VEHICLE_UNASSIGNED',
-    //     description: `Vehicle ${vehicleNumber} unassigned from booking`,
-    //   });
+    console.log('✅ Vehicle unassigned:', {
+      was_occupied: data?.was_occupied,
+      message: data?.message
+    });
 
     return data;
   } catch (error) {
-    console.error('Error unassigning vehicle:', error);
+    console.error('❌ Error unassigning vehicle:', error);
     throw error;
   }
 };
-
-
 
 // Get all drivers
 export const fetchDrivers = async () => {
@@ -555,7 +580,7 @@ export const createBroker = async (brokerData: {
       contact_person: brokerData.contact_person,
       phone: brokerData.phone,
       email: brokerData.email || null,
-      city: brokerData.city || null, // ✅ NEW
+      city: brokerData.city || null,
       status: 'ACTIVE'
     }])
     .select()
@@ -624,6 +649,7 @@ export const verifyVehicleDocument = async (documentId: string) => {
   }
   return data
 }
+
 // Combined function to get all available vehicles (owned + hired)
 export const fetchAvailableVehicles = async () => {
   try {

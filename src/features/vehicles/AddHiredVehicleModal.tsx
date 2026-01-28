@@ -1,10 +1,21 @@
 import { useState, useEffect, ChangeEvent } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Truck,
@@ -18,8 +29,8 @@ import {
   Trash2,
   Loader2,
   AlertCircle,
-  Check,
-  MapPin
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { validateVehicleNumber } from "@/utils/vehicleValidation";
 import { supabase } from "@/lib/supabase";
@@ -29,8 +40,54 @@ import { validateFile, formatFileSize } from "@/api/vehicleDocument";
 import { AddDriverModal } from "../bookings/AddDriverModal";
 import { cn } from "@/lib/utils";
 
+// Vehicle category and size configurations (same as AddVehicleModal)
+const vehicleCategories = [
+  "LCV",
+  "MCV",
+  "HCV",
+  "Container",
+  "Trailer",
+  "Truck",
+  "Special",
+] as const;
+
+type VehicleCategory = (typeof vehicleCategories)[number];
+
+const vehicleSizesByCategory: Record<VehicleCategory, string[]> = {
+  LCV: [
+    "7 ft (Ace / Chota Hathi)",
+    "8 ft",
+    "9 ft",
+    "10 ft",
+    "12 ft",
+    "14 ft",
+    "Special",
+  ],
+  MCV: ["14 ft", "17 ft", "19 ft", "Special"],
+  HCV: ["19 ft", "22 ft", "24 ft", "32 ft (Multi Axle)", "Special"],
+  Container: [
+    "14 ft Container",
+    "20 ft Container",
+    "22 ft Container",
+    "32 ft Container",
+    "40 ft Container",
+    "Special",
+  ],
+  Trailer: [
+    "20 ft Trailer",
+    "40 ft Trailer",
+    "45 ft Trailer",
+    "50 ft Trailer",
+    "Low Bed Trailer",
+    "Hydraulic Axle Trailer",
+    "Special",
+  ],
+  Truck: ["20 ft", "22 ft", "24 ft", "Other", "Special"],
+  Special: ["Custom Size", "Non-Standard", "Other"],
+};
+
 interface DocumentMetadata {
-  document_type: 'RC' | 'INSURANCE' | 'PERMIT' | 'AGREEMENT' | 'OTHER';
+  document_type: "RC" | "INSURANCE" | "PERMIT" | "AGREEMENT" | "OTHER";
   expiry_date?: string;
 }
 
@@ -48,7 +105,10 @@ interface AddHiredVehicleModalProps {
   onClose: () => void;
   onSave: (
     vehicleData: VehicleFormData,
-    documents?: { files: File[], metadata: Record<number, DocumentMetadata> } | null
+    documents?: {
+      files: File[];
+      metadata: Record<number, DocumentMetadata>;
+    } | null,
   ) => void;
   brokers: any[];
   onAddBroker?: () => void;
@@ -59,7 +119,7 @@ export const AddHiredVehicleModal = ({
   onClose,
   onSave,
   brokers = [],
-  onAddBroker
+  onAddBroker,
 }: AddHiredVehicleModalProps) => {
   const { toast } = useToast();
   const [vehicleData, setVehicleData] = useState<VehicleFormData>({
@@ -68,16 +128,44 @@ export const AddHiredVehicleModal = ({
     capacity: "",
     brokerId: "none",
     default_driver_id: "none",
-    ratePerTrip: ""
+    ratePerTrip: "",
   });
+
+  // New states for category/size/capacity
+  const [selectedCategory, setSelectedCategory] = useState<
+    VehicleCategory | ""
+  >("");
+  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [availableSizes, setAvailableSizes] = useState<string[]>([]);
+  const [capacityValue, setCapacityValue] = useState<number>(1);
 
   const [unassignedDrivers, setUnassignedDrivers] = useState<any[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(false);
   const [isAddDriverOpen, setIsAddDriverOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [documentMetadata, setDocumentMetadata] = useState<Record<number, DocumentMetadata>>({});
+  const [documentMetadata, setDocumentMetadata] = useState<
+    Record<number, DocumentMetadata>
+  >({});
   const [vehicleNumberError, setVehicleNumberError] = useState<string>("");
   const [isValidatingVehicle, setIsValidatingVehicle] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Validation errors
+  const [errors, setErrors] = useState<{
+    category?: string;
+    size?: string;
+    capacity?: string;
+  }>({});
+
+  // Update available sizes when category changes
+  useEffect(() => {
+    if (selectedCategory) {
+      setAvailableSizes(vehicleSizesByCategory[selectedCategory]);
+      setSelectedSize(""); // Reset size when category changes
+    } else {
+      setAvailableSizes([]);
+    }
+  }, [selectedCategory]);
 
   useEffect(() => {
     if (isOpen) {
@@ -91,7 +179,7 @@ export const AddHiredVehicleModal = ({
       const drivers = await fetchUnassignedDrivers();
       setUnassignedDrivers(drivers || []);
     } catch (error) {
-      console.error('Error loading drivers:', error);
+      console.error("Error loading drivers:", error);
     } finally {
       setLoadingDrivers(false);
     }
@@ -99,7 +187,7 @@ export const AddHiredVehicleModal = ({
 
   const handleAddDriver = async (driverData: any) => {
     try {
-      const { createDriver } = await import('@/api/drivers');
+      const { createDriver } = await import("@/api/drivers");
       const newDriver = await createDriver({
         name: driverData.name,
         phone: driverData.phone,
@@ -128,13 +216,13 @@ export const AddHiredVehicleModal = ({
     const files = Array.from(e.target.files || []);
     const validFiles: File[] = [];
 
-    files.forEach(file => {
+    files.forEach((file) => {
       const validation = validateFile(file);
       if (!validation.valid) {
         toast({
           title: "❌ Invalid File",
           description: validation.error,
-          variant: "destructive"
+          variant: "destructive",
         });
       } else {
         validFiles.push(file);
@@ -142,19 +230,19 @@ export const AddHiredVehicleModal = ({
     });
 
     if (validFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...validFiles]);
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
       const newMetadata = { ...documentMetadata };
       validFiles.forEach((_, index) => {
         const fileIndex = selectedFiles.length + index;
-        newMetadata[fileIndex] = { document_type: 'OTHER' };
+        newMetadata[fileIndex] = { document_type: "OTHER" };
       });
       setDocumentMetadata(newMetadata);
     }
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     const newMetadata = { ...documentMetadata };
     delete newMetadata[index];
     const reindexed: Record<number, DocumentMetadata> = {};
@@ -166,10 +254,14 @@ export const AddHiredVehicleModal = ({
     setDocumentMetadata(reindexed);
   };
 
-  const updateDocumentMetadata = (index: number, field: keyof DocumentMetadata, value: any) => {
-    setDocumentMetadata(prev => ({
+  const updateDocumentMetadata = (
+    index: number,
+    field: keyof DocumentMetadata,
+    value: any,
+  ) => {
+    setDocumentMetadata((prev) => ({
       ...prev,
-      [index]: { ...prev[index], [field]: value }
+      [index]: { ...prev[index], [field]: value },
     }));
   };
 
@@ -180,7 +272,7 @@ export const AddHiredVehicleModal = ({
         toast({
           title: "❌ Missing Document Type",
           description: `Please select document type for ${selectedFiles[i].name}`,
-          variant: "destructive"
+          variant: "destructive",
         });
         return false;
       }
@@ -206,13 +298,13 @@ export const AddHiredVehicleModal = ({
         setVehicleNumberError("");
         setVehicleData({
           ...vehicleData,
-          vehicleNumber: validation.formatted || upperValue
+          vehicleNumber: validation.formatted || upperValue,
         });
         if (validation.details) {
           toast({
             title: "✅ Valid Vehicle Number",
             description: `${validation.details.state} - RTO ${validation.details.rto}`,
-            duration: 2000
+            duration: 2000,
           });
         }
       }
@@ -223,55 +315,114 @@ export const AddHiredVehicleModal = ({
     }
   };
 
+  // Category change handler
+  const handleCategoryChange = (value: VehicleCategory) => {
+    setSelectedCategory(value);
+    setErrors((prev) => ({ ...prev, category: undefined }));
+  };
+
+  // Size change handler
+  const handleSizeChange = (value: string) => {
+    setSelectedSize(value);
+    setErrors((prev) => ({ ...prev, size: undefined }));
+  };
+
+  // Capacity handlers
+  const handleCapacityChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value) || 0;
+    const clampedValue = Math.min(Math.max(value, 0), 100);
+    setCapacityValue(clampedValue);
+    if (clampedValue >= 1) {
+      setErrors((prev) => ({ ...prev, capacity: undefined }));
+    }
+  };
+
+  const incrementCapacity = () => {
+    const newValue = Math.min(capacityValue + 1, 100);
+    setCapacityValue(newValue);
+    setErrors((prev) => ({ ...prev, capacity: undefined }));
+  };
+
+  const decrementCapacity = () => {
+    const newValue = Math.max(capacityValue - 1, 1);
+    setCapacityValue(newValue);
+  };
+
   const handleSubmit = async () => {
+    // Validate fields
+    const newErrors: typeof errors = {};
+
+    if (!selectedCategory) {
+      newErrors.category = "Vehicle category is required";
+    }
+    if (!selectedSize) {
+      newErrors.size = "Vehicle size is required";
+    }
+    if (capacityValue < 1) {
+      newErrors.capacity = "Capacity must be at least 1 ton";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     if (vehicleNumberError) {
       toast({
         title: "❌ Validation Error",
         description: vehicleNumberError,
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
-    if (!vehicleData.vehicleNumber.trim() || !vehicleData.vehicleType || !vehicleData.capacity) {
+    if (!vehicleData.vehicleNumber.trim()) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all vehicle details",
-        variant: "destructive"
+        description: "Please enter vehicle number",
+        variant: "destructive",
       });
       return;
     }
 
     if (!validateDocuments()) return;
 
-    const dataToSave = {
-      vehicleNumber: vehicleData.vehicleNumber,
-      vehicleType: vehicleData.vehicleType,
-      capacity: vehicleData.capacity,
-      brokerId: vehicleData.brokerId,
-      default_driver_id: vehicleData.default_driver_id,
-      ratePerTrip: vehicleData.ratePerTrip
-    };
+    setIsSubmitting(true);
 
-    const documentsData = selectedFiles.length > 0 ? {
-      files: selectedFiles,
-      metadata: documentMetadata
-    } : null;
+    try {
+      // Combine category and size into vehicleType
+      const vehicleType = `${selectedCategory} - ${selectedSize}`;
+      const capacityString = `${capacityValue} ton${capacityValue > 1 ? "s" : ""}`;
 
-    onSave(dataToSave, documentsData);
+      const dataToSave = {
+        vehicleNumber: vehicleData.vehicleNumber,
+        vehicleType: vehicleType,
+        capacity: capacityString,
+        brokerId: vehicleData.brokerId,
+        default_driver_id: vehicleData.default_driver_id,
+        ratePerTrip: vehicleData.ratePerTrip,
+      };
 
-    // Reset form
-    setVehicleData({
-      vehicleNumber: "",
-      vehicleType: "",
-      capacity: "",
-      brokerId: "none",
-      default_driver_id: "none",
-      ratePerTrip: ""
-    });
-    setSelectedFiles([]);
-    setDocumentMetadata({});
-    onClose();
+      const documentsData =
+        selectedFiles.length > 0
+          ? {
+              files: selectedFiles,
+              metadata: documentMetadata,
+            }
+          : null;
+
+      onSave(dataToSave, documentsData);
+      handleClose();
+    } catch (error) {
+      console.error("Error saving vehicle:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save vehicle. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -281,29 +432,25 @@ export const AddHiredVehicleModal = ({
       capacity: "",
       brokerId: "none",
       default_driver_id: "none",
-      ratePerTrip: ""
+      ratePerTrip: "",
     });
+    setSelectedCategory("");
+    setSelectedSize("");
+    setAvailableSizes([]);
+    setCapacityValue(1);
     setSelectedFiles([]);
     setDocumentMetadata({});
+    setVehicleNumberError("");
+    setErrors({});
     onClose();
   };
 
-  const vehicleTypes = [
-    "Truck - 16ft", "Truck - 20ft", "Truck - 24ft", "Container - 20ft",
-    "Container - 40ft", "Trailer - 53ft", "Mini Truck", "Pickup Truck", "Flatbed Truck"
-  ];
-
-  const capacities = [
-    "1 ton", "2 tons", "5 tons", "8 tons", "12 tons", "15 tons",
-    "20 tons", "25 tons", "30 tons"
-  ];
-
   const documentTypes = [
-    { value: 'RC', label: 'RC (Registration Certificate)' },
-    { value: 'INSURANCE', label: 'Insurance' },
-    { value: 'PERMIT', label: 'Permit' },
-    { value: 'AGREEMENT', label: 'Hire Agreement' },
-    { value: 'OTHER', label: 'Other' }
+    { value: "RC", label: "RC (Registration Certificate)" },
+    { value: "INSURANCE", label: "Insurance" },
+    { value: "PERMIT", label: "Permit" },
+    { value: "AGREEMENT", label: "Hire Agreement" },
+    { value: "OTHER", label: "Other" },
   ];
 
   return (
@@ -326,8 +473,9 @@ export const AddHiredVehicleModal = ({
                 <Truck className="w-4 h-4 text-primary" />
                 Vehicle Details
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Vehicle Number - Full width */}
+                <div className="md:col-span-3">
                   <Label className="text-xs font-medium text-foreground dark:text-white">
                     Vehicle Number *
                     {isValidatingVehicle && (
@@ -337,7 +485,8 @@ export const AddHiredVehicleModal = ({
                   <Input
                     value={vehicleData.vehicleNumber}
                     onChange={(e) => handleVehicleNumberChange(e.target.value)}
-                    placeholder="GJ-01-AB-1234"
+                    placeholder="e.g., MH-12-AB-1234"
+                    disabled={isSubmitting}
                     className={cn(
                       "h-9 text-sm mt-1 uppercase",
                       "border-border dark:border-border",
@@ -345,7 +494,8 @@ export const AddHiredVehicleModal = ({
                       "text-foreground dark:text-white",
                       "placeholder:text-muted-foreground dark:placeholder:text-muted-foreground",
                       "focus:ring-2 focus:ring-ring focus:border-primary",
-                      vehicleNumberError && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                      vehicleNumberError &&
+                        "border-red-500 focus:ring-red-500 focus:border-red-500",
                     )}
                   />
                   {vehicleNumberError && (
@@ -359,54 +509,134 @@ export const AddHiredVehicleModal = ({
                   </p>
                 </div>
 
-                <div>
+                {/* Vehicle Category */}
+                <div className="flex-1">
                   <Label className="text-xs font-medium text-foreground dark:text-white">
-                    Vehicle Type *
+                    Vehicle Category *
                   </Label>
                   <Select
-                    value={vehicleData.vehicleType}
-                    onValueChange={(value) => setVehicleData({ ...vehicleData, vehicleType: value })}
+                    value={selectedCategory}
+                    onValueChange={handleCategoryChange}
+                    disabled={isSubmitting}
                   >
-                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
-                      <SelectValue placeholder="Select type" />
+                    <SelectTrigger className="h-9 text-sm mt-1 w-full border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
+                      <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border dark:border-border">
-                      {vehicleTypes.map((type) => (
+                      {vehicleCategories.map((category) => (
                         <SelectItem
-                          key={type}
-                          value={type}
+                          key={category}
+                          value={category}
                           className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
                         >
-                          {type}
+                          {category}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.category && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {errors.category}
+                    </p>
+                  )}
                 </div>
 
-                <div className="md:col-span-2">
+                {/* Vehicle Size */}
+                <div className="flex-1">
+                  <Label className="text-xs font-medium text-foreground dark:text-white">
+                    Vehicle Size *
+                  </Label>
+                  <Select
+                    value={selectedSize}
+                    onValueChange={handleSizeChange}
+                    disabled={isSubmitting || !selectedCategory}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "h-9 text-sm mt-1 w-full border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary",
+                        !selectedCategory && "opacity-50 cursor-not-allowed",
+                      )}
+                    >
+                      <SelectValue
+                        placeholder={
+                          selectedCategory
+                            ? "Select Size"
+                            : "Select category first"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border dark:border-border">
+                      {availableSizes.map((size) => (
+                        <SelectItem
+                          key={size}
+                          value={size}
+                          className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                        >
+                          {size}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.size && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {errors.size}
+                    </p>
+                  )}
+                </div>
+
+                {/* Capacity */}
+                <div className="flex-1">
                   <Label className="text-xs font-medium text-foreground dark:text-white">
                     Capacity *
                   </Label>
-                  <Select
-                    value={vehicleData.capacity}
-                    onValueChange={(value) => setVehicleData({ ...vehicleData, capacity: value })}
-                  >
-                    <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
-                      <SelectValue placeholder="Select capacity" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border dark:border-border">
-                      {capacities.map((capacity) => (
-                        <SelectItem
-                          key={capacity}
-                          value={capacity}
-                          className="text-foreground dark:text-white hover:bg-accent dark:hover:bg-secondary"
+                  <div className="relative mt-1">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={capacityValue}
+                      onChange={handleCapacityChange}
+                      disabled={isSubmitting}
+                      className={cn(
+                        "h-9 w-full text-sm pr-14",
+                        "border-border dark:border-border",
+                        "bg-card",
+                        "text-foreground dark:text-white",
+                        "focus:ring-2 focus:ring-ring focus:border-primary",
+                        "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                        errors.capacity && "border-red-500",
+                      )}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">
+                        tons
+                      </span>
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          onClick={incrementCapacity}
+                          disabled={isSubmitting || capacityValue >= 100}
+                          className="h-3.5 w-4 flex items-center justify-center hover:bg-accent rounded-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
-                          {capacity}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={decrementCapacity}
+                          disabled={isSubmitting || capacityValue <= 1}
+                          className="h-3.5 w-4 flex items-center justify-center hover:bg-accent rounded-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {errors.capacity && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {errors.capacity}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -425,11 +655,19 @@ export const AddHiredVehicleModal = ({
                 </Label>
                 <Select
                   value={vehicleData.default_driver_id || "none"}
-                  onValueChange={(value) => setVehicleData({ ...vehicleData, default_driver_id: value })}
-                  disabled={loadingDrivers}
+                  onValueChange={(value) =>
+                    setVehicleData({ ...vehicleData, default_driver_id: value })
+                  }
+                  disabled={loadingDrivers || isSubmitting}
                 >
                   <SelectTrigger className="h-9 text-sm mt-1 border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary">
-                    <SelectValue placeholder={loadingDrivers ? "Loading drivers..." : "Select driver (optional)"} />
+                    <SelectValue
+                      placeholder={
+                        loadingDrivers
+                          ? "Loading drivers..."
+                          : "Select driver (optional)"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border dark:border-border">
                     <SelectItem
@@ -459,6 +697,7 @@ export const AddHiredVehicleModal = ({
                   size="sm"
                   className="mt-2 w-full h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
                   onClick={() => setIsAddDriverOpen(true)}
+                  disabled={isSubmitting}
                 >
                   <Plus className="w-3 h-3 mr-2" />
                   Add New Driver
@@ -477,7 +716,7 @@ export const AddHiredVehicleModal = ({
 
               <input
                 type="file"
-                id="document-upload"
+                id="hired-document-upload"
                 multiple
                 accept=".pdf,.jpg,.jpeg,.png,.webp"
                 onChange={handleFileSelect}
@@ -497,7 +736,10 @@ export const AddHiredVehicleModal = ({
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
-                  onClick={() => document.getElementById('document-upload')?.click()}
+                  onClick={() =>
+                    document.getElementById("hired-document-upload")?.click()
+                  }
+                  disabled={isSubmitting}
                 >
                   <Plus className="w-3 h-3 mr-2" />
                   Choose Files
@@ -514,7 +756,9 @@ export const AddHiredVehicleModal = ({
                       variant="secondary"
                       className="text-[10px] bg-muted text-foreground dark:text-white border-0"
                     >
-                      {formatFileSize(selectedFiles.reduce((acc, file) => acc + file.size, 0))}
+                      {formatFileSize(
+                        selectedFiles.reduce((acc, file) => acc + file.size, 0),
+                      )}
                     </Badge>
                   </div>
 
@@ -541,6 +785,7 @@ export const AddHiredVehicleModal = ({
                           size="icon"
                           className="h-7 w-7 flex-shrink-0 hover:bg-red-50 dark:hover:bg-red-900/20"
                           onClick={() => handleRemoveFile(index)}
+                          disabled={isSubmitting}
                         >
                           <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
                         </Button>
@@ -552,8 +797,17 @@ export const AddHiredVehicleModal = ({
                             Document Type *
                           </Label>
                           <Select
-                            value={documentMetadata[index]?.document_type || 'OTHER'}
-                            onValueChange={(value: any) => updateDocumentMetadata(index, 'document_type', value)}
+                            value={
+                              documentMetadata[index]?.document_type || "OTHER"
+                            }
+                            onValueChange={(value: any) =>
+                              updateDocumentMetadata(
+                                index,
+                                "document_type",
+                                value,
+                              )
+                            }
+                            disabled={isSubmitting}
                           >
                             <SelectTrigger className="h-7 text-[10px] border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary">
                               <SelectValue />
@@ -579,8 +833,15 @@ export const AddHiredVehicleModal = ({
                           <Input
                             type="date"
                             className="h-7 text-[10px] border-border dark:border-border bg-card text-foreground dark:text-white focus:ring-2 focus:ring-ring focus:border-primary"
-                            value={documentMetadata[index]?.expiry_date || ''}
-                            onChange={(e) => updateDocumentMetadata(index, 'expiry_date', e.target.value)}
+                            value={documentMetadata[index]?.expiry_date || ""}
+                            onChange={(e) =>
+                              updateDocumentMetadata(
+                                index,
+                                "expiry_date",
+                                e.target.value,
+                              )
+                            }
+                            disabled={isSubmitting}
                           />
                         </div>
                       </div>
@@ -596,6 +857,7 @@ export const AddHiredVehicleModal = ({
                 variant="outline"
                 onClick={handleClose}
                 size="sm"
+                disabled={isSubmitting}
                 className="border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
               >
                 <X className="w-3.5 h-3.5 mr-2" />
@@ -604,10 +866,20 @@ export const AddHiredVehicleModal = ({
               <Button
                 onClick={handleSubmit}
                 size="sm"
+                disabled={isSubmitting}
                 className="bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-foreground font-medium"
               >
-                <Save className="w-3.5 h-3.5 mr-2" />
-                Add Hired Vehicle
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5 mr-2" />
+                    Add Hired Vehicle
+                  </>
+                )}
               </Button>
             </div>
           </div>

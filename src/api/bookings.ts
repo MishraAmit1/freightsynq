@@ -581,6 +581,7 @@ export const updateBookingLR = async (bookingId: string, lrData: {
   material_description?: string | null
   cargo_units?: string | null
   eway_bill_details?: any[]
+  is_offline_lr?: boolean  // ✅ ADD THIS
 }) => {
   const payload = {
     lr_number: lrData.lrNumber ?? lrData.lr_number ?? null,
@@ -589,8 +590,11 @@ export const updateBookingLR = async (bookingId: string, lrData: {
     invoice_number: lrData.invoiceNumber ?? lrData.invoice_number ?? null,
     material_description: lrData.materialDescription ?? lrData.material_description ?? null,
     cargo_units: lrData.cargoUnitsString ?? lrData.cargo_units ?? null,
-    eway_bill_details: lrData.ewayBillDetails ?? lrData.eway_bill_details ?? []
+    eway_bill_details: lrData.ewayBillDetails ?? lrData.eway_bill_details ?? [],
+    is_offline_lr: lrData.is_offline_lr ?? false,  // ✅ ADD THIS LINE
   };
+
+  console.log('📝 Updating booking LR with payload:', payload); // ✅ DEBUG LOG
 
   const { data, error } = await supabase
     .from('bookings')
@@ -603,6 +607,8 @@ export const updateBookingLR = async (bookingId: string, lrData: {
     console.error('Error updating booking LR:', error)
     throw error
   }
+
+  console.log('✅ Booking LR updated:', data); // ✅ DEBUG LOG
 
   return data
 }

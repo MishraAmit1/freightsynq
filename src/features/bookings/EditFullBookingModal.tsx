@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertTriangle,
+  FileEdit, // ✅ NEW IMPORT
 } from "lucide-react";
 import { getNextLRNumber } from "@/api/lr-sequences";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +41,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { fetchEwayBillDetails, formatValidityDate } from "@/api/ewayBill";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox"; // ✅ NEW IMPORT
 
 // Update the LRData interface
 export interface LRData {
@@ -50,6 +52,7 @@ export interface LRData {
   cargoUnitsString: string;
   materialDescription: string;
   ewayBillDetails?: any[];
+  isOfflineLR?: boolean; // ✅ NEW FIELD
 }
 
 // Re-using validation functions from CreateLRModal/BookingFormModal
@@ -111,43 +114,72 @@ const documentSchema = z.object({
   invoice: z.string(),
 });
 
-const fullBookingSchema = z.object({
-  bookingId: z.string().min(1, "Booking ID is required"),
-  consignorName: z.string().min(1, "Consignor name is required"),
-  consigneeName: z.string().min(1, "Consignee name is required"),
-  fromLocation: z.string().min(1, "Pickup location is required"),
-  toLocation: z.string().min(1, "Drop location is required"),
-  serviceType: z.enum(["FTL", "PTL"]),
-  branch_id: z.string().optional(),
-  lr_city_id: z.string().optional(),
-  pickupDate: z
-    .string()
-    .optional()
-    .refine(
-      (date) => {
-        const error = validatePickupDate(date);
-        return error === null;
-      },
-      {
-        message: "Invalid pickup date",
-      },
-    ),
-  lrNumber: z.string().optional(),
-  lrDate: z
-    .string()
-    .optional()
-    .refine(
-      (date) => {
-        const error = validateLRDate(date);
-        return error === null;
-      },
-      {
-        message: "Invalid LR date",
-      },
-    ),
-  documents: z.array(documentSchema),
-  items: z.array(lrItemSchema).optional(),
-});
+// ✅ UPDATED SCHEMA - Conditional validation for items
+const fullBookingSchema = z
+  .object({
+    bookingId: z.string().min(1, "Booking ID is required"),
+    consignorName: z.string().min(1, "Consignor name is required"),
+    consigneeName: z.string().min(1, "Consignee name is required"),
+    fromLocation: z.string().min(1, "Pickup location is required"),
+    toLocation: z.string().min(1, "Drop location is required"),
+    serviceType: z.enum(["FTL", "PTL"]),
+    branch_id: z.string().optional(),
+    lr_city_id: z.string().optional(),
+    pickupDate: z
+      .string()
+      .optional()
+      .refine(
+        (date) => {
+          const error = validatePickupDate(date);
+          return error === null;
+        },
+        {
+          message: "Invalid pickup date",
+        },
+      ),
+    lrNumber: z.string().optional(),
+    lrDate: z
+      .string()
+      .optional()
+      .refine(
+        (date) => {
+          const error = validateLRDate(date);
+          return error === null;
+        },
+        {
+          message: "Invalid LR date",
+        },
+      ),
+    documents: z.array(documentSchema),
+    items: z.array(lrItemSchema).optional().nullable(), // ✅ ADD nullable
+    isOfflineLR: z.boolean().default(false),
+  })
+  .refine(
+    (data) => {
+      // ✅ FIXED: Better check
+      console.log("🔍 Zod validation:", {
+        isOfflineLR: data.isOfflineLR,
+        items: data.items,
+        itemsLength: data.items?.length,
+      });
+
+      // If offline, don't validate items
+      if (data.isOfflineLR) {
+        return true; // ✅ Always pass for offline
+      }
+
+      // For digital LR, items required
+      if (!data.items || data.items.length === 0) {
+        return false; // ❌ Items required
+      }
+
+      return true;
+    },
+    {
+      message: "At least one item is required for digital LR",
+      path: ["items"],
+    },
+  );
 
 type FullBookingFormData = z.infer<typeof fullBookingSchema>;
 
@@ -185,6 +217,7 @@ interface EditFullBookingModalProps {
     materialDescription?: string;
     branch_id?: string;
     lr_city_id?: string;
+    is_offline_lr?: boolean; // ✅ NEW FIELD
   } | null;
   nextLRNumber: number;
 }
@@ -213,6 +246,8 @@ export const EditFullBookingModal = ({
   const [lrCities, setLrCities] = useState<LRCitySequence[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [loadingLRCities, setLoadingLRCities] = useState(false);
+  const [isOfflineLR, setIsOfflineLR] = useState(false); // ✅ NEW STATE
+
   const {
     register,
     control,
@@ -227,6 +262,7 @@ export const EditFullBookingModal = ({
     defaultValues: {
       items: [{ quantity: 1, unit_type: "BOX", material_description: "" }],
       documents: [{ ewayBill: "", invoice: "" }],
+      isOfflineLR: false, // ✅ NEW DEFAULT
     },
   });
 
@@ -247,6 +283,24 @@ export const EditFullBookingModal = ({
     control,
     name: "documents",
   });
+
+  // ✅ NEW HANDLER - Offline LR toggle
+  const handleOfflineToggle = (checked: boolean) => {
+    setIsOfflineLR(checked);
+    setValue("isOfflineLR", checked);
+
+    if (checked) {
+      setValue("items", []);
+    } else {
+      setValue("items", [
+        {
+          quantity: 1,
+          unit_type: "BOX",
+          material_description: "",
+        },
+      ]);
+    }
+  };
 
   const handleAddDocument = async () => {
     const isValid = await trigger("documents");
@@ -278,11 +332,13 @@ export const EditFullBookingModal = ({
       appendDocument({ ewayBill: "", invoice: "" });
     }
   };
+
   useEffect(() => {
     if (isOpen) {
       loadBranchesAndCities();
     }
   }, [isOpen]);
+
   const loadBranchesAndCities = async () => {
     try {
       setLoadingBranches(true);
@@ -307,7 +363,9 @@ export const EditFullBookingModal = ({
       setLoadingLRCities(false);
     }
   };
-  // Handle setting form data when modal opens with an editingBooking
+
+  // ✅ UPDATED useEffect - Initialize offline LR state
+  // ✅ UPDATED - Smart offline LR detection
   useEffect(() => {
     if (isOpen && editingBooking) {
       setValue("bookingId", editingBooking.bookingId);
@@ -321,6 +379,30 @@ export const EditFullBookingModal = ({
       setValue("lrDate", editingBooking.lrDate || "");
       setValue("branch_id", editingBooking.branch_id || "");
       setValue("lr_city_id", editingBooking.lr_city_id || "");
+
+      // ✅ FIXED - Detect offline mode
+      let isOffline = false;
+
+      if (editingBooking.is_offline_lr !== undefined) {
+        isOffline = editingBooking.is_offline_lr;
+      } else {
+        isOffline =
+          !editingBooking.cargoUnits && !editingBooking.materialDescription;
+      }
+
+      console.log("🔍 Initializing edit mode:", {
+        bookingId: editingBooking.bookingId,
+        is_offline_lr: editingBooking.is_offline_lr,
+        detected_isOffline: isOffline,
+        cargoUnits: editingBooking.cargoUnits,
+        materialDescription: editingBooking.materialDescription,
+      });
+
+      // ✅ CRITICAL: Set offline FIRST, before items
+      setIsOfflineLR(isOffline);
+      setValue("isOfflineLR", isOffline, { shouldValidate: true }); // ← Force validation
+
+      // Documents initialization (existing code)
       const ewayBills = editingBooking.bilti_number
         ? editingBooking.bilti_number.split(",").map((num) => num.trim())
         : [];
@@ -343,7 +425,19 @@ export const EditFullBookingModal = ({
         documents.length > 0 ? documents : [{ ewayBill: "", invoice: "" }],
       );
 
-      if (editingBooking.cargoUnits && editingBooking.materialDescription) {
+      // ✅ FIXED - Conditional items initialization
+      if (isOffline) {
+        // ❌ OLD: setValue("items", []);
+        // ✅ NEW: Don't set items at all, or set undefined
+        setValue("items", undefined, { shouldValidate: false }); // ← Don't validate empty
+        console.log(
+          "✅ Offline LR - Items set to undefined (validation skipped)",
+        );
+      } else if (
+        editingBooking.cargoUnits &&
+        editingBooking.materialDescription
+      ) {
+        // Online LR - parse existing items
         const unitsArray = editingBooking.cargoUnits
           .split(",")
           .map((u: string) => u.trim());
@@ -384,16 +478,20 @@ export const EditFullBookingModal = ({
             };
           });
           setValue("items", parsedItems);
+          console.log("✅ Online LR - Items loaded:", parsedItems);
         } else {
           setValue("items", [
             { quantity: 1, unit_type: "BOX", material_description: "" },
           ]);
         }
       } else {
+        // Default - one empty item
         setValue("items", [
           { quantity: 1, unit_type: "BOX", material_description: "" },
         ]);
+        console.log("✅ Default - Empty item loaded");
       }
+
       setPickupDateError(null);
       setLrDateError(null);
       setEwayBillValidations({});
@@ -410,14 +508,15 @@ export const EditFullBookingModal = ({
         lrDate: "",
         documents: [{ ewayBill: "", invoice: "" }],
         items: [{ quantity: 1, unit_type: "BOX", material_description: "" }],
+        isOfflineLR: false,
       });
       loadNewLRNumber();
       setPickupDateError(null);
       setLrDateError(null);
       setEwayBillValidations({});
+      setIsOfflineLR(false);
     }
   }, [isOpen, editingBooking, setValue, reset]);
-
   const loadNewLRNumber = async () => {
     if (!editingBooking?.lrNumber) {
       try {
@@ -549,6 +648,7 @@ export const EditFullBookingModal = ({
     }
   };
 
+  // ✅ UPDATED onSubmit - Handle offline LR
   const onSubmit = async (data: FullBookingFormData) => {
     setIsSubmitting(true);
 
@@ -617,7 +717,8 @@ export const EditFullBookingModal = ({
 
       const isLRDataProvided = !!data.lrNumber?.trim();
 
-      if (isLRDataProvided) {
+      // ✅ UPDATED - Only validate items if NOT offline LR
+      if (isLRDataProvided && !isOfflineLR) {
         const lrDateValidationError = validateLRDate(data.lrDate || "");
         if (lrDateValidationError) {
           toast({
@@ -642,6 +743,7 @@ export const EditFullBookingModal = ({
           setIsSubmitting(false);
           return;
         }
+
         if ((data.items || []).length === 0) {
           toast({
             title: "Validation Error",
@@ -665,7 +767,10 @@ export const EditFullBookingModal = ({
         lr_city_id: data.lr_city_id || undefined,
       };
 
-      const { units, materials } = generateCargoStrings(data.items);
+      // ✅ UPDATED - Empty strings if offline LR
+      const { units, materials } = isOfflineLR
+        ? { units: "", materials: "" }
+        : generateCargoStrings(data.items);
 
       const ewayBillsString = data.documents
         .map((doc) => doc.ewayBill)
@@ -685,9 +790,16 @@ export const EditFullBookingModal = ({
         cargoUnitsString: units,
         materialDescription: materials,
         ewayBillDetails: ewayBillDetailsArray,
+        isOfflineLR: isOfflineLR, // ✅ NEW
       };
 
       await onSave(editingBooking.id, generalData, lrData);
+      console.log("💾 Saving LR Data:", {
+        isOfflineLR: isOfflineLR,
+        hasItems: data.items?.length || 0,
+        cargoUnitsString: units,
+        materialDescription: materials,
+      });
     } catch (error) {
       // Error handling is done in onSave in BookingList
     } finally {
@@ -700,6 +812,7 @@ export const EditFullBookingModal = ({
     setPickupDateError(null);
     setLrDateError(null);
     setEwayBillValidations({});
+    setIsOfflineLR(false); // ✅ NEW
     onClose();
   };
 
@@ -780,7 +893,8 @@ export const EditFullBookingModal = ({
                 </Select>
               </div>
             </div>
-            {/* ✅ BRANCH & LR CITY ROW - ADD THIS AFTER SERVICE TYPE */}
+
+            {/* Branch & LR City Row */}
             <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
               {/* Branch Selector */}
               <div>
@@ -906,6 +1020,7 @@ export const EditFullBookingModal = ({
                 </Select>
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-4 min-[2000px]:gap-5">
               <div>
                 <Label
@@ -1253,170 +1368,196 @@ export const EditFullBookingModal = ({
               </div>
             </div>
 
-            {/* Cargo Items */}
-            <div className="space-y-3 min-[2000px]:space-y-4">
-              <div className="flex justify-between">
-                <Label className="flex items-center gap-2 text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
-                  <Package className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
-                  Cargo Items & Materials
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    itemFields.length < 5 &&
-                    appendItem({
-                      quantity: 1,
-                      unit_type: "BOX",
-                      material_description: "",
-                    })
-                  }
-                  disabled={itemFields.length >= 5 || isSubmitting}
-                  className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+            {/* ✅ NEW - Offline LR Checkbox */}
+            <div className="flex items-center space-x-3 min-[2000px]:space-x-4 p-3 min-[2000px]:p-4 border border-dashed rounded-lg bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+              <Checkbox
+                id="offline-lr-edit"
+                checked={isOfflineLR}
+                onCheckedChange={handleOfflineToggle}
+                disabled={isSubmitting}
+                className="min-[2000px]:h-5 min-[2000px]:w-5"
+              />
+              <div className="flex-1">
+                <Label
+                  htmlFor="offline-lr-edit"
+                  className="text-sm min-[2000px]:text-base font-medium cursor-pointer flex items-center gap-2 text-foreground dark:text-white"
                 >
-                  <Plus className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
-                  Add Item
-                </Button>
-              </div>
-
-              <div className="space-y-2 min-[2000px]:space-y-3">
-                {itemFields.map((field, index) => {
-                  const itemType = watch(`items.${index}.unit_type`);
-
-                  return (
-                    <div
-                      key={field.id}
-                      className="p-3 min-[2000px]:p-4 border border-border dark:border-border rounded-lg bg-muted"
-                    >
-                      <div className="flex gap-2 min-[2000px]:gap-3 mb-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          {...register(`items.${index}.quantity`, {
-                            valueAsNumber: true,
-                          })}
-                          placeholder="Qty"
-                          className="w-20 min-[2000px]:w-24 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
-                          disabled={isSubmitting}
-                        />
-
-                        <Select
-                          value={itemType}
-                          onValueChange={(value) =>
-                            setValue(`items.${index}.unit_type`, value as any)
-                          }
-                          disabled={isSubmitting}
-                        >
-                          <SelectTrigger className="w-32 min-[2000px]:w-36 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card border-border dark:border-border">
-                            <SelectItem
-                              value="BOX"
-                              className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
-                            >
-                              Box
-                            </SelectItem>
-                            <SelectItem
-                              value="CARTOON"
-                              className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
-                            >
-                              Cartoon
-                            </SelectItem>
-                            <SelectItem
-                              value="OTHERS"
-                              className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
-                            >
-                              Others
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-
-                        {itemType === "OTHERS" && (
-                          <Input
-                            {...register(`items.${index}.custom_unit_type`)}
-                            placeholder="Specify type"
-                            className="flex-1 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
-                            disabled={isSubmitting}
-                          />
-                        )}
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            itemFields.length > 1 && removeItem(index)
-                          }
-                          disabled={itemFields.length === 1 || isSubmitting}
-                          className="h-9 min-[2000px]:h-12 w-9 min-[2000px]:w-12 hover:bg-accent dark:hover:bg-secondary"
-                        >
-                          <Trash2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-red-600" />
-                        </Button>
-                      </div>
-
-                      <Input
-                        {...register(`items.${index}.material_description`)}
-                        placeholder="Material description (e.g., Rice Bags 50kg)"
-                        className="w-full h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
-                        disabled={isSubmitting}
-                      />
-                      {errors.items?.[index]?.material_description && (
-                        <p className="text-xs min-[2000px]:text-sm text-red-600 mt-1">
-                          {errors.items[index]?.material_description?.message}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Preview */}
-              <div className="p-3 min-[2000px]:p-4 bg-muted rounded-lg border border-border dark:border-border">
-                <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mb-2 font-medium">
-                  Preview (LR Format):
+                  <FileEdit className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-amber-600" />
+                  Offline LR (Manual/Physical LR)
+                </Label>
+                <p className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground mt-0.5">
+                  Check this if this is a physical LR without digital cargo
+                  items.
                 </p>
-                <pre className="text-sm min-[2000px]:text-base font-medium text-foreground dark:text-white whitespace-pre-wrap">
-                  {generateDisplayFormat(watchedItems)}
-                </pre>
-
-                {/* Documents Preview */}
-                {watchedDocuments.some(
-                  (doc) => doc.ewayBill || doc.invoice,
-                ) && (
-                  <div className="mt-3 space-y-2 pt-3 border-t border-border dark:border-border">
-                    {watchedDocuments.some((doc) => doc.ewayBill) && (
-                      <div>
-                        <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
-                          E-way Bills:
-                        </p>
-                        <p className="text-sm min-[2000px]:text-base text-foreground dark:text-white font-medium">
-                          {watchedDocuments
-                            .map((doc) => doc.ewayBill)
-                            .filter((eb) => eb)
-                            .join(", ")}
-                        </p>
-                      </div>
-                    )}
-
-                    {watchedDocuments.some((doc) => doc.invoice) && (
-                      <div>
-                        <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
-                          Invoice Numbers:
-                        </p>
-                        <p className="text-sm min-[2000px]:text-base text-foreground dark:text-white font-medium">
-                          {watchedDocuments
-                            .map((doc) => doc.invoice)
-                            .filter((inv) => inv)
-                            .join(", ")}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
+
+            {/* ✅ UPDATED - Cargo Items (Hidden when offline) */}
+            {!isOfflineLR && (
+              <div className="space-y-3 min-[2000px]:space-y-4">
+                <div className="flex justify-between">
+                  <Label className="flex items-center gap-2 text-xs min-[2000px]:text-sm font-medium text-muted-foreground dark:text-muted-foreground">
+                    <Package className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
+                    Cargo Items & Materials
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      itemFields.length < 5 &&
+                      appendItem({
+                        quantity: 1,
+                        unit_type: "BOX",
+                        material_description: "",
+                      })
+                    }
+                    disabled={itemFields.length >= 5 || isSubmitting}
+                    className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm border-border dark:border-border hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white"
+                  >
+                    <Plus className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+
+                <div className="space-y-2 min-[2000px]:space-y-3">
+                  {itemFields.map((field, index) => {
+                    const itemType = watch(`items.${index}.unit_type`);
+
+                    return (
+                      <div
+                        key={field.id}
+                        className="p-3 min-[2000px]:p-4 border border-border dark:border-border rounded-lg bg-muted"
+                      >
+                        <div className="flex gap-2 min-[2000px]:gap-3 mb-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            {...register(`items.${index}.quantity`, {
+                              valueAsNumber: true,
+                            })}
+                            placeholder="Qty"
+                            className="w-20 min-[2000px]:w-24 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white"
+                            disabled={isSubmitting}
+                          />
+
+                          <Select
+                            value={itemType}
+                            onValueChange={(value) =>
+                              setValue(`items.${index}.unit_type`, value as any)
+                            }
+                            disabled={isSubmitting}
+                          >
+                            <SelectTrigger className="w-32 min-[2000px]:w-36 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card hover:bg-accent dark:hover:bg-secondary focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-card border-border dark:border-border">
+                              <SelectItem
+                                value="BOX"
+                                className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
+                              >
+                                Box
+                              </SelectItem>
+                              <SelectItem
+                                value="CARTOON"
+                                className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
+                              >
+                                Cartoon
+                              </SelectItem>
+                              <SelectItem
+                                value="OTHERS"
+                                className="hover:bg-accent dark:hover:bg-secondary text-sm min-[2000px]:text-base p-2 min-[2000px]:p-3"
+                              >
+                                Others
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {itemType === "OTHERS" && (
+                            <Input
+                              {...register(`items.${index}.custom_unit_type`)}
+                              placeholder="Specify type"
+                              className="flex-1 h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+                              disabled={isSubmitting}
+                            />
+                          )}
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              itemFields.length > 1 && removeItem(index)
+                            }
+                            disabled={itemFields.length === 1 || isSubmitting}
+                            className="h-9 min-[2000px]:h-12 w-9 min-[2000px]:w-12 hover:bg-accent dark:hover:bg-secondary"
+                          >
+                            <Trash2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 text-red-600" />
+                          </Button>
+                        </div>
+
+                        <Input
+                          {...register(`items.${index}.material_description`)}
+                          placeholder="Material description (e.g., Rice Bags 50kg)"
+                          className="w-full h-9 min-[2000px]:h-12 text-sm min-[2000px]:text-base border-border dark:border-border bg-card focus:ring-2 focus:ring-ring focus:border-primary text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+                          disabled={isSubmitting}
+                        />
+                        {errors.items?.[index]?.material_description && (
+                          <p className="text-xs min-[2000px]:text-sm text-red-600 mt-1">
+                            {errors.items[index]?.material_description?.message}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Preview */}
+                <div className="p-3 min-[2000px]:p-4 bg-muted rounded-lg border border-border dark:border-border">
+                  <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mb-2 font-medium">
+                    Preview (LR Format):
+                  </p>
+                  <pre className="text-sm min-[2000px]:text-base font-medium text-foreground dark:text-white whitespace-pre-wrap">
+                    {generateDisplayFormat(watchedItems)}
+                  </pre>
+
+                  {/* Documents Preview */}
+                  {watchedDocuments.some(
+                    (doc) => doc.ewayBill || doc.invoice,
+                  ) && (
+                    <div className="mt-3 space-y-2 pt-3 border-t border-border dark:border-border">
+                      {watchedDocuments.some((doc) => doc.ewayBill) && (
+                        <div>
+                          <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
+                            E-way Bills:
+                          </p>
+                          <p className="text-sm min-[2000px]:text-base text-foreground dark:text-white font-medium">
+                            {watchedDocuments
+                              .map((doc) => doc.ewayBill)
+                              .filter((eb) => eb)
+                              .join(", ")}
+                          </p>
+                        </div>
+                      )}
+
+                      {watchedDocuments.some((doc) => doc.invoice) && (
+                        <div>
+                          <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
+                            Invoice Numbers:
+                          </p>
+                          <p className="text-sm min-[2000px]:text-base text-foreground dark:text-white font-medium">
+                            {watchedDocuments
+                              .map((doc) => doc.invoice)
+                              .filter((inv) => inv)
+                              .join(", ")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="border-t border-border dark:border-border pt-4 min-[2000px]:pt-5 gap-2 min-[2000px]:gap-3">

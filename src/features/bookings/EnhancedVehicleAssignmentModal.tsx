@@ -109,8 +109,8 @@ const SimpleSearchSelect = ({
             isOpen
               ? search
               : selectedItem
-              ? selectedItem.vehicle_number || selectedItem.name || ""
-              : ""
+                ? selectedItem.vehicle_number || selectedItem.name || ""
+                : ""
           }
           onChange={(e) => setSearch(e.target.value)}
           onClick={handleInputClick}
@@ -132,7 +132,7 @@ const SimpleSearchSelect = ({
           <ChevronDown
             className={cn(
               "h-4 w-4 text-muted-foreground dark:text-muted-foreground transition-transform",
-              isOpen && "rotate-180"
+              isOpen && "rotate-180",
             )}
           />
         </div>
@@ -171,7 +171,7 @@ const SimpleSearchSelect = ({
                     onClick={() => handleItemClick(item)}
                     className={cn(
                       "px-3 py-2 cursor-pointer hover:bg-accent dark:hover:bg-secondary transition-colors",
-                      value === item.id && "bg-accent dark:bg-secondary"
+                      value === item.id && "bg-accent dark:bg-secondary",
                     )}
                   >
                     {renderItem ? (
@@ -298,7 +298,7 @@ export const EnhancedVehicleAssignmentModal = ({
     if (selectedVehicleId) {
       const allVehicles = [...ownedVehicles, ...hiredVehicles];
       const selectedVehicle = allVehicles.find(
-        (v) => v.id === selectedVehicleId
+        (v) => v.id === selectedVehicleId,
       );
 
       if (selectedVehicle?.default_driver) {
@@ -339,12 +339,13 @@ export const EnhancedVehicleAssignmentModal = ({
     try {
       setIsLoading(true);
 
+      // ✅ For hired vehicles, update broker_id only (NOT status)
       if (activeTab === "hired") {
         const { error: updateError } = await supabase
           .from("hired_vehicles")
           .update({
             broker_id: selectedBrokerId,
-            status: "OCCUPIED",
+            // ❌ REMOVED: status update - RPC handles this based on service_type
           })
           .eq("id", selectedVehicleId);
 
@@ -357,14 +358,12 @@ export const EnhancedVehicleAssignmentModal = ({
           title: "📝 Broker Updated",
           description: "Vehicle broker information updated",
         });
-      } else {
-        await supabase
-          .from("owned_vehicles")
-          .update({ status: "OCCUPIED" })
-          .eq("id", selectedVehicleId);
       }
+      // ❌ REMOVED: For owned vehicles, we were updating status here
+      // Now RPC handles it based on service_type
 
-      await assignVehicleToBooking({
+      // ✅ RPC will check service_type and set OCCUPIED only for FTL
+      const result = await assignVehicleToBooking({
         booking_id: bookingId,
         vehicle_type: activeTab === "owned" ? "OWNED" : "HIRED",
         vehicle_id: selectedVehicleId,
@@ -372,9 +371,11 @@ export const EnhancedVehicleAssignmentModal = ({
         broker_id: activeTab === "hired" ? selectedBrokerId : undefined,
       });
 
+      console.log("🚗 Assignment result:", result);
+
       const allVehicles = [...ownedVehicles, ...hiredVehicles];
       const selectedVehicle = allVehicles.find(
-        (v) => v.id === selectedVehicleId
+        (v) => v.id === selectedVehicleId,
       );
       const selectedDriver = drivers.find((d) => d.id === selectedDriverId);
       const selectedBroker =
@@ -399,9 +400,13 @@ export const EnhancedVehicleAssignmentModal = ({
 
         onAssign(assignment);
 
+        // ✅ Show different message for PTL
+        const isPTL = result?.service_type === "PTL";
         toast({
           title: "✅ Success",
-          description: `Vehicle ${selectedVehicle.vehicle_number} assigned successfully`,
+          description: isPTL
+            ? `Vehicle ${selectedVehicle.vehicle_number} assigned (PTL - Vehicle stays available for other bookings)`
+            : `Vehicle ${selectedVehicle.vehicle_number} assigned successfully`,
         });
 
         onClose();

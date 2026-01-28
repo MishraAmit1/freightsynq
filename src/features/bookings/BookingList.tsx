@@ -125,6 +125,7 @@ import {
   getETAUpdateAge,
   getProgressPercentage,
 } from "@/lib/distance-calculator";
+import { supabase } from "@/lib/supabase";
 
 // Interfacess
 interface Booking {
@@ -978,13 +979,121 @@ export const BookingList = () => {
     lrData: LRData,
   ) => {
     try {
+      // ✅ NEW: Check if service_type is changing and handle vehicle status
+      const { data: currentBooking, error: fetchError } = await supabase
+        .from("bookings")
+        .select(
+          `
+        service_type,
+        vehicle_assignments!inner(
+          id,
+          status,
+          vehicle_type,
+          owned_vehicle_id,
+          hired_vehicle_id
+        )
+      `,
+        )
+        .eq("id", bookingId)
+        .single();
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        console.error("Error fetching current booking:", fetchError);
+      }
+
+      const oldServiceType = currentBooking?.service_type;
+      const newServiceType = generalData.service_type;
+
+      console.log("🔄 Service type change check:", {
+        old: oldServiceType,
+        new: newServiceType,
+      });
+
+      // ✅ NEW: If changing FTL → PTL, release the vehicle
+      if (oldServiceType === "FTL" && newServiceType === "PTL") {
+        const activeAssignment = currentBooking?.vehicle_assignments?.find(
+          (va: any) => va.status === "ACTIVE",
+        );
+
+        if (activeAssignment) {
+          console.log("🔓 Releasing vehicle (FTL → PTL):", activeAssignment);
+
+          if (activeAssignment.vehicle_type === "OWNED") {
+            await supabase
+              .from("owned_vehicles")
+              .update({ status: "AVAILABLE" })
+              .eq("id", activeAssignment.owned_vehicle_id);
+
+            console.log("✅ Owned vehicle released to AVAILABLE");
+          } else if (activeAssignment.vehicle_type === "HIRED") {
+            await supabase
+              .from("hired_vehicles")
+              .update({ status: "AVAILABLE" })
+              .eq("id", activeAssignment.hired_vehicle_id);
+
+            console.log("✅ Hired vehicle released to AVAILABLE");
+          }
+
+          toast({
+            title: "🔄 Service Type Changed",
+            description:
+              "Vehicle released - now available for other bookings (PTL mode)",
+          });
+        }
+      }
+
+      // ✅ NEW: If changing PTL → FTL, occupy the vehicle
+      if (oldServiceType === "PTL" && newServiceType === "FTL") {
+        const activeAssignment = currentBooking?.vehicle_assignments?.find(
+          (va: any) => va.status === "ACTIVE",
+        );
+
+        if (activeAssignment) {
+          console.log("🔒 Occupying vehicle (PTL → FTL):", activeAssignment);
+
+          if (activeAssignment.vehicle_type === "OWNED") {
+            await supabase
+              .from("owned_vehicles")
+              .update({ status: "OCCUPIED" })
+              .eq("id", activeAssignment.owned_vehicle_id);
+
+            console.log("✅ Owned vehicle marked as OCCUPIED");
+          } else if (activeAssignment.vehicle_type === "HIRED") {
+            await supabase
+              .from("hired_vehicles")
+              .update({ status: "OCCUPIED" })
+              .eq("id", activeAssignment.hired_vehicle_id);
+
+            console.log("✅ Hired vehicle marked as OCCUPIED");
+          }
+
+          toast({
+            title: "🔄 Service Type Changed",
+            description: "Vehicle is now exclusively assigned (FTL mode)",
+          });
+        }
+      }
+
+      // ✅ Existing update calls
       await updateBooking(bookingId, generalData);
-      await updateBookingLR(bookingId, lrData);
+      await updateBookingLR(bookingId, {
+        lr_number: lrData.lrNumber,
+        lr_date: lrData.lrDate,
+        bilti_number: lrData.biltiNumber,
+        invoice_number: lrData.invoiceNumber,
+        material_description: lrData.materialDescription,
+        cargo_units: lrData.cargoUnitsString,
+        eway_bill_details: lrData.ewayBillDetails,
+        is_offline_lr: lrData.isOfflineLR || false,
+      });
+
       await loadData();
+
       toast({
         title: "✅ Booking Updated",
         description: `Booking ${bookingId} updated successfully`,
       });
+
       setIsEditFullBookingModalOpen(false);
       setEditingFullBooking(null);
     } catch (error) {
@@ -1949,7 +2058,6 @@ export const BookingList = () => {
                         </div>
                       </TableCell>
                       {/* COLUMN 6: Distance & ETA / Delivery Status */}
-                      {/* COLUMN 6: Distance & ETA / Delivery Status */}
                       <TableCell className="py-3 min-[2000px]:py-4">
                         <div className="space-y-1.5 min-[2000px]:space-y-2">
                           {/* 1. Distance (Always Visible) */}
@@ -1969,190 +2077,233 @@ export const BookingList = () => {
                             </div>
                           )}
 
-                          {/* 2. Status Logic */}
-                          {booking.status === "DELIVERED" ? (
-                            // ✅ DELIVERED STATE (Simple View - No Tooltip)
-                            <div className="flex flex-col items-start gap-1">
-                              <div className="flex items-center gap-1.5">
-                                <CheckCircle2 className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-green-600 shrink-0" />
-                                <span className="text-[10px] min-[2000px]:text-xs font-bold text-green-700 dark:text-green-400">
-                                  Delivered
-                                </span>
-                              </div>
-                              {/* Date Display */}
-                              {(booking.actual_delivery ||
-                                booking.updated_at) && (
-                                <div className="pl-5">
-                                  <span className="text-[10px] min-[2000px]:text-xs font-medium text-muted-foreground">
-                                    {new Date(
-                                      booking.actual_delivery ||
-                                        booking.updated_at!,
-                                    ).toLocaleDateString("en-GB", {
-                                      day: "2-digit",
-                                      month: "short",
-                                      year: "numeric",
-                                    })}
+                          {/* 2. ETA Logic */}
+                          {(() => {
+                            // ✅ Check if vehicle is assigned
+                            const hasVehicleAssigned =
+                              booking.vehicle_assignments &&
+                              booking.vehicle_assignments.length > 0 &&
+                              booking.vehicle_assignments.some(
+                                (va) => va.status === "ACTIVE",
+                              );
+
+                            // CASE 1: Delivered
+                            if (booking.status === "DELIVERED") {
+                              return (
+                                <div className="flex flex-col items-start gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-green-600 shrink-0" />
+                                    <span className="text-[10px] min-[2000px]:text-xs font-bold text-green-700 dark:text-green-400">
+                                      Delivered
+                                    </span>
+                                  </div>
+                                  {(booking.actual_delivery ||
+                                    booking.updated_at) && (
+                                    <div className="pl-5">
+                                      <span className="text-[10px] min-[2000px]:text-xs font-medium text-muted-foreground">
+                                        {new Date(
+                                          booking.actual_delivery ||
+                                            booking.updated_at!,
+                                        ).toLocaleDateString("en-GB", {
+                                          day: "2-digit",
+                                          month: "short",
+                                          year: "numeric",
+                                        })}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            // ✅ CASE 2: No vehicle assigned - Show nice pending state
+                            if (!hasVehicleAssigned) {
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <Truck className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-gray-400 shrink-0" />
+                                  <span className="text-[10px] min-[2000px]:text-xs text-muted-foreground italic">
+                                    Pending dispatch
                                   </span>
                                 </div>
-                              )}
-                            </div>
-                          ) : booking.dynamic_eta ||
-                            booking.estimated_arrival ? (
-                            // ✅ IN-TRANSIT STATE (Old Logic: Dynamic ETA + Tooltip)
-                            <>
-                              <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-1.5 cursor-help">
-                                      <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-muted-foreground shrink-0" />
+                              );
+                            }
 
-                                      {booking.dynamic_eta ? (
-                                        <>
-                                          <span className="text-[10px] min-[2000px]:text-xs line-through text-muted-foreground">
-                                            {formatETA(
-                                              booking.estimated_arrival!,
-                                            )}
-                                          </span>
-                                          <span
-                                            className={cn(
-                                              "text-[10px] min-[2000px]:text-xs font-bold",
-                                              new Date(booking.dynamic_eta) <
-                                                new Date(
-                                                  booking.estimated_arrival ||
-                                                    "",
-                                                )
-                                                ? "text-green-600 dark:text-green-400"
-                                                : "text-red-600 dark:text-red-400",
-                                            )}
-                                          >
-                                            {formatETA(booking.dynamic_eta)}
-                                          </span>
-                                        </>
-                                      ) : (
-                                        <span className="text-[10px] min-[2000px]:text-xs font-medium">
-                                          {formatETA(
-                                            booking.estimated_arrival!,
-                                          )}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </TooltipTrigger>
+                            // CASE 3: Vehicle assigned - Show ETA
+                            if (
+                              booking.dynamic_eta ||
+                              booking.estimated_arrival
+                            ) {
+                              return (
+                                <>
+                                  <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-1.5 cursor-help">
+                                          <Calendar className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-muted-foreground shrink-0" />
 
-                                  <TooltipContent
-                                    side="top"
-                                    className="max-w-xs p-3"
-                                  >
-                                    <div className="space-y-2 text-xs">
-                                      <p className="font-bold flex items-center gap-1.5">
-                                        <TrendingUp className="w-3.5 h-3.5" />
-                                        ETA Details
-                                      </p>
-                                      <div className="border-t border-border pt-2 space-y-1.5">
-                                        <div className="flex justify-between">
-                                          <span className="text-muted-foreground">
-                                            Original:
-                                          </span>
-                                          <span className="font-medium">
-                                            {booking.estimated_arrival
-                                              ? formatETAWithTime(
-                                                  booking.estimated_arrival,
-                                                )
-                                              : "N/A"}
-                                          </span>
-                                        </div>
-                                        {booking.dynamic_eta && (
-                                          <div className="flex justify-between">
-                                            <span className="text-muted-foreground">
-                                              Updated:
-                                            </span>
-                                            <span className="font-bold">
-                                              {formatETAWithTime(
-                                                booking.dynamic_eta,
+                                          {booking.dynamic_eta ? (
+                                            <>
+                                              <span className="text-[10px] min-[2000px]:text-xs line-through text-muted-foreground">
+                                                {formatETA(
+                                                  booking.estimated_arrival!,
+                                                )}
+                                              </span>
+                                              <span
+                                                className={cn(
+                                                  "text-[10px] min-[2000px]:text-xs font-bold",
+                                                  new Date(
+                                                    booking.dynamic_eta,
+                                                  ) <
+                                                    new Date(
+                                                      booking.estimated_arrival ||
+                                                        "",
+                                                    )
+                                                    ? "text-green-600 dark:text-green-400"
+                                                    : "text-red-600 dark:text-red-400",
+                                                )}
+                                              >
+                                                {formatETA(booking.dynamic_eta)}
+                                              </span>
+                                            </>
+                                          ) : (
+                                            <span className="text-[10px] min-[2000px]:text-xs font-medium">
+                                              {formatETA(
+                                                booking.estimated_arrival!,
                                               )}
                                             </span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-
-                              {/* SLA Status Badge */}
-                              <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    {(() => {
-                                      const bestETA = getBestETA(booking);
-                                      const sla = getSLAStatus(
-                                        bestETA,
-                                        booking.status,
-                                      );
-                                      const progress =
-                                        getProgressPercentage(booking);
-
-                                      return (
-                                        <div
-                                          className={cn(
-                                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] min-[2000px]:text-[11px] font-bold border cursor-help",
-                                            sla.bgColor,
-                                            sla.color,
-                                            "border-current/20",
                                           )}
-                                        >
-                                          <span>{sla.icon}</span>
-                                          <span>{sla.label}</span>
-                                          {progress > 0 && progress < 100 && (
-                                            <>
-                                              <span className="opacity-50">
-                                                •
+                                        </div>
+                                      </TooltipTrigger>
+
+                                      <TooltipContent
+                                        side="top"
+                                        className="max-w-xs p-3"
+                                      >
+                                        <div className="space-y-2 text-xs">
+                                          <p className="font-bold flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5" />
+                                            ETA Details
+                                          </p>
+                                          <div className="border-t border-border pt-2 space-y-1.5">
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">
+                                                Original:
                                               </span>
-                                              <span>{progress}%</span>
-                                            </>
+                                              <span className="font-medium">
+                                                {booking.estimated_arrival
+                                                  ? formatETAWithTime(
+                                                      booking.estimated_arrival,
+                                                    )
+                                                  : "N/A"}
+                                              </span>
+                                            </div>
+                                            {booking.dynamic_eta && (
+                                              <div className="flex justify-between">
+                                                <span className="text-muted-foreground">
+                                                  Updated:
+                                                </span>
+                                                <span className="font-bold">
+                                                  {formatETAWithTime(
+                                                    booking.dynamic_eta,
+                                                  )}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+
+                                  {/* SLA Status Badge */}
+                                  <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        {(() => {
+                                          const bestETA = getBestETA(booking);
+                                          const sla = getSLAStatus(
+                                            bestETA,
+                                            booking.status,
+                                          );
+                                          const progress =
+                                            getProgressPercentage(booking);
+
+                                          return (
+                                            <div
+                                              className={cn(
+                                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] min-[2000px]:text-[11px] font-bold border cursor-help",
+                                                sla.bgColor,
+                                                sla.color,
+                                                "border-current/20",
+                                              )}
+                                            >
+                                              <span>{sla.icon}</span>
+                                              <span>{sla.label}</span>
+                                              {progress > 0 &&
+                                                progress < 100 && (
+                                                  <>
+                                                    <span className="opacity-50">
+                                                      •
+                                                    </span>
+                                                    <span>{progress}%</span>
+                                                  </>
+                                                )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </TooltipTrigger>
+                                      <TooltipContent
+                                        side="top"
+                                        className="max-w-xs p-3"
+                                      >
+                                        <div className="space-y-2 text-xs">
+                                          <p className="font-bold">
+                                            Journey Progress
+                                          </p>
+                                          {(booking.distance_covered ||
+                                            booking.distance_remaining) && (
+                                            <div className="border-t border-border pt-2">
+                                              <div className="flex justify-between text-[10px] mb-1">
+                                                <span>
+                                                  {booking.distance_covered ||
+                                                    0}{" "}
+                                                  km
+                                                </span>
+                                                <span>
+                                                  {getProgressPercentage(
+                                                    booking,
+                                                  )}
+                                                  %
+                                                </span>
+                                              </div>
+                                              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                                <div
+                                                  className="h-full bg-blue-500 transition-all"
+                                                  style={{
+                                                    width: `${getProgressPercentage(booking)}%`,
+                                                  }}
+                                                />
+                                              </div>
+                                            </div>
                                           )}
                                         </div>
-                                      );
-                                    })()}
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="max-w-xs p-3"
-                                  >
-                                    <div className="space-y-2 text-xs">
-                                      <p className="font-bold">
-                                        Journey Progress
-                                      </p>
-                                      {(booking.distance_covered ||
-                                        booking.distance_remaining) && (
-                                        <div className="border-t border-border pt-2">
-                                          <div className="flex justify-between text-[10px] mb-1">
-                                            <span>
-                                              {booking.distance_covered || 0} km
-                                            </span>
-                                            <span>
-                                              {getProgressPercentage(booking)}%
-                                            </span>
-                                          </div>
-                                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                            <div
-                                              className="h-full bg-blue-500 transition-all"
-                                              style={{
-                                                width: `${getProgressPercentage(booking)}%`,
-                                              }}
-                                            />
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </>
-                          ) : (
-                            <span className="text-[10px] min-[2000px]:text-xs text-muted-foreground">
-                              ETA not set
-                            </span>
-                          )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </>
+                              );
+                            }
+
+                            // CASE 4: Vehicle assigned but no ETA data yet
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3 h-3 min-[2000px]:w-3.5 min-[2000px]:h-3.5 text-orange-500 shrink-0 animate-pulse" />
+                                <span className="text-[10px] min-[2000px]:text-xs text-orange-600 dark:text-orange-400">
+                                  Calculating ETA...
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </TableCell>
                       {/* COLUMN 7: Actions */}

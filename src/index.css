@@ -655,3 +655,34 @@ body {
 [data-radix-dialog-overlay] {
   z-index: 999 !important;
 }
+/* Add at the end of your CSS file */
+
+/* Force cmdk list to scroll properly */
+[cmdk-list] {
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Fix for cmdk internal scroll behavior */
+[cmdk-list-sizer] {
+  max-height: none !important;
+}
+
+/* Ensure proper scrollbar visibility */
+[cmdk-list]::-webkit-scrollbar {
+  width: 6px;
+}
+
+[cmdk-list]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[cmdk-list]::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+[cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}

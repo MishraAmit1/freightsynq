@@ -22,6 +22,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -41,6 +42,7 @@ import {
   AlertCircle,
   Calendar,
   Truck,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -732,6 +734,7 @@ const PartySelect = ({
   const [parties, setParties] = useState<Party[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const loadParties = useCallback(
     async (search: string) => {
@@ -744,12 +747,11 @@ const PartySelect = ({
             `name.ilike.%${search}%,contact_person.ilike.%${search}%,phone.ilike.%${search}%`,
           );
         }
-
         if (type && type !== "BOTH") {
           query = query.or(`party_type.eq.${type},party_type.eq.BOTH`);
         }
 
-        query = query.order("created_at", { ascending: false }).limit(10);
+        query = query.order("created_at", { ascending: false }).limit(20);
 
         const { data, error } = await query;
 
@@ -766,12 +768,22 @@ const PartySelect = ({
   );
 
   useEffect(() => {
-    const debounceTimer = setTimeout(() => {
+    if (open) {
       loadParties(searchTerm);
+      // Focus input when popover opens
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (open) {
+        loadParties(searchTerm);
+      }
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, loadParties]);
+  }, [searchTerm, loadParties, open]);
 
   const selectedParty = parties.find((p) => p.id === value);
 
@@ -788,20 +800,49 @@ const PartySelect = ({
           <span className="truncate">
             {selectedParty ? selectedParty.name : placeholder}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 shrink-0 text-muted-foreground dark:text-muted-foreground" />
+          <ChevronsUpDown className="ml-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] min-[2000px]:w-[480px] p-0 bg-card border-border dark:border-border shadow-lg">
-        <Command shouldFilter={false} className="bg-transparent">
-          <CommandInput
+      <PopoverContent
+        className="w-[400px] min-[2000px]:w-[480px] p-0 bg-card border-border shadow-lg"
+        align="start"
+        sideOffset={4}
+      >
+        {/* Search Input */}
+        <div className="flex items-center border-b border-border px-3 py-2">
+          <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground text-foreground"
             placeholder={`Search ${type?.toLowerCase() || "party"}...`}
             value={searchTerm}
-            onValueChange={setSearchTerm}
-            className="border-b border-border dark:border-border text-sm min-[2000px]:text-base text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-muted-foreground"
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <CommandEmpty>
-            <div className="p-4 min-[2000px]:p-5 text-center">
-              <p className="text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground mb-2">
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 hover:bg-accent"
+              onClick={() => setSearchTerm("")}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+
+        {/* Scrollable List */}
+        <div
+          className="overflow-y-auto overflow-x-hidden"
+          style={{ maxHeight: "250px" }}
+        >
+          {loading ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin inline mr-2 text-primary" />
+              Loading...
+            </div>
+          ) : parties.length === 0 ? (
+            <div className="p-4 text-center">
+              <p className="text-sm text-muted-foreground mb-3">
                 No party found.
               </p>
               {onAddNew && (
@@ -810,58 +851,75 @@ const PartySelect = ({
                   size="sm"
                   onClick={() => {
                     setOpen(false);
+                    setSearchTerm("");
                     onAddNew();
                   }}
-                  className="h-8 min-[2000px]:h-9 text-xs min-[2000px]:text-sm border-border dark:border-border hover:bg-accent dark:hover:bg-secondary"
+                  className="h-8 text-xs border-border hover:bg-accent"
                 >
-                  <Plus className="mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5" />
+                  <Plus className="mr-2 h-4 w-4" />
                   Add New {type === "CONSIGNOR" ? "Consignor" : "Consignee"}
                 </Button>
               )}
             </div>
-          </CommandEmpty>
-          <CommandGroup className="max-h-[300px] min-[2000px]:max-h-[360px] overflow-auto">
-            {loading && (
-              <div className="p-2 min-[2000px]:p-3 text-center text-sm min-[2000px]:text-base text-muted-foreground dark:text-muted-foreground">
-                <Loader2 className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5 animate-spin inline mr-2 text-primary" />
-                Loading...
-              </div>
-            )}
-            {!loading &&
-              parties.map((party) => (
-                <CommandItem
+          ) : (
+            <div className="p-1">
+              {parties.map((party) => (
+                <div
                   key={party.id}
-                  value={party.name}
-                  onSelect={() => {
+                  onClick={() => {
                     onValueChange(party.id, party);
                     setOpen(false);
                     setSearchTerm("");
                   }}
-                  className="cursor-pointer hover:bg-accent dark:hover:bg-secondary text-foreground dark:text-white p-2 min-[2000px]:p-3"
+                  className={cn(
+                    "relative flex cursor-pointer select-none items-center rounded-md px-2 py-2.5 text-sm outline-none",
+                    "hover:bg-accent transition-colors",
+                    value === party.id && "bg-accent",
+                  )}
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4 min-[2000px]:h-5 min-[2000px]:w-5 text-primary",
+                      "mr-2 h-4 w-4 text-primary shrink-0",
                       value === party.id ? "opacity-100" : "opacity-0",
                     )}
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="font-medium flex items-center gap-2">
-                      <User className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 text-muted-foreground dark:text-muted-foreground" />
-                      <span className="text-sm min-[2000px]:text-base">
-                        {party.name}
+                      <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm truncate">{party.name}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 ml-5">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
+                        {party.city}, {party.state}
+                        {party.phone && ` • ${party.phone}`}
                       </span>
                     </div>
-                    <div className="text-xs min-[2000px]:text-sm text-muted-foreground dark:text-muted-foreground flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4" />
-                      {party.city}, {party.state}
-                      {party.phone && <span> • 📞 {party.phone}</span>}
-                    </div>
                   </div>
-                </CommandItem>
+                </div>
               ))}
-          </CommandGroup>
-        </Command>
+            </div>
+          )}
+        </div>
+
+        {/* Add New Button at bottom */}
+        {onAddNew && parties.length > 0 && (
+          <div className="border-t border-border p-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setOpen(false);
+                setSearchTerm("");
+                onAddNew();
+              }}
+              className="w-full h-8 text-xs justify-start text-muted-foreground hover:text-foreground hover:bg-accent"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add New {type === "CONSIGNOR" ? "Consignor" : "Consignee"}
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
