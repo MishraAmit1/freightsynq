@@ -66,6 +66,7 @@ import {
   Upload,
   FileUp,
   Download,
+  MapPin,
 } from "lucide-react";
 import {
   fetchOwnedVehicles,
@@ -1848,6 +1849,51 @@ export const VehicleManagement = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             {/* Owned Vehicles Tab */}
             <TabsContent value="owned" className="mt-0">
+              <div className="mb-4 relative overflow-hidden rounded-xl border border-border">
+                {/* Real Map Background */}
+                <div
+                  className="absolute inset-0 opacity-[0.15] dark:opacity-[0.08]"
+                  style={{
+                    backgroundImage: `url("https://static.vecteezy.com/system/resources/previews/025/372/226/large_2x/custom-location-map-interface-for-app-and-website-vector.jpg")`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                />
+                {/* Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/60" />
+
+                {/* Animated location dots */}
+                <div className="absolute top-4 right-16 h-2 w-2 rounded-full bg-primary animate-ping" />
+                <div className="absolute bottom-3 right-1/3 h-2 w-2 rounded-full bg-green-500 animate-ping [animation-delay:0.7s]" />
+                <div className="absolute top-1/2 right-1/4 h-2 w-2 rounded-full bg-orange-500 animate-ping [animation-delay:1.2s]" />
+
+                {/* Static dots (vehicle positions) */}
+                <div className="absolute top-4 right-16 h-2 w-2 rounded-full bg-primary" />
+                <div className="absolute bottom-3 right-1/3 h-2 w-2 rounded-full bg-green-500" />
+                <div className="absolute top-1/2 right-1/4 h-2 w-2 rounded-full bg-orange-500" />
+
+                {/* Content */}
+                <div className="relative flex items-center justify-between gap-4 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg">
+                      <MapPin className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-foreground">
+                        Live Map View
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        Track all your owned vehicles on a single map
+                      </p>
+                    </div>
+                  </div>
+
+                  <Badge className="bg-primary text-primary-foreground text-xs px-3 py-1">
+                    Coming Soon
+                  </Badge>
+                </div>
+              </div>
+
               {/* Desktop Table View */}
               <div className="hidden md:block overflow-x-auto">
                 <Table className="vehicle-mgmt-table">

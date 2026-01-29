@@ -41,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -51,7 +52,6 @@ import { cn, formatDate } from "@/lib/utils";
 import {
   Plus,
   Search,
-  Filter,
   Eye,
   AlertTriangle,
   MapPin,
@@ -68,7 +68,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  XCircle,
   AlertCircle,
   TrendingUp,
   FileDown,
@@ -80,9 +79,6 @@ import {
   ChevronsLeft,
   Upload,
   FileEdit,
-  Sparkles,
-  Info,
-  Navigation,
 } from "lucide-react";
 import {
   fetchBookings,
@@ -91,6 +87,9 @@ import {
   deleteBooking,
   updateBooking,
   updateBookingLR,
+  permanentDeleteBooking,
+  permanentDeleteMultipleBookings,
+  fetchDeletedBookings,
 } from "@/api/bookings";
 import { fetchWarehouses } from "@/api/warehouses";
 
@@ -216,63 +215,35 @@ interface Warehouse {
   state: string;
 }
 
-// Status config
-const statusConfig = {
-  DRAFT: {
-    label: "Draft",
-    color:
-      "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
-    icon: Edit,
-    gradient: "from-gray-500 to-gray-600",
-  },
-  QUOTED: {
-    label: "Quoted",
-    color:
-      "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
-    icon: FileText,
-    gradient: "from-blue-500 to-blue-600",
-  },
-  CONFIRMED: {
-    label: "Confirmed",
-    color:
-      "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
-    icon: CheckCircle2,
-    gradient: "from-green-500 to-green-600",
-  },
-  AT_WAREHOUSE: {
-    label: "At Warehouse",
-    color:
-      "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800",
-    icon: Package,
-    gradient: "from-indigo-500 to-indigo-600",
-  },
+// ✅ DROPDOWN STAGES - Filter by calculated stage, not database status
+const filterStages = {
   DISPATCHED: {
     label: "Dispatched",
-    color:
-      "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800",
     icon: Truck,
-    gradient: "from-purple-500 to-purple-600",
+  },
+  LR_READY: {
+    label: "LR Ready",
+    icon: FileText,
   },
   IN_TRANSIT: {
     label: "In Transit",
-    color:
-      "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
     icon: TrendingUp,
-    gradient: "from-orange-500 to-orange-600",
+  },
+  WAREHOUSE: {
+    label: "At Warehouse",
+    icon: Package,
   },
   DELIVERED: {
     label: "Delivered",
-    color:
-      "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
     icon: CheckCircle2,
-    gradient: "from-emerald-500 to-emerald-600",
   },
-  CANCELLED: {
-    label: "Cancelled",
-    color:
-      "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
-    icon: XCircle,
-    gradient: "from-red-500 to-red-600",
+  BILLED: {
+    label: "Pod Uploaded",
+    icon: FileDown,
+  },
+  DELETED: {
+    label: "Deleted",
+    icon: Trash2,
   },
 };
 
@@ -485,7 +456,12 @@ export const BookingList = () => {
     fileUrl: string | null;
     lrNumber: string;
   }>({ isOpen: false, fileUrl: null, lrNumber: "" });
-
+  // ✅ NEW: Multi-select for deleted bookings
+  const [selectedDeletedBookings, setSelectedDeletedBookings] = useState<
+    string[]
+  >([]);
+  const [isPermanentDeleteDialogOpen, setIsPermanentDeleteDialogOpen] =
+    useState(false);
   // ==========================================
   // 2️⃣ HELPER FUNCTIONS
   // ==========================================
@@ -576,7 +552,6 @@ export const BookingList = () => {
       });
     }
   };
-
   // ==========================================
   // 3️⃣ USE EFFECT HOOKS
   // ==========================================
@@ -686,10 +661,69 @@ export const BookingList = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter]);
-
+  // ✅ NEW: Reload data when status filter changes to/from DELETED
+  useEffect(() => {
+    loadData();
+  }, [statusFilter]);
   // ==========================================
   // 4️⃣ ASYNC FUNCTIONS
   // ==========================================
+  // ✅ Handle select all deleted bookings
+  const handleSelectAllDeleted = (checked: boolean) => {
+    if (checked) {
+      const allIds = paginatedBookings.map((b) => b.id);
+      setSelectedDeletedBookings(allIds);
+    } else {
+      setSelectedDeletedBookings([]);
+    }
+  };
+
+  // ✅ Handle single booking selection
+  const handleSelectDeletedBooking = (bookingId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedDeletedBookings((prev) => [...prev, bookingId]);
+    } else {
+      setSelectedDeletedBookings((prev) =>
+        prev.filter((id) => id !== bookingId),
+      );
+    }
+  };
+
+  // ✅ Permanent delete multiple bookings
+  const handlePermanentDeleteMultiple = async () => {
+    if (selectedDeletedBookings.length === 0) return;
+
+    try {
+      const result = await permanentDeleteMultipleBookings(
+        selectedDeletedBookings,
+      );
+
+      if (result.success) {
+        toast({
+          title: "🔥 Permanently Deleted",
+          description: `${result.deleted} booking(s) permanently deleted`,
+        });
+      } else {
+        toast({
+          title: "⚠️ Partially Deleted",
+          description: `${result.deleted} deleted, ${result.failed.length} failed`,
+          variant: "destructive",
+        });
+      }
+
+      setSelectedDeletedBookings([]);
+      await loadData();
+    } catch (error: any) {
+      console.error("Error permanently deleting bookings:", error);
+      toast({
+        title: "❌ Error",
+        description: error.message || "Failed to permanently delete bookings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPermanentDeleteDialogOpen(false);
+    }
+  };
   const checkSetupStatus = async () => {
     try {
       const { hasTemplate } = await checkTemplateStatus();
@@ -703,11 +737,12 @@ export const BookingList = () => {
     if (!deletingBookingId) return;
 
     try {
-      await deleteBooking(deletingBookingId);
+      await deleteBooking(deletingBookingId); // This is now soft delete
       await loadData();
       toast({
-        title: "✅ Booking Deleted",
-        description: "The booking has been deleted successfully",
+        title: "🗑️ Moved to Trash",
+        description:
+          "The booking has been moved to trash. It will be permanently deleted after 7 days.",
       });
     } catch (error: any) {
       console.error("Error deleting booking:", error);
@@ -725,12 +760,22 @@ export const BookingList = () => {
       if (initialLoading) {
         setLoading(true);
       }
-      const [bookingsData, warehousesData] = await Promise.all([
-        fetchBookings(),
-        fetchWarehouses(),
-      ]);
+
+      // ✅ Fetch based on status filter
+      let bookingsData;
+
+      if (statusFilter === "DELETED") {
+        // Fetch deleted bookings
+        bookingsData = await fetchDeletedBookings();
+      } else {
+        // Fetch normal (non-deleted) bookings
+        bookingsData = await fetchBookings();
+      }
+
+      const warehousesData = await fetchWarehouses();
 
       const convertedBookings: Booking[] = bookingsData.map((booking) => {
+        // ... rest of your existing conversion logic stays same
         const activeAssignment = (booking.vehicle_assignments || []).find(
           (va) => va.status === "ACTIVE",
         );
@@ -764,14 +809,10 @@ export const BookingList = () => {
           }
         }
 
-        // E-way bill expiry logic (with parser support)
         if (booking.eway_bill_details && booking.eway_bill_details.length > 0) {
           booking.eway_bill_details.forEach((ewb: any, index: number) => {
             if (ewb.valid_until) {
-              // Use parser function
               const validUntil = parseEwayDate(ewb.valid_until);
-
-              // Skip if date parsing failed
               if (!validUntil) {
                 console.warn("Failed to parse eway date:", ewb.valid_until);
                 return;
@@ -780,7 +821,6 @@ export const BookingList = () => {
               const hoursLeft =
                 (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-              // CASE 1: Already Expired
               if (hoursLeft < 0) {
                 const hoursExpired = Math.abs(Math.floor(hoursLeft));
                 const daysExpired = Math.floor(hoursExpired / 24);
@@ -793,9 +833,7 @@ export const BookingList = () => {
                       ? `E-way bill ${ewb.number} expired ${daysExpired}d ago`
                       : `E-way bill ${ewb.number} expired ${hoursExpired}h ago`,
                 });
-              }
-              // CASE 2: Expiring Soon (within 24 hours)
-              else if (hoursLeft >= 0 && hoursLeft < 24) {
+              } else if (hoursLeft >= 0 && hoursLeft < 24) {
                 alerts.push({
                   type: "EWAY_EXPIRING",
                   severity: "warning",
@@ -812,6 +850,7 @@ export const BookingList = () => {
             }
           });
         }
+
         return {
           id: booking.id,
           bookingId: booking.booking_id,
@@ -886,7 +925,6 @@ export const BookingList = () => {
       setInitialLoading(false);
     }
   };
-
   const handleWarehouseChange = async (
     bookingId: string,
     warehouseId: string,
@@ -1116,12 +1154,23 @@ export const BookingList = () => {
           .toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
         booking.consigneeName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus =
-        statusFilter === "ALL" || booking.status === statusFilter;
-      return matchesSearch && matchesStatus;
+
+      // ✅ FIX: Filter by STAGE, not database status
+      if (statusFilter === "ALL") {
+        return matchesSearch;
+      }
+
+      // Special case: DELETED filter uses is_deleted flag (handled in loadData)
+      if (statusFilter === "DELETED") {
+        return matchesSearch; // Already filtered in loadData
+      }
+
+      // Get the calculated stage for this booking
+      const bookingStage = getBookingStage(booking);
+
+      return matchesSearch && bookingStage === statusFilter;
     });
   }, [bookings, searchTerm, statusFilter]);
-
   // SECOND: Get active booking ID
   const activeBookingId = useMemo(() => {
     return (
@@ -1255,7 +1304,6 @@ export const BookingList = () => {
 
     return pages;
   };
-
   const handleExport = () => {
     const headers = [
       "Booking ID",
@@ -1482,10 +1530,12 @@ export const BookingList = () => {
                 <SelectItem value="ALL" className="min-[2000px]:text-base">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 min-[2000px]:w-2.5 min-[2000px]:h-2.5 rounded-full bg-gray-500" />
-                    All Statuses
+                    All Stages
                   </div>
                 </SelectItem>
-                {Object.entries(statusConfig).map(([key, config]) => {
+
+                {/* ✅ Use filterStages */}
+                {Object.entries(filterStages).map(([key, config]) => {
                   const Icon = config.icon;
                   return (
                     <SelectItem
@@ -1503,6 +1553,26 @@ export const BookingList = () => {
               </SelectContent>
             </Select>
           </div>
+          {/* ✅ NEW: Bulk delete button for DELETED view */}
+          {statusFilter === "DELETED" && selectedDeletedBookings.length > 0 && (
+            <div className="mt-4 flex items-center justify-between p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <span className="text-sm font-medium text-red-900 dark:text-red-100">
+                  {selectedDeletedBookings.length} booking(s) selected
+                </span>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setIsPermanentDeleteDialogOpen(true)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Permanently Delete ({selectedDeletedBookings.length})
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Desktop Table */}
@@ -1510,6 +1580,20 @@ export const BookingList = () => {
           <Table className="booking-table">
             <TableHeader>
               <TableRow className="border-b border-border dark:border-border hover:bg-muted dark:hover:bg-[#252530]">
+                {/* ✅ NEW: Checkbox column for DELETED view */}
+                {statusFilter === "DELETED" && (
+                  <TableHead className="w-[50px] pl-6">
+                    <Checkbox
+                      checked={
+                        paginatedBookings.length > 0 &&
+                        selectedDeletedBookings.length ===
+                          paginatedBookings.length
+                      }
+                      onCheckedChange={handleSelectAllDeleted}
+                    />
+                  </TableHead>
+                )}
+
                 {/* ✅ COLUMN 1: Booking */}
                 <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground pl-6 min-[2000px]:pl-8">
                   <div className="flex items-center gap-2">
@@ -1518,7 +1602,7 @@ export const BookingList = () => {
                   </div>
                 </TableHead>
 
-                {/* ✅ COLUMN 2: Parties & Routes - WITH WIDTH */}
+                {/* Rest of your existing headers... */}
                 <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground w-[180px] min-[2000px]:w-[220px]">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
@@ -1526,7 +1610,6 @@ export const BookingList = () => {
                   </div>
                 </TableHead>
 
-                {/* ✅ COLUMN 3: Stage - WITH FIXED WIDTH */}
                 <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground w-[100px] min-[2000px]:w-[120px]">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
@@ -1534,7 +1617,6 @@ export const BookingList = () => {
                   </div>
                 </TableHead>
 
-                {/* ✅ COLUMN 4: Dispatch Status */}
                 <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Truck className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
@@ -1542,7 +1624,6 @@ export const BookingList = () => {
                   </div>
                 </TableHead>
 
-                {/* ✅ COLUMN 5: Documents */}
                 <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
@@ -1550,7 +1631,6 @@ export const BookingList = () => {
                   </div>
                 </TableHead>
 
-                {/* ✅ COLUMN 6: Distance & ETA */}
                 <TableHead className="font-semibold text-[12px] min-[2000px]:text-[14px] dark:text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 min-[2000px]:w-5 min-[2000px]:h-5" />
@@ -1558,7 +1638,6 @@ export const BookingList = () => {
                   </div>
                 </TableHead>
 
-                {/* ✅ COLUMN 7: Actions - WITH REDUCED WIDTH */}
                 <TableHead className="font-semibold text-[13px] min-[2000px]:text-[15px] dark:text-muted-foreground text-center pr-6 min-[2000px]:pr-8 w-[120px] min-[2000px]:w-[140px]">
                   Actions
                 </TableHead>
@@ -1607,6 +1686,21 @@ export const BookingList = () => {
                       key={booking.id}
                       className="hover:bg-accent dark:hover:bg-muted border-b border-border dark:border-border transition-colors"
                     >
+                      {statusFilter === "DELETED" && (
+                        <TableCell className="pl-6">
+                          <Checkbox
+                            checked={selectedDeletedBookings.includes(
+                              booking.id,
+                            )}
+                            onCheckedChange={(checked) =>
+                              handleSelectDeletedBooking(
+                                booking.id,
+                                checked as boolean,
+                              )
+                            }
+                          />
+                        </TableCell>
+                      )}
                       {/* COLUMN 1: Booking ID + Pickup Date + Branch Code */}
                       <TableCell className="font-mono py-3 min-[2000px]:py-4 pl-6 min-[2000px]:pl-8">
                         <div className="space-y-1 ml-6">
@@ -1749,17 +1843,60 @@ export const BookingList = () => {
                       {/* ✅ COLUMN 4: Dispatch Status - Enhanced */}
                       <TableCell className="py-3 min-[2000px]:py-4">
                         <div className="space-y-1.5 min-[2000px]:space-y-2 ml-6">
+                          {/* ✅ WAREHOUSE State */}
+                          {dispatch.type === "WAREHOUSE" && (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <Package className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                                <span className="font-bold text-xs text-indigo-700 dark:text-indigo-400">
+                                  At Warehouse
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-3 h-3 text-indigo-500 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className="text-[10px] font-medium truncate"
+                                    title={dispatch.location}
+                                  >
+                                    {dispatch.location}
+                                  </p>
+                                  {dispatch.city && (
+                                    <p className="text-[9px] text-muted-foreground">
+                                      {dispatch.city}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setWarehouseModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
+                                  });
+                                }}
+                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
+                              >
+                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                                <span className="truncate">
+                                  Change/Remove Warehouse
+                                </span>
+                              </Button>
+                            </>
+                          )}
+
                           {dispatch.type === "TRACKING" && (
                             <>
-                              {/* Vehicle Number */}
                               <div className="flex items-center gap-1.5">
                                 <Truck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
                                 <span className="font-bold text-xs">
                                   {dispatch.vehicleNumber}
                                 </span>
                               </div>
-
-                              {/* Location */}
                               <div className="flex items-center gap-1.5">
                                 <MapPin
                                   className={cn(
@@ -1791,8 +1928,25 @@ export const BookingList = () => {
                                   </div>
                                 </div>
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setWarehouseModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
+                                  });
+                                }}
+                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
+                              >
+                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                                <span className="truncate">Add Warehouse</span>
+                              </Button>
                             </>
                           )}
+
                           {dispatch.type === "DELIVERED" && (
                             <>
                               <div className="flex items-center gap-1.5">
@@ -1812,7 +1966,7 @@ export const BookingList = () => {
                               </div>
                             </>
                           )}
-                          {/* ✅ NEW: No Tolls Found */}
+
                           {dispatch.type === "NO_TOLLS" && (
                             <>
                               <div className="flex items-center gap-1.5">
@@ -1842,16 +1996,30 @@ export const BookingList = () => {
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                       Vehicle is tracked but hasn't crossed any
-                                      FASTag tolls yet. It might be on a local
-                                      road or stopped.
+                                      FASTag tolls yet.
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setWarehouseModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
+                                  });
+                                }}
+                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
+                              >
+                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                                <span className="truncate">Add Warehouse</span>
+                              </Button>
                             </>
                           )}
 
-                          {/* ✅ NEW: Just Assigned */}
                           {dispatch.type === "JUST_ASSIGNED" && (
                             <>
                               <div className="flex items-center gap-1.5">
@@ -1860,7 +2028,6 @@ export const BookingList = () => {
                                   {dispatch.vehicleNumber}
                                 </span>
                               </div>
-
                               <div className="flex items-center gap-1.5">
                                 <Clock className="w-3 h-3 text-blue-600 flex-shrink-0 animate-pulse" />
                                 <div className="flex-1 min-w-0">
@@ -1872,10 +2039,25 @@ export const BookingList = () => {
                                   </p>
                                 </div>
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setWarehouseModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
+                                  });
+                                }}
+                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
+                              >
+                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                                <span className="truncate">Add Warehouse</span>
+                              </Button>
                             </>
                           )}
 
-                          {/* ✅ NEW: Not Tracked Yet */}
                           {dispatch.type === "NOT_TRACKED" && (
                             <>
                               <div className="flex items-center gap-1.5">
@@ -1884,7 +2066,6 @@ export const BookingList = () => {
                                   {dispatch.vehicleNumber}
                                 </span>
                               </div>
-
                               <div className="flex items-center gap-1.5">
                                 <AlertCircle className="w-3 h-3 text-gray-500 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
@@ -1896,53 +2077,23 @@ export const BookingList = () => {
                                   </p>
                                 </div>
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setWarehouseModal({
+                                    isOpen: true,
+                                    bookingId: booking.id,
+                                    currentWarehouseId:
+                                      booking.current_warehouse?.id,
+                                  });
+                                }}
+                                className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
+                              >
+                                <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                                <span className="truncate">Add Warehouse</span>
+                              </Button>
                             </>
-                          )}
-
-                          {/* OLD: Generic "On the way" - REMOVE or keep as fallback */}
-                          {dispatch.type === "VEHICLE" && (
-                            <>
-                              <div className="flex items-center gap-1.5">
-                                <Truck className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                                <span className="font-bold text-xs">
-                                  {dispatch.vehicleNumber}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                                <span className="text-[10px] text-muted-foreground">
-                                  {dispatch.location}
-                                </span>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Warehouse Button - Keep same for all vehicle types */}
-                          {(dispatch.type === "TRACKING" ||
-                            dispatch.type === "NO_TOLLS" ||
-                            dispatch.type === "JUST_ASSIGNED" ||
-                            dispatch.type === "NOT_TRACKED" ||
-                            dispatch.type === "VEHICLE") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setWarehouseModal({
-                                  isOpen: true,
-                                  bookingId: booking.id,
-                                  currentWarehouseId:
-                                    booking.current_warehouse?.id,
-                                });
-                              }}
-                              className="h-6 px-0 text-[10px] w-full justify-start hover:text-primary font-medium"
-                            >
-                              <Package className="w-3 h-3 mr-1.5 flex-shrink-0" />
-                              <span className="truncate">
-                                {booking.current_warehouse
-                                  ? "Change Warehouse"
-                                  : "Add Warehouse"}
-                              </span>
-                            </Button>
                           )}
 
                           {/* DRAFT State */}
@@ -2398,46 +2549,57 @@ export const BookingList = () => {
                                   View Details
                                 </span>
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingFullBooking({
-                                    ...booking,
-                                    branch_id: booking.branch_id,
-                                    lr_city_id: booking.lr_city_id,
-                                  });
-                                  setIsEditFullBookingModalOpen(true);
-                                }}
-                                className="min-[2000px]:py-3"
-                              >
-                                <Edit className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
-                                <span className="text-xs min-[2000px]:text-sm">
-                                  Edit Details
-                                </span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  setRemarksModal({
-                                    isOpen: true,
-                                    bookingId: booking.id,
-                                  })
-                                }
-                                className="min-[2000px]:py-3"
-                              >
-                                <MessageSquare className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
-                                <span className="text-xs min-[2000px]:text-sm">
-                                  {booking.remarks ? "Edit" : "Add"} Remarks
-                                </span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
-                              <DropdownMenuItem
-                                className="text-[#DC2626] focus:text-[#DC2626] min-[2000px]:py-3"
-                                onClick={() => setDeletingBookingId(booking.id)}
-                              >
-                                <Trash2 className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
-                                <span className="text-xs min-[2000px]:text-sm">
-                                  Delete
-                                </span>
-                              </DropdownMenuItem>
+
+                              {/* Only show Edit & Remarks if not in DELETED view */}
+                              {statusFilter !== "DELETED" && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingFullBooking({
+                                        ...booking,
+                                        branch_id: booking.branch_id,
+                                        lr_city_id: booking.lr_city_id,
+                                      });
+                                      setIsEditFullBookingModalOpen(true);
+                                    }}
+                                    className="min-[2000px]:py-3"
+                                  >
+                                    <Edit className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                    <span className="text-xs min-[2000px]:text-sm">
+                                      Edit Details
+                                    </span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setRemarksModal({
+                                        isOpen: true,
+                                        bookingId: booking.id,
+                                      })
+                                    }
+                                    className="min-[2000px]:py-3"
+                                  >
+                                    <MessageSquare className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                    <span className="text-xs min-[2000px]:text-sm">
+                                      {booking.remarks ? "Edit" : "Add"} Remarks
+                                    </span>
+                                  </DropdownMenuItem>
+
+                                  <DropdownMenuSeparator className="bg-[#E5E7EB] dark:bg-secondary" />
+
+                                  <DropdownMenuItem
+                                    className="text-orange-600 focus:text-orange-600 min-[2000px]:py-3"
+                                    onClick={() =>
+                                      setDeletingBookingId(booking.id)
+                                    }
+                                  >
+                                    <Trash2 className="mr-2 h-3.5 w-3.5 min-[2000px]:h-4 min-[2000px]:w-4" />
+                                    <span className="text-xs min-[2000px]:text-sm">
+                                      Move to Trash
+                                    </span>
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -2468,10 +2630,9 @@ export const BookingList = () => {
             </div>
           ) : (
             paginatedBookings.map((booking) => {
-              const status =
-                statusConfig[booking.status as keyof typeof statusConfig] ||
-                statusConfig.DRAFT;
-              const StatusIcon = status.icon;
+              // ✅ CHANGE: Use getBookingStage instead of booking.status
+              const stage = getBookingStage(booking);
+              const stageConf = stageConfig[stage] || stageConfig.DRAFT;
 
               return (
                 <div
@@ -2492,16 +2653,19 @@ export const BookingList = () => {
                       >
                         {booking.bookingId}
                       </Button>
+
+                      {/* ✅ CHANGE: Use stageConf instead of status */}
                       <Badge
                         className={cn(
                           "text-xs min-[2000px]:text-sm",
-                          status.color,
+                          stageConf.bgColor,
+                          stageConf.textColor,
                         )}
                       >
-                        <StatusIcon className="w-3 h-3 min-[2000px]:w-4 min-[2000px]:h-4 mr-1" />
-                        {status.label}
+                        {stageConf.label}
                       </Badge>
                     </div>
+
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -2789,7 +2953,57 @@ export const BookingList = () => {
         onSave={handleSaveFullBooking}
         nextLRNumber={nextLRNumber}
       />
-
+      {/* ✅ NEW: Permanent Delete Confirmation */}
+      <AlertDialog
+        open={isPermanentDeleteDialogOpen}
+        onOpenChange={setIsPermanentDeleteDialogOpen}
+      >
+        <AlertDialogContent className="bg-card border-border dark:border-border min-[2000px]:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white min-[2000px]:text-xl">
+              <AlertTriangle className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-red-600" />
+              Permanently Delete Bookings?
+            </AlertDialogTitle>
+            {/* ✅ FIX: Use span instead of div inside AlertDialogDescription */}
+            <AlertDialogDescription asChild>
+              <div className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base space-y-3">
+                <p className="font-semibold text-red-600 dark:text-red-400">
+                  ⚠️ This action CANNOT be undone!
+                </p>
+                <p>
+                  You are about to permanently delete{" "}
+                  <span className="font-bold text-foreground">
+                    {selectedDeletedBookings.length}
+                  </span>{" "}
+                  booking(s).
+                </p>
+                <p className="text-sm">All associated data including:</p>
+                <ul className="list-disc list-inside text-sm space-y-1 ml-2">
+                  <li>Vehicle assignments</li>
+                  <li>Consignments & warehouse logs</li>
+                  <li>Timeline history</li>
+                  <li>Documents & references</li>
+                </ul>
+                <p className="text-sm font-medium">
+                  will be permanently removed from the database.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border dark:border-border min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePermanentDeleteMultiple}
+              className="bg-red-600 hover:bg-red-700 text-white min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Yes, Permanently Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog
         open={!!deletingBookingId}
         onOpenChange={() => setDeletingBookingId(null)}
@@ -2797,12 +3011,12 @@ export const BookingList = () => {
         <AlertDialogContent className="bg-card border-border dark:border-border min-[2000px]:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-foreground dark:text-white min-[2000px]:text-xl">
-              <AlertCircle className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-[#DC2626]" />
-              Delete Booking?
+              <Trash2 className="w-5 h-5 min-[2000px]:w-6 min-[2000px]:h-6 text-orange-500" />
+              Move to Trash?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground dark:text-muted-foreground min-[2000px]:text-base">
-              This action cannot be undone. This will permanently delete the
-              booking.
+              This booking will be moved to trash. You can permanently delete it
+              from the trash or it will be automatically deleted after 7 days.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2811,9 +3025,10 @@ export const BookingList = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteBooking}
-              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
+              className="bg-orange-600 hover:bg-orange-700 text-white min-[2000px]:h-11 min-[2000px]:px-6 min-[2000px]:text-base"
             >
-              Delete Booking
+              <Trash2 className="w-4 h-4 mr-2" />
+              Move to Trash
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

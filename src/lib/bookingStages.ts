@@ -13,19 +13,17 @@ import {
 // Booking Stage Types
 // ============================================
 export type BookingStage =
-    | 'DRAFT'           // Just created, no vehicle
-    | 'DISPATCHED'      // Vehicle assigned
+    | 'DRAFT'
+    | 'DISPATCHED'
     | 'LR_READY'
-    | 'IN_TRANSIT'      // LR created, on the road
-    | 'DELIVERED'       // Reached destination
-    | 'VEHICLE_ASSIGNED' // Vehicle assigned
-    | 'WAREHOUSE'       // At warehouse
-    | 'POD_UPLOADED'    // Proof of delivery uploaded
-    | 'BILLED';         // Invoice generated
+    | 'IN_TRANSIT'
+    | 'DELIVERED'
+    | 'VEHICLE_ASSIGNED'
+    | 'WAREHOUSE'
+    | 'POD_UPLOADED'
+    | 'BILLED'
+    | 'DELETED';  // ✅ ADD THIS
 
-// ============================================
-// Stage Configuration
-// ============================================
 export const stageConfig: Record<BookingStage, {
     label: string;
     color: string;
@@ -48,12 +46,12 @@ export const stageConfig: Record<BookingStage, {
         borderColor: "border-indigo-200 dark:border-indigo-800",
     },
     LR_READY: { 
-    label: "LR Ready",
-    color: "amber",
-    bgColor: "bg-amber-100 dark:bg-amber-900/30",
-    textColor: "text-amber-700 dark:text-amber-300",
-    borderColor: "border-amber-200 dark:border-amber-800",
-},
+        label: "LR Ready",
+        color: "amber",
+        bgColor: "bg-amber-100 dark:bg-amber-900/30",
+        textColor: "text-amber-700 dark:text-amber-300",
+        borderColor: "border-amber-200 dark:border-amber-800",
+    },
     DISPATCHED: {
         label: "Dispatched",
         color: "yellow",
@@ -96,7 +94,14 @@ export const stageConfig: Record<BookingStage, {
         textColor: "text-purple-700 dark:text-purple-300",
         borderColor: "border-purple-200 dark:border-purple-800",
     },
-    
+    // ✅ NEW: DELETED stage
+    DELETED: {
+        label: "Deleted",
+        color: "red",
+        bgColor: "bg-red-100 dark:bg-red-900/30",
+        textColor: "text-red-700 dark:text-red-300",
+        borderColor: "border-red-200 dark:border-red-800",
+    },
 };
 
 // ============================================
